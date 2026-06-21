@@ -1,0 +1,171 @@
+// Classes 
+
+// A class has an interface and a condition. 
+// The interface is a dictionary of function signatures. 
+// The condition follows a well-typed syntax involving `forall`, `exist` and `exist!` (exists and is unique). We can write auxilary code in the class definition to make the condition statements more readable.
+
+class Boolean {
+    interface {
+        const true: Boolean
+        const false: Boolean
+    }
+}
+
+// we need to be able to use terms of terms sometimes
+class S {
+    interface {
+        // special assignment operator `->` can introduce const usage and function abstraction, automatically composable and associative. 
+        // It means we know what terms of terms are and can resolve them in conditions. 
+        // For example in the class of sets, any set is a term, and its elements are the terms of the terms.   
+        <s_1, s_2: S>: s_1 -> s_2
+        // we want to add the identity to show usage
+        id<s: S>: s -> s
+    }
+
+    // example usage
+    const cond left_identity {
+        forall s_1, s_2: S {
+            // function abstraction exists
+            forall f: s_1 -> s_2 {
+                // terms exist automatically 
+                forall e: s_1 {
+                    id<s_2>(f(e)) = f(e)
+                }
+            }
+        }
+    }
+}
+
+// we can define Abelian groups here with respect to S
+class Abelian {
+    interface {
+        const under: S
+        const 0: self.under // self.under is a term in S, and terms of self.under are defined for S
+        const add: self.under -> self.under -> self.under  
+        const inverse: self.under -> self.under
+    }
+
+    // associativity
+    const cond associative = {
+        forall x,y,z: self.under add(x, add(y, z)) = add(add(x, y), z)
+    }
+    // other conditions omited
+    ...
+    
+    condition {
+        associative and ...
+    }
+}
+
+// Natural number
+// Example for use of everything  
+class N {
+    interface {
+        const 0: N
+        next: N -> N
+    }
+    
+    // induction on statement 
+    const cond induction = forall P: class {
+        {
+            forall f: N -> (P -> Boolean) {
+                { forall p: P f(0)(p) } 
+                and 
+                { forall n: N forall p: P f(n)(p)} => {forall p: P f(next(n))(p)}
+            }
+        }
+        => forall n: N forall p: P f(n)(p) 
+    }
+
+    // easier 
+    cond induction_start(P: class, f: N -> (P -> B)) = {
+        forall p: P f(0)(p)
+    } 
+    cond induction_step(P: class, f: N -> (P -> B)) = {
+        forall n: N {
+            {forall p: P f(n)(p)} => {forall p: P f(next(n))(p)}
+        }
+    } 
+    cond induction_statement (P: class, f: N -> (P -> B)) = {
+        forall n: N forall p: P f(n)(p) 
+    }
+    const cond induction_alternative = {
+        forall P: class forall f: N -> (P -> B) 
+            {induction_start(P, f) and induction_step(P, f)} => induction_statement(P, f)
+    }
+
+    const cond inductive_definition = {
+        forall P: class forall p: P forall g: N -> P -> P exist! f: N -> P {
+            {f(0) = p} and { f(next(n)) = g(n)(f(n)) } 
+        }    
+    } 
+
+    condition {
+        induction and inductive_definition 
+    } 
+}
+
+
+// normal source code in file example: show that addition exists for N, that is add: N -> N -> N.
+let id: N -> N = fn (n: N) {n};
+theorem there_is_add = {
+    statement: {   
+        N.condition => {
+            exist! add: N -> N -> N 
+            {add(0) = id} and {forall n: N add(n)(0) = n} and {forall n, m: N f(N.next(n))(m) = N.next(f(n)(m)) and f(n)(N.next(m)) = N.next(f(n)(m))}   
+        } 
+    }
+    proof: {
+        // all by proof is handwaving and syntax is unclear, we must use first order calculus 
+        have N.inductive_definition by proof {N.condition => N.inductive_definition;} 
+        have add, add_condition = {
+            let P = N -> N;
+            let p: P = id;
+            let g: N -> P -> P = fn (n: N, p: P) { fn (m: N) { N.next(p(m)) }}; 
+            exists! f: N -> P by N.induction_definition(P, p, g)
+        }
+        have add(0) = id by proof { add_condition => add(0) = id;};
+        let c = fn(n) {add(n)(0) = n};
+        have c(0) by proof {
+           add(0) = id => add(0)(0) = id(0);
+           add(0)(0) = id(0) and id(0) = 0 => add(0)(0) = 0;
+           add(0)(0) = 0 => c(0);       
+        }
+        // by proof is handwaving, use first order calculus 
+        have forall n: N  c(n) => c(N.next(n)) by proof {
+            add_condition => add(N.next(n))(0) = N.next(add(n)(0));
+            c(n) => add(n)(0) = n;
+            add(N.next(n))(0) = N.next(add(n)(0)) and add(n)(0) = n => add(N.next(n))(0) = N.next(n) => c(N.next(n)); 
+        }
+        have N.induction by proof {N.condition => N.induction;}
+        have forall n: N c(n) by proof {
+            N.induction(P = Singleton, f = c) => forall n: N c(n);
+        }
+           
+        have forall n: N add(n)(0) = n by proof {
+            forall n: N c(n) => forall n: N add(n)(0) = n;
+        }
+        
+        // to be continued, still `forall n, m: N f(N.next(n))(m) = N.next(f(n)(m)) and f(n)(N.next(m)) = N.next(f(n)(m))` is missing
+    }
+}
+
+fn add: N -> N -> N = {
+    // can always use the condition defined in objects of signature?
+    N.condition => {let existence_statement} by there_is_add;  
+    // special let assignement by uniqueness 
+    let add by existence_statement;
+    add
+} 
+
+fn add: N -> N -> N = {
+    // can always use the condition defined in objects of signature?
+    N.condition => N.inductive_definition; 
+    {
+        let P = N -> N;
+        let p: P = N.next;
+        let g: N -> P = fn (n: N) { N.next }; 
+        let exists! f: N -> P from N.induction_construction   
+    }
+} 
+
