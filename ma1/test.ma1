@@ -145,27 +145,17 @@ theorem there_is_add = {
         have forall n: N add(n)(0) = n by proof {
             forall n: N c(n) => forall n: N add(n)(0) = n;
         }
-        
+
         // to be continued, still `forall n, m: N f(N.next(n))(m) = N.next(f(n)(m)) and f(n)(N.next(m)) = N.next(f(n)(m))` is missing
     }
 }
 
+// check this again
 fn add: N -> N -> N = {
-    // can always use the condition defined in objects of signature?
+    // can always use the condition defined in objects of signature???
     N.condition => {let existence_statement} by there_is_add;  
     // special let assignement by uniqueness 
     let add by existence_statement;
     add
-} 
-
-fn add: N -> N -> N = {
-    // can always use the condition defined in objects of signature?
-    N.condition => N.inductive_definition; 
-    {
-        let P = N -> N;
-        let p: P = N.next;
-        let g: N -> P = fn (n: N) { N.next }; 
-        let exists! f: N -> P from N.induction_construction   
-    }
 } 
 
