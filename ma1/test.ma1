@@ -7,9 +7,13 @@ Example: let X, Y, Z be classes. We can build (X -> Y) -> Z and X -> (Y -> Z).
 
 Convention: for types X, Y, Z, X -> Y -> Z means X -> (Y -> Z). 
 
+Note that we can naturally convert, for example X -> (Y -> Z) can be converted to Y -> (X -> Z). In terms of fuctions: given f: X -> (Y -> Z) define g: Y -> (X -> Z) by g(y)(x)=f(x)(y).  
+
 This formulation is not sufficient to express conditions/statement by types -> need dependent types?.  
 
-Simple version of dependent types example: W -> (X -> (Y -> Z)), X is allowed to depend on W, Y may depend on W, X.
+Simple version of dependent types example: W -> (X -> (Y -> Z)), X is allowed to depend on W, Y may depend on W, X. 
+
+For dependent types the conversion, for example X -> (Y -> Z) to Y -> (X -> Z), is not automatically possible if Y depends on X. 
 
 // A class has an interface and a condition. 
 // The interface is a dictionary of function signatures. 
@@ -167,12 +171,13 @@ theorem there_is_add {
 //    }
 //    This example also shows it totally makes sense to use the same variable bounded differently in the same statement.
 
-// main abstraction
+
+// Main abstraction. Abstract nonsense?
 class Class {
     sup Class 
     interface {
         const Boolean: Class
-        // use generics, more expressible in general to put structures on terms. Need dependent type theory.
+        // use generics, more expressible in general to put structures on terms. Need dependent type theory. And automatic/implicit conversion in the background to formulate statements. 
         forall<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
         exist<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
     }
