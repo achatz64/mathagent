@@ -1,5 +1,12 @@
 // Classes 
 
+Classes can be defined, see below. Each class is a type.
+For two types X, Y, we can construct a new type X -> Y (imagine X -> Y as maps/functions from X to Y). 
+
+Example: let X, Y, Z be classes. We can build (X -> Y) -> Z and X -> (Y -> Z), which are different types. 
+
+Convention: for types X, Y, Z, X -> Y -> Z means X -> (Y -> Z). 
+
 // A class has an interface and a condition. 
 // The interface is a dictionary of function signatures. 
 // The condition follows a well-typed syntax involving `forall`, `exist` and `exist!` (exists and is unique). We can write auxilary code in the class definition to make the condition statements more readable.
@@ -11,29 +18,13 @@ class Boolean {
     }
 }
 
+// most basic class of objects, no structure
+class Objects {}
+
 // we need to be able to use terms of terms sometimes
 class S {
-    interface {
-        // special assignment operator `->` can introduce const usage and function abstraction, automatically composable and associative. 
-        // It means we know what terms of terms are and can resolve them in conditions. 
-        // For example in the class of sets, any set is a term, and its elements are the terms of the terms.   
-        <s_1, s_2: S>: s_1 -> s_2
-        // we want to add the identity to show usage
-        id<s: S>: s -> s
-    }
-
-    // example usage
-    const cond left_identity {
-        forall s_1, s_2: S {
-            // function abstraction exists
-            forall f: s_1 -> s_2 {
-                // terms exist automatically 
-                forall e: s_1 {
-                    id<s_2>(f(e)) = f(e)
-                }
-            }
-        }
-    }
+    // sup means we can give `forall s: S forall x: s`, in this example all s belong to class Objects/have type Objects 
+    sup Objects 
 }
 
 // we can define Abelian groups here with respect to S
@@ -46,7 +37,7 @@ class Abelian {
     }
 
     // associativity
-    const cond associative = {
+    const cond associative {
         forall x,y,z: self.under add(x, add(y, z)) = add(add(x, y), z)
     }
     // other conditions omited
@@ -64,6 +55,8 @@ class N {
         const 0: N
         next: N -> N
     }
+
+    // use of cond not great, maybe prop (from proposition) or state (from statement) better?
 
     // Peano axioms
     const cond next_properties = {
@@ -85,10 +78,10 @@ class N {
     }
 
     // easier 
-    cond induction_start(P: class, f: N -> (P -> B)) = {
+    cond induction_start(P: class, f: N -> (P -> B))  {
         forall p: P f(0)(p)
     } 
-    cond induction_step(P: class, f: N -> (P -> B)) = {
+    cond induction_step(P: class, f: N -> (P -> B))  {
         forall n: N {
             {forall p: P f(n)(p)} => {forall p: P f(next(n))(p)}
         }
@@ -96,18 +89,18 @@ class N {
     cond induction_statement (P: class, f: N -> (P -> B)) = {
         forall n: N forall p: P f(n)(p) 
     }
-    const cond induction_alternative = {
+    const cond induction_alternative  {
         forall P: class forall f: N -> (P -> B) 
             {induction_start(P, f) and induction_step(P, f)} => induction_statement(P, f)
     }
 
-    const cond inductive_definition = {
+    const cond inductive_definition  {
         forall P: class forall p: P forall g: N -> P -> P exist! f: N -> P {
             {f(0) = p} and { f(next(n)) = g(n)(f(n)) } 
         }    
     } 
 
-    // can induction_definition be proved from induction?
+    // can induction_definition be proved from induction? i don't see how.
     condition {
         next_properties and induction and inductive_definition 
     } 
@@ -115,8 +108,9 @@ class N {
 
 
 // normal source code in file example: show that addition exists for N, that is add: N -> N -> N.
-let id: N -> N = fn (n: N) {n};
-theorem there_is_add = {
+let id: N -> N = {fn (n: N) {n}}
+
+theorem there_is_add {
     statement: {   
         N.condition => {
             exist! add: N -> N -> N 
@@ -158,12 +152,24 @@ theorem there_is_add = {
     }
 }
 
-// check this again
-fn add: N -> N -> N = {
-    // can always use the condition defined in objects of signature???
-    N.condition => {let existence_statement} by there_is_add;  
-    // special let assignement by uniqueness 
-    let add by existence_statement;
-    add
-} 
+// General construction of new arrows X -> Y
+// 1. We can use `forall x: X exist! y: Y something => exist! f: X -> Y forall x: X something_new` where y in something_new is replaced by f(x) and f does not appear in something (replace f with something else otherwise)
+// 2. Patching: We can split X into disjoint conditions: 
+//    {forall x: X {Q(x) or P(x)} and not {Q(x) and P(x)}} => {
+//      forall P: class forall f, g: X -> P exist! h: X -> P forall x: X {
+//          {h(x) = f(x) and Q(x)} or {h(x) = g(x) and P(x)}
+//      }   
+//    }
+//    This example also shows it totally makes sense to use the same variable bounded differently in the same statement.
+
+// main abstraction
+class Class {
+    sup Class 
+    interface {
+        const Boolean: Class
+        forall<X: Class>: X -> B -> B  
+    }
+
+
+}  
 
