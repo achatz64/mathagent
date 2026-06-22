@@ -7,6 +7,8 @@ Example: let X, Y, Z be classes. We can build (X -> Y) -> Z and X -> (Y -> Z), w
 
 Convention: for types X, Y, Z, X -> Y -> Z means X -> (Y -> Z). 
 
+This formulation is not sufficient to express conditions/statement by types -> need dependent types?.  
+
 // A class has an interface and a condition. 
 // The interface is a dictionary of function signatures. 
 // The condition follows a well-typed syntax involving `forall`, `exist` and `exist!` (exists and is unique). We can write auxilary code in the class definition to make the condition statements more readable.
@@ -77,7 +79,7 @@ class N {
         => forall n: N forall p: P f(n)(p) 
     }
 
-    // easier 
+    // easier?, notice that in cond the types of the arguments can depend on each other  
     cond induction_start(P: class, f: N -> (P -> B))  {
         forall p: P f(0)(p)
     } 
@@ -167,9 +169,9 @@ class Class {
     sup Class 
     interface {
         const Boolean: Class
-        forall<X: Class>: X -> B -> B  
+        // simple types are not sufficient to express forall
+          
     }
-
 
 }  
 
