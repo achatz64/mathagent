@@ -3,11 +3,13 @@
 Classes can be defined, see below. Each class is a type.
 For two types X, Y, we can construct a new type X -> Y (imagine X -> Y as maps/functions from X to Y). 
 
-Example: let X, Y, Z be classes. We can build (X -> Y) -> Z and X -> (Y -> Z), which are different types. 
+Example: let X, Y, Z be classes. We can build (X -> Y) -> Z and X -> (Y -> Z). 
 
 Convention: for types X, Y, Z, X -> Y -> Z means X -> (Y -> Z). 
 
 This formulation is not sufficient to express conditions/statement by types -> need dependent types?.  
+
+Simple version of dependent types example: W -> (X -> (Y -> Z)), X is allowed to depend on W, Y may depend on W, X.
 
 // A class has an interface and a condition. 
 // The interface is a dictionary of function signatures. 
@@ -169,9 +171,11 @@ class Class {
     sup Class 
     interface {
         const Boolean: Class
-        // simple types are not sufficient to express forall
-          
+        // use generics, more expressible in general to put structures on terms. Need dependent type theory.
+        forall<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
+        exist<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
     }
 
+    // Boolean conditions?
 }  
 
