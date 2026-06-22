@@ -1,4 +1,4 @@
-// Classes 
+// Types
 
 Classes can be defined, see below. Each class is a type.
 For two types X, Y, we can construct a new type X -> Y (imagine X -> Y as maps/functions from X to Y). 
@@ -9,20 +9,28 @@ Convention: for types X, Y, Z, X -> Y -> Z means X -> (Y -> Z).
 
 Note that we can naturally convert, for example X -> (Y -> Z) can be converted to Y -> (X -> Z). In terms of fuctions: given f: X -> (Y -> Z) define g: Y -> (X -> Z) by g(y)(x)=f(x)(y).  
 
-This formulation is not sufficient to express conditions/statement by types -> need dependent types?.  
+// Classes
 
-Simple version of dependent types example: W -> (X -> (Y -> Z)), X is allowed to depend on W, Y may depend on W, X. 
-
-For dependent types the conversion, for example X -> (Y -> Z) to Y -> (X -> Z), is not automatically possible if Y depends on X. 
-
-// A class has an interface and a condition. 
+// A class has an interface and a condition statement. 
 // The interface is a dictionary of function signatures. 
 // The condition follows a well-typed syntax involving `forall`, `exist` and `exist!` (exists and is unique). We can write auxilary code in the class definition to make the condition statements more readable.
 
+// this is a toy example 
 class Boolean {
     interface {
         const true: Boolean
         const false: Boolean
+    }
+    const cond only_elements {
+        forall b: Boolean { b = true or b = false}
+    }
+
+    cond cond difference {
+        not { true = false } 
+    }
+
+    condition {
+        only_elements and difference
     }
 }
 
@@ -57,8 +65,7 @@ class Abelian {
     }
 }
 
-// Natural number
-// Example for use of everything  
+// Natural numbers 
 class N {
     interface {
         const 0: N
@@ -68,43 +75,57 @@ class N {
     // use of cond not great, maybe prop (from proposition) or state (from statement) better?
 
     // Peano axioms
-    const cond next_properties = {
+    const cond next_properties  {
         {forall n: N  n=0 or {exist m: N next(m)=n}} 
         and  
-        {forall n,m: N next(n)=next(m) => n=m}
+        {forall n,m: N next(n) = next(m) => n = m}
     }
 
-    // induction on statement 
-    const cond induction = forall P: class {
+    // induction on statement
+    // we decided to use generics and avoid dependent type theory for now, P can be any type 
+    const cond induction<P> 
         {
-            forall f: N -> (P -> Boolean) {
-                { forall p: P f(0)(p) } 
-                and 
-                { forall n: N forall p: P f(n)(p)} => {forall p: P f(next(n))(p)}
+            forall f: N -> (P -> B) {
+                {
+                    { forall p: P f(0)(p) } 
+                    and 
+                    forall n: N {forall p: P f(n)(p) => forall p: P f(next(n))(p)}
+                }
+                => forall n: N forall p: P f(n)(p)
             }
+        } 
+    // we can abbreviate total reduction with for all operator to Boolean with `holds`
+    const cond induction_with_holds<P>  {
+        forall f: N -> (P -> B) {
+            {
+                holds f(0) 
+                and 
+                forall n: N {holds f(n) =>  holds f(next(n))}
+            }
+            => holds f 
         }
-        => forall n: N forall p: P f(n)(p) 
-    }
+    }    
 
     // easier?, notice that in cond the types of the arguments can depend on each other  
-    cond induction_start(P: class, f: N -> (P -> B))  {
+    cond induction_start<P>(f: N -> (P -> B))  {
         forall p: P f(0)(p)
     } 
-    cond induction_step(P: class, f: N -> (P -> B))  {
+    cond induction_step<P>(f: N -> (P -> B))  {
         forall n: N {
             {forall p: P f(n)(p)} => {forall p: P f(next(n))(p)}
         }
     } 
-    cond induction_statement (P: class, f: N -> (P -> B)) = {
+    cond induction_statement<P>(f: N -> (P -> B)) {
         forall n: N forall p: P f(n)(p) 
     }
-    const cond induction_alternative  {
-        forall P: class forall f: N -> (P -> B) 
-            {induction_start(P, f) and induction_step(P, f)} => induction_statement(P, f)
+    
+    const cond induction_alternative<P> {
+        forall f: N -> (P -> B) 
+            {induction_start(f) and induction_step(f)} => induction_statement(f)
     }
 
-    const cond inductive_definition  {
-        forall P: class forall p: P forall g: N -> P -> P exist! f: N -> P {
+    const cond inductive_definition<P> {
+        forall p: P forall g: N -> P -> P exist! f: N -> P {
             {f(0) = p} and { f(next(n)) = g(n)(f(n)) } 
         }    
     } 
@@ -133,7 +154,7 @@ theorem there_is_add {
             let P = N -> N;
             let p: P = id;
             let g: N -> P -> P = fn (n: N, p: P) { fn (m: N) { N.next(p(m)) }}; 
-            exist! f: N -> P by proof {N.induction_definition(P, p, g);}
+            have exist! f: N -> P by proof {N.induction_definition<P>(p, g);}
         }
         have add(0) = id by proof { add_condition => add(0) = id;};
         let c = fn(n) {add(n)(0) = n};
@@ -150,7 +171,7 @@ theorem there_is_add {
         }
         have N.induction by proof {N.condition => N.induction;}
         have forall n: N c(n) by proof {
-            N.induction(P = Singleton, f = c) => forall n: N c(n);
+            N.induction<Singleton> => forall n: N c(n);
         }
            
         have forall n: N add(n)(0) = n by proof {
@@ -171,17 +192,18 @@ theorem there_is_add {
 //    }
 //    This example also shows it totally makes sense to use the same variable bounded differently in the same statement.
 
+// As example for patching we can take the class Boolean and define `and` and `or`.  
 
 // Main abstraction. Abstract nonsense?
 class Class {
     sup Class 
     interface {
-        const Boolean: Class
-        // use generics, more expressible in general to put structures on terms. Need dependent type theory. And automatic/implicit conversion in the background to formulate statements. 
+        const B: Class // short for Boolean
+        // use generics, more expressible in general to put structures on terms.  And automatic/implicit conversion in the background to formulate statements. 
         forall<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
         exist<X: Class, T: Class>: (X -> (T -> B)) -> (T -> B)
     }
 
-    // Boolean conditions?
+    // Boolean conditions need to be described 
 }  
 
