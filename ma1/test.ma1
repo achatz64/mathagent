@@ -64,7 +64,14 @@ class N {
         const 0: N
         next: N -> N
     }
-    
+
+    // Peano axioms
+    const cond next_properties = {
+        {forall n: N  n=0 or {exist m: N next(m)=n}} 
+        and  
+        {forall n,m: N next(n)=next(m) => n=m}
+    }
+
     // induction on statement 
     const cond induction = forall P: class {
         {
@@ -100,8 +107,9 @@ class N {
         }    
     } 
 
+    // can induction_definition be proved from induction?
     condition {
-        induction and inductive_definition 
+        next_properties and induction and inductive_definition 
     } 
 }
 
@@ -122,7 +130,7 @@ theorem there_is_add = {
             let P = N -> N;
             let p: P = id;
             let g: N -> P -> P = fn (n: N, p: P) { fn (m: N) { N.next(p(m)) }}; 
-            exists! f: N -> P by N.induction_definition(P, p, g)
+            exist! f: N -> P by N.induction_definition(P, p, g)
         }
         have add(0) = id by proof { add_condition => add(0) = id;};
         let c = fn(n) {add(n)(0) = n};
