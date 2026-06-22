@@ -25,9 +25,10 @@ class Boolean {
 // most basic class of objects, no structure
 class Objects {}
 
-// we need to be able to use terms of terms sometimes
+// we need to be able to use terms of terms and thats why we assign them a type
 class S {
     // sup means we can give `forall s: S forall x: s`, in this example all s belong to class Objects/have type Objects 
+    // is sup sufficient in general? 
     sup Objects 
 }
 
