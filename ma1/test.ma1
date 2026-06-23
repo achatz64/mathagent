@@ -194,7 +194,7 @@ theorem there_is_add {
 
 // As example for patching we can take the class Boolean and define `and` and `or`.  
 
-// Main abstraction. Abstract nonsense?
+// Main abstraction. 
 class Class {
     sup Class 
     interface {
