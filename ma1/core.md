@@ -20,7 +20,7 @@ Language is build by: `:`, `->`, `.`, `()`, `type`, `let`, `const`, `< >`, `;`, 
 * `;` is the end of one statement. 
 * `x : X` for `x` is a term of type `X`. For convenience, we can use `x_0, x_1 : X` for more than one terms of the same type.
 * `X -> Y` for two types `X`, `Y`, imagine fcts from `X` to `Y`. 
-* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
+* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. For a term `g : Y`, we get `f.g: Z`. The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
 * We need `( )` to clarify the order. For example `(X -> Y) -> Z` is not the same as `X -> (Y -> Z)`. Without brackets we imagine the arrows bounded from right to left, that is we can simply write `X -> Y -> Z` for `X -> (Y -> Z)`.  
 * `type X;` for declaring a type, cannot be overwritten. The terms of `X` can naturally be considered as types too. 
 * `let h = f.g;` for variable assignment for terms, which can be overwritten.
