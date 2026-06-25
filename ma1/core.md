@@ -16,14 +16,15 @@ There is a trade off between sets and types. We already know the elements of a s
 
 ## Syntax
 Read the gentle [intro](#gentle-intro-to-types) first. 
-Language is build by: `:`, `->`, `.`, `()`, `type`, `let`, `const`, `< >`, `;`, `,`, `have`. 
+Language is build by: `:`, `->`, `.`, `()`, `type`, `let`, `const`, `< >`, `;`, `,`, `have`, `//`. 
 * `;` is the end of one statement. 
 * `x : X` for `x` is a term of type `X`. For convenience, we can use `x_0, x_1 : X` for more than one terms of the same type.
 * `X -> Y` for two types `X`, `Y`, imagine fcts from `X` to `Y`. 
-* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. For a term `g : Y`, we get `f.g: Z`. The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
+* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. For a term `g : Y`, we get `f.g: Z`. [TODO: If there is a longer term like `f.g.h` do we need brackets `()` to clarify the meaning?] The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
 * We need `( )` to clarify the order. For example `(X -> Y) -> Z` is not the same as `X -> (Y -> Z)`. Without brackets we imagine the arrows bounded from right to left, that is we can simply write `X -> Y -> Z` for `X -> (Y -> Z)`.  
 * `type X;` for declaring a type, cannot be overwritten. The terms of `X` can naturally be considered as types too. 
 * `let h = f.g;` for variable assignment for terms, which can be overwritten.
 * `const h = f.g;` for variable assignment for terms, which cannot be overwritten, and will be exported.
 * `m<X : T> : X -> Z` for generics, evidently we implicitly consider the terms of `T` as types again. Can be iterated `m<X : T><Y : X> : Y -> Z` and listed for convenience `m<X: T, Y: U>: X -> Y -> Z`. 
 * `have SomeName somepath` for import of all types and terms declared by `type` and `const` from `somepath`. The `SomeName` is optional, if given the types and terms in the file `somepath` are accessible via prepending `SomeName`; that is, if `X` is declared in `somepath` then `SomeName.X` is the name. If no `SomeName` is given then everything is imported with identical names.   
+* `//` for starting a comment (one line and good until the end of line)
