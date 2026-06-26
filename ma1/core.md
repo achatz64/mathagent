@@ -20,11 +20,23 @@ Language is build by: `:`, `->`, `.`, `()`, `type`, `let`, `const`, `< >`, `;`, 
 * `;` is the end of one statement. 
 * `x : X` for `x` is a term of type `X`. For convenience, we can use `x_0, x_1 : X` for more than one terms of the same type.
 * `X -> Y` for two types `X`, `Y`, imagine fcts from `X` to `Y`. 
-* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. For a term `g : Y`, we get `f.g: Z`. [TODO: If there is a longer term like `f.g.h` do we need brackets `()` to clarify the meaning?] The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
+* `f.g : X -> Z` for `f: Y -> Z` and `g: X -> Y`, imagine composition of fcts. For a term `g : Y`, we get `f.g: Z`. For longer chains we can use brackets to clarify order, e.g. `(f.g).h` in contrast to `f.(g.h)` (see [here](#types-of-compositions-and-evaluations)). The symbol `.` is also used in `SomeName.x` for a name declared in `have` (see `have`).
 * We need `( )` to clarify the order. For example `(X -> Y) -> Z` is not the same as `X -> (Y -> Z)`. Without brackets we imagine the arrows bounded from right to left, that is we can simply write `X -> Y -> Z` for `X -> (Y -> Z)`.  
 * `type X;` for declaring a type, cannot be overwritten. The terms of `X` can naturally be considered as types too. 
-* `let h = f.g;` for variable assignment for terms, which can be overwritten.
-* `const h = f.g;` for variable assignment for terms, which cannot be overwritten, and will be exported.
+* `let h = f.g;` for variable assignment for terms, which can be overwritten. A value is required; the signature-only form `let h : T;` is not allowed.
+* `const h = f.g;` for variable assignment for terms, which cannot be overwritten, and will be exported. The signature-only form `const c : T;` is also allowed: it declares an exported, immutable constant of type `T` whose value is postulated (a primitive or axiom, no definition given).
 * `m<X : T> : X -> Z` for generics, evidently we implicitly consider the terms of `T` as types again. Can be iterated `m<X : T><Y : X> : Y -> Z` and listed for convenience `m<X: T, Y: U>: X -> Y -> Z`. 
-* `have SomeName somepath` for import of all types and terms declared by `type` and `const` from `somepath`. The `SomeName` is optional, if given the types and terms in the file `somepath` are accessible via prepending `SomeName`; that is, if `X` is declared in `somepath` then `SomeName.X` is the name. If no `SomeName` is given then everything is imported with identical names.   
+* `have SomeName (somepath);` for import of all types and terms declared by `type` and `const` from `somepath`. The `SomeName` is optional, if given the types and terms in the file `somepath` are accessible via prepending `SomeName`; that is, if `X` is declared in `somepath` then `SomeName.X` is the name. If no `SomeName` is given then everything is imported with identical names.   
 * `//` for starting a comment (one line and good until the end of line)
+
+## Type checker
+
+### Types of compositions and evaluations
+
+Bracketed sub-expressions are evaluated first; the result is used as a single element in the surrounding chain. Within any bracket-free chain `e.f.g.h..`, evaluation proceeds left-to-right: we know `e: X -> Y`, and then:
+
+1. if `f: T -> X` => composition: `(e.f).g.h..`
+2. if `f: X` => evaluation: `(e.f).g.h..`
+3. if `f: S -> T` with `T ≠ X` => evaluate the tail first: `e.(f.g.h..)`
+
+Rule 3 is unambiguous because it only fires when rules 1 and 2 both fail. Brackets can nonetheless produce distinct well-typed terms from the same sequence of names: with `f: (A -> B) -> (A -> A)`, `g: A -> B`, `h: A -> A`, the chains `f.g.h` and `f.(g.h)` both have type `A -> A` but differ — the former is `(f g) ∘ h` (rule 2 fires on `g`) and the latter is `f (g ∘ h)`.

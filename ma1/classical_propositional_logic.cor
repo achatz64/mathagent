@@ -1,0 +1,52 @@
+type PropositionClassical;
+
+// abbreviation
+let PC = PropositionClassical;
+
+// proposition construction
+const and: PC -> PC -> PC;
+const or: PC -> PC -> PC;
+const not: PC -> PC;
+
+// fct construction = rules of logic
+
+// implication is the function arrow -> itself, so it needs no constructor and
+// no rules: modus ponens is just application (A -> B applied to A gives B), and
+// implication introduction is just forming the function A -> B.
+
+// structural rules (used to build derived rules below)
+// weakening: a proof of A still holds under any extra, unused assumption B
+const weakening<A, B : PC>: A -> B -> A;
+// exchange: the order of two assumptions does not matter
+const exchange<A, B, C : PC>: (A -> B -> C) -> B -> A -> C;
+// THEN-2: S combinator — implication distributes over itself
+const then2<C, A, B : PC>: (C -> A -> B) -> (C -> A) -> C -> B;
+
+// identity: S K K — outer K discards the second K applied to x
+const id<A : PC> = then2<A, A->A, A>.weakening<A, A->A>.weakening<A, A>;
+// diagonal/contraction: duplicate a proof into a conjunction
+const diag<A : PC> = then2<A, A, and.A.A>.and_intro<A, A>.id<A>;
+
+// law of excluded middle
+const excluded_middle<A : PC>: or.A.not.A;
+
+// conjunction
+const and_intro<A, B : PC>: A -> B -> and.A.B;
+const and_elim_left<A, B : PC>: and.A.B -> A;
+const and_elim_right<A, B : PC>: and.A.B -> B;
+
+// disjunction
+const or_intro_left<A, B : PC>: A -> or.A.B;
+const or_intro_right<A, B : PC>: B -> or.A.B;
+const or_elim<A, B, C : PC>: or.A.B -> (A -> C) -> (B -> C) -> C;
+
+// negation
+const not_intro<A, B : PC>: (A -> B) -> (A -> not.B) -> not.A;
+
+// modus tollens, derived from not_intro: weakening turns the bare premise not.B
+// into the constant function (A -> not.B) that not_intro expects, and exchange
+// threads the hypotheses into the order (A -> B) -> not.B -> not.A
+const modus_tollens<A, B : PC> = exchange<not.B, A -> B, not.A>.exchange<A -> B, A -> not.B, not.A>.not_intro<A, B>.weakening<not.B, A>;
+
+// double-negation elimination (classical)
+const double_negation_elim<A : PC>: not.not.A -> A;
