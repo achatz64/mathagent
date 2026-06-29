@@ -1,0 +1,36 @@
+have (./classical_propositional_logic.cor);
+
+// first draft is informal
+// we learned that the definition of quantifiers is not possible without dependent types -> reformulation of core.md to include dependent types must follow (i d)
+
+
+// fibration
+const Prop<X>: X -> PropositionClassical;
+
+// # structural properties of products
+const prod_intro<X, Y, Z> : (X -> Y -> Z) -> ((X # Y) -> Z);
+const prod_elim<X, Y, Z> : ((X # Y) -> Z) -> (X -> Y -> Z);
+
+// proposition construction
+const prop_intro<X, Y> : (X -> Prop<Y>) -> Prop<X # Y> := prod_intro<X, Y, PropositionClassical>;
+
+// for all x : X
+forall<X, Y>: (X -> Prop<Y>) -> Prop<Y>;
+// dependent type
+const forall_dep<X, Y, f: X -> Prop<Y>> : Prop<Y> := forall<X, Y>.f;
+
+// forall properties, since forall_intro and forall_elim establish an equivalence, we can identify forall with a dependent type
+// dependent comp type
+const comp_dep<X, Y, x : X, f: X -> Prop<Y>> : Prop<Y> := f.x; 
+// forall implies comp_dep<X, Y, x, f> can be constructed for each x
+const forall_intro<X, Y> : (f: X -> Prop<Y>) -> (((x : X) -> comp_dep<X, Y, x, f>) -> forall_dep<X, Y, f>);
+// forall elim means the other direction 
+const forall_elim<X, Y> : (f: X -> Prop<Y>) -> (forall_dep<X, Y, f> -> ((x : X) -> comp_dep<X, Y, x, f>));
+
+// exists x : x
+exists<X, Y> : (X -> Prop<Y>) -> Prop<Y>;
+const exist_dep<X, Y, f: X -> Prop<Y>> : Prop<Y> -> exist<X, Y>.f;
+// exist property 
+const exist_intro<X, Y> : (x : X) -> (f : X -> Prop<Y>) -> (comp_dep<X, Y, x, f> -> exist_dep<X, Y, f>);
+// 
+const exist_elim<X, Y, Z>: (f : X -> Prop<Y>) ->  ((x : X) -> comp_dep<X, Y, x, f> -> Z) -> (exist_dep<X, Y, f> -> Z);
