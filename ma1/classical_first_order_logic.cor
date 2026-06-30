@@ -1,36 +1,31 @@
-have (./classical_propositional_logic.cor);
+import classical_propositional_logic
 
-// first draft is informal
-// we learned that the definition of quantifiers is not possible without dependent types -> reformulation of core.md to include dependent types must follow (i d)
+-- Classical first-order logic, built on the classical propositions of
+-- classical_propositional_logic.cor (the universe PC = Prop). Quantifiers are the
+-- reason Core needs dependent types: "∀ x : X, P x" is the dependent function type
+-- (x : X) → P x landing in PC.
 
+-- fibration: a predicate over a domain X is a propositional function X → PC.
+abbrev Pred (X : Type) := X → PC
 
-// fibration
-const Prop<X>: X -> PropositionClassical;
+-- structural properties of products: curry / uncurry. Postulated, since the
+-- lambda-free phase has no way to define them.
+axiom prod_intro (X : Type) (Y : Type) (Z : Type) : (X → Y → Z) → ((X × Y) → Z)
+axiom prod_elim : (X : Type) -> (Y : Type) -> (Z : Type) -> ((X × Y) → Z) → (X → Y → Z)
 
-// # structural properties of products
-const prod_intro<X, Y, Z> : (X -> Y -> Z) -> ((X # Y) -> Z);
-const prod_elim<X, Y, Z> : ((X # Y) -> Z) -> (X -> Y -> Z);
+-- a curried binary predicate is a predicate on the product
+-- noncomputable def prop_intro (X Y : Type) : (X → Pred Y) → Pred (X × Y) := prod_intro X Y PC
 
-// proposition construction
-const prop_intro<X, Y> : (X -> Prop<Y>) -> Prop<X # Y> := prod_intro<X, Y, PropositionClassical>;
+-- universal quantifier: Forall X P is "∀ x : X, P x"
+axiom Forall (X : Type) (P : Pred X) : PC
+-- intro: a proof of P x for every x (a dependent function) proves Forall X P
+axiom Forall_intro (X : Type) (P : Pred X) : ((x : X) → P x) → Forall X P
+-- elim: from Forall X P and any x : X, get a proof of P x
+axiom Forall_elim (X : Type) (P : Pred X) : Forall X P → (x : X) → P x
 
-// for all x : X
-forall<X, Y>: (X -> Prop<Y>) -> Prop<Y>;
-// dependent type
-const forall_dep<X, Y, f: X -> Prop<Y>> : Prop<Y> := forall<X, Y>.f;
-
-// forall properties, since forall_intro and forall_elim establish an equivalence, we can identify forall with a dependent type
-// dependent comp type
-const comp_dep<X, Y, x : X, f: X -> Prop<Y>> : Prop<Y> := f.x; 
-// forall implies comp_dep<X, Y, x, f> can be constructed for each x
-const forall_intro<X, Y> : (f: X -> Prop<Y>) -> (((x : X) -> comp_dep<X, Y, x, f>) -> forall_dep<X, Y, f>);
-// forall elim means the other direction 
-const forall_elim<X, Y> : (f: X -> Prop<Y>) -> (forall_dep<X, Y, f> -> ((x : X) -> comp_dep<X, Y, x, f>));
-
-// exists x : x
-exists<X, Y> : (X -> Prop<Y>) -> Prop<Y>;
-const exist_dep<X, Y, f: X -> Prop<Y>> : Prop<Y> -> exist<X, Y>.f;
-// exist property 
-const exist_intro<X, Y> : (x : X) -> (f : X -> Prop<Y>) -> (comp_dep<X, Y, x, f> -> exist_dep<X, Y, f>);
-// 
-const exist_elim<X, Y, Z>: (f : X -> Prop<Y>) ->  ((x : X) -> comp_dep<X, Y, x, f> -> Z) -> (exist_dep<X, Y, f> -> Z);
+-- existential quantifier: Exist X P is "∃ x : X, P x"
+axiom Exist (X : Type) (P : Pred X) : PC
+-- intro: a witness x : X together with a proof of P x proves Exist X P
+axiom Exist_intro (X : Type) (P : Pred X) : (x : X) → P x → Exist X P
+-- elim: to conclude Q from Exist X P, prove Q from an arbitrary witness and proof
+axiom Exist_elim (X : Type) (P : Pred X) (Q : PC) : ((x : X) → P x → Q) → Exist X P → Q

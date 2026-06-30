@@ -1,65 +1,69 @@
-have (./SK_combinators.cor)
+import SK_combinators
 
-type PropositionClassical;
+-- PropositionClassical is the universe of classical propositions: its terms A, B, …
+-- are themselves types, and a term of A is a proof of A (Curry–Howard).
 
-// abbreviation
-let PC = PropositionClassical;
+-- abbreviation
+abbrev PC := Prop
 
-// proposition construction
-const and: PC -> PC -> PC;
-const or: PC -> PC -> PC;
-const not: PC -> PC;
-const imply: PC -> PC -> PC;
+-- proposition construction
+axiom and : PC → PC → PC
+axiom or : PC → PC → PC
+axiom not : PC → PC
+axiom imply : PC → PC → PC
 
-// fct construction = rules of logic
+-- fct construction = rules of logic
 
-// implication is the function arrow -> itself, so it needs no constructor and
-// no rules: modus ponens is just application (A -> B applied to A gives B), and
-// implication introduction is just forming the function A -> B.
+-- implication is the function arrow → itself, so it needs no constructor and
+-- no rules: modus ponens is just application (A → B applied to A gives B), and
+-- implication introduction is just forming the function A → B.
+axiom imply_intro (A B : PC) : (A → B) → imply A B
+axiom imply_elim (A B : PC) : imply A B → A → B
 
-const imply_intro<A, B : PC>: (A -> B) -> imply.A.B;
-const imply_elim<A, B : PC>: imply.A.B -> A -> B;
+-- conjunction
+axiom and_intro (A B : PC) : A → B → and A B
+axiom and_elim_left (A B : PC) : and A B → A
+axiom and_elim_right (A B : PC) : and A B → B
 
-// diagonal/contraction: duplicate a proof into a conjunction.
-// diag is the structural W combinator (imported) applied to and_intro: W and_intro x = and_intro x x.
-const diag<A : PC> = diagonal<A, and.A.A>.and_intro<A, A>;
-// trace
-// diagonal<A, and.A.A> : (A -> A -> and.A.A) -> A -> and.A.A
-// and_intro<A, A> : A -> A -> and.A.A
-// diagonal<A, and.A.A>.and_intro<A, A> : A -> and.A.A
+-- disjunction
+axiom or_intro_left (A B : PC) : A → or A B
+axiom or_intro_right (A B : PC) : B → or A B
+axiom or_elim (A B C : PC) : or A B → (A → C) → (B → C) → C
 
-// law of excluded middle
-const excluded_middle<A : PC>: or.A.not.A;
+-- negation
+axiom not_intro (A B : PC) : (A → B) → (A → not B) → not A
 
-// conjunction
-const and_intro<A, B : PC>: A -> B -> and.A.B;
-const and_elim_left<A, B : PC>: and.A.B -> A;
-const and_elim_right<A, B : PC>: and.A.B -> B;
+-- law of excluded middle
+axiom excluded_middle (A : PC) : or A (not A)
 
-// disjunction
-const or_intro_left<A, B : PC>: A -> or.A.B;
-const or_intro_right<A, B : PC>: B -> or.A.B;
-const or_elim<A, B, C : PC>: or.A.B -> (A -> C) -> (B -> C) -> C;
+-- double-negation elimination (classical)
+axiom double_negation_elim (A : PC) : not (not A) → A
 
-// negation
-const not_intro<A, B : PC>: (A -> B) -> (A -> not.B) -> not.A;
+-- derived rules
 
-// modus tollens, derived from not_intro: imply_elim turns the premise imply.A.B
-// into the (A -> B) arrow not_intro expects (modus ponens); weakening turns the
-// bare premise not.B into the constant function (A -> not.B); two structural
-// exchanges (instantiated at the arrow type A -> not.B) thread the hypotheses
-// into the final order imply.A.B -> not.B -> not.A.
-const modus_tollens<A, B : PC> : imply.A.B -> not.B -> not.A = exchange<not.B, imply.A.B, not.A>.((exchange<imply.A.B, A -> not.B, not.A>.(not_intro<A, B>.imply_elim<A, B>)).weakening<not.B, A>);
-// trace
-// imply_elim<A, B> : imply.A.B -> A -> B
-// not_intro<A, B> : (A -> B) -> (A -> not.B) -> not.A
-// not_intro<A, B>.imply_elim<A, B> : imply.A.B -> (A -> not.B) -> not.A
-// exchange<imply.A.B, A -> not.B, not.A> : (imply.A.B -> (A -> not.B) -> not.A) -> ((A -> not.B) -> imply.A.B -> not.A)
-// exchange<imply.A.B, A -> not.B, not.A>.(not_intro<A, B>.imply_elim<A, B>) : (A -> not.B) -> imply.A.B -> not.A
-// weakening<not.B, A> : not.B -> A -> not.B
-// (exchange<imply.A.B, A -> not.B, not.A>.(not_intro<A, B>.imply_elim<A, B>)).weakening<not.B, A> : not.B -> imply.A.B -> not.A
-// exchange<not.B, imply.A.B, not.A> : (not.B -> imply.A.B -> not.A) -> (imply.A.B -> not.B -> not.A)
-// exchange<not.B, imply.A.B, not.A>.((...).weakening<not.B, A>) : imply.A.B -> not.B -> not.A
+-- diagonal/contraction: duplicate a proof into a conjunction.
+-- diag is the structural W combinator (imported) applied to and_intro: W and_intro x = and_intro x x.
+noncomputable def diag (A : PC) := diagonal A (and A A) (and_intro A A)
+-- trace
+-- diagonal A (and A A) : (A → A → and A A) → A → and A A
+-- and_intro A A : A → A → and A A
+-- diagonal A (and A A) (and_intro A A) : A → and A A
 
-// double-negation elimination (classical)
-const double_negation_elim<A : PC>: not.not.A -> A;
+-- modus tollens, derived from not_intro: imply_elim turns the premise imply A B
+-- into the (A → B) arrow not_intro expects (modus ponens); weakening turns the
+-- bare premise not B into the constant function (A → not B); two structural
+-- exchanges (instantiated at the arrow type A → not B) thread the hypotheses
+-- into the final order imply A B → not B → not A.
+noncomputable def modus_tollens (A B : PC) : imply A B → not B → not A :=
+  exchange (not B) (imply A B) (not A)
+    ((exchange (imply A B) (A → not B) (not A) (not_intro A B ∘ imply_elim A B)) ∘ weakening (not B) A)
+-- trace
+-- imply_elim A B : imply A B → A → B
+-- not_intro A B : (A → B) → (A → not B) → not A
+-- not_intro A B ∘ imply_elim A B : imply A B → (A → not B) → not A
+-- exchange (imply A B) (A → not B) (not A) : (imply A B → (A → not B) → not A) → ((A → not B) → imply A B → not A)
+-- exchange (imply A B) (A → not B) (not A) (not_intro A B ∘ imply_elim A B) : (A → not B) → imply A B → not A
+-- weakening (not B) A : not B → A → not B
+-- (exchange (imply A B) (A → not B) (not A) (not_intro A B ∘ imply_elim A B)) ∘ weakening (not B) A : not B → imply A B → not A
+-- exchange (not B) (imply A B) (not A) : (not B → imply A B → not A) → (imply A B → not B → not A)
+-- exchange (not B) (imply A B) (not A) ((…) ∘ weakening (not B) A) : imply A B → not B → not A

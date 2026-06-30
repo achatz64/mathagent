@@ -1,32 +1,33 @@
-// structural rules (used to build derived rules below)
+-- structural rules (used to build derived rules below)
 
-// weakening
-const weakening<A, B>: A -> B -> A;
+-- weakening
+axiom weakening (A B : Prop) : A → B → A
 
-// exchange
-const exchange<A, B, C>: (A -> B -> C) -> B -> A -> C;
+-- exchange
+axiom exchange (A B C : Prop) : (A → B → C) → B → A → C
 
-// S combinator 
-const s_comb<A, B, C>: (A -> B -> C) -> (A -> B) -> A -> C;
+-- S combinator
+axiom s_comb (A B C : Prop) : (A → B → C) → (A → B) → A → C
 
-// derived types
+-- derived terms
 
-// identity: I = S K K. The outer K (first arg) discards the second K applied to x.
-// The S middle type B is instantiated to A -> A so the second K can supply A -> (A -> A).
-const id<A> = (s_comb<A, A -> A, A>.weakening<A, A -> A>).weakening<A, A>;
-// trace
-// s_comb<A, A -> A, A> : (A -> (A -> A) -> A) -> (A -> (A -> A)) -> (A -> A)
-// weakening<A, A -> A> : A -> (A -> A) -> A
-// s_comb<A, A -> A, A>.weakening<A, A -> A> : (A -> (A -> A)) -> (A -> A)
-// weakening<A, A> : A -> (A -> A)
-// (s_comb<A, A -> A, A>.weakening<A, A -> A>).weakening<A, A> : A -> A
+-- identity: I = S K K. The outer K (first arg) discards the second K applied to x.
+-- The S middle type B is instantiated to A → A so the second K can supply A → (A → A).
+-- (named i_comb, not id, since Lean reserves id)
+noncomputable def i_comb (A : Prop) := s_comb A (A → A) A (weakening A (A → A)) (weakening A A)
+-- trace
+-- s_comb A (A → A) A : (A → (A → A) → A) → (A → (A → A)) → (A → A)
+-- weakening A (A → A) : A → (A → A) → A
+-- s_comb A (A → A) A (weakening A (A → A)) : (A → (A → A)) → (A → A)
+-- weakening A A : A → (A → A)
+-- s_comb A (A → A) A (weakening A (A → A)) (weakening A A) : A → A
 
-// diagonal/contraction: W = \f x. f x x, built as W f = S f I.
-// exchange brings id into the second argument slot of S, leaving f to be supplied.
-const diagonal<A, B> = (exchange<A -> A -> B, A -> A, A -> B>.s_comb<A, A, B>).id<A>;
-// trace
-// s_comb<A, A, B> : (A -> A -> B) -> (A -> A) -> (A -> B)
-// exchange<A -> A -> B, A -> A, A -> B> : ((A -> A -> B) -> (A -> A) -> (A -> B)) -> ((A -> A) -> (A -> A -> B) -> (A -> B))
-// exchange<A -> A -> B, A -> A, A -> B>.s_comb<A, A, B> : (A -> A) -> (A -> A -> B) -> (A -> B)
-// id<A> : A -> A
-// (exchange<A -> A -> B, A -> A, A -> B>.s_comb<A, A, B>).id<A> : (A -> A -> B) -> A -> B
+-- diagonal/contraction: W = \f x. f x x, built as W f = S f I.
+-- exchange brings the identity into the second argument slot of S, leaving f to be supplied.
+noncomputable def diagonal (A B : Prop) := exchange (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A)
+-- trace
+-- s_comb A A B : (A → A → B) → (A → A) → (A → B)
+-- exchange (A → A → B) (A → A) (A → B) : ((A → A → B) → (A → A) → (A → B)) → ((A → A) → (A → A → B) → (A → B))
+-- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) : (A → A) → (A → A → B) → (A → B)
+-- i_comb A : A → A
+-- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A) : (A → A → B) → A → B
