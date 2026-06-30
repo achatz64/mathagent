@@ -24,7 +24,9 @@ In general, there will be various choices for a language like `ma5` supported, `
 
 On the spectrum of languages, the formal verification languages are on the extreme end: for them, type checking is sufficient to prove correctness of proofs. 
 
-[TODO: come up with a syntax for a language `ma1` and make it as human readable as possible. This would be a language where the translation effort for math papers is minimal.]
+### WIP on languages 
+
+Read `ma1/core.md` for the specifications of the core language (no lambda calculus) and read example implementations (files with extension `cor`) in the folder `ma1`. 
 
 ### Knowledge base
 

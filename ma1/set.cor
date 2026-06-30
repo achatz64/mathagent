@@ -1,0 +1,149 @@
+import classical_propositional_logic
+import classical_first_order_logic
+
+-- Sets.
+--
+-- A set is a fully-collected object; unlike a type, its elements are fixed once
+-- gathered (see core.md, "Gentle introduction to types"). Lean has a built-in
+-- universe of propositions (`Prop`) but NOT one of sets, so we postulate the
+-- universe `Sets`.
+
+-- the universe of sets: a set is a term `S : Sets`.
+axiom Sets : Type
+
+-- The catch: `S : Sets` makes S a *term*, so `S -> S -> PC` fails ("type
+-- expected, got S") — a term is not automatically a type. To say "the elements
+-- of a set are a type again" we postulate a decoder `El` sending each set to the
+-- type of its elements (the universe-à-la-Tarski device). Membership is then just
+-- typing: "x ∈ S" is spelled `x : El S`.
+axiom El : Sets -> Type
+
+-- sets are terms in Sets and their elements (terms of `El S`) can be compared
+axiom Equal : (S : Sets) -> (El S -> El S -> PC)
+
+
+-- =====================================================================
+-- ZFC layer
+-- =====================================================================
+--
+-- A second, *untyped* presentation of set theory living alongside the typed
+-- `El`/`Equal` model above (transitional coexistence). Here there is one sort,
+-- `Sets`, and a single global membership relation `elem` — every element of a set
+-- is itself a set. We follow the ZFC axiom list
+-- (https://en.wikipedia.org/wiki/Zermelo%E2%80%93Fraenkel_set_theory).
+--
+-- Core is in its lambda-free phase, so the existential axioms cannot use `fun` to
+-- build the predicate `Exist`/`Forall` expect. Instead every such predicate is a
+-- named top-level `def` whose *last* parameter is the bound variable and whose
+-- leading parameters capture the free variables; it is then partially applied
+-- (manual lambda-lifting). Universal quantifiers that are not nested under an
+-- existential are written directly as dependent function types `(x : Sets) -> …`.
+
+-- biconditional: missing from classical_propositional_logic (which has
+-- and/or/not/imply), so define it locally. (fall back to `bicond` if `iff`
+-- collides with the Lean prelude.)
+def iff (a b : PC) : PC := and (imply a b) (imply b a)
+
+-- the global membership relation: `elem x A` is "x ∈ A".
+-- (named `elem`, not `in`, since `in` is a reserved Lean keyword.)
+axiom elem : Sets -> Sets -> PC
+
+-- "w ∈ x" with w as the trailing/bound variable. `elem` fixes its *first*
+-- argument under partial application, so abstracting over the *left* operand
+-- needs this flip helper. Reused below for "x is nonempty" (∃w. w ∈ x).
+def memOf (x w : Sets) : PC := elem w x
+
+-- subset: a plain ∀, written as a dependent arrow (no Pred term needed).
+def Subset (a b : Sets) : PC := (x : Sets) -> imply (elem x a) (elem x b)
+
+-- Equality DEFINED from membership: two sets are equal iff they have the same
+-- members (extensionality as a *definition*). Named `SetEq`, not `Eq`, since
+-- `Eq` is Lean's built-in equality type.
+def SetEq (a b : Sets) : PC := (x : Sets) -> iff (elem x a) (elem x b)
+
+-- Caveat: defining Eq this way yields reflexivity/symmetry/transitivity for free,
+-- but NOT substitutability — `Eq a b → (a ∈ c ↔ b ∈ c)` does not follow from the
+-- definition (in ZFC over FOL-with-equality that comes from `=` being a primitive
+-- logical congruence). So we postulate Leibniz substitution as the one
+-- substantive axiom; membership-congruence is then a special case.
+axiom eq_subst (P : Pred Sets) (a b : Sets) : imply (SetEq a b) (imply (P a) (P b))
+
+-- Extensionality ("same members ⇒ equal") is now definitionally trivial
+-- ((a b : Sets) -> imply (SetEq a b) (SetEq a b)), so it needs no separate axiom.
+
+-- Pairing: ∀a ∀b ∃c ∀x (x ∈ c ↔ x = a ∨ x = b)
+def pairBody (a b c : Sets) : PC := (x : Sets) -> iff (elem x c) (or (SetEq x a) (SetEq x b))
+axiom pairing (a b : Sets) : Exist Sets (pairBody a b)
+
+-- Union: ∀A ∃U ∀x (x ∈ U ↔ ∃y (y ∈ A ∧ x ∈ y))
+def unionWit (A x y : Sets) : PC := and (elem y A) (elem x y)
+def unionBody (A U : Sets) : PC := (x : Sets) -> iff (elem x U) (Exist Sets (unionWit A x))
+axiom union_ax (A : Sets) : Exist Sets (unionBody A)
+
+-- Power set: ∀A ∃P ∀x (x ∈ P ↔ x ⊆ A)
+def powerBody (A P : Sets) : PC := (x : Sets) -> iff (elem x P) (Subset x A)
+axiom power_ax (A : Sets) : Exist Sets (powerBody A)
+
+-- Separation (schema): the formula φ is a `Pred Sets` parameter supplied at the
+-- use site (mirrors `induction (f : …)` in natural_numbers.cor).
+-- ∀A ∃B ∀x (x ∈ B ↔ (x ∈ A ∧ φ x))
+def sepBody (A : Sets) (phi : Pred Sets) (B : Sets) : PC :=
+  (x : Sets) -> iff (elem x B) (and (elem x A) (phi x))
+axiom separation (A : Sets) (phi : Pred Sets) : Exist Sets (sepBody A phi)
+
+-- Replacement (schema): φ x y is a class relation (Sets -> Sets -> PC parameter).
+-- ∀A [ (∀x ∈ A, ∃!y φ x y) → ∃B ∀y (y ∈ B ↔ ∃x (x ∈ A ∧ φ x y)) ]
+def replUniq (phi : Sets -> Sets -> PC) (x y z : Sets) : PC := imply (phi x z) (SetEq z y)
+def replExU (phi : Sets -> Sets -> PC) (x y : Sets) : PC :=
+  and (phi x y) (Forall Sets (replUniq phi x y))
+def replFun (A : Sets) (phi : Sets -> Sets -> PC) (x : Sets) : PC :=
+  imply (elem x A) (Exist Sets (replExU phi x))
+def replWit (A : Sets) (phi : Sets -> Sets -> PC) (y x : Sets) : PC :=
+  and (elem x A) (phi x y)
+def replBody (A : Sets) (phi : Sets -> Sets -> PC) (B : Sets) : PC :=
+  (y : Sets) -> iff (elem y B) (Exist Sets (replWit A phi y))
+axiom replacement (A : Sets) (phi : Sets -> Sets -> PC) :
+  imply (Forall Sets (replFun A phi)) (Exist Sets (replBody A phi))
+
+-- "e is empty": ∀z ¬(z ∈ e). (used by Empty and Infinity)
+def isEmpty (e : Sets) : PC := (z : Sets) -> not (elem z e)
+
+-- Empty set: ∃e ∀z ¬(z ∈ e). (often derived in ZFC; stated here for convenience)
+axiom empty_ax : Exist Sets isEmpty
+
+-- Infinity. No operation symbols are available, so "∅ ∈ I" and "x ∪ {x} ∈ I"
+-- are spelled out inline:
+-- ∃I ( ∃e (e ∈ I ∧ e empty) ∧ ∀x (x ∈ I → ∃y (y ∈ I ∧ y = x ∪ {x})) )
+def emptyIn (I e : Sets) : PC := and (elem e I) (isEmpty e)
+def isSucc (x y : Sets) : PC := (z : Sets) -> iff (elem z y) (or (elem z x) (SetEq z x))
+def succIn (I x y : Sets) : PC := and (elem y I) (isSucc x y)
+def closedSuc (I x : Sets) : PC := imply (elem x I) (Exist Sets (succIn I x))
+def infBody (I : Sets) : PC := and (Exist Sets (emptyIn I)) (Forall Sets (closedSuc I))
+axiom infinity : Exist Sets infBody
+
+-- Regularity (foundation): ∀x (x ≠ ∅ → ∃y (y ∈ x ∧ y ∩ x = ∅))
+-- "x ≠ ∅" is rendered positively as "x is nonempty" = ∃w (w ∈ x) = Exist Sets (memOf x).
+def meet (x y z : Sets) : PC := and (elem z y) (elem z x)
+def disjFromX (x y : Sets) : PC := not (Exist Sets (meet x y))
+def regWit (x y : Sets) : PC := and (elem y x) (disjFromX x y)
+axiom regularity (x : Sets) : imply (Exist Sets (memOf x)) (Exist Sets (regWit x))
+
+-- Choice. For a family F of nonempty, pairwise-disjoint sets there is a choice
+-- set C meeting each member of F in exactly one point:
+-- ∀F [ (∀x ∈ F, x ≠ ∅ ∧ ∀y ∈ F, x = y ∨ x ∩ y = ∅)
+--      → ∃C ∀x ∈ F, ∃!w (w ∈ x ∧ w ∈ C) ]
+-- Same lambda-free pattern, just deeper; `disjFromX`/`memOf` are reused.
+def chPairwise (F x y : Sets) : PC := imply (elem y F) (or (SetEq x y) (disjFromX x y))
+def chMember (F x : Sets) : PC :=
+  imply (elem x F) (and (Exist Sets (memOf x)) (Forall Sets (chPairwise F x)))
+def chUniq (x C w z : Sets) : PC := imply (and (elem z x) (elem z C)) (SetEq z w)
+def chExU (x C w : Sets) : PC :=
+  and (and (elem w x) (elem w C)) (Forall Sets (chUniq x C w))
+def chChoose (F C x : Sets) : PC := imply (elem x F) (Exist Sets (chExU x C))
+def chBody (F C : Sets) : PC := Forall Sets (chChoose F C)
+axiom choice (F : Sets) : imply (Forall Sets (chMember F)) (Exist Sets (chBody F))
+
+#check pairing
+#check separation
+#check replacement
+#check choice
