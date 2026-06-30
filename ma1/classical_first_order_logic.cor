@@ -8,14 +8,6 @@ import classical_propositional_logic
 -- fibration: a predicate over a domain X is a propositional function X → PC.
 abbrev Pred (X : Type) := X → PC
 
--- structural properties of products: curry / uncurry. Postulated, since the
--- lambda-free phase has no way to define them.
-axiom prod_intro (X : Type) (Y : Type) (Z : Type) : (X → Y → Z) → ((X × Y) → Z)
-axiom prod_elim : (X : Type) -> (Y : Type) -> (Z : Type) -> ((X × Y) → Z) → (X → Y → Z)
-
--- a curried binary predicate is a predicate on the product
--- noncomputable def prop_intro (X Y : Type) : (X → Pred Y) → Pred (X × Y) := prod_intro X Y PC
-
 -- universal quantifier: Forall X P is "∀ x : X, P x"
 axiom Forall (X : Type) (P : Pred X) : PC
 -- intro: a proof of P x for every x (a dependent function) proves Forall X P
