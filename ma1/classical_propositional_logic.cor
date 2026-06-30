@@ -39,6 +39,9 @@ axiom excluded_middle (A : PC) : or A (not A)
 -- double-negation elimination (classical)
 axiom double_negation_elim (A : PC) : not (not A) → A
 
+-- biconditional: A ↔ B as the conjunction of the two implications.
+def iff (a b : PC) : PC := and (imply a b) (imply b a)
+
 -- derived rules
 
 -- diagonal/contraction: duplicate a proof into a conjunction.
@@ -67,3 +70,43 @@ noncomputable def modus_tollens (A B : PC) : imply A B → not B → not A :=
 -- (exchange (imply A B) (A → not B) (not A) (not_intro A B ∘ imply_elim A B)) ∘ weakening (not B) A : not B → imply A B → not A
 -- exchange (not B) (imply A B) (not A) : (not B → imply A B → not A) → (imply A B → not B → not A)
 -- exchange (not B) (imply A B) (not A) ((…) ∘ weakening (not B) A) : imply A B → not B → not A
+
+-- ex falso quodlibet: from a proof of A and a proof of not A, conclude anything.
+-- No primitive absurdity rule is assumed; built classically by packaging both
+-- hypotheses into a proof of `not (not B)` and applying double_negation_elim.
+-- (Named ex_falso, not `absurd`, which Lean reserves.)
+noncomputable def ex_falso (A B : PC) (na : not A) (a : A) : B :=
+  double_negation_elim B
+    (not_intro (not B) A (weakening A (not B) a) (weakening (not A) (not B) na))
+
+-- vacuous implication: a false antecedent implies anything (not A → imply A B).
+noncomputable def vacuous (A B : PC) (na : not A) : imply A B :=
+  imply_intro A B (ex_falso A B na)
+
+-- biconditional helpers (iff = and of the two implications)
+
+noncomputable def iff_refl (A : PC) : iff A A :=
+  and_intro (imply A A) (imply A A) (imply_intro A A (i_comb A)) (imply_intro A A (i_comb A))
+
+noncomputable def iff_intro (A B : PC) : imply A B -> imply B A -> iff A B :=
+  and_intro (imply A B) (imply B A)
+
+-- forward direction as a function A → B (modus ponens through the iff)
+noncomputable def iff_mp (A B : PC) (h : iff A B) : A -> B :=
+  imply_elim A B (and_elim_left (imply A B) (imply B A) h)
+
+-- backward direction as a function B → A
+noncomputable def iff_mpr (A B : PC) (h : iff A B) : B -> A :=
+  imply_elim B A (and_elim_right (imply A B) (imply B A) h)
+
+noncomputable def iff_sym (A B : PC) (h : iff A B) : iff B A :=
+  iff_intro B A (and_elim_right (imply A B) (imply B A) h) (and_elim_left (imply A B) (imply B A) h)
+
+noncomputable def iff_trans (A B C : PC) (h1 : iff A B) (h2 : iff B C) : iff A C :=
+  iff_intro A C
+    (imply_intro A C (iff_mp B C h2 ∘ iff_mp A B h1))
+    (imply_intro C A (iff_mpr A B h1 ∘ iff_mpr B C h2))
+
+-- idempotence of disjunction: or A A → A (case-split with identity both ways)
+noncomputable def or_idem (A : PC) (h : or A A) : A :=
+  or_elim A A A h (i_comb A) (i_comb A)

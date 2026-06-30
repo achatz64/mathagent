@@ -1,0 +1,42 @@
+import classical_first_order_logic
+
+-- Definite description ("the" / ι operator): unique existence ⇒ a term.
+--
+-- The existence axioms of set.cor (and others) live in PC (= Prop). A proof that
+-- a witness exists carries no extractable term, and Core/Lean has no eliminator
+-- from Prop into Type (impredicative, proof-irrelevant Prop) — see the discussion
+-- around Exist_elim, whose motive is forced into PC. So to turn "there is exactly
+-- one x with P x" into an actual term we must POSTULATE a description operator.
+-- This is the principle of unique choice; it is an added axiom, not derivable.
+--
+-- Uniqueness is stated relative to a chosen equality `E` on `X`, so the same
+-- machinery serves any type with any equality: Leibniz-style equality, the set
+-- equality `SetEq` on `Sets`, the per-set `Equal S` on `El S`, and so on.
+
+-- uniqueness w.r.t. equality E: any two witnesses of P are E-related.
+-- (implication is the bare function arrow, so this is usable by application.)
+def Unique (X : Type) (E : X -> X -> PC) (P : Pred X) : PC :=
+  (a : X) -> (b : X) -> P a -> P b -> E a b
+
+-- unique existence: a witness exists and is unique up to E.
+def ExistUnique (X : Type) (E : X -> X -> PC) (P : Pred X) : PC :=
+  and (Exist X P) (Unique X E P)
+
+-- THE description operator: from unique existence, extract the witness as a term.
+-- (This is exactly the Prop → Type bridge that the existence axioms cannot give.)
+axiom the (X : Type) (E : X -> X -> PC) (P : Pred X) : ExistUnique X E P -> X
+
+-- spec: the extracted term satisfies P.
+axiom the_spec (X : Type) (E : X -> X -> PC) (P : Pred X)
+  (h : ExistUnique X E P) : P (the X E P h)
+
+-- derived: the extracted term is E-canonical — every witness is E-related to it.
+-- Proof: project the uniqueness half of h, then feed it y, (the …), and the two
+-- membership proofs (hy and the_spec). Modus ponens is application.
+noncomputable def the_eq (X : Type) (E : X -> X -> PC) (P : Pred X)
+  (h : ExistUnique X E P) (y : X) (hy : P y) : E y (the X E P h) :=
+  and_elim_right (Exist X P) (Unique X E P) h y (the X E P h) hy (the_spec X E P h)
+
+#check the
+#check the_spec
+#check the_eq

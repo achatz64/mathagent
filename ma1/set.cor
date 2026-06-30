@@ -39,11 +39,6 @@ axiom Equal : (S : Sets) -> (El S -> El S -> PC)
 -- (manual lambda-lifting). Universal quantifiers that are not nested under an
 -- existential are written directly as dependent function types `(x : Sets) -> …`.
 
--- biconditional: missing from classical_propositional_logic (which has
--- and/or/not/imply), so define it locally. (fall back to `bicond` if `iff`
--- collides with the Lean prelude.)
-def iff (a b : PC) : PC := and (imply a b) (imply b a)
-
 -- the global membership relation: `elem x A` is "x ∈ A".
 -- (named `elem`, not `in`, since `in` is a reserved Lean keyword.)
 axiom elem : Sets -> Sets -> PC

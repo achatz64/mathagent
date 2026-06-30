@@ -1,0 +1,237 @@
+import set
+import definite_description
+import set_constructions
+import classical_first_order_logic
+
+-- The natural numbers, constructed inside ZFC (von Neumann ω).
+--
+--   0 = ∅            (emptyset, from set_constructions)
+--   succ n = n ∪ {n} (nsucc,    from set_constructions)
+--   ℕ = ω            the smallest inductive set
+--
+-- Everything below is DERIVED from the set.cor axioms via the description
+-- operator `the`, except `Inf`: the Axiom of Infinity only asserts that an
+-- inductive set EXISTS, and inductive sets are not unique, so `the` cannot pick
+-- one. We name a witness `Inf` (exactly "instantiate the existential"), then carve
+-- the canonical, minimal ω out of it by Separation — which IS unique.
+
+-- ── small equality/membership lemmas ──
+
+-- symmetry of set equality.
+noncomputable def SetEq_sym (a b : Sets) (h : SetEq a b) (x : Sets) : iff (elem x b) (elem x a) :=
+  iff_sym (elem x a) (elem x b) (h x)
+
+-- membership respects set equality on the LEFT: a ∈ c and a = b give b ∈ c.
+-- (predicate fixed for eq_subst is `memOf c`, i.e. `· ∈ c`.)
+noncomputable def mem_subst_left (a b c : Sets) (h : SetEq a b) (ha : elem a c) : elem b c :=
+  imply_elim (elem a c) (elem b c)
+    (imply_elim (SetEq a b) (imply (elem a c) (elem b c)) (eq_subst (memOf c) a b) h)
+    ha
+
+-- ── Infinity: name one inductive set ──
+axiom Inf : Sets
+axiom Inf_spec : infBody Inf
+
+-- I is inductive: contains ∅ and is closed under the successor (term form).
+def isInductive (I : Sets) : PC :=
+  and (elem emptyset I) ((x : Sets) -> imply (elem x I) (elem (nsucc x) I))
+
+-- "x lies in every inductive set" — the Separation predicate carving out ω.
+def omegaPred (x : Sets) : PC := (I : Sets) -> imply (isInductive I) (elem x I)
+
+-- generic Separation uniqueness (two separated sets with the same φ are SetEq).
+noncomputable def sepUnique (A : Sets) (phi : Pred Sets) (c d : Sets)
+  (hc : sepBody A phi c) (hd : sepBody A phi d) (x : Sets) : iff (elem x c) (elem x d) :=
+  iff_trans (elem x c) (and (elem x A) (phi x)) (elem x d)
+    (hc x) (iff_sym (elem x d) (and (elem x A) (phi x)) (hd x))
+
+-- ── ω = { x ∈ Inf : x in every inductive set } ──
+noncomputable def omegaExU : ExistUnique Sets SetEq (sepBody Inf omegaPred) :=
+  and_intro (Exist Sets (sepBody Inf omegaPred)) (Unique Sets SetEq (sepBody Inf omegaPred))
+    (separation Inf omegaPred) (sepUnique Inf omegaPred)
+noncomputable def omega : Sets := the Sets SetEq (sepBody Inf omegaPred) omegaExU
+noncomputable def omega_spec : sepBody Inf omegaPred omega :=
+  the_spec Sets SetEq (sepBody Inf omegaPred) omegaExU
+
+-- the natural numbers, with zero and successor.
+noncomputable def N : Sets := omega
+noncomputable def zero : Sets := emptyset
+
+-- ── 0 ∈ ℕ ──
+
+-- ∅ ∈ Inf: Inf contains some empty set e, and e = ∅ by uniqueness of the empty set.
+noncomputable def emptyset_in_Inf_fn (e : Sets) (he : and (elem e Inf) (isEmpty e)) : elem emptyset Inf :=
+  mem_subst_left e emptyset Inf
+    (emptyUnique e emptyset (and_elim_right (elem e Inf) (isEmpty e) he) emptyset_spec)
+    (and_elim_left (elem e Inf) (isEmpty e) he)
+noncomputable def emptyset_in_Inf : elem emptyset Inf :=
+  Exist_elim Sets (emptyIn Inf) (elem emptyset Inf) emptyset_in_Inf_fn
+    (and_elim_left (Exist Sets (emptyIn Inf)) (Forall Sets (closedSuc Inf)) Inf_spec)
+
+-- ∅ is in every inductive set (it is the first conjunct of isInductive).
+noncomputable def omegaPred_zero (I : Sets) : imply (isInductive I) (elem emptyset I) :=
+  imply_intro (isInductive I) (elem emptyset I)
+    (and_elim_left (elem emptyset I) ((x : Sets) -> imply (elem x I) (elem (nsucc x) I)))
+
+noncomputable def zero_in_N : elem zero N :=
+  iff_mpr (elem emptyset omega) (and (elem emptyset Inf) (omegaPred emptyset)) (omega_spec emptyset)
+    (and_intro (elem emptyset Inf) (omegaPred emptyset) emptyset_in_Inf omegaPred_zero)
+
+-- ── succ : ℕ → ℕ ──
+
+-- successor sets are unique (characterized by membership), like every set here.
+noncomputable def succUnique (n y d : Sets) (hy : isSucc n y) (hd : isSucc n d) (x : Sets)
+  : iff (elem x y) (elem x d) :=
+  iff_trans (elem x y) (or (elem x n) (SetEq x n)) (elem x d)
+    (hy x) (iff_sym (elem x d) (or (elem x n) (SetEq x n)) (hd x))
+
+-- nsucc n ∈ Inf: Inf gives some successor of n; it equals nsucc n by uniqueness.
+noncomputable def Inf_closedFn (n y : Sets) (hy : and (elem y Inf) (isSucc n y)) : elem (nsucc n) Inf :=
+  mem_subst_left y (nsucc n) Inf
+    (SetEq_sym (nsucc n) y
+      (succUnique n (nsucc n) y (nsucc_spec n) (and_elim_right (elem y Inf) (isSucc n y) hy)))
+    (and_elim_left (elem y Inf) (isSucc n y) hy)
+noncomputable def nsucc_in_Inf (n : Sets) (hn : elem n Inf) : elem (nsucc n) Inf :=
+  Exist_elim Sets (succIn Inf n) (elem (nsucc n) Inf) (Inf_closedFn n)
+    (imply_elim (elem n Inf) (Exist Sets (succIn Inf n))
+      (Forall_elim Sets (closedSuc Inf)
+        (and_elim_right (Exist Sets (emptyIn Inf)) (Forall Sets (closedSuc Inf)) Inf_spec) n)
+      hn)
+
+-- nsucc n is in every inductive set (each is closed under the successor).
+noncomputable def omegaPred_succ_fn (n : Sets) (hn : omegaPred n) (I : Sets) (hI : isInductive I)
+  : elem (nsucc n) I :=
+  imply_elim (elem n I) (elem (nsucc n) I)
+    ((and_elim_right (elem emptyset I) ((x : Sets) -> imply (elem x I) (elem (nsucc x) I)) hI) n)
+    (imply_elim (isInductive I) (elem n I) (hn I) hI)
+noncomputable def omegaPred_succ (n : Sets) (hn : omegaPred n) (I : Sets)
+  : imply (isInductive I) (elem (nsucc n) I) :=
+  imply_intro (isInductive I) (elem (nsucc n) I) (omegaPred_succ_fn n hn I)
+
+noncomputable def succ_in_N (n : Sets) (hn : elem n N) : elem (nsucc n) N :=
+  iff_mpr (elem (nsucc n) omega) (and (elem (nsucc n) Inf) (omegaPred (nsucc n))) (omega_spec (nsucc n))
+    (and_intro (elem (nsucc n) Inf) (omegaPred (nsucc n))
+      (nsucc_in_Inf n
+        (and_elim_left (elem n Inf) (omegaPred n)
+          (iff_mp (elem n omega) (and (elem n Inf) (omegaPred n)) (omega_spec n) hn)))
+      (omegaPred_succ n
+        (and_elim_right (elem n Inf) (omegaPred n)
+          (iff_mp (elem n omega) (and (elem n Inf) (omegaPred n)) (omega_spec n) hn))))
+
+-- ── Induction ──
+-- S = { x ∈ ω : P x } is inductive; minimality of ω (every member lies in every
+-- inductive set) then forces ω ⊆ S, i.e. P holds throughout ω.
+noncomputable def indSetExU (P : Pred Sets) : ExistUnique Sets SetEq (sepBody omega P) :=
+  and_intro (Exist Sets (sepBody omega P)) (Unique Sets SetEq (sepBody omega P))
+    (separation omega P) (sepUnique omega P)
+noncomputable def indSet (P : Pred Sets) : Sets := the Sets SetEq (sepBody omega P) (indSetExU P)
+noncomputable def indSet_spec (P : Pred Sets) : sepBody omega P (indSet P) :=
+  the_spec Sets SetEq (sepBody omega P) (indSetExU P)
+
+noncomputable def indSet_closureFn (P : Pred Sets) (hstep : (n : Sets) -> elem n N -> P n -> P (nsucc n))
+  (x : Sets) (hx : elem x (indSet P)) : elem (nsucc x) (indSet P) :=
+  iff_mpr (elem (nsucc x) (indSet P)) (and (elem (nsucc x) omega) (P (nsucc x))) (indSet_spec P (nsucc x))
+    (and_intro (elem (nsucc x) omega) (P (nsucc x))
+      (succ_in_N x
+        (and_elim_left (elem x omega) (P x)
+          (iff_mp (elem x (indSet P)) (and (elem x omega) (P x)) (indSet_spec P x) hx)))
+      (hstep x
+        (and_elim_left (elem x omega) (P x)
+          (iff_mp (elem x (indSet P)) (and (elem x omega) (P x)) (indSet_spec P x) hx))
+        (and_elim_right (elem x omega) (P x)
+          (iff_mp (elem x (indSet P)) (and (elem x omega) (P x)) (indSet_spec P x) hx))))
+noncomputable def indSet_closure (P : Pred Sets) (hstep : (n : Sets) -> elem n N -> P n -> P (nsucc n))
+  (x : Sets) : imply (elem x (indSet P)) (elem (nsucc x) (indSet P)) :=
+  imply_intro (elem x (indSet P)) (elem (nsucc x) (indSet P)) (indSet_closureFn P hstep x)
+
+noncomputable def indSet_inductive (P : Pred Sets) (h0 : P zero)
+  (hstep : (n : Sets) -> elem n N -> P n -> P (nsucc n)) : isInductive (indSet P) :=
+  and_intro (elem emptyset (indSet P))
+    ((x : Sets) -> imply (elem x (indSet P)) (elem (nsucc x) (indSet P)))
+    (iff_mpr (elem emptyset (indSet P)) (and (elem emptyset omega) (P emptyset)) (indSet_spec P emptyset)
+      (and_intro (elem emptyset omega) (P emptyset) zero_in_N h0))
+    (indSet_closure P hstep)
+
+noncomputable def induction (P : Pred Sets) (h0 : P zero)
+  (hstep : (n : Sets) -> elem n N -> P n -> P (nsucc n)) (n : Sets) (hn : elem n N) : P n :=
+  and_elim_right (elem n omega) (P n)
+    (iff_mp (elem n (indSet P)) (and (elem n omega) (P n)) (indSet_spec P n)
+      (imply_elim (isInductive (indSet P)) (elem n (indSet P))
+        ((and_elim_right (elem n Inf) (omegaPred n)
+          (iff_mp (elem n omega) (and (elem n Inf) (omegaPred n)) (omega_spec n) hn)) (indSet P))
+        (indSet_inductive P h0 hstep)))
+
+-- ── 0 ≠ succ n ──
+noncomputable def zero_ne_succ_fn (n : Sets) (h : SetEq zero (nsucc n)) : elem n zero :=
+  mem_subst n (nsucc n) zero (nsucc_self n) (SetEq_sym zero (nsucc n) h)
+noncomputable def zero_ne_succ (n : Sets) : not (SetEq zero (nsucc n)) :=
+  not_intro (SetEq zero (nsucc n)) (elem n zero)
+    (zero_ne_succ_fn n)
+    (weakening (not (elem n zero)) (SetEq zero (nsucc n)) (emptyset_spec n))
+
+-- ── succ is injective (the first use of Regularity) ──
+-- succ m = succ n ⇒ m = n.  m ∈ succ m = succ n gives m∈n ∨ m=n, and symmetrically
+-- n∈m ∨ n=m; the only branch not giving m=n is the 2-cycle m∈n ∧ n∈m, which
+-- Regularity rules out (applied to {m,n}). Holds for arbitrary sets, not just ℕ.
+
+-- A 2-cycle m∈n ∧ n∈m is impossible: in {m,n}, neither m nor n can be the
+-- ∈-minimal element Regularity demands. The minimal element y is m or n; whichever
+-- it is, the OTHER one sits in y ∩ {m,n}, contradicting disjointness.
+noncomputable def no2_caseYm (m n : Sets) (hnm : elem n m) (C : PC) (y : Sets)
+  (hy_disj : disjFromX (pair m n) y) (hym : SetEq y m) : C :=
+  ex_falso (Exist Sets (meet (pair m n) y)) C hy_disj
+    (Exist_intro Sets (meet (pair m n) y) n
+      (and_intro (elem n y) (elem n (pair m n))
+        (mem_subst n m y hnm (SetEq_sym y m hym))
+        (pair_right m n)))
+noncomputable def no2_caseYn (m n : Sets) (hmn : elem m n) (C : PC) (y : Sets)
+  (hy_disj : disjFromX (pair m n) y) (hyn : SetEq y n) : C :=
+  ex_falso (Exist Sets (meet (pair m n) y)) C hy_disj
+    (Exist_intro Sets (meet (pair m n) y) m
+      (and_intro (elem m y) (elem m (pair m n))
+        (mem_subst m n y hmn (SetEq_sym y n hyn))
+        (pair_left m n)))
+
+noncomputable def no2_fn (m n : Sets) (hmn : elem m n) (hnm : elem n m) (C : PC) (y : Sets)
+  (hy : and (elem y (pair m n)) (disjFromX (pair m n) y)) : C :=
+  or_elim (SetEq y m) (SetEq y n) C
+    (iff_mp (elem y (pair m n)) (or (SetEq y m) (SetEq y n)) (pair_spec m n y)
+      (and_elim_left (elem y (pair m n)) (disjFromX (pair m n) y) hy))
+    (no2_caseYm m n hnm C y (and_elim_right (elem y (pair m n)) (disjFromX (pair m n) y) hy))
+    (no2_caseYn m n hmn C y (and_elim_right (elem y (pair m n)) (disjFromX (pair m n) y) hy))
+
+noncomputable def no_2cycle (m n : Sets) (hmn : elem m n) (hnm : elem n m) (C : PC) : C :=
+  Exist_elim Sets (regWit (pair m n)) C (no2_fn m n hmn hnm C)
+    (imply_elim (Exist Sets (memOf (pair m n))) (Exist Sets (regWit (pair m n)))
+      (regularity (pair m n))
+      (Exist_intro Sets (memOf (pair m n)) m (pair_left m n)))
+
+-- m ∈ succ m = succ n  →  m ∈ n ∨ m = n   (and the symmetric statement)
+noncomputable def succ_inj_disj_m (m n : Sets) (h : SetEq (nsucc m) (nsucc n))
+  : or (elem m n) (SetEq m n) :=
+  iff_mp (elem m (nsucc n)) (or (elem m n) (SetEq m n)) (nsucc_spec n m)
+    (mem_subst m (nsucc m) (nsucc n) (nsucc_self m) h)
+noncomputable def succ_inj_disj_n (m n : Sets) (h : SetEq (nsucc m) (nsucc n))
+  : or (elem n m) (SetEq n m) :=
+  iff_mp (elem n (nsucc m)) (or (elem n m) (SetEq n m)) (nsucc_spec m n)
+    (mem_subst n (nsucc n) (nsucc m) (nsucc_self n) (SetEq_sym (nsucc m) (nsucc n) h))
+
+-- given m∈n, the 2-cycle branch is killed; the n=m branch is just symmetry.
+noncomputable def succ_inj_2cyc (m n : Sets) (hmn : elem m n) (hnm : elem n m) : SetEq m n :=
+  no_2cycle m n hmn hnm (SetEq m n)
+noncomputable def succ_inj_inner (m n : Sets) (hn : or (elem n m) (SetEq n m)) (hmn : elem m n)
+  : SetEq m n :=
+  or_elim (elem n m) (SetEq n m) (SetEq m n) hn (succ_inj_2cyc m n hmn) (SetEq_sym n m)
+
+noncomputable def succ_inj (m n : Sets) (h : SetEq (nsucc m) (nsucc n)) : SetEq m n :=
+  or_elim (elem m n) (SetEq m n) (SetEq m n) (succ_inj_disj_m m n h)
+    (succ_inj_inner m n (succ_inj_disj_n m n h))
+    (i_comb (SetEq m n))
+
+#check N
+#check zero
+#check zero_in_N
+#check succ_in_N
+#check induction
+#check zero_ne_succ
+#check succ_inj
