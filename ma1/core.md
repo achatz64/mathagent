@@ -51,23 +51,71 @@ supplies them — this is the reason for aligning Core's syntax with Lean.
 ## Syntax
 Read the gentle [intro](#gentle-introduction-to-types) first.
 
-Operators and keywords: `:`, `→` (ascii `->`), `∘`, `×`, `( )`, `Type`/`Sort`/`Prop`,
-`def`, `abbrev`, `axiom`, `import`, `open`, `namespace`, `--`.
+Operators and keywords: `:`, `→` (ascii `->`), `∘`, `( )`, `Type`/`Prop`,
+`def`, `abbrev`, `axiom`, `noncomputable`, `import`, `open`, `namespace`, `--`, `#check`.
 
 * `--` starts a line comment (good until end of line); `/- ... -/` is a block comment.
 * There is **no statement terminator**: commands are separated by newlines and keywords (no `;`).
 * `x : X` reads "`x` is a term of type `X`". In a binder it is parenthesised, `(x : X)`, and several names of the same type may be grouped: `(x y : X)`.
-* `Type` is the universe of types; `X : Type` means `X` is a type, and then `x : X` is a term of it. `Prop` is the universe of propositions (its terms are propositions, whose terms are proofs) and is impredicative; `Sort` is the general universe. A universe is named with `abbrev`, e.g. `abbrev PC := Prop`.
+* `Type` is the universe of types; `X : Type` means `X` is a type, and then `x : X` is a term of it. `Prop` is the universe of propositions (its terms are propositions, whose terms are proofs) and is impredicative. A universe is named with `abbrev`, e.g. `abbrev PC := Prop`.
 * `X → Y` is the function type from `X` to `Y` (ascii `->` is also accepted). Arrows associate to the **right**: `X → Y → Z` means `X → (Y → Z)`. Use `( )` to override: `(X → Y) → Z` is different from `X → (Y → Z)`.
 * `(x : X) → B` is a **dependent function type**: the codomain `B` may mention `x`. If `B` does not mention `x` it is the same as `X → B`.
 * Application is **juxtaposition**: `f a` applies `f` to `a`. It associates to the **left**: `f a b` means `(f a) b`. For `f : X → Y → Z`, `a : X`, `b : Y`, we get `f a : Y → Z` and `f a b : Z`.
 * Composition is `f ∘ g` (Lean's `Function.comp`): for `f : Y → Z` and `g : X → Y`, `f ∘ g : X → Z`. Composition and application are now **distinct** operators (Core no longer overloads a single `.` for both).
-* `axiom c : T` declares an exported, immutable constant of type `T` whose value is **postulated** — a primitive or an axiom, no definition given. This covers both a primitive type, `axiom X : Type`, and a primitive term, `axiom c : T`.
-* `def c : T := e` defines an exported, immutable constant `c` of type `T` with value `e` (the signature may be omitted: `def c := e`). If `e` depends on any `axiom`, prefix with `noncomputable` (`noncomputable def c := e`) — Lean refuses to generate runtime code for axiom-backed definitions, and Core objects are not meant to be run anyway. `def` can use generics as explained below.
+* `axiom c : T` declares an exported, immutable constant of type `T` whose value is **postulated** — a primitive or an axiom, no definition given. This covers both a primitive type, `axiom X : Type`, and a primitive term, `axiom c : T`. Like `def`, an axiom may take explicit parameters, `axiom c (p : A) : T` (see *Parameterized declarations* below); nearly every axiom in `classical_first_order_logic.cor` and `set.cor` uses this form.
+* `def c : T := e` defines an exported, immutable constant `c` of type `T` with value `e` (the signature may be omitted: `def c := e`). If `e` depends on any `axiom`, prefix with `noncomputable` (`noncomputable def c := e`) — Lean refuses to generate runtime code for axiom-backed definitions, and Core objects are not meant to be run anyway. `def` can take parameters (generics and ordinary/proof arguments alike) as explained below.
 * `abbrev c := e` defines a transparent (reducible) abbreviation, used for naming a type or universe, e.g. `abbrev PC := Prop`.
-* **Generics are ordinary explicit parameters.** A polymorphic constant takes its type arguments as explicit parameters and they are supplied explicitly at every use site. `m (X : T) : X → Z` is declared with `(X : T)` and used as `m A`. Several may be grouped, `m (X : T) (Y : U) : ...`, or share a type, `(X Y : T)`. A *constrained* generic targets a specific universe, e.g. `(A B : Prop)` for parameters ranging only over propositions (Core's structural combinators use this, so they apply to propositions, not arbitrary types); an *unconstrained* parameter is `(X : Type)` (defined for all types). Type parameters and term parameters are thus uniform — exactly the unification that dependent types provide. (Core does **not** use Lean's implicit `{ }` arguments: nothing is left to inference.)
+* **Parameters are explicit; generics are just type-valued parameters.** A declaration takes explicit parameters `(x : X)` to the left of `:` — these may be terms, proofs, or types, treated uniformly (see *Parameterized declarations*). A polymorphic constant is the special case where a parameter is a type, supplied explicitly at every use site. `m (X : T) : X → Z` is declared with `(X : T)` and used as `m A`. Several may be grouped, `m (X : T) (Y : U) : ...`, or share a type, `(X Y : T)`. A *constrained* generic targets a specific universe, e.g. `(A B : Prop)` for parameters ranging only over propositions (Core's structural combinators use this, so they apply to propositions, not arbitrary types); an *unconstrained* parameter is `(X : Type)` (defined for all types). Type parameters and term parameters are thus uniform — exactly the unification that dependent types provide. (Core does **not** use Lean's implicit `{ }` arguments: nothing is left to inference.)
 * `import M` brings in every declaration of module `M`. A file may wrap its declarations in `namespace N ... end N`; then a declaration `X` of that file is accessed as `N.X`, and `open N` makes it available unqualified.
-* **Naming.** Names must not collide with Lean's prelude. For instance `id` is reserved by Lean, so the identity combinator is named `i_comb`.
+* **Naming.** Names must not collide with Lean's prelude. The examples rename several: `id`→`i_comb`, `Eq`→`SetEq`, `in`→`elem` (`in` is a Lean keyword), and `absurd`→`ex_falso`.
+* `#check e` is a type-checker query: it elaborates `e` and reports its type. It is **scaffolding** with no effect on what a file defines (a by-product of Lean linking), used at the end of the example files to confirm signatures elaborate.
+
+### Parameterized declarations
+
+A parameter list to the left of `:` binds arguments for the whole declaration. For
+`def c (p₁ : A₁) … (pₙ : Aₙ) : B := e` (and likewise `axiom c (p₁ : A₁) … (pₙ : Aₙ) : T`):
+
+* the **type** of `c` is the dependent function type `(p₁ : A₁) → … → (pₙ : Aₙ) → B`; the parameters become the leading Π-binders, and each `Aᵢ` may mention earlier `pⱼ` (a *dependent telescope*, e.g. `def SetEq_sym (a b : Sets) (h : SetEq a b) …` where `h`'s type mentions `a b`).
+* the annotation `B` is the type of the **body** `e` with `p₁…pₙ` in scope — **not** the type of `c` itself.
+* the value binds `p₁…pₙ` over `e`. The honest desugaring is `fun p₁ … pₙ => e`, but this phase has no `fun`, so a parameter list is the **only** way to give a value that binds variables: it is primitive syntax, not removable sugar.
+
+Do not confuse the two binder roles. `(x : X) →` **inside a type** writes a ∀; `(x : X)` **left of `:`** is a parameter. They are *not* interchangeable:
+
+* `def Subset (a b : Sets) : PC := (x : Sets) -> imply (elem x a) (elem x b)` gives the **relation** `Subset : Sets → Sets → PC`, used applied as `Subset x A`.
+* `def Subset : PC := (a b x : Sets) -> imply (elem x a) (elem x b)` gives a **single closed proposition** `∀a∀b∀x. …`, which cannot be applied.
+
+Moving the binders across `:=` collapses a `Sets → Sets → PC` family into a lone `PC`.
+
+## Idioms (lambda-free phase)
+
+### Building predicates without λ (lambda lifting)
+
+Quantifier axioms take a predicate argument (`Forall`/`Exist … (P : Pred X)`), normally
+supplied as `fun x => …`. With no `fun`, Core uses **lambda lifting**: the compiler
+transformation that replaces an anonymous function by a named top-level one whose free
+variables become extra leading parameters. Concretely, define a `def` whose **last**
+parameter is the bound variable and whose leading parameters are the captured free
+variables, then **partially apply** to the free variables to leave exactly a `Pred X`.
+
+Example (Pairing, `set.cor`):
+
+    def pairBody (a b c : Sets) : PC := (x : Sets) -> iff (elem x c) (or (SetEq x a) (SetEq x b))
+    axiom pairing (a b : Sets) : Exist Sets (pairBody a b)
+
+Here `c` (the intended bound variable) is last and `a b` are the lifted free variables, so
+`pairBody a b : Sets → PC` is the predicate `Exist` needs. Nested quantifiers nest the
+pattern (`unionWit` inside `unionBody`).
+
+### Flip / reordering helpers
+
+Partial application fixes only **leading** arguments, so to abstract over an argument that
+is not leftmost, introduce a helper whose parameter order puts the intended bound variable
+last. Example: `elem : Sets → Sets → PC` fixes its *first* argument, so to form the
+predicate `· ∈ x` (abstracting the **left** operand) define
+
+    def memOf (x w : Sets) : PC := elem w x
+
+and use `memOf x : Pred Sets`. This is the `flip` combinator done by hand.
 
 ## Type checker
 
@@ -82,7 +130,19 @@ element in the surrounding expression. Otherwise:
 1. **Application** `f a` is juxtaposition and associates left: `f a b = (f a) b`. It type-checks when the type of `a` matches the domain of `f`.
 2. **Composition** `f ∘ g` type-checks when the codomain of `g` matches the domain of `f`, and has type `X → Z` for `g : X → Y`, `f : Y → Z`.
 3. **Arrows** `→` associate right: `X → Y → Z = X → (Y → Z)`.
+4. **Relative precedence** is application > `∘` > `→`: application binds tightest, then composition, then the arrow. So `elem x a -> elem x b` parses as `(elem x a) → (elem x b)`, and `not_intro A B ∘ imply_elim A B` composes the two applications.
 
 Unlike earlier drafts, a single operator no longer stands for both application and
 composition: `f a` is always application and `f ∘ g` is always composition, so no
 domain/codomain disambiguation rule is needed.
+
+### Definitional equality (reduction during checking)
+
+Type checking compares types up to **definitional equality**, so the checker silently
+performs:
+
+* **delta** — unfolding a `def` or `abbrev` to its body. `abbrev` unfolds eagerly; a `def` unfolds when needed to make two types match. Both are relied on: `iff` is a `def`, yet `h : iff A B` is accepted where `and (imply A B) (imply B A)` is expected (`iff_mp`), and `ExistUnique …` (a `def`) is fed to `and_intro`/`and_elim`.
+* **beta** — applying such an unfolded definition to its arguments by substitution, e.g. `omega_spec emptyset` reduces `sepBody Inf omegaPred omega` and substitutes `emptyset`.
+
+`abbrev` and `def` therefore differ only in the *eagerness* of unfolding, not in whether a
+name is equal to its body.
