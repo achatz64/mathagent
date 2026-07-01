@@ -62,7 +62,6 @@ Operators and keywords: `:`, `→` (ascii `->`), `∘`, `×`, `( )`, `Type`/`Sor
 * `(x : X) → B` is a **dependent function type**: the codomain `B` may mention `x`. If `B` does not mention `x` it is the same as `X → B`.
 * Application is **juxtaposition**: `f a` applies `f` to `a`. It associates to the **left**: `f a b` means `(f a) b`. For `f : X → Y → Z`, `a : X`, `b : Y`, we get `f a : Y → Z` and `f a b : Z`.
 * Composition is `f ∘ g` (Lean's `Function.comp`): for `f : Y → Z` and `g : X → Y`, `f ∘ g : X → Z`. Composition and application are now **distinct** operators (Core no longer overloads a single `.` for both).
-* `X × Y` is the product type (Lean's `Prod`); a pair is `(a, b)`, and the projections of `p : X × Y` are `Prod.fst p : X` and `Prod.snd p : Y`.
 * `axiom c : T` declares an exported, immutable constant of type `T` whose value is **postulated** — a primitive or an axiom, no definition given. This covers both a primitive type, `axiom X : Type`, and a primitive term, `axiom c : T`.
 * `def c : T := e` defines an exported, immutable constant `c` of type `T` with value `e` (the signature may be omitted: `def c := e`). If `e` depends on any `axiom`, prefix with `noncomputable` (`noncomputable def c := e`) — Lean refuses to generate runtime code for axiom-backed definitions, and Core objects are not meant to be run anyway. `def` can use generics as explained below.
 * `abbrev c := e` defines a transparent (reducible) abbreviation, used for naming a type or universe, e.g. `abbrev PC := Prop`.
