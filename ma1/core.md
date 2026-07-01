@@ -12,9 +12,21 @@ relies on no implicit Lean machinery (typeclass resolution, tactics, coercions,
 elaboration sugar). The only thing Core takes from Lean is the bare type theory:
 universes, function types, dependent function types, application, and composition.
 
-This is the **lambda-free phase**: only the bare-minimum operators below are used.
-No `fun`/`λ`, no `match`, no tactics, no `∀`/`∃` sugar — binders that quantifiers
-need are spelled explicitly as dependent function types.
+This is the **lambda-free phase**: no *anonymous* `fun`/`λ`, no `match`, no tactics,
+no `∀`/`∃` sugar (quantifier binders are spelled as dependent function types).
+Abstraction survives only as the parameter telescope at the head of a `def`/`axiom` —
+every function is a named, **closed** combinator whose body is built solely by
+application and composition of constants and its own parameters. Parameters may depend
+on earlier ones *through their types* (the telescope stays closed), so this is
+combinatory term structure over a *dependent* type theory, not pure `S`/`K`. It is
+lambda calculus restricted to a **lambda-lifted (combinatory) form** — not a weaker
+calculus, since every λ-term *admits* such a translation, but not a *normal* form
+either: the translation is a choice (which subexpressions become defs, their arity and
+capture order), unique only relative to a fixed lifting algorithm. Bracket abstraction
+to a fixed `S`/`K` basis (`SK_combinators.cor`) is the sharper route but reaches only
+the non-dependent, propositional fragment. This confinement of the λ to declaration
+heads is the reverse of the anonymous `fun` that the **ma1** lambda language layers on
+top (see [ma1.md](ma1.md)).
 
 ## Context
 
@@ -117,6 +129,146 @@ predicate `· ∈ x` (abstracting the **left** operand) define
 
 and use `memOf x : Pred Sets`. This is the `flip` combinator done by hand.
 
+## Generics discipline: infrastructure vs. math
+
+Sections *Parameterized declarations* and *Idioms* expose a tension. A parameterized
+`def` **is** lambda abstraction (`def f (a : A) := e` ≡ `fun a => e`), so the parameter
+syntax lets *any* definition introduce a bound variable and consume it in its body — a
+λ. When this happens in ordinary mathematics (`def Subset (a b : Sets) := …`,
+`def memOf (x w : Sets) := elem w x`), the λ has **leaked** out of the small set of
+primitives that ought to own abstraction and into the open-ended math layer. Core is
+then only superficially lambda-free: abstraction is everywhere, merely spelled as
+parameter lists.
+
+The discipline that fixes this splits the language into two layers.
+
+1. **Infrastructure (the "syntax layer").** A fixed, well-defined vocabulary of
+   *polymorphic primitives*: the combinators (`weakening` = K, `s_comb` = S,
+   `exchange` = C, `i_comb` = I, composition `∘` = B — currently postulated at `Prop`
+   in `SK_combinators.cor`, to be generalized to `Sort` so they cover `Sets` too), the
+   quantifier/description formers (`Forall`, `Exist`, `the`), and the structural/logical
+   rules (`imply_intro`, `and_elim_*`, …). **Only these may carry generics** (type
+   parameters). Because they are a small, closed, standard set, they read as an
+   *extended syntax* — notation for building types and threading arguments — rather than
+   as ordinary definitions. Their genericity is polymorphism in a *type*, with no λ in a
+   body: the formers and rules are axioms (no body at all), and the combinators are the
+   designated home of abstraction.
+
+2. **Mathematics (generics-free, variable-free).** Every mathematical definition and
+   proof is written with an **empty parameter list** — `def foo := <closed expression>`
+   — and no bound variables of its own. It is a **point-free** combination, by
+   composition (`∘`), application (evaluation), and the infrastructure operations, of
+   terms that were **already constructed** (earlier proofs or math terms). No math
+   object introduces a new abstraction; it only recombines existing ones.
+
+The resulting invariant:
+
+> **generics ⟺ infrastructure.** The math layer carries no type parameters and no bound
+> term variables; all abstraction lives in the fixed infrastructure vocabulary.
+
+**Worked evidence.** `memOf`, `Subset`, `SetEq` (`set.cor`) rewrite to closed
+point-free defs — e.g. `memOf := exchange Sets Sets PC elem`, and
+`Subset := Bcomb … (Forall Sets) …` — each with *no* parameters; the combinators supply
+every `Sets`/`PC` explicitly, and the math def stays generic-free. Each was verified to
+type-check against the Core axioms.
+
+### Infrastructure vocabulary
+
+The fixed, generic vocabulary that Rule 1 admits — what the math layer is built from.
+This is what identifiers like `Bdep`, `Arrow`, `Wcomb` above refer to.
+
+**Value combinators.** The **essential basis is `I`, `K`, `S`** (with `S` in its
+dependent form `Sdep`); everything else *derives* from these. All are in
+`SK_combinators.cor` today (at `Prop`; **to be generalized to `Sort`** to cover `Sets`).
+
+* `i_comb` (**I**) — `I a = a` (identity)
+* `weakening` (**K**) — `K a b = a` (constant)
+* `s_comb` (**S**) — `S f g a = f a (g a)` (share the argument)
+
+Derived shorthands — convenient, **not primitive** (each is an `S`/`K` combination):
+
+* `∘` (**B**) — `(f ∘ g) a = f (g a)` (compose; dependent form `Bdep`)
+* `diagonal` (**W**) — `W f a = f a a` (contraction; dependent *codomain* only)
+* `Φ f g h a = f (g a) (h a)` (`= S (B f g) h`), used in point-free `Subset`
+* `exchange` (**C**) — `C f b a = f a b` (flip; **non-dependent only** — see below)
+
+`exchange` in particular must *not* be treated as a basis combinator. It is redundant
+(`C = S ([x]M) (K N)` covers its role) and has **no dependent form**, yet its
+non-dependent type is perfectly valid, so nothing about `exchange` or its non-dependent
+uses is flagged. Worse, Core's *own* proposed checker (see *Type checker*) is specified
+only for **simple arrows** — it does not model dependent application — so it would **not
+catch a dependent misuse of `exchange` at all**. (Lean, the convenience checker of this
+phase, does reject such misuses, but Lean is **not** Core's checker.) Confining `C` to
+non-dependent positions is therefore purely a **discipline** obligation. That is why the
+basis is `I`/`K`/`S` and `C` is a mere convenience.
+
+**Dependent combinators.** Needed when a codomain depends on a *value* (the extra
+`Sort`-valued arguments are the type families). **To be added:**
+
+* `Bdep` — dependent compose: for `g : A → β` and `f : (b : β) → C b`, gives
+  `(a : A) → C (g a)`.
+* `Sdep` — dependent share: for `B : A → Sort`, `C : (a : A) → B a → Sort`,
+  `f : (a : A) → (b : B a) → C a b`, `g : (a : A) → B a`, gives `(a : A) → C a (g a)`.
+
+**Which dependent forms go through** (all checked in Lean). The principle: a combinator's
+dependent generalization type-checks **exactly when it never requires a later-bound
+variable in an earlier binder's type**.
+
+* `I`, `K`, `B`, `S`, `Φ` apply their arguments in binding order, so forward
+  dependencies stay in scope — all go through (`S` is the fully dependent one; `K`'s
+  discarded argument may have an `a`-dependent type; `B`/`Φ` thread through fixed middle
+  types with dependent codomains).
+* `W` reuses one value in two slots, which forces the two argument types to be *equal
+  and non-dependent*; only its **codomain** may depend (`Wdep : (a:A) → C a a`).
+* `C`/flip is the **sole exception** — the one combinator that *permutes* arguments.
+  Flipping `f : (x : X) → P x → Z` would place `x` out of scope in the moved binder, so a
+  "dependently flipped" type does not exist (verified: rejected). Harmless, since `C`
+  enters bracket abstraction only as the `x ∉ N` optimization of `[x](M N)`, always
+  replaceable by `S ([x]M) (K N)` with dependent `S`.
+
+So the **essential** dependent basis is `I`, `K`, and dependent `S` (`Sdep`); `Bdep`/`Φ`
+are handy, `C`/`W` are non-dependent (resp. dependent-codomain-only) conveniences.
+
+**Type-level formers.** The combinators thread arguments through types that these build:
+
+* `Arrow X Y := X → Y` — the function-type former as an *applicable* constant (**to be
+  added**; lets a type-λ like `fun X => X → X` become `W Arrow`).
+* `Forall X (P : Pred X)`, `Exist X (P : Pred X)` — the Π/∃ formers (axioms,
+  `classical_first_order_logic.cor`).
+* `the X E (P : Pred X)` — description (axiom, `definite_description.cor`).
+* `Pred X := X → PC` (abbrev).
+
+**Logical structural rules.** The connectives and their intro/elim — `and`, `or`, `not`,
+`imply` with `*_intro`/`*_elim`, plus `excluded_middle`, `double_negation_elim`,
+`Forall_intro`/`_elim`, `Exist_intro`/`_elim` — all axioms in
+`classical_propositional_logic.cor` / `classical_first_order_logic.cor`.
+
+Minimality vs. computation is the knob below: `S` and `K` alone generate
+`I`/`B`/`C`/`W`, so the combinators *can* be a two-axiom core; but realizing the derived
+ones (and `Bdep`/`Sdep`/`Arrow`) as **transparent** defs is what lets math terms reduce.
+The formers and structural rules are genuine axioms regardless.
+
+**Two honest caveats.**
+
+* *Completeness.* The dependent case — a math term whose *type* depends on a value
+  argument (`induction … n : P n`) — is **not** an obstruction. It is handled by the
+  **dependent** combinators (dependent composition / `S`), whose type-family arguments
+  are themselves point-free. Verified: the genuinely dependent
+  `(P : Pred Sets) → (n : Sets) → P n → P n` rewrites fully point-free as
+  `Bdep Sets PC (Wcomb PC PC Arrow) Icomb` — no value binders, the residual type-λ
+  eliminated via `W` and an `Arrow` former — and is defeq to `fun P n p => p`. The price
+  is that the infrastructure must also carry **type-level** formers/combinators
+  (`Arrow`, `W`, the Π-former `Forall`), not just value-level `S`/`K`. The only open
+  part is bookkeeping: confirming this infrastructure closure stays a fixed, finite
+  vocabulary across the whole corpus — every case seen so far does.
+* *Axiom vs. computation.* Making a former an **axiom** is what makes it a pure,
+  non-leaking primitive — but an axiom does not reduce, so terms built on it are opaque
+  (`Subset a b` no longer unfolds to `∀x …`; one reasons about it via `Forall_elim` /
+  `Forall_intro`, verified). Realising the combinators as *transparent* notation instead
+  lets math terms compute, at the cost of a (harmless, lambda-lifted) body. The formers
+  (`Forall`, `Exist`, `the`) are genuine axioms; whether the **combinators** are axioms
+  or transparent notation is the remaining knob.
+
 ## Type checker
 
 ### Lean linking
@@ -135,6 +287,24 @@ element in the surrounding expression. Otherwise:
 Unlike earlier drafts, a single operator no longer stands for both application and
 composition: `f a` is always application and `f ∘ g` is always composition, so no
 domain/codomain disambiguation rule is needed.
+
+### Dependent application — a specification gap
+
+The rules above are stated for **simple arrows** only. They do not yet describe
+**dependent application**: for `f : (x : X) → B x`, the result type of `f a` is
+`B[a/x]` (the codomain with the argument substituted), and checking a telescope
+`(p₁ : A₁) … (pₙ : Aₙ)` requires tracking scope so that each `Aᵢ` sees the earlier
+`pⱼ`. None of this is captured by "the type of `a` matches the domain of `f`."
+
+This matters because the entire point-free-with-dependent-combinators program
+(`Sdep`, `Bdep`, the type families, the `Prop → Type` discipline) lives in dependent
+type theory. So Core's proposed checker is **currently under-specified for exactly the
+cases that carry the design** — e.g. it would not, as written, catch a dependent misuse
+of `exchange`. During this phase Lean supplies the missing dependent checking (see *Lean
+linking*); a native Core checker will need an explicit dependent-application rule
+(substitution into the codomain + telescope scoping) added here. Wherever this document
+says a term was "verified" or "type-checks", that means **Lean accepted it** — a
+convenience, not a statement about Core's own (simpler, incomplete) checker.
 
 ### Definitional equality (reduction during checking)
 
