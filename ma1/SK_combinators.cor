@@ -2,6 +2,11 @@
 
 -- weakening
 axiom weakening (A B : Prop) : A → B → A
+-- issue here is that it is implied by current core syntax
+-- def weakening2 (A B : Prop) (a : A) (_ : B) := a
+-- #check weakening2
+-- axiom test : Prop
+-- #check (weakening2 test test)
 
 -- exchange
 axiom exchange (A B C : Prop) : (A → B → C) → B → A → C
