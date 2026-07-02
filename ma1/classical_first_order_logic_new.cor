@@ -31,6 +31,11 @@ namespace Forall
   def pull (T : Type) (X : Type) (Y : Type) : Pred (X × Y) -> (T -> X) -> Pred Y := fun (P) => fun (f) =>
     let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
     Pred.imply Y (Forall X Y P) (Forall T Y Q)
+
+  -- ∀-GEN: from ψ → φ infer ψ → (∀x φ), with x not free in ψ (structural: ψ : Pred Y).
+  -- as a formula: [ ∀x (ψ → P) ] → [ ψ → ∀x P ]
+  def gen (X : Type) (Y : Type) (psi : Pred Y) (P : Pred (X × Y)) : Pred Y :=
+    Pred.imply Y (Forall X Y (fun (p : X × Y) => _root_.imply (psi p.2) (P p))) (Pred.imply Y psi (Forall X Y P))
 end Forall
 
 -- existential quantifier
@@ -41,5 +46,8 @@ namespace Exist
     let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
     Pred.imply Y (Exist T Y Q) (Exist X Y P)
 
-  def exist_elim (X : Type) (Y : Type) (P : Pred (X × Y)) (Q : Pred Y) : Pred Y := Pred.imply Y (Pred.imply Y (Forall X Y P) Q) (Pred.imply Y (Exist X Y P) Q)
+  -- ∃-GEN: from φ → ψ infer (∃x φ) → ψ, with x not free in ψ (structural: ψ : Pred Y).
+  -- as a formula: [ ∀x (P → ψ) ] → [ (∃x P) → ψ ]
+  def gen (X : Type) (Y : Type) (psi : Pred Y) (P : Pred (X × Y)) : Pred Y :=
+    Pred.imply Y (Forall X Y (fun (p : X × Y) => _root_.imply (P p) (psi p.2))) (Pred.imply Y (Exist X Y P) psi)
 end Exist
