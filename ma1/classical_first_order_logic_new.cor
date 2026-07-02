@@ -1,0 +1,45 @@
+import classical_propositional_logic
+
+-- Classical first-order logic, built on the classical propositions of
+-- classical_propositional_logic.cor (the universe PC = Prop). Dependent types a la (x : X) free approach.
+
+-- fibration: a predicate over a domain X is a propositional function X → PC.
+abbrev Pred (X : Type) := X → PC
+
+--- one term only type
+inductive Final
+  | only : Final
+
+def term (X : Type) : (Final -> X) -> X := fun (f) => (f Final.only)
+def term_inverse (X : Type) : X -> Final -> X := fun (x) => fun (a) => match a with | .only => x
+
+--- for simplicity we use lambdas, note that we may use all combinators in order to construct X -> X x X
+--- combinators for X and and, or, not, imply on PC is all that enters
+namespace Pred
+  def and (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.and (f x) (g x)
+  def or (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.or (f x) (g x)
+  def not (X : Type) :  Pred X -> Pred X := fun (f : Pred X) => fun (x : X) => _root_.not (f x)
+  def imply (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.imply (f x) (g x)
+  def term : Pred Final -> Prop := fun (f : Pred Final) => _root_.term Prop f
+end Pred
+
+-- universal quantifier for all, predicate might depend on other variables
+axiom Forall (X : Type) (Y : Type) (P : Pred (X × Y)) : Pred Y
+
+-- lambda for simplicity
+namespace Forall
+  def pull (T : Type) (X : Type) (Y : Type) : Pred (X × Y) -> (T -> X) -> Pred Y := fun (P) => fun (f) =>
+    let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
+    Pred.imply Y (Forall X Y P) (Forall T Y Q)
+end Forall
+
+-- existential quantifier
+axiom Exist (X : Type) (Y : Type) (P : Pred (X × Y)) : Pred Y
+
+namespace Exist
+  def push (T : Type) (X : Type) (Y : Type) : Pred (X × Y) -> (T -> X) -> Pred Y := fun (P) => fun (f) =>
+    let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
+    Pred.imply Y (Exist T Y Q) (Exist X Y P)
+
+  def exist_elim (X : Type) (Y : Type) (P : Pred (X × Y)) (Q : Pred Y) : Pred Y := Pred.imply Y (Pred.imply Y (Forall X Y P) Q) (Pred.imply Y (Exist X Y P) Q)
+end Exist
