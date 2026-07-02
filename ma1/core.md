@@ -56,9 +56,42 @@ Core's self-contained goal, accepted for now.)
 
 A **dependent function type** `(x : X) → B` is a function type whose codomain `B`
 may mention the argument `x`. When `B` does not mention `x` it degenerates to the
-ordinary arrow `X → B`. Dependent function types are what let us write quantifiers
-(a `∀` is a dependent function into a proposition), so Core needs them and Lean
-supplies them — this is the reason for aligning Core's syntax with Lean.
+ordinary arrow `X → B`.
+
+It is tempting to say quantifiers *force* dependent types — "a `∀` is a dependent
+function into a proposition." That holds of the Curry–Howard *proof term* of `∀` (a
+proof of `∀x. P x` is a dependent function `(x : X) → P x`), but **not** of the
+quantifier itself. Two classical results place quantifiers in the simply-typed
+world:
+
+* **Church's simple type theory** (Church, 1940, *A Formulation of the Simple Theory
+  of Types*, J. Symbolic Logic 5(2):56–68). Each quantifier is a *simply-typed*
+  constant `∀_α : (α → o) → o`, with `o` the type of propositions and no dependent
+  types anywhere; this is the basis of HOL (Isabelle/HOL, HOL Light). Core's
+  quantifiers in `classical_first_order_logic_new.cor` are exactly such constants:
+  `Forall (X Y : Type) (P : Pred (X × Y)) : Pred Y`, built only from `→`, `×`, and
+  the fixed codomain `PC = Prop`.
+* **Lawvere's adjoint characterisation** (Lawvere, 1969, *Adjointness in
+  Foundations*, Dialectica 23:281–296; hyperdoctrines in Lawvere, 1970, *Equality in
+  Hyperdoctrines…*, Proc. Sympos. Pure Math. XVII:1–14). `∀` and `∃` along a
+  projection `X × Y → Y` are the right and left adjoints of weakening
+  `Pred Y → Pred (X × Y)`. The two adjunction bijections *are* the intuitionistic
+  `∀`-GEN / `∃`-GEN rules `ψ → ∀x P ⟺ ∀x(ψ → P)` and `∃x P → ψ ⟺ ∀x(P → ψ)`
+  (`x ∉ ψ`), realised as `Forall.gen` / `Exist.gen`. Their side condition "`x` not
+  free in `ψ`" is discharged **structurally** — `ψ : Pred Y` cannot mention the
+  bound `x : X` — and substitution is reindexing along a base map `f : T → X`
+  (`Forall.pull` / `Exist.push`, generalising PRED-1 / PRED-2), governed by the
+  Beck–Chevalley condition.
+
+So the *logic* needs no dependent types. Higher-order nesting like
+`Pred (Pred (X × Y) × Z)` stays simply-typed: an arrow into the fixed `Prop` whose
+*domain* may be built from `Prop` (Church's `o`) but whose *codomain* never varies
+with the argument's value — that is higher-order logic, not dependency
+(dependency = codomain varying with a *value*). Where dependent types become
+genuinely unavoidable is narrower and *not* about `∀`/`∃`: see the caveat below.
+Core still aligns its syntax with Lean's dependent function types, because they are
+needed there and remain the honest form of the Curry–Howard proof term when one
+wants it.
 
 ## Syntax
 Read the gentle [intro](#gentle-introduction-to-types) first.
@@ -250,10 +283,21 @@ The formers and structural rules are genuine axioms regardless.
 
 **Two honest caveats.**
 
-* *Completeness.* The dependent case — a math term whose *type* depends on a value
-  argument (`induction … n : P n`) — is **not** an obstruction. It is handled by the
-  **dependent** combinators (dependent composition / `S`), whose type-family arguments
-  are themselves point-free. Verified: the genuinely dependent
+* *Completeness — and what actually forces dependency.* A math term whose *type*
+  depends on a value argument (`induction … n : P n`) is the case usually expected to
+  force dependent types. Two clarifications. **First, the logic does not force them.**
+  `∀`/`∃` are simply-typed (Church, 1940; Lawvere, 1969 — see *Types of types*), and
+  induction *as a proposition/axiom* is a simply-typed HOL formula
+  `∀(P : Nat → o). P 0 ⟹ (∀n. P n ⟹ P (S n)) ⟹ ∀n. P n`, whose `∀` is the opaque
+  `Forall`, not a `Π`. Term-level dependency `(x : X) → B x` is forced only by (i)
+  proof terms that **compute** — the eliminator/recursor *as a reducing function*
+  rather than an axiom — and (ii) **type families as data**: a type in `Type` (not
+  `Prop`) indexed by a value, e.g. `Vec : Nat → Type`, `Fin n` (Martin-Löf, 1972;
+  1984, *Intuitionistic Type Theory*). The `Prop`-fibre design has no room for (ii),
+  since its only fibre is `Prop`. **Second, where Core does meet the genuinely
+  dependent case, it is not an obstruction** to the point-free program: it is handled
+  by the **dependent** combinators (dependent composition / `S`), whose type-family
+  arguments are themselves point-free. Verified: the genuinely dependent
   `(P : Pred Sets) → (n : Sets) → P n → P n` rewrites fully point-free as
   `Bdep Sets PC (Wcomb PC PC Arrow) Icomb` — no value binders, the residual type-λ
   eliminated via `W` and an `Arrow` former — and is defeq to `fun P n p => p`. The price
