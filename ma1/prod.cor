@@ -22,3 +22,12 @@ axiom second  (A B C : Type)   : (B → C) → (A × B → A × C)
 -- the (X × Y → Z) ≅ (X → Y → Z) adjunction
 axiom curry   (A B C : Type) : (A × B → C) → (A → B → C)
 axiom uncurry (A B C : Type) : (A → B → C) → (A × B → C)
+
+-- de-Bruijn projections out of a right-nested context  A0 × (A1 × (A2 × …)) :
+-- v0 picks the head, v1 the next, etc. (pure fst/snd compositions).
+noncomputable def v0 (A R : Type) : A × R → A := fst A R
+noncomputable def v1 (A B R : Type) : A × (B × R) → B := (fst B R) ∘ (snd A (B × R))
+noncomputable def v2 (A B C R : Type) : A × (B × (C × R)) → C :=
+  (fst C R) ∘ (snd B (C × R)) ∘ (snd A (B × (C × R)))
+noncomputable def v3 (A B C D R : Type) : A × (B × (C × (D × R))) → D :=
+  (fst D R) ∘ (snd C (D × R)) ∘ (snd B (C × (D × R))) ∘ (snd A (B × (C × (D × R))))

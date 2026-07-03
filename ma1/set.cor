@@ -1,132 +1,225 @@
-import classical_propositional_logic
-import classical_first_order_logic
+import classical_first_order_logic_new
+import cartesian_combinators
 
--- Sets.
+-- Sets and the ZFC axioms, in the new-style HOL of classical_first_order_logic_new.cor.
 --
--- A set is a fully-collected object; unlike a type, its elements are fixed once
--- gathered (see core.md, "Gentle introduction to types"). Lean has a built-in
--- universe of propositions (`Prop`) but NOT one of sets, so we postulate the
--- universe `Sets`.
+-- Quantifiers are the predicate-valued `Forall`/`Exist`: a formula with free variables
+-- is a `Pred` over a right-nested product *context* (the free-variable tuple); a closed
+-- sentence is a `Pred Final`, shipped to `Prop` by `Pred.term`. Nothing is lambda-lifted:
+-- every relation is a `Pred` on a product of its argument sorts, every occurrence is
+-- `sub2 R π₁ π₂` (reindex along the de-Bruijn projections `v0..v3` of prod.cor), schematic
+-- parameters enter as `Cart.weakening` constants, and every def is applied to all its args.
 
 -- the universe of sets: a set is a term `S : Sets`.
 axiom Sets : Type
 
--- =====================================================================
--- ZFC layer
--- =====================================================================
---
--- *Untyped* presentation of set theory. Here there is one sort,
--- `Sets`, and a single global membership relation `elem` — every element of a set
--- is itself a set. We follow the ZFC axiom list
--- (https://en.wikipedia.org/wiki/Zermelo%E2%80%93Fraenkel_set_theory).
---
--- Core is in its lambda-free phase, so the existential axioms cannot use `fun` to
--- build the predicate `Exist`/`Forall` expect. Instead every such predicate is a
--- named top-level `def` whose *last* parameter is the bound variable and whose
--- leading parameters capture the free variables; it is then partially applied
--- (manual lambda-lifting). Universal quantifiers that are not nested under an
--- existential are written directly as dependent function types `(x : Sets) -> …`.
+-- global membership relation:  elem x A = "x ∈ A"  (named elem; `in` is a Lean keyword)
+axiom elem : Sets → Sets → PC
 
--- the global membership relation: `elem x A` is "x ∈ A".
--- (named `elem`, not `in`, since `in` is a reserved Lean keyword.)
-axiom elem : Sets -> Sets -> PC
+-- membership as a binary predicate on pairs:  Elem (x, A) = x ∈ A
+def Elem : Pred (Sets × Sets) := uncurry Sets Sets PC elem
 
--- "w ∈ x" with w as the trailing/bound variable. `elem` fixes its *first*
--- argument under partial application, so abstracting over the *left* operand
--- needs this flip helper. Reused below for "x is nonempty" (∃w. w ∈ x).
-def memOf (x w : Sets) : PC := elem w x
+-- ===== derived relations (new style) =====
 
--- subset: a plain ∀, written as a dependent arrow (no Pred term needed).
-def Subset (a b : Sets) : PC := (x : Sets) -> imply (elem x a) (elem x b)
+-- x nonempty : ∃w. w ∈ x         ctx = x
+def SetNonempty : Pred Sets := Exist Sets Sets Elem
 
--- Equality DEFINED from membership: two sets are equal iff they have the same
--- members (extensionality as a *definition*). Named `SetEq`, not `Eq`, since
--- `Eq` is Lean's built-in equality type.
-def SetEq (a b : Sets) : PC := (x : Sets) -> iff (elem x a) (elem x b)
+-- Subset (a,b) : ∀x. x∈a → x∈b    inner tuple (x,(a,b)) : Sets×(Sets×Sets)
+def Subseteq : Pred (Sets × Sets) :=
+  Forall Sets (Sets × Sets)
+    (Pred.imply (Sets × (Sets × Sets))
+      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
+      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets)))))
 
--- Caveat: defining Eq this way yields reflexivity/symmetry/transitivity for free,
--- but NOT substitutability — `Eq a b → (a ∈ c ↔ b ∈ c)` does not follow from the
--- definition (in ZFC over FOL-with-equality that comes from `=` being a primitive
--- logical congruence). So we postulate Leibniz substitution as the one
--- substantive axiom; membership-congruence is then a special case.
-axiom eq_subst (P : Pred Sets) (a b : Sets) : imply (SetEq a b) (imply (P a) (P b))
+-- SetEq (a,b) : ∀x. x∈a ↔ x∈b     inner tuple (x,(a,b))
+def SetEq : Pred (Sets × Sets) :=
+  Forall Sets (Sets × Sets)
+    (Pred.iff (Sets × (Sets × Sets))
+      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
+      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets)))))
 
--- Extensionality ("same members ⇒ equal") is now definitionally trivial
--- ((a b : Sets) -> imply (SetEq a b) (SetEq a b)), so it needs no separate axiom.
+-- isEmpty (e) : ∀z. ¬(z∈e)        Elem : (z,e) ↦ z∈e
+def isEmpty : Pred Sets := Forall Sets Sets (Pred.not (Sets × Sets) Elem)
 
--- Pairing: ∀a ∀b ∃c ∀x (x ∈ c ↔ x = a ∨ x = b)
-def pairBody (a b c : Sets) : PC := (x : Sets) -> iff (elem x c) (or (SetEq x a) (SetEq x b))
-axiom pairing (a b : Sets) : Exist Sets (pairBody a b)
+-- isSucc (x,y) : ∀z. z∈y ↔ (z∈x ∨ z=x)   inner tuple (z,(x,y)) : Sets×(Sets×Sets)
+def isSucc : Pred (Sets × Sets) :=
+  Forall Sets (Sets × Sets)
+    (Pred.iff (Sets × (Sets × Sets))
+      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets))))
+      (Pred.or (Sets × (Sets × Sets))
+        (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
+        (sub2 (Sets × (Sets × Sets)) Sets Sets SetEq (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))))
 
--- Union: ∀A ∃U ∀x (x ∈ U ↔ ∃y (y ∈ A ∧ x ∈ y))
-def unionWit (A x y : Sets) : PC := and (elem y A) (elem x y)
-def unionBody (A U : Sets) : PC := (x : Sets) -> iff (elem x U) (Exist Sets (unionWit A x))
-axiom union_ax (A : Sets) : Exist Sets (unionBody A)
+-- x,y disjoint : ¬∃z. (z∈x ∧ z∈y)   inner tuple (z,(x,y))
+def disj : Pred (Sets × Sets) :=
+  Pred.not (Sets × Sets)
+    (Exist Sets (Sets × Sets)
+      (Pred.and (Sets × (Sets × Sets))
+        (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
+        (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets))))))
 
--- Power set: ∀A ∃P ∀x (x ∈ P ↔ x ⊆ A)
-def powerBody (A P : Sets) : PC := (x : Sets) -> iff (elem x P) (Subset x A)
-axiom power_ax (A : Sets) : Exist Sets (powerBody A)
+-- ===== axioms =====
 
--- Separation (schema): the formula φ is a `Pred Sets` parameter supplied at the
--- use site (mirrors `induction (f : …)` in natural_numbers.cor).
--- ∀A ∃B ∀x (x ∈ B ↔ (x ∈ A ∧ φ x))
-def sepBody (A : Sets) (phi : Pred Sets) (B : Sets) : PC :=
-  (x : Sets) -> iff (elem x B) (and (elem x A) (phi x))
-axiom separation (A : Sets) (phi : Pred Sets) : Exist Sets (sepBody A phi)
+-- Leibniz substitution.  imply (a=b) (imply (P a) (P b))
+axiom eq_subst (P : Pred Sets) (a b : Sets) :
+  imply (curry Sets Sets PC SetEq a b) (imply (P a) (P b))
 
--- Replacement (schema): φ x y is a class relation (Sets -> Sets -> PC parameter).
--- ∀A [ (∀x ∈ A, ∃!y φ x y) → ∃B ∀y (y ∈ B ↔ ∃x (x ∈ A ∧ φ x y)) ]
-def replUniq (phi : Sets -> Sets -> PC) (x y z : Sets) : PC := imply (phi x z) (SetEq z y)
-def replExU (phi : Sets -> Sets -> PC) (x y : Sets) : PC :=
-  and (phi x y) (Forall Sets (replUniq phi x y))
-def replFun (A : Sets) (phi : Sets -> Sets -> PC) (x : Sets) : PC :=
-  imply (elem x A) (Exist Sets (replExU phi x))
-def replWit (A : Sets) (phi : Sets -> Sets -> PC) (y x : Sets) : PC :=
-  and (elem x A) (phi x y)
-def replBody (A : Sets) (phi : Sets -> Sets -> PC) (B : Sets) : PC :=
-  (y : Sets) -> iff (elem y B) (Exist Sets (replWit A phi y))
-axiom replacement (A : Sets) (phi : Sets -> Sets -> PC) :
-  imply (Forall Sets (replFun A phi)) (Exist Sets (replBody A phi))
+-- Pairing.  ∃c. ∀x. (x∈c ↔ x=a ∨ x=b)     ctx after ∀x: (x,(c,⋆)) : Sets×(Sets×Final)
+axiom pairing (a b : Sets) :
+  Pred.term (Exist Sets Final (Forall Sets (Sets × Final)
+    (Pred.iff (Sets × (Sets × Final))
+      (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+      (Pred.or (Sets × (Sets × Final))
+        (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) a))
+        (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) b))))))
 
--- "e is empty": ∀z ¬(z ∈ e). (used by Empty and Infinity)
-def isEmpty (e : Sets) : PC := (z : Sets) -> not (elem z e)
+-- Union.  ∃U. ∀x. (x∈U ↔ ∃y. (y∈A ∧ x∈y))
+-- ∀x tuple (x,(U,⋆)) : Sets×(Sets×Final);  ∃y tuple (y,(x,(U,⋆))) : Sets×(Sets×(Sets×Final))
+axiom union_ax (A : Sets) :
+  Pred.term (Exist Sets Final (Forall Sets (Sets × Final)
+    (Pred.iff (Sets × (Sets × Final))
+      (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+      (Exist Sets (Sets × (Sets × Final))
+        (Pred.and (Sets × (Sets × (Sets × Final)))
+          (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+            (v0 Sets (Sets × (Sets × Final))) (Cart.weakening Sets (Sets × (Sets × (Sets × Final))) A))
+          (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+            (v1 Sets Sets (Sets × Final)) (v0 Sets (Sets × (Sets × Final)))))))))
 
--- Empty set: ∃e ∀z ¬(z ∈ e). (often derived in ZFC; stated here for convenience)
-axiom empty_ax : Exist Sets isEmpty
+-- Power set.  ∃P. ∀x. (x∈P ↔ x⊆A)      ∀x tuple (x,(P,⋆))
+axiom power_ax (A : Sets) :
+  Pred.term (Exist Sets Final (Forall Sets (Sets × Final)
+    (Pred.iff (Sets × (Sets × Final))
+      (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+      (sub2 (Sets × (Sets × Final)) Sets Sets Subseteq
+        (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) A)))))
 
--- Infinity. No operation symbols are available, so "∅ ∈ I" and "x ∪ {x} ∈ I"
--- are spelled out inline:
--- ∃I ( ∃e (e ∈ I ∧ e empty) ∧ ∀x (x ∈ I → ∃y (y ∈ I ∧ y = x ∪ {x})) )
-def emptyIn (I e : Sets) : PC := and (elem e I) (isEmpty e)
-def isSucc (x y : Sets) : PC := (z : Sets) -> iff (elem z y) (or (elem z x) (SetEq z x))
-def succIn (I x y : Sets) : PC := and (elem y I) (isSucc x y)
-def closedSuc (I x : Sets) : PC := imply (elem x I) (Exist Sets (succIn I x))
-def infBody (I : Sets) : PC := and (Exist Sets (emptyIn I)) (Forall Sets (closedSuc I))
-axiom infinity : Exist Sets infBody
+-- Separation (schema in φ).  ∃B. ∀x. (x∈B ↔ (x∈A ∧ φ x))
+axiom separation (A : Sets) (phi : Pred Sets) :
+  Pred.term (Exist Sets Final (Forall Sets (Sets × Final)
+    (Pred.iff (Sets × (Sets × Final))
+      (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+      (Pred.and (Sets × (Sets × Final))
+        (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) A))
+        (phi ∘ (v0 Sets (Sets × Final)))))))
 
--- Regularity (foundation): ∀x (x ≠ ∅ → ∃y (y ∈ x ∧ y ∩ x = ∅))
--- "x ≠ ∅" is rendered positively as "x is nonempty" = ∃w (w ∈ x) = Exist Sets (memOf x).
-def meet (x y z : Sets) : PC := and (elem z y) (elem z x)
-def disjFromX (x y : Sets) : PC := not (Exist Sets (meet x y))
-def regWit (x y : Sets) : PC := and (elem y x) (disjFromX x y)
-axiom regularity (x : Sets) : imply (Exist Sets (memOf x)) (Exist Sets (regWit x))
+-- Empty set.  ∃e. isEmpty e
+axiom empty_ax : Pred.term (Exist Sets Final (isEmpty ∘ (v0 Sets Final)))
 
--- Choice. For a family F of nonempty, pairwise-disjoint sets there is a choice
--- set C meeting each member of F in exactly one point:
--- ∀F [ (∀x ∈ F, x ≠ ∅ ∧ ∀y ∈ F, x = y ∨ x ∩ y = ∅)
---      → ∃C ∀x ∈ F, ∃!w (w ∈ x ∧ w ∈ C) ]
--- Same lambda-free pattern, just deeper; `disjFromX`/`memOf` are reused.
-def chPairwise (F x y : Sets) : PC := imply (elem y F) (or (SetEq x y) (disjFromX x y))
-def chMember (F x : Sets) : PC :=
-  imply (elem x F) (and (Exist Sets (memOf x)) (Forall Sets (chPairwise F x)))
-def chUniq (x C w z : Sets) : PC := imply (and (elem z x) (elem z C)) (SetEq z w)
-def chExU (x C w : Sets) : PC :=
-  and (and (elem w x) (elem w C)) (Forall Sets (chUniq x C w))
-def chChoose (F C x : Sets) : PC := imply (elem x F) (Exist Sets (chExU x C))
-def chBody (F C : Sets) : PC := Forall Sets (chChoose F C)
-axiom choice (F : Sets) : imply (Forall Sets (chMember F)) (Exist Sets (chBody F))
+-- Infinity.  ∃I. ( ∃e.(e∈I ∧ isEmpty e)  ∧  ∀x.(x∈I → ∃y.(y∈I ∧ isSucc x y)) )
+-- ctx: (I,⋆); ∃e:(e,(I,⋆)); ∀x:(x,(I,⋆)); ∃y:(y,(x,(I,⋆)))
+axiom infinity :
+  Pred.term (Exist Sets Final
+    (Pred.and (Sets × Final)
+      -- ∃e. e∈I ∧ isEmpty e
+      (Exist Sets (Sets × Final)
+        (Pred.and (Sets × (Sets × Final))
+          (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+          (isEmpty ∘ (v0 Sets (Sets × Final)))))
+      -- ∀x. x∈I → ∃y. (y∈I ∧ isSucc x y)
+      (Forall Sets (Sets × Final)
+        (Pred.imply (Sets × (Sets × Final))
+          (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+          (Exist Sets (Sets × (Sets × Final))
+            (Pred.and (Sets × (Sets × (Sets × Final)))
+              (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+                (v0 Sets (Sets × (Sets × Final))) (v2 Sets Sets Sets Final))
+              (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets isSucc
+                (v1 Sets Sets (Sets × Final)) (v0 Sets (Sets × (Sets × Final))))))))))
 
-#check pairing
-#check separation
-#check replacement
-#check choice
+-- Regularity.  imply (Nonempty x) (∃y. (y∈x ∧ ¬∃z.(z∈y ∧ z∈x)))
+-- ∃y:(y,⋆); ∃z:(z,(y,⋆))
+axiom regularity (x : Sets) :
+  imply (SetNonempty x)
+    (Pred.term (Exist Sets Final
+      (Pred.and (Sets × Final)
+        (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) x))
+        (Pred.not (Sets × Final)
+          (Exist Sets (Sets × Final)
+            (Pred.and (Sets × (Sets × Final))
+              (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+              (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) x))))))))
+
+-- Replacement (schema in φ : Sets → Sets → PC).
+-- premise ∀x. x∈A → ∃!y φ(x,y) ;  image ∃B. ∀y. (y∈B ↔ ∃x. (x∈A ∧ φ(x,y)))
+-- ∃! y φ  ≡  ∃y. (φ(x,y) ∧ ∀z. (φ(x,z) → z=y))
+def replUniq (phi : Sets → Sets → PC) : Pred (Sets × (Sets × (Sets × Final))) :=
+  Pred.imply _
+    (sub2 _ Sets Sets (uncurry Sets Sets PC phi) (v2 Sets Sets Sets Final) (v0 Sets (Sets × (Sets × Final))))
+    (sub2 _ Sets Sets SetEq (v0 Sets (Sets × (Sets × Final))) (v1 Sets Sets (Sets × Final)))
+
+def replExU (phi : Sets → Sets → PC) : Pred (Sets × (Sets × Final)) :=
+  Pred.and _
+    (sub2 _ Sets Sets (uncurry Sets Sets PC phi) (v1 Sets Sets Final) (v0 Sets (Sets × Final)))
+    (Forall Sets _ (replUniq phi))
+
+def replFun (A : Sets) (phi : Sets → Sets → PC) : Pred (Sets × Final) :=
+  Pred.imply _
+    (sub2 _ Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) A))
+    (Exist Sets _ (replExU phi))
+
+def replWit (A : Sets) (phi : Sets → Sets → PC) : Pred (Sets × (Sets × (Sets × Final))) :=
+  Pred.and _
+    (sub2 _ Sets Sets Elem (v0 Sets (Sets × (Sets × Final))) (Cart.weakening Sets (Sets × (Sets × (Sets × Final))) A))
+    (sub2 _ Sets Sets (uncurry Sets Sets PC phi) (v0 Sets (Sets × (Sets × Final))) (v1 Sets Sets (Sets × Final)))
+
+def replBody (A : Sets) (phi : Sets → Sets → PC) : Pred (Sets × (Sets × Final)) :=
+  Pred.iff _
+    (sub2 _ Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+    (Exist Sets _ (replWit A phi))
+
+axiom replacement (A : Sets) (phi : Sets → Sets → PC) :
+  imply
+    (Pred.term (Forall Sets Final (replFun A phi)))
+    (Pred.term (Exist Sets Final (Forall Sets (Sets × Final) (replBody A phi))))
+
+-- Choice (schema in F).
+-- premise ∀x∈F. (x nonempty ∧ ∀y∈F. (x=y ∨ x,y disjoint))
+-- image   ∃C. ∀x∈F. ∃!w. (w∈x ∧ w∈C)
+def chPairwise (F : Sets) : Pred (Sets × (Sets × Final)) :=
+  Pred.imply _
+    (sub2 _ Sets Sets Elem (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) F))
+    (Pred.or _
+      (sub2 _ Sets Sets SetEq (v1 Sets Sets Final) (v0 Sets (Sets × Final)))
+      (sub2 _ Sets Sets disj (v1 Sets Sets Final) (v0 Sets (Sets × Final))))
+
+def chMember (F : Sets) : Pred (Sets × Final) :=
+  Pred.imply _
+    (sub2 _ Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) F))
+    (Pred.and _
+      (SetNonempty ∘ (v0 Sets Final))
+      (Forall Sets _ (chPairwise F)))
+
+def chUniq : Pred (Sets × (Sets × (Sets × (Sets × Final)))) :=
+  Pred.imply _
+    (Pred.and _
+      (sub2 _ Sets Sets Elem (v0 Sets (Sets × (Sets × (Sets × Final)))) (v2 Sets Sets Sets (Sets × Final)))
+      (sub2 _ Sets Sets Elem (v0 Sets (Sets × (Sets × (Sets × Final)))) (v3 Sets Sets Sets Sets Final)))
+    (sub2 _ Sets Sets SetEq (v0 Sets (Sets × (Sets × (Sets × Final)))) (v1 Sets Sets (Sets × (Sets × Final))))
+
+def chExU : Pred (Sets × (Sets × (Sets × Final))) :=
+  Pred.and _
+    (Pred.and _
+      (sub2 _ Sets Sets Elem (v0 Sets (Sets × (Sets × Final))) (v1 Sets Sets (Sets × Final)))
+      (sub2 _ Sets Sets Elem (v0 Sets (Sets × (Sets × Final))) (v2 Sets Sets Sets Final)))
+    (Forall Sets _ chUniq)
+
+def chChoose (F : Sets) : Pred (Sets × (Sets × Final)) :=
+  Pred.imply _
+    (sub2 _ Sets Sets Elem (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) F))
+    (Exist Sets _ chExU)
+
+axiom choice (F : Sets) :
+  imply
+    (Pred.term (Forall Sets Final (chMember F)))
+    (Pred.term (Exist Sets Final (Forall Sets (Sets × Final) (chChoose F))))
+
+#check @Subseteq
+#check @SetEq
+#check @pairing
+#check @union_ax
+#check @separation
+#check @infinity
+#check @regularity
+#check @replacement
+#check @choice
