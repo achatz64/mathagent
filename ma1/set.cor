@@ -11,23 +11,11 @@ import classical_first_order_logic
 -- the universe of sets: a set is a term `S : Sets`.
 axiom Sets : Type
 
--- The catch: `S : Sets` makes S a *term*, so `S -> S -> PC` fails ("type
--- expected, got S") — a term is not automatically a type. To say "the elements
--- of a set are a type again" we postulate a decoder `El` sending each set to the
--- type of its elements (the universe-à-la-Tarski device). Membership is then just
--- typing: "x ∈ S" is spelled `x : El S`.
-axiom El : Sets -> Type
-
--- sets are terms in Sets and their elements (terms of `El S`) can be compared
-axiom Equal : (S : Sets) -> (El S -> El S -> PC)
-
-
 -- =====================================================================
 -- ZFC layer
 -- =====================================================================
 --
--- A second, *untyped* presentation of set theory living alongside the typed
--- `El`/`Equal` model above (transitional coexistence). Here there is one sort,
+-- *Untyped* presentation of set theory. Here there is one sort,
 -- `Sets`, and a single global membership relation `elem` — every element of a set
 -- is itself a set. We follow the ZFC axiom list
 -- (https://en.wikipedia.org/wiki/Zermelo%E2%80%93Fraenkel_set_theory).

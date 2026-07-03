@@ -1,0 +1,24 @@
+-- prod.cor : infrastructure operators for the product former ×.
+--
+-- Postulated in the style of the structural combinators (SK_combinators.cor): the
+-- type arguments are the only parameters, the value arguments live in the return
+-- arrow. So every operator is fully applied at its type arguments and returns a
+-- plain function — never a partial application — and each instantiates at Prop as
+-- well as Type (Prop : Type). These localize the point-free plumbing for pairs, so
+-- the math layer never destructures with .1 / .2 / (·,·).
+
+-- projections
+axiom fst (A B : Type) : A × B → A
+axiom snd (A B : Type) : A × B → B
+
+-- pairing / fork:  pair f g  is  z ↦ (f z, g z)
+axiom pair (Z A B : Type) : (Z → A) → (Z → B) → (Z → A × B)
+
+-- functorial action on ×: map both factors, or just one
+axiom prodMap (A B C D : Type) : (A → C) → (B → D) → (A × B → C × D)
+axiom first   (A B C : Type)   : (A → C) → (A × B → C × B)
+axiom second  (A B C : Type)   : (B → C) → (A × B → A × C)
+
+-- the (X × Y → Z) ≅ (X → Y → Z) adjunction
+axiom curry   (A B C : Type) : (A × B → C) → (A → B → C)
+axiom uncurry (A B C : Type) : (A → B → C) → (A × B → C)

@@ -1,0 +1,27 @@
+-- final.cor : the terminal type Final (the 0-ary product / "unit"), presented by its
+-- universal property with generic operators — NOT as an inductive with a constructor.
+--
+--   * Final is terminal: for every type X there is a unique arrow  bang X : X → Final.
+--   * Dually the global elements of X are the arrows Final → X, and X ≅ (Final → X)
+--     via  term / term_inverse.
+--
+-- Final subsumes the K combinator (weakening): term_inverse : X → Final → X is
+-- exactly K with its discarded argument fixed to Final, and general K a b = a is
+-- recovered by first collapsing b : B to the point along bang. So the terminal
+-- object is the home of weakening — the reason Final has combinator content.
+
+axiom Final : Type
+
+namespace Final
+
+  -- the unique arrow into the terminal  (!_X : X → Final)
+  axiom bang (X : Type) : X → Final
+
+  -- global elements:  X ≅ (Final → X)
+  axiom term (X : Type) : (Final → X) → X          -- evaluate a global element at the point
+  axiom term_inverse (X : Type) : X → Final → X    -- x as the constant global element (= K fixed at Final)
+
+  -- the point of Final: its unique global element (id_Final read as a point)
+  noncomputable def only : Final := term Final (bang Final)
+
+end Final

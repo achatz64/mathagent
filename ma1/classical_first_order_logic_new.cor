@@ -1,53 +1,51 @@
 import classical_propositional_logic
+import prod
+import final
 
 -- Classical first-order logic, built on the classical propositions of
--- classical_propositional_logic.cor (the universe PC = Prop). Dependent types a la (x : X) free approach.
+-- classical_propositional_logic.cor (the universe PC = Prop). Lambda-free: every
+-- body is a closed point-free combination of constants, the product operators of
+-- prod.cor, the terminal operators of final.cor, and the declaration's own
+-- parameters — no anonymous fun / match.
 
 -- fibration: a predicate over a domain X is a propositional function X → PC.
 abbrev Pred (X : Type) := X → PC
 
---- one term only type
-inductive Final
-  | only : Final
-
-def term (X : Type) : (Final -> X) -> X := fun (f) => (f Final.only)
-def term_inverse (X : Type) : X -> Final -> X := fun (x) => fun (a) => match a with | .only => x
-
---- for simplicity we use lambdas, note that we may use all combinators in order to construct X -> X x X
---- combinators for X and and, or, not, imply on PC is all that enters
+--- pointwise connectives on predicates, point-free from the product operators:
+--- a binary connective is (uncurry conn) after the fork ⟨f, g⟩; negation is conn ∘ f.
 namespace Pred
-  def and (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.and (f x) (g x)
-  def or (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.or (f x) (g x)
-  def not (X : Type) :  Pred X -> Pred X := fun (f : Pred X) => fun (x : X) => _root_.not (f x)
-  def imply (X : Type) :  Pred X -> Pred X -> Pred X := fun (f : Pred X) => fun (g : Pred X) => fun (x : X) => _root_.imply (f x) (g x)
-  def term : Pred Final -> Prop := fun (f : Pred Final) => _root_.term Prop f
+  def and   (X : Type) (f g : Pred X) : Pred X := (uncurry PC PC PC _root_.and)   ∘ (pair X PC PC f g)
+  def or    (X : Type) (f g : Pred X) : Pred X := (uncurry PC PC PC _root_.or)    ∘ (pair X PC PC f g)
+  def imply (X : Type) (f g : Pred X) : Pred X := (uncurry PC PC PC _root_.imply) ∘ (pair X PC PC f g)
+  def not   (X : Type) (f : Pred X)   : Pred X := _root_.not ∘ f
+  -- close a predicate on the terminal to a bare proposition (evaluate at the point)
+  noncomputable def term : Pred Final → Prop := Final.term Prop
 end Pred
 
 -- universal quantifier for all, predicate might depend on other variables
 axiom Forall (X : Type) (Y : Type) (P : Pred (X × Y)) : Pred Y
 
--- lambda for simplicity
 namespace Forall
-  def pull (T : Type) (X : Type) (Y : Type) : Pred (X × Y) -> (T -> X) -> Pred Y := fun (P) => fun (f) =>
-    let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
-    Pred.imply Y (Forall X Y P) (Forall T Y Q)
+  -- PRED-1 (instantiation), reindexed along f : T → X (map of the first factor)
+  def pull (T : Type) (X : Type) (Y : Type) (P : Pred (X × Y)) (f : T → X) : Pred Y :=
+    Pred.imply Y (Forall X Y P) (Forall T Y (P ∘ first T Y X f))
 
   -- ∀-GEN: from ψ → φ infer ψ → (∀x φ), with x not free in ψ (structural: ψ : Pred Y).
-  -- as a formula: [ ∀x (ψ → P) ] → [ ψ → ∀x P ]
+  -- as a formula: [ ∀x (ψ → P) ] → [ ψ → ∀x P ]  (ψ lifted to X × Y through snd)
   def gen (X : Type) (Y : Type) (psi : Pred Y) (P : Pred (X × Y)) : Pred Y :=
-    Pred.imply Y (Forall X Y (fun (p : X × Y) => _root_.imply (psi p.2) (P p))) (Pred.imply Y psi (Forall X Y P))
+    Pred.imply Y (Forall X Y (Pred.imply (X × Y) (psi ∘ snd X Y) P)) (Pred.imply Y psi (Forall X Y P))
 end Forall
 
 -- existential quantifier
 axiom Exist (X : Type) (Y : Type) (P : Pred (X × Y)) : Pred Y
 
 namespace Exist
-  def push (T : Type) (X : Type) (Y : Type) : Pred (X × Y) -> (T -> X) -> Pred Y := fun (P) => fun (f) =>
-    let Q : Pred (T × Y) := fun (p : T × Y) => P (f p.1, p.2)
-    Pred.imply Y (Exist T Y Q) (Exist X Y P)
+  -- PRED-2 (introduction), reindexed along f : T → X (map of the first factor)
+  def push (T : Type) (X : Type) (Y : Type) (P : Pred (X × Y)) (f : T → X) : Pred Y :=
+    Pred.imply Y (Exist T Y (P ∘ first T Y X f)) (Exist X Y P)
 
   -- ∃-GEN: from φ → ψ infer (∃x φ) → ψ, with x not free in ψ (structural: ψ : Pred Y).
   -- as a formula: [ ∀x (P → ψ) ] → [ (∃x P) → ψ ]
   def gen (X : Type) (Y : Type) (psi : Pred Y) (P : Pred (X × Y)) : Pred Y :=
-    Pred.imply Y (Forall X Y (fun (p : X × Y) => _root_.imply (P p) (psi p.2))) (Pred.imply Y (Exist X Y P) psi)
+    Pred.imply Y (Forall X Y (Pred.imply (X × Y) P (psi ∘ snd X Y))) (Pred.imply Y (Exist X Y P) psi)
 end Exist
