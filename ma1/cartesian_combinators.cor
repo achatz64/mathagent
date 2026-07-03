@@ -1,0 +1,34 @@
+import prod
+import final
+
+-- cartesian_combinators.cor : the S, K, I combinators DERIVED from the cartesian
+-- structure (products + terminal), rather than postulated as in SK_combinators.cor.
+-- Prod + Final + identity is the categorically primitive basis (a cartesian closed
+-- category), and thinking in products is the more natural human-facing presentation;
+-- S and K fall out as small definitions.
+
+namespace Cart
+
+  -- I : identity. This is the one genuine primitive — the ambient category structure,
+  -- not derivable from × or Final. (Named i_comb; Lean reserves id.)
+  axiom i_comb (A : Type) : A → A
+
+  -- evaluation eval (h, b) = h b : the counit of the × / → adjunction, = uncurry I.
+  noncomputable def eval (B C : Type) : (B → C) × B → C := uncurry (B → C) B C (i_comb (B → C))
+
+  -- K = weakening : A → B → A, with  weakening a b = a.
+  -- Uncurried K discards the second factor: collapse B to the point (second ∘ bang),
+  -- project the first (fst), then curry. (`curry (fst A B)` is the pure-product
+  -- shortcut; routing through Final shows the terminal's combinator content.)
+  noncomputable def weakening (A B : Type) : A → B → A :=
+    curry A B A ((fst A Final) ∘ (second A B Final (Final.bang B)))
+
+  -- S = s_comb : (A → B → C) → (A → B) → A → C, with  s_comb f g a = f a (g a).
+  -- Share the argument with the fork ⟨f, g⟩ : A → (B → C) × B, then evaluate.
+  noncomputable def s_comb (A B C : Type) (f : A → B → C) (g : A → B) : A → C :=
+    (eval B C) ∘ (pair A (B → C) B f g)
+
+end Cart
+
+#check @Cart.weakening
+#check @Cart.s_comb
