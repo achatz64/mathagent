@@ -125,3 +125,81 @@ element in the surrounding expression. Otherwise:
 Unlike earlier drafts, a single operator no longer stands for both application and
 composition: `f a` is always application and `f ∘ g` is always composition, so no
 domain/codomain disambiguation rule is needed.
+
+## Proving over the model: no equality, no dependent types, infra axioms
+
+Core has three layers that must be kept apart, and most of the discipline below is
+about how they connect:
+
+1. **Vocabulary** — opaque `axiom` symbols with *no computation rules*: the product
+   combinators (`fst`/`snd`/`pair`/`uncurry`/`curry`/`first`/… of `prod.cor`), the
+   terminal (`Final.term`/`bang`/`term_inverse`), and the quantifier constants
+   `Forall`/`Exist`. These let you *write* formulas; they compute nothing.
+2. **The intended model** we reason about in our heads: `Pred X = X → PC`, types are
+   sets, `Final` is a one-point set, `Forall X Y P = λy. ∀x. P(x,y)`,
+   `Exist X Y P = λy. ∃x. P(x,y)`, connectives pointwise, `Pred.term P = P ★`.
+3. **Infra axioms** that make layer 1 behave like layer 2. They can only do so much
+   (see below), and every one **must be checked true in the model** — evaluate it at
+   the point `★` and confirm it is a logical validity. Never postulate an unsound
+   axiom for convenience.
+
+### No equality ⇒ math axioms have a mandatory form
+
+There is **no general propositional equality** in Core — only `SetEq` on `Sets` and
+`iff` on `PC`. Consequently a combinator-built relation like
+`Elem := uncurry Sets Sets PC elem` **never reduces** to the elementary `elem x a`:
+they are propositionally the same but not *definitionally* equal, because `uncurry`
+and `pair` carry no β-rule. Worse, the β-laws that would bridge them
+(`fst (pair f g) = f`, `uncurry op (a,b) = op a b`, `Final.term (const c) = c`) live
+at an **arbitrary `Type`** (e.g. `Z → A`), where `iff` does not apply and `Eq` is
+unavailable — so they cannot even be postulated as bridges.
+
+The consequence is a hard rule: **write math axioms and proofs uniformly in the
+combinator/`Pred` layer** (the `Elem` form: `sub2 … Elem …`, `Forall`/`Exist`,
+`Pred.and`/`imply`/…), and never drop back to elementary `elem x a`. The only bridges
+allowed are those that land in `PC`, stated as `iff`s — the `term_*` homomorphisms
+that push `Pred.term` through a connective
+(`term_imply : iff (Pred.term ((Pred.imply Z f g) ∘ s)) (imply (Pred.term (f∘s)) (Pred.term (g∘s)))`,
+and likewise `and`/`or`/`not`). These are the "prod + Final yoga" bundled at `PC`,
+where `iff` is legal.
+
+### No dependent types ⇒ how proofs are actually done
+
+Quantifiers are Church's simply-typed constants, so `∀`/`∃` are `Pred`-transformers,
+**not** the dependent function `(x : X) → P x`. Proofs therefore never take a
+dependent premise. Instead:
+
+* A **proof is an arrow in `PC`**: `imply`/`iff` induce functions, discharged by
+  `imply_elim` / `iff_mp`. Everything provable is shipped to a bare `PC` by
+  `Pred.term`, so you work with closed sentences and ordinary implication.
+* Work at the **closed level `Y = Final`**. State the quantifier laws and do the
+  proofs on `Pred.term (Forall/Exist X Final …)`; free variables enter as **constants**
+  — global elements `Final → X` built with `Cart.weakening` — and general-context
+  (`Y ≠ Final`) statements are *derived*, not re-postulated.
+* **Instantiation / witnessing** take a head-generic witness `x : X` (allowed — it is a
+  telescope parameter like `eq_subst`'s, not a dependent function): `Forall_elim`,
+  `Exist_intro`, with `inst X P x` the closed instance.
+* **Generalization** — introducing a *fresh* `∀` — is the subtle case, and it is *not*
+  a parametric proof `(x:X)→…`. It comes from treating `∀`/`∃` as a **monotone,
+  meet/join-preserving functor over a classical fibre**: `Forall_mono`, `Forall_and`
+  (`Exist_mono`, `Exist_or`), plus **classical-fibre generators** such as
+  `Forall_exfalso` (the `∀`-closure of a tautology — sound because a tautology is `⊤`
+  in the fibre and `∀⊤ = ⊤`). A fresh universal is built by transforming an existing
+  one (or a generator) with these, never by `∀`-introducing a per-`x` term.
+  *Example:* `∀x¬A → ∀x¬B → ∀x(A↔B)` (extensionality for two empty sets) is
+  `Forall_and` over two `forallVacImp = Forall_mono ∘ Forall_exfalso` — see
+  `emptyUniqueCore` in `classical_first_order_logic_new.cor`.
+
+### The three infra families (all `PC`-level, all model-checked)
+
+* **(A) connective homomorphisms** `term_*` — bridge combinator-connectives to `PC`
+  connectives (the only sanctioned way past the "no equality" wall).
+* **(B) quantifier laws** — `Forall_elim`/`Exist_intro` (witness `x : X`) and the
+  point-free adjunction `Forall_gen`/`Exist_gen`.
+* **(C) structural laws** — `∀`/`∃` monotone and meet/join-preserving, plus the
+  classical-fibre generators.
+
+Together (A)+(B)+(C) give full classical first-order reasoning with **no equality and
+no dependent types**. When a proof needs a new fibre validity (excluded middle under
+`∀`, etc.), add it to family (C) the same way: state it at `Y = Final`, check it true
+at `★`, keep it dependent-free.

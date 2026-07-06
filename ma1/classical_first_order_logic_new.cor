@@ -1,6 +1,7 @@
 import classical_propositional_logic
 import prod
 import final
+import cartesian_combinators
 
 -- Classical first-order logic, built on the classical propositions of
 -- classical_propositional_logic.cor (the universe PC = Prop). Lambda-free: every
@@ -18,9 +19,15 @@ namespace Pred
   def or    (X : Type) (f g : Pred X) : Pred X := (uncurry PC PC PC _root_.or)    ∘ (pair X PC PC f g)
   def imply (X : Type) (f g : Pred X) : Pred X := (uncurry PC PC PC _root_.imply) ∘ (pair X PC PC f g)
   def not   (X : Type) (f : Pred X)   : Pred X := _root_.not ∘ f
+  -- biconditional: iff f g = (f → g) ∧ (g → f)
+  def iff   (X : Type) (f g : Pred X) : Pred X := and X (imply X f g) (imply X g f)
   -- close a predicate on the terminal to a bare proposition (evaluate at the point)
   noncomputable def term : Pred Final → Prop := Final.term Prop
 end Pred
+
+-- reindex a binary predicate along two maps:  (sub2 Q f g) t = Q (f t, g t).
+-- This is how an atomic relation is applied to chosen components of a context tuple.
+def sub2 (T A B : Type) (Q : Pred (A × B)) (f : T → A) (g : T → B) : Pred T := Q ∘ (pair T A B f g)
 
 -- universal quantifier for all, predicate might depend on other variables
 axiom Forall (X : Type) (Y : Type) (P : Pred (X × Y)) : Pred Y
@@ -49,3 +56,146 @@ namespace Exist
   def gen (X : Type) (Y : Type) (psi : Pred Y) (P : Pred (X × Y)) : Pred Y :=
     Pred.imply Y (Forall X Y (Pred.imply (X × Y) P (psi ∘ snd X Y))) (Pred.imply Y (Exist X Y P) psi)
 end Exist
+
+-- ===== the quantifier LAWS, postulated over the closed case Y = Final =====
+--
+-- Forall / Exist are opaque formula-constructors: a constant has no proof content, so the
+-- adjunction defs above (pull/gen/push/gen) are only the STATEMENTS of the rules — inert
+-- until their truth is postulated. We postulate that truth, and only for Y = Final: a
+-- formula with no free context variable is a `Pred Final`, shipped to a bare `PC` by
+-- `Pred.term`, so entailment = ordinary `imply` (no hidden context quantifier) and every
+-- law is usable by `imply_elim`. No dependent types: the two instantiation rules take a
+-- witness `x : X` as a head generic (like `eq_subst`'s params), the two adjunction rules
+-- take none. The general-context (arbitrary Y) rules are to be DERIVED from these.
+
+-- closed instance of a body at witness x : X : substitute the constant map `x` for the
+-- bound variable and pair with the point of Final.  inst P x : Pred Final.
+noncomputable def inst (X : Type) (P : Pred (X × Final)) (x : X) : Pred Final :=
+  P ∘ (pair Final X Final (Cart.weakening X Final x) (Cart.i_comb Final))
+
+-- ∀-elimination: a closed universal implies its instance at x.
+axiom Forall_elim (X : Type) (P : Pred (X × Final)) (x : X) :
+  imply (Pred.term (Forall X Final P)) (Pred.term (inst X P x))
+
+-- ∃-introduction: an instance at x implies the existential.
+axiom Exist_intro (X : Type) (P : Pred (X × Final)) (x : X) :
+  imply (Pred.term (inst X P x)) (Pred.term (Exist X Final P))
+
+-- ∀-introduction (∀-GEN, point-free): from ∀x(ψ → P) infer ψ → ∀x P.
+-- (ψ : Pred Final has no free x; lifted to X × Final through snd.)
+axiom Forall_gen (X : Type) (psi : Pred Final) (P : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.imply (X × Final) (psi ∘ snd X Final) P)))
+        (imply (Pred.term psi) (Pred.term (Forall X Final P)))
+
+-- ∃-elimination (∃-GEN, point-free): from ∀x(P → ψ) infer (∃x P) → ψ.
+axiom Exist_gen (X : Type) (psi : Pred Final) (P : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.imply (X × Final) P (psi ∘ snd X Final))))
+        (imply (Pred.term (Exist X Final P)) (Pred.term psi))
+
+-- ===== term / reindex homomorphisms (the prod + Final "yoga", bundled at PC) =====
+--
+-- Pred.and/or/imply/not are each `uncurry <op> ∘ pair f g`. Evaluating a reindexed
+-- connective — `(Pred.op Z f g) ∘ s` shipped to a bare PC by Pred.term — should equal the
+-- PC-level `op` of the evaluated parts. This is TRUE by the β-laws of × and Final
+-- (fst∘pair = f, uncurry op (a,b) = op a b, Final.term (const c) = c), but those
+-- combinators are opaque axioms with no computation rules, so the equality is not
+-- definitional and the β-laws live at arbitrary Type (not PC), so they cannot be `iff`.
+-- We therefore postulate the homomorphism directly — at PC, where `iff` is legal — one per
+-- connective, uniform in the reindexing s : Final → Z. Here s is either `inst`'s instance
+-- map or `Cart.i_comb Final` (the plain, un-reindexed case).
+axiom term_imply (Z : Type) (s : Final → Z) (f g : Pred Z) :
+  iff (Pred.term ((Pred.imply Z f g) ∘ s)) (imply (Pred.term (f ∘ s)) (Pred.term (g ∘ s)))
+axiom term_and (Z : Type) (s : Final → Z) (f g : Pred Z) :
+  iff (Pred.term ((Pred.and Z f g) ∘ s)) (and (Pred.term (f ∘ s)) (Pred.term (g ∘ s)))
+axiom term_or (Z : Type) (s : Final → Z) (f g : Pred Z) :
+  iff (Pred.term ((Pred.or Z f g) ∘ s)) (or (Pred.term (f ∘ s)) (Pred.term (g ∘ s)))
+axiom term_not (Z : Type) (s : Final → Z) (f : Pred Z) :
+  iff (Pred.term ((Pred.not Z f) ∘ s)) (not (Pred.term (f ∘ s)))
+
+-- SLICE (validation): universal instantiation THROUGH an implication.
+-- Instantiating a closed ∀x(P → Q) at a witness t gives the instance implication
+-- P(t) → Q(t).  Point-free: elim the ∀ (Forall_elim), then cross the term_imply bridge
+-- (iff_mp) to split Pred.term over the implication.  Exercises Forall_elim + term_imply.
+noncomputable def instImply (X : Type) (P Q : Pred (X × Final)) (t : X) :
+  imply (Pred.term (Forall X Final (Pred.imply (X × Final) P Q)))
+        (imply (Pred.term (inst X P t)) (Pred.term (inst X Q t))) :=
+  imply_intro (Pred.term (Forall X Final (Pred.imply (X × Final) P Q)))
+              (imply (Pred.term (inst X P t)) (Pred.term (inst X Q t)))
+    ((iff_mp (Pred.term (inst X (Pred.imply (X × Final) P Q) t))
+             (imply (Pred.term (inst X P t)) (Pred.term (inst X Q t)))
+             (term_imply (X × Final)
+               (pair Final X Final (Cart.weakening X Final t) (Cart.i_comb Final)) P Q))
+     ∘ (imply_elim (Pred.term (Forall X Final (Pred.imply (X × Final) P Q)))
+                   (Pred.term (inst X (Pred.imply (X × Final) P Q) t))
+                   (Forall_elim X (Pred.imply (X × Final) P Q) t)))
+
+-- ===== infra: ∀ / ∃ align with the products+functions model =====
+--
+-- In the intended model `Pred X = X → PC`, `Forall`/`Exist` are genuine ∀/∃ over the
+-- fibre and the connectives are pointwise. `Forall`/`Exist` are opaque constants, so the
+-- structural facts that make them BEHAVE that way — that ∀ is a monotone meet-preserving
+-- functor, ∃ a monotone join-preserving functor, over a classical fibre — are not visible
+-- and must be postulated. Each is checked true in that model (see core.md). All are
+-- dependent-free (X, P, Q are head telescopes; bodies are bare `imply`/`Pred.term`).
+
+-- ∀ is a monotone functor (the "K" law): ∀x(P→Q) → (∀xP → ∀xQ).
+axiom Forall_mono (X : Type) (P Q : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.imply (X × Final) P Q)))
+        (imply (Pred.term (Forall X Final P)) (Pred.term (Forall X Final Q)))
+
+-- ∀ preserves meets: ∀xP ∧ ∀xQ → ∀x(P∧Q).  (the reverse direction follows from Forall_mono.)
+axiom Forall_and (X : Type) (P Q : Pred (X × Final)) :
+  imply (and (Pred.term (Forall X Final P)) (Pred.term (Forall X Final Q)))
+        (Pred.term (Forall X Final (Pred.and (X × Final) P Q)))
+
+-- ∃ is a monotone functor: ∀x(P→Q) → (∃xP → ∃xQ).
+axiom Exist_mono (X : Type) (P Q : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.imply (X × Final) P Q)))
+        (imply (Pred.term (Exist X Final P)) (Pred.term (Exist X Final Q)))
+
+-- ∃ preserves joins: ∃x(P∨Q) → (∃xP ∨ ∃xQ).  (the reverse direction follows from Exist_mono.)
+axiom Exist_or (X : Type) (P Q : Pred (X × Final)) :
+  imply (Pred.term (Exist X Final (Pred.or (X × Final) P Q)))
+        (or (Pred.term (Exist X Final P)) (Pred.term (Exist X Final Q)))
+
+-- classical fibre, lifted: ex falso under ∀.  ∀x( ¬P → (P → Q) ).
+-- This is the generalization generator: it introduces the ∀-closure of a tautology, which
+-- Forall_gen/Forall_mono alone cannot bootstrap (a tautology is ⊤ in the fibre, ∀⊤ = ⊤).
+axiom Forall_exfalso (X : Type) (P Q : Pred (X × Final)) :
+  Pred.term (Forall X Final
+    (Pred.imply (X × Final) (Pred.not (X × Final) P) (Pred.imply (X × Final) P Q)))
+
+-- EXAMPLE: the heart of `emptyUnique`, at the closed (Final) level, generic in the atoms
+-- A, B.  "If nothing is A and nothing is B, then A ↔ B everywhere" — extensionality for two
+-- empty sets, instantiated later with A := (·∈a), B := (·∈b).  No dependent types, no fresh
+-- ∀-intro: generalization comes entirely from Forall_exfalso + Forall_mono + Forall_and.
+
+-- ∀x(A→B) from ∀x¬A, vacuously (mono applied to the ex-falso universal).
+noncomputable def forallVacImp (X : Type) (A B : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.not (X × Final) A)))
+        (Pred.term (Forall X Final (Pred.imply (X × Final) A B))) :=
+  imply_elim _ _
+    (Forall_mono X (Pred.not (X × Final) A) (Pred.imply (X × Final) A B))
+    (Forall_exfalso X A B)
+
+-- ∀x¬A → ∀x¬B → ∀x(A ↔ B).
+noncomputable def emptyUniqueCore (X : Type) (A B : Pred (X × Final))
+    (h1 : Pred.term (Forall X Final (Pred.not (X × Final) A)))
+    (h2 : Pred.term (Forall X Final (Pred.not (X × Final) B))) :
+    Pred.term (Forall X Final (Pred.iff (X × Final) A B)) :=
+  imply_elim _ _
+    (Forall_and X (Pred.imply (X × Final) A B) (Pred.imply (X × Final) B A))
+    (and_intro _ _
+      (imply_elim _ _ (forallVacImp X A B) h1)
+      (imply_elim _ _ (forallVacImp X B A) h2))
+
+#check @Forall_elim
+#check @Exist_intro
+#check @Forall_gen
+#check @Exist_gen
+#check @term_imply
+#check @instImply
+#check @Forall_mono
+#check @Forall_and
+#check @Forall_exfalso
+#check @emptyUniqueCore
