@@ -1,42 +1,212 @@
-import classical_first_order_logic
+import classical_first_order_logic_new
 
--- Definite description ("the" / ι operator): unique existence ⇒ a term.
+-- Definite description ("the" / ι operator) in the UNIFORM-ATOM discipline.
 --
--- The existence axioms of set.cor (and others) live in PC (= Prop). A proof that
--- a witness exists carries no extractable term, and Core/Lean has no eliminator
--- from Prop into Type (impredicative, proof-irrelevant Prop) — see the discussion
--- around Exist_elim, whose motive is forced into PC. So to turn "there is exactly
--- one x with P x" into an actual term we must POSTULATE a description operator.
--- This is the principle of unique choice; it is an added axiom, not derivable.
+-- A described object is a SET, pinned down by its members.  Everything is built from
+-- ONE membership atom `elt : Pred (X × X)` ("w ∈ s"); set-equality is DERIVED from it
+-- (SetEq(c,d) := ∀w. w∈c ↔ w∈d), and a set is characterized by a condition on its
+-- elements `phi : Pred X` :  c is the unique set with  ∀w. (w∈c ↔ phi w).
 --
--- Uniqueness is stated relative to a chosen equality `E` on `X`, so the same
--- machinery serves any type with any equality: Leibniz-style equality, the set
--- equality `SetEq` on `Sets`, the per-set `Equal S` on `El S`, and so on.
+-- Why "uniform atom": the earlier design composed opaque closed predicates onto
+-- projections (`E ∘ proj`, `P ∘ proj`), so the same fact "w∈a" got two non-defeq
+-- representations (via `isEmpty` vs via `SetEq`) that `=`-free code cannot merge.
+-- Here `w∈c`, `w∈d`, `phi w` and SetEq are ALL built once, from `elt`, via v0/v1 in a
+-- single de-Bruijn context — so the uniqueness body is DEFINITIONALLY `charUnique_ctx`'s
+-- conclusion.  Uniqueness then needs no reindexing: it is proved once, generically,
+-- for every characterized set (`uniqueOf` below).
 
--- uniqueness w.r.t. equality E: any two witnesses of P are E-related.
--- (implication is the bare function arrow, so this is usable by application.)
-def Unique (X : Type) (E : X -> X -> PC) (P : Pred X) : PC :=
-  (a : X) -> (b : X) -> P a -> P b -> E a b
+-- ===== the membership atom, applied in each context =====
 
--- unique existence: a witness exists and is unique up to E.
-def ExistUnique (X : Type) (E : X -> X -> PC) (P : Pred X) : PC :=
-  and (Exist X P) (Unique X E P)
+-- w ∈ (the ∃-witness set), at the single-set context (w, (c, ⋆)) : X × (X × Final).
+noncomputable def memWit (X : Type) (elt : Pred (X × X)) : Pred (X × (X × Final)) :=
+  sub2 (X × (X × Final)) X X elt (v0 X (X × Final)) (v1 X X Final)
 
--- THE description operator: from unique existence, extract the witness as a term.
--- (This is exactly the Prop → Type bridge that the existence axioms cannot give.)
-axiom the (X : Type) (E : X -> X -> PC) (P : Pred X) : ExistUnique X E P -> X
+-- w ∈ (a TERM s), at the single-set context (w, ⋆) : X × Final.
+noncomputable def memAt (X : Type) (elt : Pred (X × X)) (s : X) : Pred (X × Final) :=
+  sub2 (X × Final) X X elt (v0 X Final) (Cart.weakening X (X × Final) s)
 
--- spec: the extracted term satisfies P.
-axiom the_spec (X : Type) (E : X -> X -> PC) (P : Pred X)
-  (h : ExistUnique X E P) : P (the X E P h)
+-- w ∈ c  and  w ∈ d, at the uniqueness context (w, ((c,d), ⋆)) : X × ((X×X) × Final).
+noncomputable def memFst (X : Type) (elt : Pred (X × X)) : Pred (X × ((X × X) × Final)) :=
+  sub2 (X × ((X × X) × Final)) X X elt (v0 X ((X × X) × Final))
+    (fst X X ∘ (fst (X × X) Final ∘ snd X ((X × X) × Final)))
+noncomputable def memSnd (X : Type) (elt : Pred (X × X)) : Pred (X × ((X × X) × Final)) :=
+  sub2 (X × ((X × X) × Final)) X X elt (v0 X ((X × X) × Final))
+    (snd X X ∘ (fst (X × X) Final ∘ snd X ((X × X) × Final)))
 
--- derived: the extracted term is E-canonical — every witness is E-related to it.
--- Proof: project the uniqueness half of h, then feed it y, (the …), and the two
--- membership proofs (hy and the_spec). Modus ponens is application.
-noncomputable def the_eq (X : Type) (E : X -> X -> PC) (P : Pred X)
-  (h : ExistUnique X E P) (y : X) (hy : P y) : E y (the X E P h) :=
-  and_elim_right (Exist X P) (Unique X E P) h y (the X E P h) hy (the_spec X E P h)
+-- ===== the characterization body, and how it is reindexed between contexts =====
+--
+-- The characterization `cbody : Pred (X × (X × Final))` is given at the EXISTENCE context
+-- (w, (c, ⋆)) — exactly the shape of set.cor's ZFC-axiom bodies — so existence matches by
+-- defeq with no bridge.  For uniqueness it is reindexed opaquely into the (c,d) context
+-- (charUnique_ctx never inspects it); for the spec the set slot is substituted by a term.
 
-#check the
-#check the_spec
-#check the_eq
+-- reindex the characterization into the uniqueness (pair) context (w, ((c,d), ⋆)),
+-- reading the set slot off the FIRST component c of the pair.
+noncomputable def cmap (X : Type) : X × ((X × X) × Final) -> X × (X × Final) :=
+  pair (X × ((X × X) × Final)) X (X × Final)
+    (v0 X ((X × X) × Final))
+    (pair (X × ((X × X) × Final)) X Final
+      (fst X X ∘ (fst (X × X) Final ∘ snd X ((X × X) × Final)))
+      (snd (X × X) Final ∘ snd X ((X × X) × Final)))
+
+-- substitute a concrete set s into the characterization:  (w, ⋆) ↦ (w, (s, ⋆)).
+noncomputable def smap (X : Type) (s : X) : X × Final -> X × (X × Final) :=
+  pair (X × Final) X (X × Final)
+    (v0 X Final)
+    (pair (X × Final) X Final (Cart.weakening X (X × Final) s) (snd X Final))
+
+-- hasChar s : "s is characterized by cbody" — ∀w. (w∈s ↔ cbody[c:=s]).  A closed PC.
+noncomputable def hasChar (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final)))
+    (s : X) : PC :=
+  Pred.term (Forall X Final (Pred.iff (X × Final) (memAt X elt s) (cbody ∘ smap X s)))
+
+-- existence half: ∃c. ∀w. (w∈c ↔ cbody).  Defeq to set.cor's axiom for the matching cbody.
+noncomputable def existsChar (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final))) : PC :=
+  Pred.term (Exist X Final
+    (Forall X (X × Final) (Pred.iff (X × (X × Final)) (memWit X elt) cbody)))
+
+-- ===== uniqueness, built inline so it IS charUnique_ctx's conclusion =====
+
+-- ∀(c,d). (∀w. w∈c ↔ cbody) → (∀w. w∈d ↔ cbody) → (∀w. w∈c ↔ w∈d).
+noncomputable def Unique (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final))) :
+    Pred Final :=
+  Forall (X × X) Final
+    (Pred.imply ((X × X) × Final)
+      (Forall X ((X × X) × Final)
+        (Pred.iff (X × ((X × X) × Final)) (memFst X elt) (cbody ∘ cmap X)))
+      (Pred.imply ((X × X) × Final)
+        (Forall X ((X × X) × Final)
+          (Pred.iff (X × ((X × X) × Final)) (memSnd X elt) (cbody ∘ cmap X)))
+        (Forall X ((X × X) × Final)
+          (Pred.iff (X × ((X × X) × Final)) (memFst X elt) (memSnd X elt)))))
+
+-- uniqueness is proved ONCE, generically, for every characterized set: the inline body
+-- above is definitionally charUnique_ctx's conclusion (A := w∈c, B := w∈d, C := cbody).
+noncomputable def uniqueOf (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final))) :
+    Pred.term (Unique X elt cbody) :=
+  charUnique_ctx X (X × X) (memFst X elt) (memSnd X elt) (cbody ∘ cmap X)
+
+-- unique existence.
+noncomputable def ExistUnique (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final))) : PC :=
+  and (existsChar X elt cbody) (Pred.term (Unique X elt cbody))
+
+-- ===== the description operator =====
+
+-- from unique existence, extract the witness (the Prop → Type bridge the axioms lack).
+axiom the (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final))) :
+  ExistUnique X elt cbody -> X
+
+-- spec: the described set is characterized by cbody.
+axiom the_spec (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final)))
+  (h : ExistUnique X elt cbody) : hasChar X elt cbody (the X elt cbody h)
+
+-- ===== the ¬-characterization path (empty set):  ∀w. ¬(w∈c) =====
+--
+-- Empty is not an "↔ φ" characterization, so it rides emptyUniqueCore_ctx rather than
+-- charUnique_ctx.  Existence and spec stay in the CLOSED form `Forall X X (¬elt)` (which
+-- is exactly `isEmpty` when elt := Elem), so they match set.cor's `empty_ax` with no
+-- change to set.cor; only the uniqueness proof bridges closed→inline via Forall_reindex.
+
+-- the closed "s is empty" predicate:  ∀w. ¬(w∈s).   (= isEmpty when elt := Elem.)
+noncomputable def emptyPred (X : Type) (elt : Pred (X × X)) : Pred X :=
+  Forall X X (Pred.not (X × X) elt)
+
+-- existence:  ∃c. ∀w. ¬(w∈c).   (defeq to set.cor's empty_ax.)
+noncomputable def existsCharNeg (X : Type) (elt : Pred (X × X)) : PC :=
+  Pred.term (Exist X Final (emptyPred X elt ∘ (v0 X Final)))
+
+-- spec target: the described set is empty.
+noncomputable def hasCharNeg (X : Type) (elt : Pred (X × X)) (s : X) : PC :=
+  emptyPred X elt s
+
+-- uniqueness:  ∀(c,d). (∀w.¬(w∈c)) → (∀w.¬(w∈d)) → (∀w. w∈c ↔ w∈d).  Antecedents CLOSED
+-- (emptyPred ∘ proj, matching existence); conclusion the inline SetEq derived from elt.
+noncomputable def UniqueNeg (X : Type) (elt : Pred (X × X)) : Pred Final :=
+  Forall (X × X) Final
+    (Pred.imply ((X × X) × Final)
+      (emptyPred X elt ∘ (fst X X ∘ fst (X × X) Final))
+      (Pred.imply ((X × X) × Final)
+        (emptyPred X elt ∘ (snd X X ∘ fst (X × X) Final))
+        (Forall X ((X × X) × Final)
+          (Pred.iff (X × ((X × X) × Final)) (memFst X elt) (memSnd X elt)))))
+
+-- proved generically: bridge each closed antecedent to its inline ∀w-form (Forall_reindex,
+-- forward via Forall_iffMp), run emptyUniqueCore_ctx, assemble with Forall_bicompose.
+noncomputable def uniqueOfNeg (X : Type) (elt : Pred (X × X)) :
+    Pred.term (UniqueNeg X elt) :=
+  Forall_bicompose (X × X)
+    (emptyPred X elt ∘ (fst X X ∘ fst (X × X) Final))
+    (emptyPred X elt ∘ (snd X X ∘ fst (X × X) Final))
+    (Forall X ((X × X) × Final) (Pred.not (X × ((X × X) × Final)) (memFst X elt)))
+    (Forall X ((X × X) × Final) (Pred.not (X × ((X × X) × Final)) (memSnd X elt)))
+    (Forall X ((X × X) × Final) (Pred.iff (X × ((X × X) × Final)) (memFst X elt) (memSnd X elt)))
+    (Forall_iffMp (X × X) _ _
+      (Forall_reindex X X (X × X) (Pred.not (X × X) elt) (fst X X)))
+    (Forall_iffMp (X × X) _ _
+      (Forall_reindex X X (X × X) (Pred.not (X × X) elt) (snd X X)))
+    (emptyUniqueCore_ctx X (X × X) (memFst X elt) (memSnd X elt))
+
+noncomputable def ExistUniqueNeg (X : Type) (elt : Pred (X × X)) : PC :=
+  and (existsCharNeg X elt) (Pred.term (UniqueNeg X elt))
+
+axiom theNeg (X : Type) (elt : Pred (X × X)) : ExistUniqueNeg X elt -> X
+axiom theNeg_spec (X : Type) (elt : Pred (X × X))
+  (h : ExistUniqueNeg X elt) : hasCharNeg X elt (theNeg X elt h)
+
+-- ===== consuming a spec at a point (for the elementary membership lemmas) =====
+
+-- the point substitution  w := t :  Final → X × Final,  (⋆) ↦ (t, ⋆).
+noncomputable def pointAt (X : Type) (t : X) : Final -> X × Final :=
+  pair Final X Final (Cart.weakening X Final t) (Cart.i_comb Final)
+
+-- instantiate a `hasChar` spec at a point t: from ∀w.(w∈s ↔ cbody[c:=s]) read off the
+-- single biconditional at w := t (Forall_elim, then split the iff with term_and/term_imply).
+noncomputable def hasChar_at (X : Type) (elt : Pred (X × X)) (cbody : Pred (X × (X × Final)))
+    (s : X) (h : hasChar X elt cbody s) (t : X) :
+    iff (Pred.term ((memAt X elt s) ∘ pointAt X t))
+        (Pred.term ((cbody ∘ smap X s) ∘ pointAt X t)) :=
+  iff_intro _ _
+    (iff_mp _ _
+      (term_imply (X × Final) (pointAt X t) (memAt X elt s) (cbody ∘ smap X s))
+      (and_elim_left _ _
+        (iff_mp _ _
+          (term_and (X × Final) (pointAt X t)
+            (Pred.imply (X × Final) (memAt X elt s) (cbody ∘ smap X s))
+            (Pred.imply (X × Final) (cbody ∘ smap X s) (memAt X elt s)))
+          (imply_elim _ _
+            (Forall_elim X (Pred.iff (X × Final) (memAt X elt s) (cbody ∘ smap X s)) t) h))))
+    (iff_mp _ _
+      (term_imply (X × Final) (pointAt X t) (cbody ∘ smap X s) (memAt X elt s))
+      (and_elim_right _ _
+        (iff_mp _ _
+          (term_and (X × Final) (pointAt X t)
+            (Pred.imply (X × Final) (memAt X elt s) (cbody ∘ smap X s))
+            (Pred.imply (X × Final) (cbody ∘ smap X s) (memAt X elt s)))
+          (imply_elim _ _
+            (Forall_elim X (Pred.iff (X × Final) (memAt X elt s) (cbody ∘ smap X s)) t) h))))
+
+-- membership β: evaluating `w∈s` at the point w := t is the elementary `elt t s`.
+-- MODEL: (memAt X elt s ∘ pointAt X t) ⋆ = elt (t, s) = curry⁻¹ … ; both sides elt (t,s).
+axiom memBeta (X : Type) (elt : Pred (X × X)) (t s : X) :
+  iff (Pred.term ((memAt X elt s) ∘ pointAt X t)) (curry X X PC elt t s)
+
+-- atom β: a characterization atom `R(w, c)` (R applied to the bound w and a constant c),
+-- evaluated at the point (w,(·)) := (t, (s, ⋆)), is the elementary `R t c`.
+-- MODEL: both sides are R (t, c).
+axiom atomBeta (X : Type) (R : Pred (X × X)) (s c t : X) :
+  iff (Pred.term
+        ((sub2 (X × (X × Final)) X X R (v0 X (X × Final))
+           (Cart.weakening X (X × (X × Final)) c)) ∘ (smap X s ∘ pointAt X t)))
+      (curry X X PC R t c)
+
+#check @hasChar
+#check @existsChar
+#check @Unique
+#check @uniqueOf
+#check @the
+#check @the_spec
+#check @uniqueOfNeg
+#check @theNeg
+#check @theNeg_spec
+#check @hasChar_at
+#check @memBeta

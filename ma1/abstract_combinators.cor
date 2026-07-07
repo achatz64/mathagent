@@ -1,0 +1,85 @@
+-- structural rules
+
+import classical_propositional_logic
+
+namespace TypeComb
+
+    -- weakening
+    axiom k_comb (A B : Type) : A → B → A
+
+    -- exchange
+    axiom c_comb (A B C : Type) : (A → B → C) → B → A → C
+
+    -- exchange β at PC.  `c_comb` is opaque (it computes nothing), so a swapped predicate
+    -- `· = a := c_comb (curry SetEq) a` cannot be consumed by definitional reduction — that
+    -- reduction is a β-law at an arbitrary Type, which the no-equality discipline forbids.
+    -- As with `curry_uncurry`/`atomBeta`, the sanctioned bridge lands in PC as an `iff`.
+    -- MODEL: c_comb f b a = f a b, both sides in PC.
+    axiom c_beta (A B : Type) (f : A → B → PC) (b : B) (a : A) :
+      iff (c_comb A B PC f b a) (f a b)
+
+    -- S combinator
+    axiom s_comb (A B C : Type) : (A → B → C) → (A → B) → A → C
+
+    -- derived terms
+
+    -- identity: I = S K K. The outer K (first arg) discards the second K applied to x.
+    -- The S middle type B is instantiated to A → A so the second K can supply A → (A → A).
+    -- (named i_comb, not id, since Lean reserves id)
+    noncomputable def i_comb (A : Type) := s_comb A (A → A) A (k_comb A (A → A)) (k_comb A A)
+    -- trace
+    -- s_comb A (A → A) A : (A → (A → A) → A) → (A → (A → A)) → (A → A)
+    -- weakening A (A → A) : A → (A → A) → A
+    -- s_comb A (A → A) A (weakening A (A → A)) : (A → (A → A)) → (A → A)
+    -- weakening A A : A → (A → A)
+    -- s_comb A (A → A) A (weakening A (A → A)) (weakening A A) : A → A
+
+    -- diagonal/contraction: W = \f x. f x x, built as W f = S f I.
+    -- exchange brings the identity into the second argument slot of S, leaving f to be supplied.
+    noncomputable def diagonal (A B : Type) := c_comb (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A)
+    -- trace
+    -- s_comb A A B : (A → A → B) → (A → A) → (A → B)
+    -- exchange (A → A → B) (A → A) (A → B) : ((A → A → B) → (A → A) → (A → B)) → ((A → A) → (A → A → B) → (A → B))
+    -- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) : (A → A) → (A → A → B) → (A → B)
+    -- i_comb A : A → A
+    -- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A) : (A → A → B) → A → B
+
+end TypeComb
+
+#check TypeComb.i_comb
+
+namespace PropComb
+
+    -- weakening
+    axiom k_comb (A B: Prop) : A → B → A
+
+    -- exchange
+    axiom c_comb (A B C : Prop) : (A → B → C) → B → A → C
+
+    -- S combinator
+    axiom s_comb (A B C : Prop) : (A → B → C) → (A → B) → A → C
+
+    -- derived terms
+
+    -- identity: I = S K K. The outer K (first arg) discards the second K applied to x.
+    -- The S middle type B is instantiated to A → A so the second K can supply A → (A → A).
+    -- (named i_comb, not id, since Lean reserves id)
+    noncomputable def i_comb (A : Prop) := s_comb A (A → A) A (k_comb A (A → A)) (k_comb A A)
+    -- trace
+    -- s_comb A (A → A) A : (A → (A → A) → A) → (A → (A → A)) → (A → A)
+    -- weakening A (A → A) : A → (A → A) → A
+    -- s_comb A (A → A) A (weakening A (A → A)) : (A → (A → A)) → (A → A)
+    -- weakening A A : A → (A → A)
+    -- s_comb A (A → A) A (weakening A (A → A)) (weakening A A) : A → A
+
+    -- diagonal/contraction: W = \f x. f x x, built as W f = S f I.
+    -- exchange brings the identity into the second argument slot of S, leaving f to be supplied.
+    noncomputable def diagonal (A B : Prop) := c_comb (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A)
+    -- trace
+    -- s_comb A A B : (A → A → B) → (A → A) → (A → B)
+    -- exchange (A → A → B) (A → A) (A → B) : ((A → A → B) → (A → A) → (A → B)) → ((A → A) → (A → A → B) → (A → B))
+    -- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) : (A → A) → (A → A → B) → (A → B)
+    -- i_comb A : A → A
+    -- exchange (A → A → B) (A → A) (A → B) (s_comb A A B) (i_comb A) : (A → A → B) → A → B
+
+end PropComb

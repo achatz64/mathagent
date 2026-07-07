@@ -189,6 +189,131 @@ noncomputable def emptyUniqueCore (X : Type) (A B : Pred (X × Final))
       (imply_elim _ _ (forallVacImp X A B) h1)
       (imply_elim _ _ (forallVacImp X B A) h2))
 
+-- ===== general-context (Y ≠ Final) layer: replay the above UNDER an outer binder =====
+--
+-- The laws above are all at Y = Final.  To prove `Unique … = ∀(a,b). P a → P b → E(a,b)`
+-- we must run emptyUniqueCore's reasoning under the (a,b)-binder, i.e. at a general
+-- context Y.  These are the Y-lifted structural laws (model-checked in Pred X = X→PC),
+-- with the outer binder closed by `Pred.term ∘ Forall Y Final`.
+
+-- "m holds at every point of the context Y" : the ∀y-closure of m : Pred (Y × Final).
+abbrev Vy (Y : Type) (m : Pred (Y × Final)) : Prop := Pred.term (Forall Y Final m)
+
+-- inner ∀x is a monotone functor, under an outer context Y:  ∀y[ ∀x(P→Q) → (∀xP → ∀xQ) ].
+axiom Forall_mono_ctx (X Y : Type) (P Q : Pred (X × (Y × Final))) :
+  Vy Y (Pred.imply (Y × Final)
+    (Forall X (Y × Final) (Pred.imply (X × (Y × Final)) P Q))
+    (Pred.imply (Y × Final) (Forall X (Y × Final) P) (Forall X (Y × Final) Q)))
+
+-- inner ∀x preserves meets, under an outer context Y (curried):  ∀y[ ∀xP → ∀xQ → ∀x(P∧Q) ].
+axiom Forall_and_ctx (X Y : Type) (P Q : Pred (X × (Y × Final))) :
+  Vy Y (Pred.imply (Y × Final)
+    (Forall X (Y × Final) P)
+    (Pred.imply (Y × Final) (Forall X (Y × Final) Q)
+      (Forall X (Y × Final) (Pred.and (X × (Y × Final)) P Q))))
+
+-- classical ex-falso under ∀x, under an outer context Y (empty-set tautology seed):
+--   ∀y[ ∀x ( ¬P → (P → Q) ) ].
+axiom Forall_exfalso_ctx (X Y : Type) (P Q : Pred (X × (Y × Final))) :
+  Vy Y (Forall X (Y × Final)
+    (Pred.imply (X × (Y × Final)) (Pred.not (X × (Y × Final)) P)
+      (Pred.imply (X × (Y × Final)) P Q)))
+
+-- ∀y-level composition (hypothetical syllogism at the outer binder).
+axiom Forall_B (Y : Type) (u m w : Pred (Y × Final))
+  (h1 : Vy Y (Pred.imply (Y × Final) u m)) (h2 : Vy Y (Pred.imply (Y × Final) m w)) :
+  Vy Y (Pred.imply (Y × Final) u w)
+
+-- combine two implications through a binary conclusion, under ∀y (the ∀y-lift of
+-- λ f g h u v. h (f u) (g v)); the propositional glue for a curried implication.
+axiom Forall_bicompose (Y : Type) (u v p q w : Pred (Y × Final))
+  (f : Vy Y (Pred.imply (Y × Final) u p))
+  (g : Vy Y (Pred.imply (Y × Final) v q))
+  (h : Vy Y (Pred.imply (Y × Final) p (Pred.imply (Y × Final) q w))) :
+  Vy Y (Pred.imply (Y × Final) u (Pred.imply (Y × Final) v w))
+
+-- characterized-set tautology seed (pair/single/union/successor uniqueness):
+--   ∀y[ ∀x ( (A↔C) → (B↔C) → (A↔B) ) ]   (iff-transitivity through the middle C).
+axiom Forall_iffTrans_ctx (X Y : Type) (A B C : Pred (X × (Y × Final))) :
+  Vy Y (Forall X (Y × Final)
+    (Pred.imply (X × (Y × Final)) (Pred.iff (X × (Y × Final)) A C)
+      (Pred.imply (X × (Y × Final)) (Pred.iff (X × (Y × Final)) B C)
+        (Pred.iff (X × (Y × Final)) A B))))
+
+-- ∀-SUBSTITUTION (Beck–Chevalley).  FOL:  (∀x. R x y)[y := t]  ↔  ∀x. R x t ,
+-- valid because the bound x is not free in the substituted term t (no capture).
+-- The parameter `y : Y0` is substituted by a term `f y` built from the free-variable
+-- context `Y` (so f : Y → Y0; Final is terminal and carries nothing, hence f is lifted
+-- to the context by `fst Y Final`).  A closed universal reindexed along the substitution
+-- equals the universal taken in the substituted context — ∀ commutes with substitution.
+-- MODEL (Pred T = T→PC, Forall X Y P = λy. ∀x. P(x,y)):  at every (y,⋆) both sides
+-- compute to  ∀x. R (x, f y) — literally equal.  Stated as `iff` under Pred.term (not `=`)
+-- since Forall is opaque and equality is unavailable at arbitrary Type.
+axiom Forall_reindex (X Y0 Y : Type) (R : Pred (X × Y0)) (f : Y → Y0) :
+  Vy Y (Pred.iff (Y × Final)
+    ((Forall X Y0 R) ∘ (f ∘ fst Y Final))
+    (Forall X (Y × Final)
+      (R ∘ pair (X × (Y × Final)) X Y0
+        (fst X (Y × Final))
+        (f ∘ (fst Y Final ∘ snd X (Y × Final))))))
+
+-- ∀y-level modus ponens is the existing Forall_mono at X := Y.
+noncomputable def MPy (Y : Type) (u v : Pred (Y × Final))
+  (h1 : Vy Y (Pred.imply (Y × Final) u v)) (h2 : Vy Y u) : Vy Y v :=
+  imply_elim _ _ (imply_elim _ _ (Forall_mono Y u v) h1) h2
+
+-- ∀y AND-ELIMINATION (companion to Forall_and's introduction).  FOL:  ∀y(P∧Q) → ∀y P.
+-- MODEL (Pred T = T→PC):  (∀y. P y ∧ Q y) → (∀y. P y), immediate.
+axiom Forall_andElimL (Y : Type) (P Q : Pred (Y × Final)) :
+  imply (Vy Y (Pred.and (Y × Final) P Q)) (Vy Y P)
+
+-- forward direction of a ∀y-valid biconditional (Pred.iff = and of the two implications).
+noncomputable def Forall_iffMp (Y : Type) (L R : Pred (Y × Final))
+  (h : Vy Y (Pred.iff (Y × Final) L R)) : Vy Y (Pred.imply (Y × Final) L R) :=
+  imply_elim _ _
+    (Forall_andElimL Y (Pred.imply (Y × Final) L R) (Pred.imply (Y × Final) R L)) h
+
+-- ∀y[ ∀x¬A → ∀x¬B → ∀x(A ↔ B) ]  — emptyUniqueCore, lifted under the outer binder.
+noncomputable def emptyUniqueCore_ctx (X Y : Type) (A B : Pred (X × (Y × Final))) :
+  Vy Y (Pred.imply (Y × Final)
+    (Forall X (Y × Final) (Pred.not (X × (Y × Final)) A))
+    (Pred.imply (Y × Final)
+      (Forall X (Y × Final) (Pred.not (X × (Y × Final)) B))
+      (Forall X (Y × Final) (Pred.iff (X × (Y × Final)) A B)))) :=
+  Forall_bicompose Y
+    (Forall X (Y × Final) (Pred.not (X × (Y × Final)) A))
+    (Forall X (Y × Final) (Pred.not (X × (Y × Final)) B))
+    (Forall X (Y × Final) (Pred.imply (X × (Y × Final)) A B))
+    (Forall X (Y × Final) (Pred.imply (X × (Y × Final)) B A))
+    (Forall X (Y × Final) (Pred.iff (X × (Y × Final)) A B))
+    (MPy Y _ _
+      (Forall_mono_ctx X Y (Pred.not (X × (Y × Final)) A) (Pred.imply (X × (Y × Final)) A B))
+      (Forall_exfalso_ctx X Y A B))
+    (MPy Y _ _
+      (Forall_mono_ctx X Y (Pred.not (X × (Y × Final)) B) (Pred.imply (X × (Y × Final)) B A))
+      (Forall_exfalso_ctx X Y B A))
+    (Forall_and_ctx X Y (Pred.imply (X × (Y × Final)) A B) (Pred.imply (X × (Y × Final)) B A))
+
+-- ∀y[ ∀x(A↔C) → ∀x(B↔C) → ∀x(A↔B) ]  — characterized-set uniqueness under the binder.
+noncomputable def charUnique_ctx (X Y : Type) (A B C : Pred (X × (Y × Final))) :
+  Vy Y (Pred.imply (Y × Final)
+    (Forall X (Y × Final) (Pred.iff (X × (Y × Final)) A C))
+    (Pred.imply (Y × Final)
+      (Forall X (Y × Final) (Pred.iff (X × (Y × Final)) B C))
+      (Forall X (Y × Final) (Pred.iff (X × (Y × Final)) A B)))) :=
+  Forall_B Y _ _ _
+    (MPy Y _ _
+      (Forall_mono_ctx X Y (Pred.iff (X × (Y × Final)) A C)
+        (Pred.imply (X × (Y × Final)) (Pred.iff (X × (Y × Final)) B C)
+          (Pred.iff (X × (Y × Final)) A B)))
+      (Forall_iffTrans_ctx X Y A B C))
+    (Forall_mono_ctx X Y (Pred.iff (X × (Y × Final)) B C) (Pred.iff (X × (Y × Final)) A B))
+
+-- CURRY β.  FOL/combinator:  curry (uncurry f) a b  =  f a b  (the × adjunction unit).
+-- MODEL: both are f a b.  Stated as iff at PC (curry/uncurry are opaque, = unavailable).
+axiom curry_uncurry (A B : Type) (f : A -> B -> PC) (a : A) (b : B) :
+  iff (curry A B PC (uncurry A B PC f) a b) (f a b)
+
 #check @Forall_elim
 #check @Exist_intro
 #check @Forall_gen
@@ -199,3 +324,6 @@ noncomputable def emptyUniqueCore (X : Type) (A B : Pred (X × Final))
 #check @Forall_and
 #check @Forall_exfalso
 #check @emptyUniqueCore
+#check @emptyUniqueCore_ctx
+#check @charUnique_ctx
+#check @curry_uncurry

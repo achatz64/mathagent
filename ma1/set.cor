@@ -60,9 +60,21 @@ def disj : Pred (Sets × Sets) :=
 
 -- ===== axioms =====
 
+-- ===== equality axioms for SetEq =====
+-- NOTE: these two are NOT original ZFC axioms.  They arise from the equality-free Ansatz
+-- of this development (no `=` at arbitrary Type).  In plain FOL-with-equality they are the
+-- LOGICAL axioms of equality — substitutivity (Leibniz) and reflexivity.  Here SetEq is the
+-- equality; reflexivity `∀z. z∈a ↔ z∈a` is a mere tautology in FOL but is NOT derivable
+-- point-free (collapsing SetEq's two projections at the diagonal would need the combinator
+-- β `fst∘pair = f`, i.e. an `=`), so it is postulated.  Symmetry and transitivity are then
+-- DERIVED from these two (see set_constructions.cor).
+
 -- Leibniz substitution.  imply (a=b) (imply (P a) (P b))
 axiom eq_subst (P : Pred Sets) (a b : Sets) :
   imply (curry Sets Sets PC SetEq a b) (imply (P a) (P b))
+
+-- Reflexivity.  a = a
+axiom SetEq_refl (a : Sets) : curry Sets Sets PC SetEq a a
 
 -- Pairing.  ∃c. ∀x. (x∈c ↔ x=a ∨ x=b)     ctx after ∀x: (x,(c,⋆)) : Sets×(Sets×Final)
 axiom pairing (a b : Sets) :

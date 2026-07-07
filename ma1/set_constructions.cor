@@ -1,166 +1,102 @@
 import set
 import definite_description
+import cartesian_combinators
+import abstract_combinators
 
--- First construction via the description operator: the empty set as a TERM.
+-- Set constructions as TERMS via the description operator, in the uniform-atom discipline.
+-- No axioms live in this file: existence comes from set.cor's ZFC axioms, uniqueness from
+-- definite_description's generic `uniqueOf` / `uniqueOfNeg`, and each construction is a
+-- proved `def`.
+
+-- ===== Empty set:  the unique c with ∀w. ¬(w∈c)  (the ¬-characterization path) =====
 --
--- set.cor's `empty_ax : Exist Sets isEmpty` only proves existence (a Prop). The
--- `the` operator turns *unique* existence into an actual `Sets`. Uniqueness here
--- is extensionality's easy direction: any two empty sets are SetEq, because every
--- membership biconditional `x ∈ a ↔ x ∈ b` holds vacuously (both sides false).
+-- existence is set.cor's `empty_ax` (defeq: emptyPred Sets Elem ≡ isEmpty), uniqueness is
+-- `uniqueOfNeg` (emptyUniqueCore_ctx, bridged closed→inline by Forall_reindex).
+noncomputable def emptyExU : ExistUniqueNeg Sets Elem :=
+  and_intro (existsCharNeg Sets Elem) (Pred.term (UniqueNeg Sets Elem))
+    empty_ax (uniqueOfNeg Sets Elem)
 
--- any two empty sets are SetEq.
-noncomputable def emptyUnique (a b : Sets) (ha : isEmpty a) (hb : isEmpty b) (x : Sets)
-  : iff (elem x a) (elem x b) :=
-  and_intro (imply (elem x a) (elem x b)) (imply (elem x b) (elem x a))
-    (vacuous (elem x a) (elem x b) (ha x))
-    (vacuous (elem x b) (elem x a) (hb x))
+noncomputable def emptyset : Sets := theNeg Sets Elem emptyExU
+noncomputable def emptyset_spec : isEmpty emptyset := theNeg_spec Sets Elem emptyExU
 
--- unique existence of the empty set: existence (empty_ax) + uniqueness (above).
-noncomputable def emptyExU : ExistUnique Sets SetEq isEmpty :=
-  and_intro (Exist Sets isEmpty) (Unique Sets SetEq isEmpty) empty_ax emptyUnique
+-- ===== Pairing:  {a,b} = the unique c with ∀w. (w∈c ↔ w=a ∨ w=b)  (↔-path) =====
+--
+-- pairBody is EXACTLY set.cor's pairing-axiom body, so existence is `pairing a b` by defeq;
+-- uniqueness is the generic `uniqueOf` (charUnique_ctx, cbody opaque).
+noncomputable def pairBody (a b : Sets) : Pred (Sets × (Sets × Final)) :=
+  Pred.or (Sets × (Sets × Final))
+    (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+      (Cart.weakening Sets (Sets × (Sets × Final)) a))
+    (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+      (Cart.weakening Sets (Sets × (Sets × Final)) b))
 
--- the empty set as a term, and its defining property — both for free now.
-noncomputable def emptyset : Sets := the Sets SetEq isEmpty emptyExU
-noncomputable def emptyset_spec : isEmpty emptyset := the_spec Sets SetEq isEmpty emptyExU
+noncomputable def pairExU (a b : Sets) : ExistUnique Sets Elem (pairBody a b) :=
+  and_intro (existsChar Sets Elem (pairBody a b)) (Pred.term (Unique Sets Elem (pairBody a b)))
+    (pairing a b) (uniqueOf Sets Elem (pairBody a b))
 
--- reflexivity of set equality (every membership ↔ is reflexive).
-noncomputable def SetEq_refl (a x : Sets) : iff (elem x a) (elem x a) := iff_refl (elem x a)
+noncomputable def upair (a b : Sets) : Sets := the Sets Elem (pairBody a b) (pairExU a b)
+noncomputable def pair_spec (a b : Sets) : hasChar Sets Elem (pairBody a b) (upair a b) :=
+  the_spec Sets Elem (pairBody a b) (pairExU a b)
 
--- ── Pairing:  {a,b} ──
--- Uniqueness is the generic "characterized set" argument: two sets with the same
--- membership ↔ φ are SetEq, via iff_trans through the common middle φ.
-noncomputable def pairUnique (a b c d : Sets) (hc : pairBody a b c) (hd : pairBody a b d) (x : Sets)
-  : iff (elem x c) (elem x d) :=
-  iff_trans (elem x c) (or (SetEq x a) (SetEq x b)) (elem x d)
-    (hc x) (iff_sym (elem x d) (or (SetEq x a) (SetEq x b)) (hd x))
+-- a ∈ {a,b} : instantiate pair_spec at w:=a, take the left disjunct (a = a).
+noncomputable def pair_left (a b : Sets) : elem a (upair a b) :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem a (upair a b))
+    (iff_mp _ _ (memBeta Sets Elem a (upair a b))
+      (iff_mpr _ _ (hasChar_at Sets Elem (pairBody a b) (upair a b) (pair_spec a b) a)
+        (iff_mpr _ _
+          (term_or (Sets × (Sets × Final)) (smap Sets (upair a b) ∘ pointAt Sets a)
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) a))
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) b)))
+          (or_intro_left _ _
+            (iff_mpr _ _ (atomBeta Sets SetEq (upair a b) a a) (SetEq_refl a))))))
 
-noncomputable def pairExU (a b : Sets) : ExistUnique Sets SetEq (pairBody a b) :=
-  and_intro (Exist Sets (pairBody a b)) (Unique Sets SetEq (pairBody a b))
-    (pairing a b) (pairUnique a b)
+-- b ∈ {a,b} : instantiate pair_spec at w:=b, take the right disjunct (b = b).
+noncomputable def pair_right (a b : Sets) : elem b (upair a b) :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem b (upair a b))
+    (iff_mp _ _ (memBeta Sets Elem b (upair a b))
+      (iff_mpr _ _ (hasChar_at Sets Elem (pairBody a b) (upair a b) (pair_spec a b) b)
+        (iff_mpr _ _
+          (term_or (Sets × (Sets × Final)) (smap Sets (upair a b) ∘ pointAt Sets b)
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) a))
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) b)))
+          (or_intro_right _ _
+            (iff_mpr _ _ (atomBeta Sets SetEq (upair a b) b b) (SetEq_refl b))))))
 
-noncomputable def pair (a b : Sets) : Sets := the Sets SetEq (pairBody a b) (pairExU a b)
-noncomputable def pair_spec (a b : Sets) : pairBody a b (pair a b) :=
-  the_spec Sets SetEq (pairBody a b) (pairExU a b)
+-- ===== SetEq symmetry / transitivity, DERIVED from refl + eq_subst (the FOL way) =====
 
--- a ∈ {a,b} and b ∈ {a,b}
-noncomputable def pair_left (a b : Sets) : elem a (pair a b) :=
-  iff_mpr (elem a (pair a b)) (or (SetEq a a) (SetEq a b)) (pair_spec a b a)
-    (or_intro_left (SetEq a a) (SetEq a b) (SetEq_refl a))
-noncomputable def pair_right (a b : Sets) : elem b (pair a b) :=
-  iff_mpr (elem b (pair a b)) (or (SetEq b a) (SetEq b b)) (pair_spec a b b)
-    (or_intro_right (SetEq b a) (SetEq b b) (SetEq_refl b))
+-- symmetry: from a=b, substitute in `· = a` to turn a=a into b=a.  The swapped predicate
+-- `· = a` is `TypeComb.c_comb (curry SetEq) a`; since c_comb is opaque we cross its β-bridge
+-- `TypeComb.c_beta` (an iff at PC) at both ends — `iff_mpr` to feed `refl` into `P a`, `iff_mp`
+-- to read the goal off `P b`.
+noncomputable def SetEq_sym (a b : Sets) (h : curry Sets Sets PC SetEq a b) :
+    curry Sets Sets PC SetEq b a :=
+  iff_mp _ _ (TypeComb.c_beta Sets Sets (curry Sets Sets PC SetEq) a b)
+    (imply_elim _ _
+      (imply_elim _ _
+        (eq_subst (TypeComb.c_comb Sets Sets PC (curry Sets Sets PC SetEq) a) a b) h)
+      (iff_mpr _ _ (TypeComb.c_beta Sets Sets (curry Sets Sets PC SetEq) a a) (SetEq_refl a)))
 
--- ── Singleton:  {a} = {a,a} ──
-noncomputable def single (a : Sets) : Sets := pair a a
+-- transitivity: from b=c, substitute in `a = ·` to turn a=b into a=c.
+noncomputable def SetEq_trans (a b c : Sets)
+    (hab : curry Sets Sets PC SetEq a b) (hbc : curry Sets Sets PC SetEq b c) :
+    curry Sets Sets PC SetEq a c :=
+  imply_elim _ _ (imply_elim _ _ (eq_subst (curry Sets Sets PC SetEq a) b c) hbc) hab
 
--- x ∈ {a} ↔ x = a   (collapse the redundant disjunct with or_idem)
-noncomputable def single_spec (a x : Sets) : iff (elem x (single a)) (SetEq x a) :=
-  iff_trans (elem x (single a)) (or (SetEq x a) (SetEq x a)) (SetEq x a)
-    (pair_spec a a x)
-    (iff_intro (or (SetEq x a) (SetEq x a)) (SetEq x a)
-      (imply_intro (or (SetEq x a) (SetEq x a)) (SetEq x a) (or_idem (SetEq x a)))
-      (imply_intro (SetEq x a) (or (SetEq x a) (SetEq x a)) (or_intro_left (SetEq x a) (SetEq x a))))
-
--- a ∈ {a}
-noncomputable def single_self (a : Sets) : elem a (single a) :=
-  iff_mpr (elem a (single a)) (SetEq a a) (single_spec a a) (SetEq_refl a)
-
--- membership respects set equality on the right: z ∈ y and y = a give z ∈ a.
--- (the predicate fixed for eq_subst is `elem z` — partial application, no flip.)
-noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : SetEq y a) : elem z a :=
-  imply_elim (elem z y) (elem z a)
-    (imply_elim (SetEq y a) (imply (elem z y) (elem z a)) (eq_subst (elem z) y a) h)
-    hzy
-
--- ── Big union:  ⋃A ──
-noncomputable def unionUnique (A c d : Sets) (hc : unionBody A c) (hd : unionBody A d) (x : Sets)
-  : iff (elem x c) (elem x d) :=
-  iff_trans (elem x c) (Exist Sets (unionWit A x)) (elem x d)
-    (hc x) (iff_sym (elem x d) (Exist Sets (unionWit A x)) (hd x))
-
-noncomputable def unionExU (A : Sets) : ExistUnique Sets SetEq (unionBody A) :=
-  and_intro (Exist Sets (unionBody A)) (Unique Sets SetEq (unionBody A))
-    (union_ax A) (unionUnique A)
-
-noncomputable def bigunion (A : Sets) : Sets := the Sets SetEq (unionBody A) (unionExU A)
-noncomputable def bigunion_spec (A : Sets) : unionBody A (bigunion A) :=
-  the_spec Sets SetEq (unionBody A) (unionExU A)
-
--- ── Binary union:  a ∪ b = ⋃{a,b} ──
-noncomputable def bunion (a b : Sets) : Sets := bigunion (pair a b)
-
--- The defining ∃ of ⋃{a,b} collapses to z∈a ∨ z∈b. Forward: case the witness's
--- membership in {a,b} (=a or =b) and substitute. Backward: a (resp. b) is the witness.
-noncomputable def unionPair_caseA (a b z y : Sets) (hzy : elem z y) (h : SetEq y a)
-  : or (elem z a) (elem z b) :=
-  or_intro_left (elem z a) (elem z b) (mem_subst z y a hzy h)
-noncomputable def unionPair_caseB (a b z y : Sets) (hzy : elem z y) (h : SetEq y b)
-  : or (elem z a) (elem z b) :=
-  or_intro_right (elem z a) (elem z b) (mem_subst z y b hzy h)
-
-noncomputable def unionPair_fwdFn (a b z y : Sets) (hy : and (elem y (pair a b)) (elem z y))
-  : or (elem z a) (elem z b) :=
-  or_elim (SetEq y a) (SetEq y b) (or (elem z a) (elem z b))
-    (iff_mp (elem y (pair a b)) (or (SetEq y a) (SetEq y b)) (pair_spec a b y)
-      (and_elim_left (elem y (pair a b)) (elem z y) hy))
-    (unionPair_caseA a b z y (and_elim_right (elem y (pair a b)) (elem z y) hy))
-    (unionPair_caseB a b z y (and_elim_right (elem y (pair a b)) (elem z y) hy))
-
-noncomputable def unionPair_fwd (a b z : Sets)
-  : Exist Sets (unionWit (pair a b) z) -> or (elem z a) (elem z b) :=
-  Exist_elim Sets (unionWit (pair a b) z) (or (elem z a) (elem z b)) (unionPair_fwdFn a b z)
-
-noncomputable def unionPair_bwd_caseA (a b z : Sets) (hza : elem z a)
-  : Exist Sets (unionWit (pair a b) z) :=
-  Exist_intro Sets (unionWit (pair a b) z) a
-    (and_intro (elem a (pair a b)) (elem z a) (pair_left a b) hza)
-noncomputable def unionPair_bwd_caseB (a b z : Sets) (hzb : elem z b)
-  : Exist Sets (unionWit (pair a b) z) :=
-  Exist_intro Sets (unionWit (pair a b) z) b
-    (and_intro (elem b (pair a b)) (elem z b) (pair_right a b) hzb)
-noncomputable def unionPair_bwd (a b z : Sets) (h : or (elem z a) (elem z b))
-  : Exist Sets (unionWit (pair a b) z) :=
-  or_elim (elem z a) (elem z b) (Exist Sets (unionWit (pair a b) z)) h
-    (unionPair_bwd_caseA a b z) (unionPair_bwd_caseB a b z)
-
-noncomputable def unionPairIff (a b z : Sets)
-  : iff (Exist Sets (unionWit (pair a b) z)) (or (elem z a) (elem z b)) :=
-  iff_intro (Exist Sets (unionWit (pair a b) z)) (or (elem z a) (elem z b))
-    (imply_intro (Exist Sets (unionWit (pair a b) z)) (or (elem z a) (elem z b)) (unionPair_fwd a b z))
-    (imply_intro (or (elem z a) (elem z b)) (Exist Sets (unionWit (pair a b) z)) (unionPair_bwd a b z))
-
--- z ∈ a ∪ b ↔ z ∈ a ∨ z ∈ b
-noncomputable def bunion_spec (a b z : Sets) : iff (elem z (bunion a b)) (or (elem z a) (elem z b)) :=
-  iff_trans (elem z (bunion a b)) (Exist Sets (unionWit (pair a b) z)) (or (elem z a) (elem z b))
-    (bigunion_spec (pair a b) z) (unionPairIff a b z)
-
--- right-congruence of ∨ (rewrite the second disjunct under an iff).
-noncomputable def or_cong_right_fwd (A B C : PC) (h : iff B C) (hor : or A B) : or A C :=
-  or_elim A B (or A C) hor (or_intro_left A C) ((or_intro_right A C) ∘ (iff_mp B C h))
-noncomputable def or_cong_right_bwd (A B C : PC) (h : iff B C) (hor : or A C) : or A B :=
-  or_elim A C (or A B) hor (or_intro_left A B) ((or_intro_right A B) ∘ (iff_mpr B C h))
-noncomputable def or_cong_right (A B C : PC) (h : iff B C) : iff (or A B) (or A C) :=
-  iff_intro (or A B) (or A C)
-    (imply_intro (or A B) (or A C) (or_cong_right_fwd A B C h))
-    (imply_intro (or A C) (or A B) (or_cong_right_bwd A B C h))
-
--- ── Von Neumann successor:  nsucc x = x ∪ {x} ──
-noncomputable def nsucc (x : Sets) : Sets := bunion x (single x)
-
--- z ∈ nsucc x ↔ z ∈ x ∨ z = x   (exactly set.cor's isSucc x (nsucc x))
-noncomputable def nsucc_spec (x z : Sets) : iff (elem z (nsucc x)) (or (elem z x) (SetEq z x)) :=
-  iff_trans (elem z (nsucc x)) (or (elem z x) (elem z (single x))) (or (elem z x) (SetEq z x))
-    (bunion_spec x (single x) z)
-    (or_cong_right (elem z x) (elem z (single x)) (SetEq z x) (single_spec x z))
-
--- x ∈ nsucc x
-noncomputable def nsucc_self (x : Sets) : elem x (nsucc x) :=
-  iff_mpr (elem x (nsucc x)) (or (elem x x) (SetEq x x)) (nsucc_spec x x)
-    (or_intro_right (elem x x) (SetEq x x) (SetEq_refl x))
+-- membership respects set-equality on the right: z∈y and y=a give z∈a  (P := elem z).
+noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : curry Sets Sets PC SetEq y a) :
+    elem z a :=
+  imply_elim _ _ (imply_elim _ _ (eq_subst (elem z) y a) h) hzy
 
 #check emptyset
-#check pair
-#check single
-#check bunion
-#check nsucc
-#check nsucc_spec
+#check emptyset_spec
+#check upair
+#check pair_spec
+#check pair_left
+#check pair_right
+#check SetEq_sym
+#check SetEq_trans
+#check mem_subst
