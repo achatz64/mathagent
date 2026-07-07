@@ -1,0 +1,9 @@
+name = "core-checker"
+defaultTargets = ["corecheck"]
+
+[[lean_lib]]
+name = "CoreChecker"
+
+[[lean_exe]]
+name = "corecheck"
+root = "Main"

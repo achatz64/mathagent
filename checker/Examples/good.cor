@@ -1,0 +1,6 @@
+axiom A : Type
+axiom B : Type
+axiom a : A
+axiom f (X Y : Type) : X -> Y -> X
+
+#check f A B a
