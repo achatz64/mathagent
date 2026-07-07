@@ -1,6 +1,6 @@
--- structural rules
+import classical_first_order_logic_new
 
-import classical_propositional_logic
+-- structural rules
 
 namespace TypeComb
 
