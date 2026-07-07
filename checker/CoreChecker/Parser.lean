@@ -91,30 +91,32 @@ partial def parseExpr (p : PState) : ParserM (Expr × PState) :=
   parseArrow p
 
 partial def parseArrow (p : PState) : ParserM (Expr × PState) := do
-  let (lhs, p) <- parseComp p
+  let (lhs, p) <- parseProd p
   match p.peek? with
   | some "->" =>
       let (rhs, p) <- parseArrow p.bump
       pure (.arrow lhs rhs, p)
   | _ => pure (lhs, p)
 
-partial def parseComp (p : PState) : ParserM (Expr × PState) := do
-  let (first, p) <- parseProd p
-  let rec loop (acc : Expr) (p : PState) := do
-    match p.peek? with
-    | some "o" =>
-        let (rhs, p) <- parseProd p.bump
-        loop (.comp acc rhs) p
-    | _ => pure (acc, p)
-  loop first p
-
+-- Precedence (tightest first): application, then `∘`, then `×`, then `->`.
+-- This matches Lean, where `∘` (90) binds tighter than `×` (35).
 partial def parseProd (p : PState) : ParserM (Expr × PState) := do
-  let (first, p) <- parseApp p
+  let (first, p) <- parseComp p
   let rec loop (acc : Expr) (p : PState) := do
     match p.peek? with
     | some "prod" =>
-        let (rhs, p) <- parseApp p.bump
+        let (rhs, p) <- parseComp p.bump
         loop (.prod acc rhs) p
+    | _ => pure (acc, p)
+  loop first p
+
+partial def parseComp (p : PState) : ParserM (Expr × PState) := do
+  let (first, p) <- parseApp p
+  let rec loop (acc : Expr) (p : PState) := do
+    match p.peek? with
+    | some "o" =>
+        let (rhs, p) <- parseApp p.bump
+        loop (.comp acc rhs) p
     | _ => pure (acc, p)
   loop first p
 
@@ -212,10 +214,19 @@ def parseDecl (line : Nat) (text : String) : ParserM Command := do
     | none, none => throw "declaration needs a type or body"
   pure (.declCmd { name, kind, params, type := ty, body })
 
+-- A line starts a new command iff its first *token* is a command keyword. Testing the
+-- first token (via the same `tokenize`) rather than a string prefix avoids false hits
+-- like `endo…` matching `end` or `defn…` matching `def`.
 def startsCommand (s : String) : Bool :=
-  let t := s.trimAscii.toString
-  ["import ", "open ", "namespace ", "end", "#check", "axiom ", "def ", "abbrev ",
-   "noncomputable def ", "noncomputable abbrev "].any (fun p => t.startsWith p)
+  let toks := tokenize s
+  match toks[0]? with
+  | some "import" | some "open" | some "namespace" | some "end"
+  | some "#check" | some "axiom" | some "def" | some "abbrev" => true
+  | some "noncomputable" =>
+      match toks[1]? with
+      | some "def" | some "abbrev" => true
+      | _ => false
+  | _ => false
 
 def commandBlocks (src : String) : Array (Nat × String) := Id.run do
   let clean := stripBlockComments src
