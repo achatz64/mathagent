@@ -37,14 +37,39 @@ partial def firstReadable : List String -> IO (Option String)
       catch _ =>
         firstReadable ps
 
+-- Split a `LEAN_PATH`-style variable into its non-empty entries.
+def splitSearchPath (s : String) : List String :=
+  (s.splitOn ":").filter (fun p => !p.isEmpty)
+
+-- Walk up from `dir` to the enclosing repository root (a directory holding `.git`).
+partial def findRepoRoot (dir : String) : IO (Option String) := do
+  if (<- System.FilePath.pathExists ⟨joinPath dir ".git"⟩) then
+    pure (some dir)
+  else
+    let parent := pathDir dir
+    if parent == dir || parent == "." then pure none
+    else findRepoRoot parent
+
+-- Ordered source roots for resolving an import, analogous to Lean's `LEAN_PATH`:
+--   1. the importing file's own directory (covers the flat sibling layout entirely);
+--   2. the current working directory;
+--   3. explicit roots from the `COREPATH` env var (colon-separated);
+--   4. the discovered repo root and its `ma1/` subdir (portable; no hardcoded path).
+def sourceRoots (fromFile : String) : IO (List String) := do
+  let envRoots := ((<- IO.getEnv "COREPATH").map splitSearchPath).getD []
+  let discovered <-
+    try
+      let abs <- IO.FS.realPath ⟨fromFile⟩
+      match (<- findRepoRoot (pathDir abs.toString)) with
+      | some root => pure [root, joinPath root "ma1"]
+      | none => pure []
+    catch _ => pure []
+  pure (pathDir fromFile :: "." :: envRoots ++ discovered)
+
 def resolveImport (fromFile modName : String) : IO (Option String) := do
   let rel := moduleRelPath modName
-  firstReadable [
-    joinPath (pathDir fromFile) rel,
-    rel,
-    joinPath "ma1" rel,
-    joinPath "/home/andre/mathagent/ma1" rel
-  ]
+  let roots <- sourceRoots fromFile
+  firstReadable (roots.map (fun r => joinPath r rel))
 
 def importsOf (cmds : Array (Nat × Command)) : Array Name :=
   cmds.foldl

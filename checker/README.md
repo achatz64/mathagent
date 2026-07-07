@@ -38,8 +38,16 @@ cd /home/andre/mathagent/ma1
 ```
 
 The CLI recursively loads `import M` dependencies before checking the requested
-file. Import resolution looks next to the importing file, then in the current
-working directory, then in `ma1/`, then in `/home/andre/mathagent/ma1`.
+file. `import A.B` maps to the relative path `A/B.cor`, resolved against an ordered
+list of source roots (analogous to Lean's `LEAN_PATH`):
+
+1. the importing file's own directory (covers the flat sibling layout entirely);
+2. the current working directory;
+3. roots from the `COREPATH` environment variable (colon-separated);
+4. the discovered repository root (the enclosing directory containing `.git`) and
+   its `ma1/` subdirectory.
+
+There is no hardcoded absolute path, so the checker is portable across checkouts.
 
 ## Current scope
 
