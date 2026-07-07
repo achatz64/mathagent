@@ -84,7 +84,8 @@ wants it.
 Read the gentle [intro](#gentle-introduction-to-types) first.
 
 Operators and keywords: `:`, `→` (ascii `->`), `∘`, `( )`, `×`, `Type`/`Prop`,
-`def`, `abbrev`, `axiom`, `noncomputable`, `import`, `open`, `namespace`, `--`, `#check`.
+`def`, `abbrev`, `axiom`, `noncomputable`, `import`, `open`, `namespace`, `end`,
+`--`, `#check`.
 
 * `--` starts a line comment (good until end of line); `/- ... -/` is a block comment.
 * There is **no statement terminator**: commands are separated by newlines and keywords (no `;`).
@@ -98,12 +99,20 @@ Operators and keywords: `:`, `→` (ascii `->`), `∘`, `( )`, `×`, `Type`/`Pro
 * `axiom c : T` declares an exported, immutable constant of type `T` whose value is **postulated** — a primitive or an axiom, no definition given. This covers both a primitive type, `axiom X : Type`, and a primitive term, `axiom c : T`. Like `def`, an axiom may be polymorphic.
 * `def c : T := e` defines an exported, immutable constant `c` of type `T` with value `e` (the signature may be omitted: `def c := e`). If `e` depends on any `axiom`, prefix with `noncomputable` (`noncomputable def c := e`) — Lean refuses to generate runtime code for axiom-backed definitions, and Core objects are not meant to be run anyway. `def` can take generic parameters as explained.
 * `abbrev c := e` defines a transparent (reducible) abbreviation, used for naming a type or universe, e.g. `abbrev PC := Prop`.
+* `def` and `abbrev` bodies are transparent for Core definitional comparison: the checker may unfold them when comparing types. `axiom`s are opaque and never unfold.
+* Holes `_` are accepted only as checker/elaboration placeholders in expressions. They do not define new Core terms. A hole is compatible with whatever type is expected at that position, including recursively inside a larger type expression such as `imply _ _`.
 * `import M` brings in every declaration of module `M`. A file may wrap its declarations in `namespace N ... end N`; then a declaration `X` of that file is accessed as `N.X`, and `open N` makes it available unqualified.
+* Name lookup inside a namespace first checks local parameters, then the current namespace, then root declarations, then opened namespaces. To force the root declaration while inside a namespace, write `_root_.c`. For example, inside `namespace Pred`, `and` means `Pred.and` after it is defined, while `_root_.and` means the root propositional connective.
 * **Naming.** Names must not collide with Lean's prelude. The examples rename several: `id`→`i_comb`, `Eq`→`SetEq`, `in`→`elem` (`in` is a Lean keyword), and `absurd`→`ex_falso`.
-* `#check e` is a type-checker query: it elaborates `e` and reports its type. It is **scaffolding** with no effect on what a file defines (a by-product of Lean linking), used at the end of the example files to confirm signatures elaborate.
+* `#check e` is a type-checker query: it elaborates `e` and reports its type. It is **scaffolding** with no effect on what a file defines (a by-product of Lean linking), used at the end of the example files to confirm signatures elaborate. `#check @c` is allowed as a declaration query for a polymorphic constant `c`; the `@` is Lean-linking scaffolding and does not change the Core term language. Ordinary term occurrences must still supply all Core head parameters.
 
 ### Lambda lifting
 The pattern is not allowed. For example if `def f (x : X) (y : Y) := e` and `t : X` then `(f t)` is not allowed (missing term `y`) and cannot be considered as a term in `Y -> ...`. The lean type checker will not catch this and it is up to discipline for now to enforce supply of all generic parameters until a native core syntax and type checker is available. 
+
+This rule applies to every ordinary occurrence of a declaration with head parameters,
+including occurrences in bodies and in non-`#check` expressions. It does not apply to
+the scaffolding query `#check @f`, which asks for the declaration itself rather than
+forming a Core term.
 
 ## Type checker
 
@@ -125,6 +134,10 @@ element in the surrounding expression. Otherwise:
 Unlike earlier drafts, a single operator no longer stands for both application and
 composition: `f a` is always application and `f ∘ g` is always composition, so no
 domain/codomain disambiguation rule is needed.
+
+`Prop` is impredicative for arrows: if `A : Prop` and `B : Prop`, then
+`A -> B : Prop`. Otherwise arrow types live in `Type` in the usual simple-type
+sense used by Core.
 
 ## Proving over the model: no equality, no dependent types, infra axioms
 

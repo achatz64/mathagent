@@ -1,0 +1,41 @@
+-- Classical propositions for the current point-free Core line.
+--
+-- This file intentionally does not import SK_combinators.  It provides only the
+-- propositional constants and helper rules needed by
+-- classical_first_order_logic_new.cor and its Pred-based dependencies.
+
+abbrev PC := Prop
+
+axiom and : PC -> PC -> PC
+axiom or : PC -> PC -> PC
+axiom not : PC -> PC
+axiom imply : PC -> PC -> PC
+
+axiom imply_intro (A B : PC) : (A -> B) -> imply A B
+axiom imply_elim (A B : PC) : imply A B -> A -> B
+
+axiom and_intro (A B : PC) : A -> B -> and A B
+axiom and_elim_left (A B : PC) : and A B -> A
+axiom and_elim_right (A B : PC) : and A B -> B
+
+axiom or_intro_left (A B : PC) : A -> or A B
+axiom or_intro_right (A B : PC) : B -> or A B
+axiom or_elim (A B C : PC) : or A B -> (A -> C) -> (B -> C) -> C
+
+axiom not_intro (A B : PC) : (A -> B) -> (A -> not B) -> not A
+axiom excluded_middle (A : PC) : or A (not A)
+axiom double_negation_elim (A : PC) : not (not A) -> A
+
+def iff (A B : PC) : PC := and (imply A B) (imply B A)
+
+noncomputable def iff_intro (A B : PC) : imply A B -> imply B A -> iff A B :=
+  and_intro (imply A B) (imply B A)
+
+noncomputable def iff_mp (A B : PC) (h : iff A B) : A -> B :=
+  imply_elim A B (and_elim_left (imply A B) (imply B A) h)
+
+noncomputable def iff_mpr (A B : PC) (h : iff A B) : B -> A :=
+  imply_elim B A (and_elim_right (imply A B) (imply B A) h)
+
+noncomputable def iff_sym (A B : PC) (h : iff A B) : iff B A :=
+  iff_intro B A (and_elim_right (imply A B) (imply B A) h) (and_elim_left (imply A B) (imply B A) h)

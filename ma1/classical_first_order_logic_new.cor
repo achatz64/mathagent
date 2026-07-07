@@ -1,10 +1,10 @@
-import classical_propositional_logic
+import classical_propositional_logic_new
 import prod
 import final
 import cartesian_combinators
 
--- Classical first-order logic, built on the classical propositions of
--- classical_propositional_logic.cor (the universe PC = Prop). Lambda-free: every
+-- Classical first-order logic, built on the current classical propositions of
+-- classical_propositional_logic_new.cor (the universe PC = Prop). Lambda-free: every
 -- body is a closed point-free combination of constants, the product operators of
 -- prod.cor, the terminal operators of final.cor, and the declaration's own
 -- parameters — no anonymous fun / match.
@@ -313,6 +313,44 @@ noncomputable def charUnique_ctx (X Y : Type) (A B C : Pred (X × (Y × Final)))
 -- MODEL: both are f a b.  Stated as iff at PC (curry/uncurry are opaque, = unavailable).
 axiom curry_uncurry (A B : Type) (f : A -> B -> PC) (a : A) (b : B) :
   iff (curry A B PC (uncurry A B PC f) a b) (f a b)
+
+-- ===== extensional equality of a binary relation, and its β/eval bridge (generic) =====
+-- For ANY binary relation R on a type X, `RelEq X R` is the extensional-equality relation
+--   RelEq X R (a,b)  =  ∀x. (x R a ↔ x R b)
+-- (the two `sub2` atoms read the bound x and the first / second context slot).  This is the
+-- point-free shape of Leibniz/extensional equality; SetEq is the instance `RelEq Sets Elem`.
+def RelEq (X : Type) (R : Pred (X × X)) : Pred (X × X) :=
+  Forall X (X × X)
+    (Pred.iff (X × (X × X))
+      (sub2 (X × (X × X)) X X R (v0 X (X × X)) (v1 X X X))
+      (sub2 (X × (X × X)) X X R (v0 X (X × X)) ((snd X X) ∘ (snd X (X × X)))))
+
+-- β/eval bridge: the curried equality atom unfolds to the closed ∀-of-iff at constants a,b,
+-- in the UNIFORM atom form (each side of the iff is `x R ·` with the constant fixed via
+-- weakening — the very same atom in `RelEq X R (a,b)` and `RelEq X R (b,a)`, which is what
+-- lets the ∀-lifted iff tautologies fire).  MODEL: both sides are ∀x. (x R a ↔ x R b).  This
+-- packages `Forall`-reindex-to-a-constant with the `curry` unit and the atom β at PC; opaque
+-- Forall/curry/sub2, so stated as an `iff` at PC.  Generic in X, R — SetEq's laws use the
+-- instance `RelEqExt Sets Elem`.
+axiom RelEqExt (X : Type) (R : Pred (X × X)) (a b : X) :
+  iff (curry X X PC (RelEq X R) a b)
+      (Pred.term (Forall X Final
+        (Pred.iff (X × Final)
+          (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) a))
+          (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b)))))
+
+-- ===== ∀-lifted iff tautologies (classical-fibre generators, family (C)) =====
+-- Siblings of `Forall_iffTrans_ctx`: reflexivity / symmetry / transitivity of `iff` closed
+-- under `∀`, each ⊤ in the fibre so ∀ of it is ⊤.  MODEL: ∀x of a propositional tautology.
+axiom Forall_iffRefl (X : Type) (A : Pred (X × Final)) :
+  Pred.term (Forall X Final (Pred.iff (X × Final) A A))
+axiom Forall_iffSym (X : Type) (A B : Pred (X × Final)) :
+  Pred.term (Forall X Final
+    (Pred.imply (X × Final) (Pred.iff (X × Final) A B) (Pred.iff (X × Final) B A)))
+axiom Forall_iffTrans (X : Type) (A B C : Pred (X × Final)) :
+  Pred.term (Forall X Final
+    (Pred.imply (X × Final) (Pred.iff (X × Final) A B)
+      (Pred.imply (X × Final) (Pred.iff (X × Final) B C) (Pred.iff (X × Final) A C))))
 
 #check @Forall_elim
 #check @Exist_intro

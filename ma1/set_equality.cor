@@ -1,0 +1,92 @@
+import set
+import definite_description
+
+-- Equality theory for `SetEq`, DERIVED.  set.cor postulates only `memCong_left` (∈-left
+-- congruence); reflexivity, symmetry, transitivity and container-slot substitution all come
+-- from SetEq's extensional DEFINITION (∀x. x∈a ↔ x∈b) via the logic layer.  The `eq_subst`
+-- (Leibniz for arbitrary P) and `SetEq_refl` axioms of the old design are replaced by the
+-- lemmas below.
+
+-- ===== closed extensional body:  ∀x. (x∈a ↔ x∈b), with a,b as constants =====
+-- `memAt Sets Elem c` is exactly `x∈c` as a Pred (Sets × Final) (definite_description.cor),
+-- so `SetEqClosed` puts SetEq into a UNIFORM atom form: the two sides of `SetEq a b` and
+-- `SetEq b a` share the very same `memAt` atoms, which is what lets the pointwise iff-tautology
+-- generators (`Forall_iffRefl/Sym/Trans`) fire.
+noncomputable def extBody (a b : Sets) : Pred (Sets × Final) :=
+  Pred.iff (Sets × Final) (memAt Sets Elem a) (memAt Sets Elem b)
+
+noncomputable def SetEqClosed (a b : Sets) : PC :=
+  Pred.term (Forall Sets Final (extBody a b))
+
+-- SetEq's β/eval bridge is NOT a new axiom: it is the instance `RelEqExt Sets Elem` of the
+-- generic relation-extensional-equality bridge (classical_first_order_logic_new.cor).  Its RHS
+-- is defeq to `SetEqClosed a b` (`memAt Sets Elem c` unfolds to the `sub2 … weakening c` atom).
+noncomputable def SetEqExt (a b : Sets) :
+    iff (curry Sets Sets PC SetEq a b) (SetEqClosed a b) :=
+  RelEqExt Sets Elem a b
+
+-- ===== the derived equality laws =====
+
+-- reflexivity: ∀x.(x∈a↔x∈a) closes by Forall_iffRefl; cross SetEqExt back to curry-form.
+noncomputable def SetEq_refl (a : Sets) : curry Sets Sets PC SetEq a a :=
+  iff_mpr _ _ (SetEqExt a a) (Forall_iffRefl Sets (memAt Sets Elem a))
+
+-- symmetry: unfold, swap the iff pointwise (Forall_mono over Forall_iffSym), refold.
+noncomputable def SetEq_sym (a b : Sets) (h : curry Sets Sets PC SetEq a b) :
+    curry Sets Sets PC SetEq b a :=
+  iff_mpr _ _ (SetEqExt b a)
+    (imply_elim _ _
+      (imply_elim _ _
+        (Forall_mono Sets (extBody a b) (extBody b a))
+        (Forall_iffSym Sets (memAt Sets Elem a) (memAt Sets Elem b)))
+      (iff_mp _ _ (SetEqExt a b) h))
+
+-- transitivity: unfold both, chain the iffs pointwise (Forall_mono twice over Forall_iffTrans).
+noncomputable def SetEq_trans (a b c : Sets)
+    (hab : curry Sets Sets PC SetEq a b) (hbc : curry Sets Sets PC SetEq b c) :
+    curry Sets Sets PC SetEq a c :=
+  iff_mpr _ _ (SetEqExt a c)
+    (imply_elim _ _
+      (imply_elim _ _
+        (Forall_mono Sets (extBody b c) (extBody a c))
+        (imply_elim _ _
+          (imply_elim _ _
+            (Forall_mono Sets (extBody a b)
+              (Pred.imply (Sets × Final) (extBody b c) (extBody a c)))
+            (Forall_iffTrans Sets (memAt Sets Elem a) (memAt Sets Elem b) (memAt Sets Elem c)))
+          (iff_mp _ _ (SetEqExt a b) hab)))
+      (iff_mp _ _ (SetEqExt b c) hbc))
+
+-- membership congruence in the CONTAINER slot (right), derived purely from the definition
+-- (Forall_elim of SetEq + memBeta + curry_uncurry) — no new set axiom.  z∈y, y=a ⊢ z∈a.
+noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : curry Sets Sets PC SetEq y a) :
+    elem z a :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem z a)
+    (iff_mp _ _ (memBeta Sets Elem z a)
+      (imply_elim _ _
+        (iff_mp _ _
+          (term_imply (Sets × Final) (pointAt Sets z) (memAt Sets Elem y) (memAt Sets Elem a))
+          (and_elim_left _ _
+            (iff_mp _ _
+              (term_and (Sets × Final) (pointAt Sets z)
+                (Pred.imply (Sets × Final) (memAt Sets Elem y) (memAt Sets Elem a))
+                (Pred.imply (Sets × Final) (memAt Sets Elem a) (memAt Sets Elem y)))
+              (imply_elim _ _
+                (Forall_elim Sets (extBody y a) z)
+                (iff_mp _ _ (SetEqExt y a) h)))))
+        (iff_mpr _ _ (memBeta Sets Elem z y)
+          (iff_mpr _ _ (curry_uncurry Sets Sets elem z y) hzy))))
+
+-- membership congruence in the MEMBER slot (left), the one that USES memCong_left.
+-- a=b, a∈z ⊢ b∈z.
+noncomputable def mem_subst_left (a b z : Sets)
+    (hab : curry Sets Sets PC SetEq a b) (haz : elem a z) : elem b z :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem b z)
+    (iff_mp _ _ (imply_elim _ _ (memCong_left a b z) hab)
+      (iff_mpr _ _ (curry_uncurry Sets Sets elem a z) haz))
+
+#check SetEq_refl
+#check SetEq_sym
+#check SetEq_trans
+#check mem_subst
+#check mem_subst_left

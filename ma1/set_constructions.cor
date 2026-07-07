@@ -1,7 +1,7 @@
 import set
 import definite_description
 import cartesian_combinators
-import abstract_combinators
+import set_equality
 
 -- Set constructions as TERMS via the description operator, in the uniform-atom discipline.
 -- No axioms live in this file: existence comes from set.cor's ZFC axioms, uniqueness from
@@ -66,30 +66,8 @@ noncomputable def pair_right (a b : Sets) : elem b (upair a b) :=
           (or_intro_right _ _
             (iff_mpr _ _ (atomBeta Sets SetEq (upair a b) b b) (SetEq_refl b))))))
 
--- ===== SetEq symmetry / transitivity, DERIVED from refl + eq_subst (the FOL way) =====
-
--- symmetry: from a=b, substitute in `· = a` to turn a=a into b=a.  The swapped predicate
--- `· = a` is `TypeComb.c_comb (curry SetEq) a`; since c_comb is opaque we cross its β-bridge
--- `TypeComb.c_beta` (an iff at PC) at both ends — `iff_mpr` to feed `refl` into `P a`, `iff_mp`
--- to read the goal off `P b`.
-noncomputable def SetEq_sym (a b : Sets) (h : curry Sets Sets PC SetEq a b) :
-    curry Sets Sets PC SetEq b a :=
-  iff_mp _ _ (TypeComb.c_beta Sets Sets (curry Sets Sets PC SetEq) a b)
-    (imply_elim _ _
-      (imply_elim _ _
-        (eq_subst (TypeComb.c_comb Sets Sets PC (curry Sets Sets PC SetEq) a) a b) h)
-      (iff_mpr _ _ (TypeComb.c_beta Sets Sets (curry Sets Sets PC SetEq) a a) (SetEq_refl a)))
-
--- transitivity: from b=c, substitute in `a = ·` to turn a=b into a=c.
-noncomputable def SetEq_trans (a b c : Sets)
-    (hab : curry Sets Sets PC SetEq a b) (hbc : curry Sets Sets PC SetEq b c) :
-    curry Sets Sets PC SetEq a c :=
-  imply_elim _ _ (imply_elim _ _ (eq_subst (curry Sets Sets PC SetEq a) b c) hbc) hab
-
--- membership respects set-equality on the right: z∈y and y=a give z∈a  (P := elem z).
-noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : curry Sets Sets PC SetEq y a) :
-    elem z a :=
-  imply_elim _ _ (imply_elim _ _ (eq_subst (elem z) y a) h) hzy
+-- SetEq_sym / SetEq_trans / mem_subst now live in set_equality.cor (DERIVED from SetEq's
+-- extensional definition), and are available here through `import set_equality`.
 
 #check emptyset
 #check emptyset_spec
@@ -97,6 +75,3 @@ noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : curry Sets Sets
 #check pair_spec
 #check pair_left
 #check pair_right
-#check SetEq_sym
-#check SetEq_trans
-#check mem_subst

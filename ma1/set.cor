@@ -31,12 +31,9 @@ def Subseteq : Pred (Sets × Sets) :=
       (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
       (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets)))))
 
--- SetEq (a,b) : ∀x. x∈a ↔ x∈b     inner tuple (x,(a,b))
-def SetEq : Pred (Sets × Sets) :=
-  Forall Sets (Sets × Sets)
-    (Pred.iff (Sets × (Sets × Sets))
-      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
-      (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) ((snd Sets Sets) ∘ (snd Sets (Sets × Sets)))))
+-- SetEq (a,b) : ∀x. x∈a ↔ x∈b   —  the instance `RelEq Sets Elem` of the generic
+-- extensional-equality-of-a-relation construct (classical_first_order_logic_new.cor).
+def SetEq : Pred (Sets × Sets) := RelEq Sets Elem
 
 -- isEmpty (e) : ∀z. ¬(z∈e)        Elem : (z,e) ↦ z∈e
 def isEmpty : Pred Sets := Forall Sets Sets (Pred.not (Sets × Sets) Elem)
@@ -60,21 +57,18 @@ def disj : Pred (Sets × Sets) :=
 
 -- ===== axioms =====
 
--- ===== equality axioms for SetEq =====
--- NOTE: these two are NOT original ZFC axioms.  They arise from the equality-free Ansatz
--- of this development (no `=` at arbitrary Type).  In plain FOL-with-equality they are the
--- LOGICAL axioms of equality — substitutivity (Leibniz) and reflexivity.  Here SetEq is the
--- equality; reflexivity `∀z. z∈a ↔ z∈a` is a mere tautology in FOL but is NOT derivable
--- point-free (collapsing SetEq's two projections at the diagonal would need the combinator
--- β `fst∘pair = f`, i.e. an `=`), so it is postulated.  Symmetry and transitivity are then
--- DERIVED from these two (see set_constructions.cor).
-
--- Leibniz substitution.  imply (a=b) (imply (P a) (P b))
-axiom eq_subst (P : Pred Sets) (a b : Sets) :
-  imply (curry Sets Sets PC SetEq a b) (imply (P a) (P b))
-
--- Reflexivity.  a = a
-axiom SetEq_refl (a : Sets) : curry Sets Sets PC SetEq a a
+-- ===== the one equality primitive: ∈-left (member-slot) congruence =====
+-- SetEq is DEFINED extensionally (∀x. x∈a ↔ x∈b), so its reflexivity, symmetry, transitivity
+-- and container-slot substitution are all DERIVED (see set_equality.cor) from that definition
+-- plus the logic layer — no equality axiom needed there.  The one fact independent of the
+-- definition is congruence in the MEMBER slot:  a=b → (a∈z ↔ b∈z)  — "extensionally equal sets
+-- belong to the same sets".  This is evident in FOL-with-equality (Leibniz on `·∈z`) but the
+-- definition, which only constrains the members of a and b, cannot see it; so it alone is
+-- postulated, on the primitive `Elem` rather than on the downstream `SetEq`.
+-- MODEL: extensionally equal a, b are the same object.
+axiom memCong_left (a b z : Sets) :
+  imply (curry Sets Sets PC SetEq a b)
+    (iff (curry Sets Sets PC Elem a z) (curry Sets Sets PC Elem b z))
 
 -- Pairing.  ∃c. ∀x. (x∈c ↔ x=a ∨ x=b)     ctx after ∀x: (x,(c,⋆)) : Sets×(Sets×Final)
 axiom pairing (a b : Sets) :
