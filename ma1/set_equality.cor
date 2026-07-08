@@ -77,13 +77,43 @@ noncomputable def mem_subst (z y a : Sets) (hzy : elem z y) (h : curry Sets Sets
         (iff_mpr _ _ (memBeta Sets Elem z y)
           (iff_mpr _ _ (curry_uncurry Sets Sets elem z y) hzy))))
 
--- membership congruence in the MEMBER slot (left), the one that USES memCong_left.
--- a=b, a∈z ⊢ b∈z.
+-- membership congruence in the MEMBER slot (left):  a=b, a∈z ⊢ b∈z.  DERIVED from the object-∀
+-- extensionality `memCong_left_all` (set.cor): instantiate its ∀-over-member at the point a
+-- (Forall_elim), then cross the point β-bridges — term_imply/term_and split the imply/iff,
+-- memBeta reads `SetEq(a,b)` and `a∈z`, and constAtomBeta reads the both-constant `b∈z`.
 noncomputable def mem_subst_left (a b z : Sets)
     (hab : curry Sets Sets PC SetEq a b) (haz : elem a z) : elem b z :=
   iff_mp _ _ (curry_uncurry Sets Sets elem b z)
-    (iff_mp _ _ (imply_elim _ _ (memCong_left a b z) hab)
-      (iff_mpr _ _ (curry_uncurry Sets Sets elem a z) haz))
+    (iff_mp _ _ (constAtomBeta Sets Elem b z a)
+      (imply_elim _ _
+        (iff_mp _ _
+          (term_imply (Sets × Final) (pointAt Sets a)
+            (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) z))
+            (sub2 (Sets × Final) Sets Sets Elem
+              (Cart.weakening Sets (Sets × Final) b) (Cart.weakening Sets (Sets × Final) z)))
+          (and_elim_left _ _
+            (iff_mp _ _
+              (term_and (Sets × Final) (pointAt Sets a)
+                (Pred.imply (Sets × Final)
+                  (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) z))
+                  (sub2 (Sets × Final) Sets Sets Elem
+                    (Cart.weakening Sets (Sets × Final) b) (Cart.weakening Sets (Sets × Final) z)))
+                (Pred.imply (Sets × Final)
+                  (sub2 (Sets × Final) Sets Sets Elem
+                    (Cart.weakening Sets (Sets × Final) b) (Cart.weakening Sets (Sets × Final) z))
+                  (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) z))))
+              (imply_elim _ _
+                (iff_mp _ _
+                  (term_imply (Sets × Final) (pointAt Sets a)
+                    (sub2 (Sets × Final) Sets Sets SetEq (v0 Sets Final) (Cart.weakening Sets (Sets × Final) b))
+                    (Pred.iff (Sets × Final)
+                      (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) z))
+                      (sub2 (Sets × Final) Sets Sets Elem
+                        (Cart.weakening Sets (Sets × Final) b) (Cart.weakening Sets (Sets × Final) z))))
+                  (imply_elim _ _ (Forall_elim Sets (memCongBody b z) a) (memCong_left_all b z)))
+                (iff_mpr _ _ (memBeta Sets SetEq a b) hab)))))
+        (iff_mpr _ _ (memBeta Sets Elem a z)
+          (iff_mpr _ _ (curry_uncurry Sets Sets elem a z) haz))))
 
 #check SetEq_refl
 #check SetEq_sym

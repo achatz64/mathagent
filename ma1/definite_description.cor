@@ -200,6 +200,27 @@ axiom memBetaRev (X : Type) (elt : Pred (X × X)) (z t : X) :
         ((sub2 (X × Final) X X elt (Cart.weakening X (X × Final) z) (v0 X Final)) ∘ pointAt X t))
       (curry X X PC elt z t)
 
+-- both-constant atom β: an atom with BOTH slots fixed constants (neither is the bound variable),
+-- evaluated at any point, is the elementary `elt c d` — the point map reads nothing.  Arises when a
+-- constant atom (e.g. `b∈z`) rides under a binder over a THIRD variable, as in the object-∀
+-- extensionality `memCong_left_all`.  Companion to memBeta / memBetaRev for the case where the
+-- bound variable occurs in NEITHER slot.  MODEL: (sub2 elt (const c)(const d) ∘ pointAt X t) ★ =
+-- elt (c,d); both sides elt (c,d).  NON-DERIVABLE: the fst∘pair / Final.term∘const β-laws live at
+-- arbitrary Type where = is unavailable — postulable only wrapped at PC, like the rest of the βs.
+axiom constAtomBeta (X : Type) (elt : Pred (X × X)) (c d t : X) :
+  iff (Pred.term
+        ((sub2 (X × Final) X X elt (Cart.weakening X (X × Final) c) (Cart.weakening X (X × Final) d))
+          ∘ pointAt X t))
+      (curry X X PC elt c d)
+
+-- separation-φ β: the φ-slot of a Separation body, `phi ∘ v0`, evaluated at a point.  The maps
+-- smap/pointAt build the context (t,(s,⋆)); v0 reads the tested element t back out, so the whole
+-- composite is `phi t`.  MODEL: (phi∘v0)∘(smap s∘pointAt t) ⋆ = phi (v0 (t,(s,⋆))) = phi t; both
+-- sides phi t.  NON-DERIVABLE: opaque v0/smap/pointAt/Final β at arbitrary Type — postulable only
+-- wrapped at PC, the φ-slot sibling of memBeta/atomBeta.
+axiom sepPhiBeta (X : Type) (phi : Pred X) (s t : X) :
+  iff (Pred.term ((phi ∘ (v0 X (X × Final))) ∘ (smap X s ∘ pointAt X t))) (phi t)
+
 -- atom β: a characterization atom `R(w, c)` (R applied to the bound w and a constant c),
 -- evaluated at the point (w,(·)) := (t, (s, ⋆)), is the elementary `R t c`.
 -- MODEL: both sides are R (t, c).

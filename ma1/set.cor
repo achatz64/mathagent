@@ -57,18 +57,31 @@ def disj : Pred (Sets × Sets) :=
 
 -- ===== axioms =====
 
--- ===== the one equality primitive: ∈-left (member-slot) congruence =====
--- SetEq is DEFINED extensionally (∀x. x∈a ↔ x∈b), so its reflexivity, symmetry, transitivity
--- and container-slot substitution are all DERIVED (see set_equality.cor) from that definition
--- plus the logic layer — no equality axiom needed there.  The one fact independent of the
--- definition is congruence in the MEMBER slot:  a=b → (a∈z ↔ b∈z)  — "extensionally equal sets
--- belong to the same sets".  This is evident in FOL-with-equality (Leibniz on `·∈z`) but the
--- definition, which only constrains the members of a and b, cannot see it; so it alone is
--- postulated, on the primitive `Elem` rather than on the downstream `SetEq`.
--- MODEL: extensionally equal a, b are the same object.
-axiom memCong_left (a b z : Sets) :
-  imply (curry Sets Sets PC SetEq a b)
-    (iff (curry Sets Sets PC Elem a z) (curry Sets Sets PC Elem b z))
+-- ===== the one equality primitive: ∈-left (member-slot) congruence, "extension to the right" =====
+-- SetEq is DEFINED extensionally (∀x. x∈a ↔ x∈b), so its reflexivity, symmetry, transitivity and
+-- CONTAINER-slot substitution (x∈a ⊢ x∈b) are all DERIVED (see set_equality.cor) from that
+-- definition plus the logic layer.  The one fact INDEPENDENT of the definition is congruence in the
+-- MEMBER slot — extensionally equal sets belong to the same sets:  a=b → (a∈z ↔ b∈z), i.e. SetEq
+-- "extended to the right", ∀z. a∈z ↔ b∈z.
+--
+-- It is consumed UNDER quantifier binders (the ∃/∀ over the infinity witness), where the equal set
+-- is a BOUND variable.  A point-wise axiom `(a b z) → …` cannot be instantiated at a bound variable
+-- (no dependent types), so this MUST be an OBJECT-∀ statement, internalized over the MEMBER slot,
+-- with the equal partner `b` and the container `z` as parameters:
+--   ∀a. ( SetEq(a,b) → (a∈z ↔ b∈z) ).
+-- MODEL: extensionally equal a, b are the SAME object, so belong to the same z; valid at every a.
+-- The point-wise congruence is the `Forall_elim` instance (see set_equality.cor `mem_subst_left`);
+-- this object-∀ form is the one binders can use.  (Supersedes the old point-wise `memCong_left`.)
+def memCongBody (b z : Sets) : Pred (Sets × Final) :=
+  Pred.imply (Sets × Final)
+    (sub2 (Sets × Final) Sets Sets SetEq (v0 Sets Final) (Cart.weakening Sets (Sets × Final) b))
+    (Pred.iff (Sets × Final)
+      (sub2 (Sets × Final) Sets Sets Elem (v0 Sets Final) (Cart.weakening Sets (Sets × Final) z))
+      (sub2 (Sets × Final) Sets Sets Elem
+        (Cart.weakening Sets (Sets × Final) b) (Cart.weakening Sets (Sets × Final) z)))
+
+axiom memCong_left_all (b z : Sets) :
+  Pred.term (Forall Sets Final (memCongBody b z))
 
 -- Pairing.  ∃c. ∀x. (x∈c ↔ x=a ∨ x=b)     ctx after ∀x: (x,(c,⋆)) : Sets×(Sets×Final)
 axiom pairing (a b : Sets) :

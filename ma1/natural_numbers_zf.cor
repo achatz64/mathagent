@@ -82,6 +82,24 @@ noncomputable def omega_spec : hasChar Sets Elem omegaBody omega :=
 noncomputable def N : Sets := omega
 noncomputable def zero : Sets := emptyset
 
+-- ===== reading ω-membership:  t∈Inf ∧ omegaPred t ⊢ t∈ω  (the `mpr` half of ω's spec) =====
+-- Instantiate omega_spec at the point t (hasChar_at), then feed the two conjuncts back through the
+-- point β-bridges: `atomBeta` reads the `t∈Inf` atom of the Separation body, and `sepPhiBeta` reads
+-- the φ-slot as exactly `omegaPred t`.
+noncomputable def omega_intro (t : Sets) (h : and (elem t Inf) (omegaPred t)) : elem t omega :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem t omega)
+    (iff_mp _ _ (memBeta Sets Elem t omega)
+      (iff_mpr _ _ (hasChar_at Sets Elem omegaBody omega omega_spec t)
+        (iff_mpr _ _
+          (term_and (Sets × (Sets × Final)) (smap Sets omega ∘ pointAt Sets t)
+            (sub2 (Sets × (Sets × Final)) Sets Sets Elem
+              (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) Inf))
+            (omegaPred ∘ (v0 Sets (Sets × Final))))
+          (and_intro _ _
+            (iff_mpr _ _ (atomBeta Sets Elem omega Inf t)
+              (iff_mpr _ _ (curry_uncurry Sets Sets elem t Inf) (and_elim_left _ _ h)))
+            (iff_mpr _ _ (sepPhiBeta Sets omegaPred omega t) (and_elim_right _ _ h))))))
+
 #check omegaPred
 #check omega
 #check omega_spec
