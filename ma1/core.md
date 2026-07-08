@@ -244,3 +244,88 @@ The rules for adding infra axioms:
 2. Unsound beta rules are not allowed, find sound beta rules and a derivation for your special case.
 3. Always show and add comments on the general validity under fol/hol model for a beta rule.
 4. Always explain why it cannot be derived from current rules.
+
+## Lessons learned
+
+### Expressibility of core
+
+All implementations suggest the language is sufficient to cover math. However, there are many infra axioms needed. At this stage, we are not certain whether all the needed beta rule axioms are a finite list (TODO: investigate series of examples that prove the need for an infinite set). 
+
+### Examples for good practice coding in core
+
+Concrete lessons from building `set.cor` / `set_constructions.cor` / `natural_numbers_zf.cor`
+(ZF, up to ω). They are mostly about *how to choose definitions* so the proofs stay inside the
+tools the layer already has.
+
+**1. A relation atom has two slots, and they are not interchangeable.** For `Elem(a,z) = a∈z`,
+slot 1 is the *member* `a`, slot 2 the *container* `z`. `SetEq(a,b) := ∀u.(u∈a ↔ u∈b)` is
+extensional in the *container* column only. So there are two substitutions:
+* **container-slot** (`u∈a, a=b ⊢ u∈b`) is *free* — it falls out of `SetEq`'s definition, is
+  sound for *any* relation, and works under binders via `Exist_onepoint` / `mem_subst`.
+* **member-slot** (`a∈z, a=b ⊢ b∈z`) is *extensionality* — a separate axiom (`memCong_left`),
+  true for `Elem` but false for a generic relation.
+When you write a construction, know which column you are substituting in. Container-slot is cheap;
+member-slot costs an extensionality axiom.
+
+**2. "At a point" vs "under a binder" is a second, independent axis — and contentful facts must be
+supplied in *object-`∀`* form.** A point-wise axiom `f (a b z : Sets) : …` gives the fact at any
+*named term*. But under a `∀`/`∃` binder the bound variable is **not a nameable term** (no dependent
+types, no `λ`), so you cannot instantiate a point axiom at it. If a construction consumes a
+contentful fact under a binder, that fact must already be an **object-`∀`** statement
+(`Pred.term (Forall …)`), because generalization (point → `∀`) is *not* available for contentful
+facts — the `Forall_*` generators only close *tautologies*. Example: the Axiom of Infinity's witness
+`∃e.(e∈Inf ∧ isEmpty e)` needs member-slot extensionality **under the `∃e`** to reach `∅∈Inf`; the
+fix was to state extensionality object-`∀` (`memCong_left_all : ∀a.(a=b → (a∈z ↔ b∈z))`,
+superseding the point-wise `memCong_left`, which is now its `Forall_elim` instance). The two axes
+form a grid — {container, member} × {point, binder}; the corner {member × binder} is the expensive
+one and is exactly what ω first needs.
+
+**3. Term-formers with head parameters cannot touch bound variables — use the relation, not the
+function.** `nsucc (x : Sets) : Sets` cannot be composed (`nsucc ∘ v0` is rejected: "partial
+application") nor applied to a bound `x`. So "closed under successor" must be stated with the
+*relation* `isSucc x y`, never the term `nsucc x`, under a `∀x`. Corollary: prefer the relational
+form (matching `infBody`) for anything quantified. **But nullary term constants are fine** —
+`emptyset` has no head parameter, so `emptyset∈J` *is* expressible inline (`sub2 Elem (weakening
+emptyset) …`); use the functional form where the term is a constant, the relational form where it
+is a function of a bound variable.
+
+**4. Never eliminate an unpinned existential — Skolemize it as a constant in the math-axiom file.**
+Inductive sets are not unique, so `the` cannot pick one and there is no sound unpinned `∃`-elim.
+Postulate `axiom Inf : Sets` + its spec in `set.cor` (the home for set axioms), then carve ω out by
+`separation Inf …` (which *is* unique → `the`). Every `∃` you consume must be pinned: to a term
+(`Exist_onepoint`), transported (`Exist_mono`), split (`Exist_or`), or postulated as a constant.
+
+**5. β-bridges come in families keyed by the exact context shape; pick the reader that matches.**
+Reading a stored `Pred.term` fact back to elementary form is never definitional (the product/`Final`
+combinators are opaque). Match the bridge to the shape: `memBeta` for `w∈s` at a point, `memBetaRev`
+for the reversed slot, `constAtomBeta` for a both-constant atom, `atomBeta` for an atom under
+`smap`, `sepPhiBeta` for a Separation φ-slot, and the `Forall_*Clean` family to clean atoms *under*
+a binder. If none matches, you usually chose the wrong context shape for the definition — re-shape
+the def before adding a new bridge.
+
+**6. Shape definitions so the expensive step lands where you have tools.** `omega`'s membership
+body is `w∈Inf ∧ omegaPred w`; making `isInductive`'s empty clause *functional* (`emptyset∈J`,
+constant) keeps `omegaPred ∅` a near-tautology and pushes the one unavoidable extensionality use to
+`∅∈Inf`, where the container `Inf` is a **constant** — so the constant-container `memCong_left_all`
+applies, and you avoid needing a bound-container (ctx) version. Choosing the def is half the proof.
+
+**7. If a would-be axiom *names* a math object but its *truth* is a combinator β, it is misfiled —
+generalize the statement until the name disappears, then it is infra.** The equality laws of
+`SetEq` (`SetEq_refl`/`_sym`/`_trans`, and container-slot `mem_subst`) are *derived*, not
+postulated: from `SetEq`'s extensional definition plus the `Forall_iff{Refl,Sym,Trans}` generators
+(the `∀`-lifted iff tautologies, family (C)). The one enabler is a β-bridge that unfolds the curried
+atom `curry Sets Sets PC SetEq a b` to the closed `∀x.(x∈a ↔ x∈b)` in a **uniform atom shape** —
+each side `sub2 Elem (v0) (weakening c)`, so `SetEq(a,b)` and `SetEq(b,a)` share the *same* atoms and
+a generator can fire (mismatched projection atoms would not unify; the uniform reshape is what makes
+the generic generators applicable — cf. lesson 5). Writing that enabler as `axiom SetEqExt (a b :
+Sets) : … SetEq …` is the trap: it mentions `Sets`/`SetEq`, yet its truth is a pure `curry`/`Forall`/
+`sub2` reduction — a model tautology with **zero set-theoretic content**, i.e. a math axiom that is
+really infra. The fix is *not* to move the same statement to another file, but to **remove the math
+name from the statement**: the fact is about extensional equality of *any* relation. Define generic
+`RelEq X R` / `RelEqExt X R` in the logic layer, then `SetEq := RelEq Sets Elem` and `SetEqExt :=
+RelEqExt Sets Elem` becomes an ordinary `def` — no axiom crosses the math/infra line. **Litmus
+test:** replace `Sets` by an arbitrary `X` and `elem` by an arbitrary `R : Pred (X × X)` — if the
+statement stays true, its home is infra; generalize the signature until the math names vanish. If it
+becomes false — e.g. `memCong_left_all` (member-slot extensionality, lesson 1), false for a generic
+relation — it is genuine math and stays. After this pass, that single surviving axiom is the real
+set-theoretic content; everything else was combinator β wearing a math name.
