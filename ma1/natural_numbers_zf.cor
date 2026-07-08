@@ -20,24 +20,21 @@ import cartesian_combinators
 -- "w lies in every inductive set."  Built INLINE in one de-Bruijn tower (uniform-atom
 -- discipline): the quantified inductive set J is the head, the tested element w the tail.
 --
--- `isInductive J` is the RELATIONAL form, identical in shape to set.cor's `infBody`:
---   ∃e.(e∈J ∧ isEmpty e)  ∧  ∀x.(x∈J → ∃y.(y∈J ∧ isSucc x y)).
--- The functional form  emptyset∈J ∧ ∀x.(x∈J → nsucc x∈J)  is NOT expressible: the term-former
--- `nsucc` has a head parameter, so it cannot be applied to a bound x nor composed point-free.
--- Successor is therefore stated with the RELATION `isSucc` (set.cor); the pins tying isEmpty /
--- isSucc back to the terms emptyset / nsucc are discharged where omegaPred is consumed.
+-- `isInductive J` mixes the two forms (lesson 3):  FUNCTIONAL empty ∧ RELATIONAL successor
+--   emptyset∈J  ∧  ∀x.(x∈J → ∃y.(y∈J ∧ isSucc x y)).
+-- The empty clause is FUNCTIONAL — `emptyset` is a NULLARY constant, so `emptyset∈J` is expressible
+-- inline (sub2 Elem (weakening emptyset) v0); this keeps `omegaPred ∅` a projection (∀J.((emptyset∈J
+-- ∧ closed)→emptyset∈J)) rather than a member-slot ∃-elim.  The successor clause MUST be relational:
+-- the term-former `nsucc` has a head parameter, so it cannot be applied to a bound x nor composed
+-- point-free, hence the RELATION `isSucc` (the pin isSucc↔nsucc is discharged where consumed).
 
 -- context (J, w) : Sets × Sets   [J = candidate inductive set, w = tested element]
 noncomputable def wInJ : Pred (Sets × Sets) :=
   sub2 (Sets × Sets) Sets Sets Elem (snd Sets Sets) (fst Sets Sets)
 
--- J contains an empty set:  ∃e.(e∈J ∧ isEmpty e).   context (e,(J,w)) : Sets × (Sets × Sets)
-noncomputable def emptyConj : Pred (Sets × (Sets × Sets)) :=
-  Pred.and (Sets × (Sets × Sets))
-    (sub2 (Sets × (Sets × Sets)) Sets Sets Elem (v0 Sets (Sets × Sets)) (v1 Sets Sets Sets))
-    (isEmpty ∘ (v0 Sets (Sets × Sets)))
+-- J contains the empty set (FUNCTIONAL):  emptyset∈J.   context (J,w) : Sets × Sets, J = v0/fst.
 noncomputable def hasEmptyJ : Pred (Sets × Sets) :=
-  Exist Sets (Sets × Sets) emptyConj
+  sub2 (Sets × Sets) Sets Sets Elem (Cart.weakening Sets (Sets × Sets) emptyset) (v0 Sets Sets)
 
 -- J is closed under successor:  ∀x.(x∈J → ∃y.(y∈J ∧ isSucc x y)).
 -- context (x,(J,w)) : Sets × (Sets × Sets);  ∃y adds (y,(x,(J,w))) : Sets × (Sets × (Sets × Sets))
@@ -99,6 +96,55 @@ noncomputable def omega_intro (t : Sets) (h : and (elem t Inf) (omegaPred t)) : 
             (iff_mpr _ _ (atomBeta Sets Elem omega Inf t)
               (iff_mpr _ _ (curry_uncurry Sets Sets elem t Inf) (and_elim_left _ _ h)))
             (iff_mpr _ _ (sepPhiBeta Sets omegaPred omega t) (and_elim_right _ _ h))))))
+
+-- ===== omegaPred ∅ :  ∀J. (isInductive J → ∅∈J) =====
+-- the body of omegaPred, and the point-substitution map for Forall_pointEval at t := ∅.
+noncomputable def indImpW : Pred (Sets × Sets) :=
+  Pred.imply (Sets × Sets) isInductiveJ wInJ
+noncomputable def substEmpty : (Sets × Final) → (Sets × Sets) :=
+  pair (Sets × Final) Sets Sets (fst Sets Final) (Cart.weakening Sets (Sets × Final) emptyset)
+-- clean atom  ∅ ∈ J  in context (J,⋆), and the cleaned body  (∅∈J ∧ closed) → ∅∈J.
+noncomputable def emptyAtJ : Pred (Sets × Final) :=
+  sub2 (Sets × Final) Sets Sets Elem (Cart.weakening Sets (Sets × Final) emptyset) (v0 Sets Final)
+noncomputable def omegaZeroClean : Pred (Sets × Final) :=
+  Pred.imply (Sets × Final) (Pred.and (Sets × Final) emptyAtJ (closedJ ∘ substEmpty)) emptyAtJ
+
+-- With functional empty, `isInductive J → ∅∈J` is a projection: clean the body
+-- (Forall_impAndProjClean at R:=Elem, c:=∅, S:=closedJ), discharge the projection (Forall_andProjL),
+-- read back at the point ∅ (Forall_pointEval).
+noncomputable def omegaPred_zero : omegaPred emptyset :=
+  iff_mpr _ _ (Forall_pointEval Sets Sets indImpW emptyset)
+    (imply_elim _ _
+      (imply_elim _ _
+        (Forall_mono Sets omegaZeroClean (indImpW ∘ substEmpty))
+        (Forall_iffMp Sets omegaZeroClean (indImpW ∘ substEmpty)
+          (Forall_impAndProjClean Sets Elem emptyset closedJ)))
+      (Forall_andProjL Sets emptyAtJ (closedJ ∘ substEmpty)))
+
+-- ===== ∅ ∈ Inf  (the expensive corner: member-slot ∃-elim from Inf's empty witness) =====
+-- Piece A: extract Inf_spec's first conjunct  ∃e.(e∈Inf ∧ isEmpty e)  and clean it (term_and →
+-- and_elim_left → term_exist → Forall_exMemPhiClean via Exist_mono) to a closed clean existential.
+noncomputable def infEBody : Pred (Sets × (Sets × Final)) :=
+  Pred.and (Sets × (Sets × Final))
+    (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+    (isEmpty ∘ (v0 Sets (Sets × Final)))
+noncomputable def infLift : (Sets × Final) → (Sets × (Sets × Final)) :=
+  pair (Sets × Final) Sets (Sets × Final) (fst Sets Final) ((pointAt Sets Inf) ∘ snd Sets Final)
+noncomputable def infClean : Pred (Sets × Final) :=
+  Pred.and (Sets × Final) (memAt Sets Elem Inf) (isEmpty ∘ (v0 Sets Final))
+
+noncomputable def infEmptyExist : Pred.term (Exist Sets Final infClean) :=
+  imply_elim _ _
+    (imply_elim _ _
+      (Exist_mono Sets (infEBody ∘ infLift) infClean)
+      (Forall_iffMp Sets (infEBody ∘ infLift) infClean
+        (Forall_exMemPhiClean Sets Elem isEmpty Inf)))
+    (iff_mp _ _
+      (term_exist Sets (Sets × Final) (pointAt Sets Inf) infEBody)
+      (and_elim_left _ _
+        (iff_mp _ _
+          (term_and (Sets × Final) (pointAt Sets Inf) _ _)
+          Inf_spec)))
 
 -- ===== reading emptiness at a point:  isEmpty s ⊢ ¬(n∈s) =====
 -- Evaluate the context-quantifier `isEmpty s = Forall Sets Sets (¬Elem) s` at the point s

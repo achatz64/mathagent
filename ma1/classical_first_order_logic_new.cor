@@ -406,6 +406,33 @@ axiom Forall_andOrDistrib (X : Type) (P Q S : Pred (X × Final)) :
       (Pred.and (X × Final) (Pred.or (X × Final) P Q) S)
       (Pred.or (X × Final) (Pred.and (X × Final) P S) (Pred.and (X × Final) Q S))))
 
+-- ∀-lifted ∧-projection (classical-fibre generator, family (C)):  ∀x. ((P∧S) → P).  A fibre
+-- tautology closed under ∀ (∀⊤ = ⊤), sibling of Forall_exfalso / Forall_iffRefl.
+axiom Forall_andProjL (X : Type) (P S : Pred (X × Final)) :
+  Pred.term (Forall X Final (Pred.imply (X × Final) (Pred.and (X × Final) P S) P))
+
+-- ∀-lifted body-cleaner for the "omegaPred at a constant c" shape (GENERIC in R, c, S — a β-bridge,
+-- no math names; the R/c/S-parametric sibling of Forall_exUnionClean/Forall_orAtomsClean).  Cleans
+-- the implication  (emptyBody(c)∧S → wBody) ∘ substTail(c)  — where substTail(c):(x,⋆)↦(x,c) sets the
+-- tail slot to the constant c — into the clean form  (c∈x ∧ S∘substTail) → c∈x.  Here the antecedent's
+-- first conjunct `sub2 R (weakening c) v0` = R(c,x) and the consequent `sub2 R snd fst` after the
+-- tail↦c substitution also = R(c,x), so both collapse to the same clean atom `sub2 R (weakening c) v0`.
+-- MODEL: at (x,⋆) both sides are (R(c,x) ∧ S(x,c)) → R(c,x).  NON-DERIVABLE: connectives/atoms do not
+-- distribute through ∘ definitionally (opaque pair/fst/snd), postulable only wrapped at PC under ∀.
+axiom Forall_impAndProjClean (X : Type) (R : Pred (X × X)) (c : X) (S : Pred (X × X)) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    (Pred.imply (X × Final)
+      (Pred.and (X × Final)
+        (sub2 (X × Final) X X R (Cart.weakening X (X × Final) c) (v0 X Final))
+        (S ∘ (pair (X × Final) X X (fst X Final) (Cart.weakening X (X × Final) c))))
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) c) (v0 X Final)))
+    ((Pred.imply (X × X)
+        (Pred.and (X × X)
+          (sub2 (X × X) X X R (Cart.weakening X (X × X) c) (v0 X X))
+          S)
+        (sub2 (X × X) X X R (snd X X) (fst X X)))
+      ∘ (pair (X × Final) X X (fst X Final) (Cart.weakening X (X × Final) c)))))
+
 #check @Forall_elim
 #check @Exist_intro
 #check @term_exist

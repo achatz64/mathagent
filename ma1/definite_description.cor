@@ -266,6 +266,21 @@ axiom Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :
       (memAt X R A)
       (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))))
 
+-- ∃-body cleaning for the "∃e.(e∈I ∧ phi e)" shape (generic in R, phi, c) — the infinity/empty-witness
+-- companion of Forall_exUnionClean.  After term_exist lifts `(Exist … (e∈I ∧ phi e)) ∘ pointAt c` to a
+-- closed ∃, its body composed with the lift (which fills the container slot I with the constant c) is
+-- cleaned to `(e∈c ∧ phi e)`.  MODEL: at (e,⋆) both sides are R(e,c) ∧ phi(e); the lift only fills the
+-- slot cleaned away.  Same opaque-pair β wall as Forall_exUnionClean, postulated at PC under ∀.
+axiom Forall_exMemPhiClean (X : Type) (R : Pred (X × X)) (phi : Pred X) (c : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.and (X × (X × Final))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))
+       (phi ∘ (v0 X (X × Final))))
+     ∘ (pair (X × Final) X (X × Final) (fst X Final) ((pointAt X c) ∘ snd X Final)))
+    (Pred.and (X × Final)
+      (memAt X R c)
+      (phi ∘ (v0 X Final)))))
+
 #check @hasChar
 #check @existsChar
 #check @Unique
