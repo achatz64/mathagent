@@ -227,13 +227,47 @@ def translate_formula(
 
 def translate_document(doc: dict[str, Any], use_named_projectors: bool) -> str:
     env = env_from_json(doc.get("schema", {}))
-    ctx = context_from_json(doc.get("context", []))
+    ctx = context_from_json(doc.get("object_context", doc.get("context", [])))
+
+    if "conclusion" in doc or "assumptions" in doc:
+        pred = translate_sequent(doc, env, ctx, use_named_projectors)
+        if doc.get("close_context", doc.get("close", False)):
+            return close_context(ctx, pred)
+        return pred
+
     pred = translate_formula(doc["formula"], env, ctx, use_named_projectors)
+    if doc.get("close_context", False):
+        return close_context(ctx, pred)
     if doc.get("as_pc", False):
         if ctx:
             raise ValueError("as_pc requires an empty top-level object context")
         return f"Pred.term {paren(pred)}"
     return pred
+
+
+def translate_sequent(
+    doc: dict[str, Any],
+    env: Env,
+    ctx: list[Binding],
+    use_named_projectors: bool,
+) -> str:
+    cty = ctx_type(ctx)
+    if "conclusion" not in doc:
+        raise ValueError("sequent input requires a conclusion")
+    body = translate_formula(doc["conclusion"], env, ctx, use_named_projectors)
+    for assumption in reversed(doc.get("assumptions", [])):
+        premise = translate_formula(assumption, env, ctx, use_named_projectors)
+        body = f"Pred.imply {type_arg(cty)} {paren(premise)} {paren(body)}"
+    return body
+
+
+def close_context(ctx: list[Binding], pred: str) -> str:
+    if not ctx:
+        return f"Pred.term {paren(pred)}"
+    head = ctx[0]
+    tail = ctx[1:]
+    closed_head = f"Forall {type_arg(head.type)} {type_arg(ctx_type(tail))} {paren(pred)}"
+    return close_context(tail, closed_head)
 
 
 def demo_documents() -> list[tuple[str, dict[str, Any]]]:
@@ -298,6 +332,61 @@ def demo_documents() -> list[tuple[str, dict[str, Any]]]:
                             ]
                         },
                     }
+                },
+            },
+        ),
+        (
+            "closed theorem schema: object a. SetEq(a,b) -> iff(Elem(a,z), Elem(b,z))",
+            {
+                "schema": {
+                    "constants": {"b": "Sets", "z": "Sets"},
+                    "relations": {"SetEq": ["Sets", "Sets"], "Elem": ["Sets", "Sets"]},
+                },
+                "object_context": [{"name": "a", "type": "Sets"}],
+                "close_context": True,
+                "assumptions": [
+                    {
+                        "atom": {
+                            "rel": "SetEq",
+                            "args": [{"var": "a"}, {"const": "b"}],
+                        }
+                    }
+                ],
+                "conclusion": {
+                    "and": [
+                        {
+                            "imply": [
+                                {
+                                    "atom": {
+                                        "rel": "Elem",
+                                        "args": [{"var": "a"}, {"const": "z"}],
+                                    }
+                                },
+                                {
+                                    "atom": {
+                                        "rel": "Elem",
+                                        "args": [{"const": "b"}, {"const": "z"}],
+                                    }
+                                },
+                            ]
+                        },
+                        {
+                            "imply": [
+                                {
+                                    "atom": {
+                                        "rel": "Elem",
+                                        "args": [{"const": "b"}, {"const": "z"}],
+                                    }
+                                },
+                                {
+                                    "atom": {
+                                        "rel": "Elem",
+                                        "args": [{"var": "a"}, {"const": "z"}],
+                                    }
+                                },
+                            ]
+                        },
+                    ]
                 },
             },
         ),

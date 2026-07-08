@@ -1,0 +1,9 @@
+name = "contextual_hol"
+defaultTargets = ["ContextualHOL"]
+
+[[lean_lib]]
+name = "ContextualHOL"
+
+[[lean_exe]]
+name = "generate_core_examples"
+root = "GenerateCoreExamples"

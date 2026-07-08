@@ -16,6 +16,140 @@ HOL statement
 The middle layer is essential.  A formula does not translate by itself; it
 translates relative to an ordered context.
 
+## From HOL to Contextual HOL
+
+The elaboration step from HOL to contextual HOL is mechanical once the input
+separates schema parameters from object variables.
+
+Use this source shape for axioms and theorem schemas:
+
+```text
+schema p1 : P1, ..., pk : Pk
+object x1 : X1, ..., xn : Xn
+assume A1, ..., Am
+show phi
+```
+
+The elaborated contextual sequent is:
+
+```text
+x1 : X1, ..., xn : Xn | A1, ..., Am |- phi
+```
+
+with the schema parameters recorded separately.  Schema parameters are not part
+of the object context; they index the family of statements.
+
+For a closed source formula with explicit object quantifiers:
+
+```text
+forall x:X. phi
+```
+
+elaboration may either keep the quantifier inside the formula or move it to the
+object context when forming a theorem schema:
+
+```text
+object x : X
+show phi
+```
+
+These are equivalent presentations at the HOL level.  The second form is often
+the better authoring form for axioms because it makes object variables explicit
+before Core translation.
+
+### Elaboration Rules
+
+Given a source signature, elaboration checks names and produces a contextual HOL
+judgment.
+
+1. Resolve every identifier in a term.
+
+   * If it is in the object context, it is an object variable.
+   * If it is in the schema telescope or global constants, it is a parameter or
+     constant.
+   * Otherwise elaboration fails.
+
+2. Check relation atoms against the declared relation type.
+
+   For a binary relation:
+
+   ```text
+   R : Pred (A × B)
+   ```
+
+   an atom `R(t,u)` is accepted only when `t : A` and `u : B`.
+
+3. Elaborate connectives recursively in the same object context.
+
+4. Elaborate object quantifiers by extending the object context at the head:
+
+   ```text
+   Gamma |- forall x:X. phi
+   ```
+
+   elaborates the body in:
+
+   ```text
+   x : X, Gamma
+   ```
+
+5. Elaborate assumptions and the conclusion in the same object context.
+
+The output of this phase is not yet Core syntax.  It is a checked contextual HOL
+sequent:
+
+```text
+schema params; Gamma | Delta |- phi
+```
+
+### Closing a Contextual Sequent
+
+To export a contextual sequent as a closed Core proposition, first turn
+assumptions into an implication chain over the current context:
+
+```text
+Delta = A1, ..., Am
+body = A1 -> (A2 -> (... -> phi))
+```
+
+Then close the object context by object `Forall`.
+
+Define:
+
+```text
+close([], P : Pred Final) = Pred.term P
+close(x:X, Gamma, P : Pred (X × C[Gamma])) =
+  close(Gamma, Forall X C[Gamma] P)
+```
+
+Example:
+
+```text
+schema b : Sets, z : Sets
+object a : Sets
+show a = b -> (a in z <-> b in z)
+```
+
+closes as:
+
+```lean
+Pred.term (Forall Sets Final
+  (Pred.imply (Sets × Final)
+    ...SetEq(a,b)...
+    ...iff(a in z, b in z)...))
+```
+
+This is the mechanical reason `memCong_left_all` is binder-usable while a
+pointwise Core head-parameter axiom is not.
+
+### Implicit Free Variables
+
+For design clarity, the preferred input has an explicit `object` block.  A tool
+may support implicit free-variable closure, but it must choose a deterministic
+order, for example first occurrence from left to right.  For repository axioms,
+implicit object variables should be rejected or expanded before committing the
+Core translation, because variable order changes the generated projection shape.
+
 ## Contexts
 
 A context is an ordered list of object variables:
