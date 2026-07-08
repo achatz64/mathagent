@@ -190,6 +190,16 @@ noncomputable def hasChar_at (X : Type) (elt : Pred (X × X)) (cbody : Pred (X �
 axiom memBeta (X : Type) (elt : Pred (X × X)) (t s : X) :
   iff (Pred.term ((memAt X elt s) ∘ pointAt X t)) (curry X X PC elt t s)
 
+-- reversed-slot membership β: the atom `z ∈ w` (fixed member z, bound container w — the second
+-- conjunct of a union body), evaluated at the point w := t, is the elementary `elt z t`.
+-- MODEL: (sub2 elt (const z)(v0) ∘ pointAt X t) ⋆ = elt (z, t); both sides elt (z,t).  Companion
+-- to memBeta for the other argument slot; needed for ∃-witness bodies where the bound variable is
+-- the container.
+axiom memBetaRev (X : Type) (elt : Pred (X × X)) (z t : X) :
+  iff (Pred.term
+        ((sub2 (X × Final) X X elt (Cart.weakening X (X × Final) z) (v0 X Final)) ∘ pointAt X t))
+      (curry X X PC elt z t)
+
 -- atom β: a characterization atom `R(w, c)` (R applied to the bound w and a constant c),
 -- evaluated at the point (w,(·)) := (t, (s, ⋆)), is the elementary `R t c`.
 -- MODEL: both sides are R (t, c).
@@ -198,6 +208,42 @@ axiom atomBeta (X : Type) (R : Pred (X × X)) (s c t : X) :
         ((sub2 (X × (X × Final)) X X R (v0 X (X × Final))
            (Cart.weakening X (X × (X × Final)) c)) ∘ (smap X s ∘ pointAt X t)))
       (curry X X PC R t c)
+
+-- ===== ∀-lifted atom β (the binder-level companion of atomBeta) =====
+-- atomBeta cleans a smap-composed atom AT A POINT; this cleans it UNDER the ∀ binder (no point).
+-- It is the same combinator β-law, uniform in the bound w, and is GENERIC IN R — it asserts nothing
+-- about any particular relation or set, only that the opaque product plumbing (smap, v0, weakening)
+-- reindexes the atom to its clean single-context form.  Two versions: a single atom, and the
+-- `Pred.or` of two such atoms (the pair/successor characterization body shape).
+-- MODEL: at (w,⋆) both sides are R(w,a) ∨ R(w,b); the s-slot is unused (a/b are weakened constants).
+-- Non-derivable: the fst∘pair / pair-fusion β-laws live at arbitrary Type where = is unavailable
+-- (they can only be postulated wrapped at PC, here under Forall).
+axiom Forall_orAtomsClean (X : Type) (R : Pred (X × X)) (a b s : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.or (X × (X × Final))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) a))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) b)))
+     ∘ smap X s)
+    (Pred.or (X × Final)
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) a))
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b)))))
+
+-- ∃-body cleaning (generic in R): clean the union inner body  (w∈A ∧ ·∈w)  composed with the
+-- term_exist lift (which fills the tested-element slot with z and the set slot with U) to the clean
+-- and-body  (w∈A ∧ z∈w).  Same β-law wall (opaque pair/fst/snd/smap), postulated at PC under ∀.
+-- MODEL: at (w,⋆) both sides are R(w,A) ∧ R(z,w); U only fills the slot that is cleaned away.
+axiom Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.and (X × (X × (X × Final)))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v1 X X (X × Final)) (v0 X (X × (X × Final)))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (Pred.and (X × Final)
+      (memAt X R A)
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))))
 
 #check @hasChar
 #check @existsChar

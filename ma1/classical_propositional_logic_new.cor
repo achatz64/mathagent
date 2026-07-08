@@ -3,6 +3,9 @@
 -- This file intentionally does not import SK_combinators.  It provides only the
 -- propositional constants and helper rules needed by
 -- classical_first_order_logic_new.cor and its Pred-based dependencies.
+-- (abstract_combinators is imported only for the point-free identity `PropComb.i_comb`,
+-- the Prop-level identity used by the case-split helper `or_idem`.)
+import abstract_combinators
 
 abbrev PC := Prop
 
@@ -39,3 +42,32 @@ noncomputable def iff_mpr (A B : PC) (h : iff A B) : B -> A :=
 
 noncomputable def iff_sym (A B : PC) (h : iff A B) : iff B A :=
   iff_intro B A (and_elim_right (imply A B) (imply B A) h) (and_elim_left (imply A B) (imply B A) h)
+
+-- ===== derived propositional helpers (no new axioms) =====
+
+-- transitivity of iff: compose the two directions.
+noncomputable def iff_trans (A B C : PC) (h1 : iff A B) (h2 : iff B C) : iff A C :=
+  iff_intro A C
+    (imply_intro A C (iff_mp B C h2 ∘ iff_mp A B h1))
+    (imply_intro C A (iff_mpr A B h1 ∘ iff_mpr B C h2))
+
+-- idempotence of disjunction AS A FUNCTION `or A A → A`.  or_elim takes the scrutinee FIRST, so a
+-- composable `or A A → A` can't be got by partial application; exchange (c_comb) moves the two
+-- identity branches into place, leaving the disjunction as the sole remaining argument.
+noncomputable def or_idem_fn (A : PC) : or A A → A :=
+  PropComb.c_comb (or A A) (A → A) A
+    (PropComb.c_comb (or A A) (A → A) ((A → A) → A) (or_elim A A A) (PropComb.i_comb A))
+    (PropComb.i_comb A)
+
+-- idempotence of disjunction: or A A → A (value form).
+noncomputable def or_idem (A : PC) (h : or A A) : A := or_idem_fn A h
+
+-- congruence of disjunction (forward), used at the value level: A↔A' , B↔B' , A∨B ⊢ A'∨B'.
+-- The scrutinee is the hypothesis parameter `h`, so the internal or_elim forms no anonymous
+-- function; the two branches are compositions of fully-applied terms.  (A standalone
+-- iff-valued `or_cong` is NOT point-free constructible — it would need imply_intro of a
+-- partially-applied def — so we expose only this value-level mapper.)
+noncomputable def or_cong_mp (A A' B B' : PC) (ha : iff A A') (hb : iff B B') (h : or A B) : or A' B' :=
+  or_elim A B (or A' B') h
+    (or_intro_left A' B' ∘ iff_mp A A' ha)
+    (or_intro_right A' B' ∘ iff_mp B B' hb)

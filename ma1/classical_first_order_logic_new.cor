@@ -257,6 +257,15 @@ axiom Forall_reindex (X Y0 Y : Type) (R : Pred (X × Y0)) (f : Y → Y0) :
         (fst X (Y × Final))
         (f ∘ (fst Y Final ∘ snd X (Y × Final))))))
 
+-- ∃ / term bridge (∃-analog of term_and/term_or/term_not, family (A)): push Pred.term through
+-- the ∃ quantifier, collapsing the context substitution s.  MODEL (Exist X Z P = λz. ∃x. P(x,z)):
+-- at the point ⋆ both sides are ∃x. P(x, s⋆) — literally equal (the lift `pair (fst)(s∘snd)` sends
+-- (x,⋆) to (x, s⋆)).  Stated as `iff` at PC (Exist/pair opaque, = unavailable).  Non-derivable:
+-- nothing pushes Pred.term through the opaque Exist; the missing ∃ member of the term_* family.
+axiom term_exist (X Z : Type) (s : Final → Z) (P : Pred (X × Z)) :
+  iff (Pred.term ((Exist X Z P) ∘ s))
+      (Pred.term (Exist X Final (P ∘ pair (X × Final) X Z (fst X Final) (s ∘ snd X Final))))
+
 -- ∀y-level modus ponens is the existing Forall_mono at X := Y.
 noncomputable def MPy (Y : Type) (u v : Pred (Y × Final))
   (h1 : Vy Y (Pred.imply (Y × Final) u v)) (h2 : Vy Y u) : Vy Y v :=
@@ -352,8 +361,42 @@ axiom Forall_iffTrans (X : Type) (A B C : Pred (X × Final)) :
     (Pred.imply (X × Final) (Pred.iff (X × Final) A B)
       (Pred.imply (X × Final) (Pred.iff (X × Final) B C) (Pred.iff (X × Final) A C))))
 
+-- ===== ∃ one-point (substitution under ∃), generic in a relation R (family (B)) =====
+-- ∃w. (w =_R c ∧ z R w)  ↔  z R c.  `w =_R c` is `RelEq X R (w,c) = ∀u.(u R w ↔ u R c)`;
+-- instantiating u := z gives z R w ↔ z R c, so the ∃ collapses.  MODEL: (→) any witness w
+-- transports z R w to z R c; (←) take w := c with RelEq reflexivity.  Uniform-atom: the two
+-- atoms are the same `sub2` shapes used everywhere, so this fires against the union body.
+-- Non-derivable: the forward direction is an ∃-elimination whose ∀w-premise carries RelEq-
+-- substitution content varying with the bound w — not a fibre tautology and not reachable by
+-- transforming an existing universal.  Instantiated at R := Elem (RelEq Sets Elem = SetEq).
+axiom Exist_onepoint (X : Type) (R : Pred (X × X)) (z c : X) :
+  iff
+    (Pred.term (Exist X Final
+      (Pred.and (X × Final)
+        (sub2 (X × Final) X X (RelEq X R) (v0 X Final) (Cart.weakening X (X × Final) c))
+        (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))))
+    (curry X X PC R z c)
+
+-- ===== pure-logic ∀-tautology generators (family (C)), for rewriting under ∃ =====
+-- ∧ is monotone in its first factor under ↔:  ∀w. [ (P↔Q) → ((P∧S) → (Q∧S)) ].
+axiom Forall_andMono (X : Type) (P Q S : Pred (X × Final)) :
+  Pred.term (Forall X Final
+    (Pred.imply (X × Final) (Pred.iff (X × Final) P Q)
+      (Pred.imply (X × Final) (Pred.and (X × Final) P S) (Pred.and (X × Final) Q S))))
+
+-- distribute ∧ over ∨:  ∀w. [ ((P∨Q)∧S) → ((P∧S)∨(Q∧S)) ].
+axiom Forall_andOrDistrib (X : Type) (P Q S : Pred (X × Final)) :
+  Pred.term (Forall X Final
+    (Pred.imply (X × Final)
+      (Pred.and (X × Final) (Pred.or (X × Final) P Q) S)
+      (Pred.or (X × Final) (Pred.and (X × Final) P S) (Pred.and (X × Final) Q S))))
+
 #check @Forall_elim
 #check @Exist_intro
+#check @term_exist
+#check @Exist_onepoint
+#check @Forall_andMono
+#check @Forall_andOrDistrib
 #check @Forall_gen
 #check @Exist_gen
 #check @term_imply

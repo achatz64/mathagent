@@ -69,6 +69,282 @@ noncomputable def pair_right (a b : Sets) : elem b (upair a b) :=
 -- SetEq_sym / SetEq_trans / mem_subst now live in set_equality.cor (DERIVED from SetEq's
 -- extensional definition), and are available here through `import set_equality`.
 
+-- ===== General union:  ⋃A = the unique U with ∀x. (x∈U ↔ ∃y. (y∈A ∧ x∈y))  (↔-path) =====
+--
+-- unionBody is EXACTLY the ∃y-subformula of set.cor's union axiom body, so existence is
+-- `union_ax A` by defeq; uniqueness is the generic `uniqueOf`.
+noncomputable def unionInner (A : Sets) : Pred (Sets × (Sets × (Sets × Final))) :=
+  Pred.and (Sets × (Sets × (Sets × Final)))
+    (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+      (v0 Sets (Sets × (Sets × Final))) (Cart.weakening Sets (Sets × (Sets × (Sets × Final))) A))
+    (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+      (v1 Sets Sets (Sets × Final)) (v0 Sets (Sets × (Sets × Final))))
+
+noncomputable def unionBody (A : Sets) : Pred (Sets × (Sets × Final)) :=
+  Exist Sets (Sets × (Sets × Final)) (unionInner A)
+
+noncomputable def unionExU (A : Sets) : ExistUnique Sets Elem (unionBody A) :=
+  and_intro (existsChar Sets Elem (unionBody A)) (Pred.term (Unique Sets Elem (unionBody A)))
+    (union_ax A) (uniqueOf Sets Elem (unionBody A))
+
+noncomputable def bigunion (A : Sets) : Sets := the Sets Elem (unionBody A) (unionExU A)
+noncomputable def bigunion_spec (A : Sets) : hasChar Sets Elem (unionBody A) (bigunion A) :=
+  the_spec Sets Elem (unionBody A) (unionExU A)
+
+-- ===== pairing membership at a point (elimination direction) =====
+-- z ∈ {a,b} → (z=a ∨ z=b).  Instantiate pair_spec at the point z (hasChar_at), cross the
+-- memBeta / term_or / atomBeta bridges, and rename the two disjuncts with or_cong_mp.
+noncomputable def pair_mem_mp (a b z : Sets)
+    (h : elem z (upair a b)) : or (curry Sets Sets PC SetEq z a) (curry Sets Sets PC SetEq z b) :=
+  or_cong_mp
+    (Pred.term ((sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+        (Cart.weakening Sets (Sets × (Sets × Final)) a)) ∘ (smap Sets (upair a b) ∘ pointAt Sets z)))
+    (curry Sets Sets PC SetEq z a)
+    (Pred.term ((sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+        (Cart.weakening Sets (Sets × (Sets × Final)) b)) ∘ (smap Sets (upair a b) ∘ pointAt Sets z)))
+    (curry Sets Sets PC SetEq z b)
+    (atomBeta Sets SetEq (upair a b) a z)
+    (atomBeta Sets SetEq (upair a b) b z)
+    (iff_mp _ _
+      (term_or (Sets × (Sets × Final)) (smap Sets (upair a b) ∘ pointAt Sets z)
+        (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+          (Cart.weakening Sets (Sets × (Sets × Final)) a))
+        (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+          (Cart.weakening Sets (Sets × (Sets × Final)) b)))
+      (iff_mp _ _
+        (hasChar_at Sets Elem (pairBody a b) (upair a b) (pair_spec a b) z)
+        (iff_mpr _ _ (memBeta Sets Elem z (upair a b))
+          (iff_mpr _ _ (curry_uncurry Sets Sets elem z (upair a b)) h))))
+
+-- pairing membership, introduction directions (general point z), generalizing pair_left/right:
+-- z=a → z∈{a,b}, and z=b → z∈{a,b}.
+noncomputable def pair_intro_left (a b z : Sets)
+    (h : curry Sets Sets PC SetEq z a) : elem z (upair a b) :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem z (upair a b))
+    (iff_mp _ _ (memBeta Sets Elem z (upair a b))
+      (iff_mpr _ _ (hasChar_at Sets Elem (pairBody a b) (upair a b) (pair_spec a b) z)
+        (iff_mpr _ _
+          (term_or (Sets × (Sets × Final)) (smap Sets (upair a b) ∘ pointAt Sets z)
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) a))
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) b)))
+          (or_intro_left _ _
+            (iff_mpr _ _ (atomBeta Sets SetEq (upair a b) a z) h)))))
+noncomputable def pair_intro_right (a b z : Sets)
+    (h : curry Sets Sets PC SetEq z b) : elem z (upair a b) :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem z (upair a b))
+    (iff_mp _ _ (memBeta Sets Elem z (upair a b))
+      (iff_mpr _ _ (hasChar_at Sets Elem (pairBody a b) (upair a b) (pair_spec a b) z)
+        (iff_mpr _ _
+          (term_or (Sets × (Sets × Final)) (smap Sets (upair a b) ∘ pointAt Sets z)
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) a))
+            (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+              (Cart.weakening Sets (Sets × (Sets × Final)) b)))
+          (or_intro_right _ _
+            (iff_mpr _ _ (atomBeta Sets SetEq (upair a b) b z) h)))))
+
+-- ===== singleton {x} = {x,x}:  membership both ways =====
+-- z ∈ {x} ↔ z = x.  Forward collapses the {x,x} disjunction with or_idem; reverse is pair_intro.
+noncomputable def single_mem_mp (x z : Sets)
+    (h : elem z (upair x x)) : curry Sets Sets PC SetEq z x :=
+  or_idem (curry Sets Sets PC SetEq z x) (pair_mem_mp x x z h)
+noncomputable def single_intro (x z : Sets)
+    (h : curry Sets Sets PC SetEq z x) : elem z (upair x x) :=
+  pair_intro_left x x z h
+
+-- ===== clean single-context atoms (Pred (Sets × Final), context (w,⋆)) =====
+-- `z ∈ w` (fixed member z, bound container w) and `w = c` (SetEq), in the uniform atom shape
+-- that matches Exist_onepoint / the ∀-tautology generators / memBetaRev.
+noncomputable def inAtom (z : Sets) : Pred (Sets × Final) :=
+  sub2 (Sets × Final) Sets Sets Elem (Cart.weakening Sets (Sets × Final) z) (v0 Sets Final)
+noncomputable def eqAtom (c : Sets) : Pred (Sets × Final) :=
+  sub2 (Sets × Final) Sets Sets SetEq (v0 Sets Final) (Cart.weakening Sets (Sets × Final) c)
+
+-- ===== clean-form membership bridges (the "prod + Final yoga", postulated at PC) =====
+-- term_exist reaches a closed ∃ for union membership, but the opaque product combinators leave
+-- its atoms un-cleanable UNDER the ∃ binder (the same wall that forces memBeta/atomBeta to be
+-- postulated at points rather than derived).  So, exactly as definite_description postulates the
+-- point β-bridges, we postulate the two clean-atom characterizations directly.  Each is checked in
+-- the model (Pred T = T→PC) and is DERIVED content of set.cor's axioms, restated in uniform atoms.
+
+-- the term_exist lift for the union body: fills the ∃-witness context with (z, (⋃A, ⋆)).
+noncomputable def unionLift (A z : Sets) : (Sets × Final) → (Sets × (Sets × (Sets × Final))) :=
+  pair (Sets × Final) Sets (Sets × (Sets × Final)) (fst Sets Final)
+    ((smap Sets (bigunion A) ∘ pointAt Sets z) ∘ snd Sets Final)
+
+-- union membership, clean ∃:  z ∈ ⋃A  ↔  ∃w. (w∈A ∧ z∈w).  DERIVED: point-bridges to the dirty
+-- closed ∃ (curry_uncurry / memBeta / hasChar_at), push Pred.term through the ∃ (term_exist), then
+-- clean the ∃-body under the binder (Forall_exUnionClean) and transport across via Exist_mono.
+noncomputable def union_mem (A z : Sets) :
+    iff (elem z (bigunion A))
+        (Pred.term (Exist Sets Final (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z)))) :=
+  iff_trans _ _ _
+    (iff_trans _ _ _
+      (iff_trans _ _ _
+        (iff_trans _ _ _
+          (iff_sym _ _ (curry_uncurry Sets Sets elem z (bigunion A)))
+          (iff_sym _ _ (memBeta Sets Elem z (bigunion A))))
+        (hasChar_at Sets Elem (unionBody A) (bigunion A) (bigunion_spec A) z))
+      (term_exist Sets (Sets × (Sets × Final)) (smap Sets (bigunion A) ∘ pointAt Sets z) (unionInner A)))
+    (iff_intro _ _
+      (imply_elim _ _
+        (Exist_mono Sets (unionInner A ∘ unionLift A z)
+          (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z)))
+        (Forall_iffMp Sets (unionInner A ∘ unionLift A z)
+          (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z))
+          (Forall_exUnionClean Sets Elem A z (bigunion A))))
+      (imply_elim _ _
+        (Exist_mono Sets (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z))
+          (unionInner A ∘ unionLift A z))
+        (Forall_iffMp Sets (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z))
+          (unionInner A ∘ unionLift A z)
+          (imply_elim _ _
+            (imply_elim _ _
+              (Forall_mono Sets
+                (Pred.iff (Sets × Final) (unionInner A ∘ unionLift A z)
+                  (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z)))
+                (Pred.iff (Sets × Final) (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z))
+                  (unionInner A ∘ unionLift A z)))
+              (Forall_iffSym Sets (unionInner A ∘ unionLift A z)
+                (Pred.and (Sets × Final) (memAt Sets Elem A) (inAtom z))))
+            (Forall_exUnionClean Sets Elem A z (bigunion A))))))
+
+-- pairing characterization, clean ∀:  ∀w. (w∈{a,b} ↔ (w=a ∨ w=b)).  DERIVED: chain pair_spec's
+-- ∀w.(w∈{a,b} ↔ pairBody∘smap) with the generic β-cleaning of the body (Forall_orAtomsClean) via
+-- ∀-lifted iff-transitivity (Forall_iffTrans + Forall_mono), exactly like SetEq_trans.
+noncomputable def pair_char (a b : Sets) :
+    Pred.term (Forall Sets Final
+      (Pred.iff (Sets × Final) (memAt Sets Elem (upair a b))
+        (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)))) :=
+  imply_elim _ _
+    (imply_elim _ _
+      (Forall_mono Sets
+        (Pred.iff (Sets × Final) (pairBody a b ∘ smap Sets (upair a b))
+          (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)))
+        (Pred.iff (Sets × Final) (memAt Sets Elem (upair a b))
+          (Pred.or (Sets × Final) (eqAtom a) (eqAtom b))))
+      (imply_elim _ _
+        (imply_elim _ _
+          (Forall_mono Sets
+            (Pred.iff (Sets × Final) (memAt Sets Elem (upair a b))
+              (pairBody a b ∘ smap Sets (upair a b)))
+            (Pred.imply (Sets × Final)
+              (Pred.iff (Sets × Final) (pairBody a b ∘ smap Sets (upair a b))
+                (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)))
+              (Pred.iff (Sets × Final) (memAt Sets Elem (upair a b))
+                (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)))))
+          (Forall_iffTrans Sets (memAt Sets Elem (upair a b))
+            (pairBody a b ∘ smap Sets (upair a b))
+            (Pred.or (Sets × Final) (eqAtom a) (eqAtom b))))
+        (pair_spec a b)))
+    (Forall_orAtomsClean Sets SetEq a b (upair a b))
+
+-- ===== binary union membership:  z ∈ ⋃{a,b}  ↔  z∈a ∨ z∈b  (DERIVED) =====
+-- Forward: clean the union ∃ (union_mem), rewrite w∈{a,b} → (w=a∨w=b) under the ∃ (pair_char via
+-- Forall_mono ∘ Forall_andMono, then Exist_mono), distribute ∧/∨ (Forall_andOrDistrib), split
+-- (Exist_or), and collapse each one-point ∃ (Exist_onepoint) to z∈a / z∈b.
+noncomputable def binunion_mp (a b z : Sets)
+    (h : elem z (bigunion (upair a b))) : or (elem z a) (elem z b) :=
+  or_cong_mp
+    (Pred.term (Exist Sets Final (Pred.and (Sets × Final) (eqAtom a) (inAtom z))))
+    (elem z a)
+    (Pred.term (Exist Sets Final (Pred.and (Sets × Final) (eqAtom b) (inAtom z))))
+    (elem z b)
+    (iff_trans _ _ _ (Exist_onepoint Sets Elem z a) (curry_uncurry Sets Sets elem z a))
+    (iff_trans _ _ _ (Exist_onepoint Sets Elem z b) (curry_uncurry Sets Sets elem z b))
+    (imply_elim _ _
+      (Exist_or Sets (Pred.and (Sets × Final) (eqAtom a) (inAtom z))
+                     (Pred.and (Sets × Final) (eqAtom b) (inAtom z)))
+      (imply_elim _ _
+        (imply_elim _ _
+          (Exist_mono Sets
+            (Pred.and (Sets × Final) (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)) (inAtom z))
+            (Pred.or (Sets × Final)
+              (Pred.and (Sets × Final) (eqAtom a) (inAtom z))
+              (Pred.and (Sets × Final) (eqAtom b) (inAtom z))))
+          (Forall_andOrDistrib Sets (eqAtom a) (eqAtom b) (inAtom z)))
+        (imply_elim _ _
+          (imply_elim _ _
+            (Exist_mono Sets
+              (Pred.and (Sets × Final) (memAt Sets Elem (upair a b)) (inAtom z))
+              (Pred.and (Sets × Final) (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)) (inAtom z)))
+            (imply_elim _ _
+              (imply_elim _ _
+                (Forall_mono Sets
+                  (Pred.iff (Sets × Final) (memAt Sets Elem (upair a b))
+                    (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)))
+                  (Pred.imply (Sets × Final)
+                    (Pred.and (Sets × Final) (memAt Sets Elem (upair a b)) (inAtom z))
+                    (Pred.and (Sets × Final) (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)) (inAtom z))))
+                (Forall_andMono Sets (memAt Sets Elem (upair a b))
+                  (Pred.or (Sets × Final) (eqAtom a) (eqAtom b)) (inAtom z)))
+              (pair_char a b)))
+          (iff_mp _ _ (union_mem (upair a b) z) h))))
+
+-- Reverse: z∈a (resp. z∈b) → z ∈ ⋃{a,b}, via Exist_intro at the witness a (resp. b): its instance
+-- body (a∈{a,b} ∧ z∈a) is discharged by pair_left/right (memBeta) and hz (memBetaRev) at the point.
+noncomputable def binunion_intro_left (a b z : Sets)
+    (hz : elem z a) : elem z (bigunion (upair a b)) :=
+  iff_mpr _ _ (union_mem (upair a b) z)
+    (imply_elim _ _
+      (Exist_intro Sets (Pred.and (Sets × Final) (memAt Sets Elem (upair a b)) (inAtom z)) a)
+      (iff_mpr _ _
+        (term_and (Sets × Final) (pointAt Sets a) (memAt Sets Elem (upair a b)) (inAtom z))
+        (and_intro _ _
+          (iff_mpr _ _ (memBeta Sets Elem a (upair a b))
+            (iff_mpr _ _ (curry_uncurry Sets Sets elem a (upair a b)) (pair_left a b)))
+          (iff_mpr _ _ (memBetaRev Sets Elem z a)
+            (iff_mpr _ _ (curry_uncurry Sets Sets elem z a) hz)))))
+noncomputable def binunion_intro_right (a b z : Sets)
+    (hz : elem z b) : elem z (bigunion (upair a b)) :=
+  iff_mpr _ _ (union_mem (upair a b) z)
+    (imply_elim _ _
+      (Exist_intro Sets (Pred.and (Sets × Final) (memAt Sets Elem (upair a b)) (inAtom z)) b)
+      (iff_mpr _ _
+        (term_and (Sets × Final) (pointAt Sets b) (memAt Sets Elem (upair a b)) (inAtom z))
+        (and_intro _ _
+          (iff_mpr _ _ (memBeta Sets Elem b (upair a b))
+            (iff_mpr _ _ (curry_uncurry Sets Sets elem b (upair a b)) (pair_right a b)))
+          (iff_mpr _ _ (memBetaRev Sets Elem z b)
+            (iff_mpr _ _ (curry_uncurry Sets Sets elem z b) hz)))))
+
+-- singleton-membership forward AS A FUNCTION (elem z {x} → z=x): the pair_mem_mp chain with the
+-- two identical disjuncts collapsed by or_idem_fn (function form so the whole thing composes).
+noncomputable def single_mem_fwd (x z : Sets) : elem z (upair x x) → curry Sets Sets PC SetEq z x :=
+  iff_mp _ _ (atomBeta Sets SetEq (upair x x) x z)
+  ∘ or_idem_fn (Pred.term ((sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+      (Cart.weakening Sets (Sets × (Sets × Final)) x)) ∘ (smap Sets (upair x x) ∘ pointAt Sets z)))
+  ∘ iff_mp _ _ (term_or (Sets × (Sets × Final)) (smap Sets (upair x x) ∘ pointAt Sets z)
+      (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+        (Cart.weakening Sets (Sets × (Sets × Final)) x))
+      (sub2 (Sets × (Sets × Final)) Sets Sets SetEq (v0 Sets (Sets × Final))
+        (Cart.weakening Sets (Sets × (Sets × Final)) x)))
+  ∘ iff_mp _ _ (hasChar_at Sets Elem (pairBody x x) (upair x x) (pair_spec x x) z)
+  ∘ iff_mpr _ _ (memBeta Sets Elem z (upair x x))
+  ∘ iff_mpr _ _ (curry_uncurry Sets Sets elem z (upair x x))
+
+-- ===== von Neumann successor:  succ x = x ∪ {x} = ⋃{x, {x}} =====
+noncomputable def nsucc (x : Sets) : Sets := bigunion (upair x (upair x x))
+
+-- membership characterization:  z ∈ succ x  ↔  (z∈x ∨ z=x)  (both directions, elementary).
+-- Forward: binary-union membership (z∈x ∨ z∈{x}), then collapse z∈{x} to z=x.
+noncomputable def nsucc_mp (x z : Sets) (h : elem z (nsucc x))
+    : or (elem z x) (curry Sets Sets PC SetEq z x) :=
+  or_elim (elem z x) (elem z (upair x x)) (or (elem z x) (curry Sets Sets PC SetEq z x))
+    (binunion_mp x (upair x x) z h)
+    (or_intro_left (elem z x) (curry Sets Sets PC SetEq z x))
+    (or_intro_right (elem z x) (curry Sets Sets PC SetEq z x) ∘ single_mem_fwd x z)
+noncomputable def nsucc_intro_elem (x z : Sets) (hz : elem z x) : elem z (nsucc x) :=
+  binunion_intro_left x (upair x x) z hz
+noncomputable def nsucc_intro_eq (x z : Sets) (hz : curry Sets Sets PC SetEq z x) : elem z (nsucc x) :=
+  binunion_intro_right x (upair x x) z (single_intro x z hz)
+
+-- x ∈ succ x  (the "self" membership: x = x branch).
+noncomputable def nsucc_self (x : Sets) : elem x (nsucc x) :=
+  nsucc_intro_eq x x (SetEq_refl x)
+
 #check emptyset
 #check emptyset_spec
 #check upair
