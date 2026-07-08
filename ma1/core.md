@@ -236,3 +236,11 @@ In math `axiom Sets : Type` and `axiom elem : Sets → Sets → PC` are examples
 We distinguish strictly between math and logic although both are written in the same core language. Logic, also called the infrastructure layer, provides the axioms needed to state and prove in the math application. 
 
 It is important to keep logic and math axioms separate. You should not state axioms in math that are tautologies in the FOL model, that is, do not have a math content and only encode combinator β-laws. If you need new infra structure axioms, then they must be written in a general way and independent from the math context. They are then to be added to the infra/logic layer.  
+
+### Infra axioms
+
+The rules for adding infra axioms:
+1. All axioms must be beta rules that enable general and sound facts from fol/hol.
+2. Unsound beta rules are not allowed, find sound beta rules and a derivation for your special case.
+3. Always show and add comments on the general validity under fol/hol model for a beta rule.
+4. Always explain why it cannot be derived from current rules.
