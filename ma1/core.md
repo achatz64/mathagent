@@ -139,6 +139,10 @@ domain/codomain disambiguation rule is needed.
 `A -> B : Prop`. Otherwise arrow types live in `Type` in the usual simple-type
 sense used by Core.
 
+### Native checker written in lean 
+
+See `checker/CoreChecker`. If the binary is on the path, then launch with `corecheck file_to_be_checked.cor`. Dependencies are pulled in automatically.
+
 ## Proving over the model: no equality, no dependent types, infra axioms
 
 Core has three layers that must be kept apart, and most of the discipline below is
@@ -216,3 +220,19 @@ Together (A)+(B)+(C) give full classical first-order reasoning with **no equalit
 no dependent types**. When a proof needs a new fibre validity (excluded middle under
 `∀`, etc.), add it to family (C) the same way: state it at `Y = Final`, check it true
 at `★`, keep it dependent-free.
+
+### Axioms 
+
+In general, we have two types of axioms in logic and math: 
+1. Definitional: postulating the existence of a certain type, say a math object we want to study.
+2. Propositional: postulating that a certain fact is true.
+
+In logic the quantifiers `Forall` and `Exist` are examples of *definitional* axioms. And infra structure axioms like `Forall_elim` are examples for *propositional* axioms.
+
+In math `axiom Sets : Type` and `axiom elem : Sets → Sets → PC` are examples of a *definitional* axiom and the ZFC axioms are examples for propositional axioms. 
+
+### Math and infra axioms
+
+We distinguish strictly between math and logic although both are written in the same core language. Logic, also called the infrastructure layer, provides the axioms needed to state and prove in the math application. 
+
+It is important to keep logic and math axioms separate. You should not state axioms in math that are tautologies in the FOL model, that is, do not have a math content and only encode combinator β-laws. If you need new infra structure axioms, then they must be written in a general way and independent from the math context. They are then to be added to the infra/logic layer.  
