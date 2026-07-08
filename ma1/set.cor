@@ -112,26 +112,33 @@ axiom separation (A : Sets) (phi : Pred Sets) :
 -- Empty set.  ∃e. isEmpty e
 axiom empty_ax : Pred.term (Exist Sets Final (isEmpty ∘ (v0 Sets Final)))
 
--- Infinity.  ∃I. ( ∃e.(e∈I ∧ isEmpty e)  ∧  ∀x.(x∈I → ∃y.(y∈I ∧ isSucc x y)) )
+-- Infinity.  An inductive set contains an empty set and is closed under successor:
+--   infBody I  :  ∃e.(e∈I ∧ isEmpty e)  ∧  ∀x.(x∈I → ∃y.(y∈I ∧ isSucc x y))
 -- ctx: (I,⋆); ∃e:(e,(I,⋆)); ∀x:(x,(I,⋆)); ∃y:(y,(x,(I,⋆)))
-axiom infinity :
-  Pred.term (Exist Sets Final
-    (Pred.and (Sets × Final)
-      -- ∃e. e∈I ∧ isEmpty e
-      (Exist Sets (Sets × Final)
-        (Pred.and (Sets × (Sets × Final))
-          (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
-          (isEmpty ∘ (v0 Sets (Sets × Final)))))
-      -- ∀x. x∈I → ∃y. (y∈I ∧ isSucc x y)
-      (Forall Sets (Sets × Final)
-        (Pred.imply (Sets × (Sets × Final))
-          (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
-          (Exist Sets (Sets × (Sets × Final))
-            (Pred.and (Sets × (Sets × (Sets × Final)))
-              (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
-                (v0 Sets (Sets × (Sets × Final))) (v2 Sets Sets Sets Final))
-              (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets isSucc
-                (v1 Sets Sets (Sets × Final)) (v0 Sets (Sets × (Sets × Final))))))))))
+def infBody : Pred (Sets × Final) :=
+  Pred.and (Sets × Final)
+    -- ∃e. e∈I ∧ isEmpty e
+    (Exist Sets (Sets × Final)
+      (Pred.and (Sets × (Sets × Final))
+        (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+        (isEmpty ∘ (v0 Sets (Sets × Final)))))
+    -- ∀x. x∈I → ∃y. (y∈I ∧ isSucc x y)
+    (Forall Sets (Sets × Final)
+      (Pred.imply (Sets × (Sets × Final))
+        (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+        (Exist Sets (Sets × (Sets × Final))
+          (Pred.and (Sets × (Sets × (Sets × Final)))
+            (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets Elem
+              (v0 Sets (Sets × (Sets × Final))) (v2 Sets Sets Sets Final))
+            (sub2 (Sets × (Sets × (Sets × Final))) Sets Sets isSucc
+              (v1 Sets Sets (Sets × Final)) (v0 Sets (Sets × (Sets × Final))))))))
+
+-- Axiom of Infinity, Skolemized: postulate ONE concrete infinite (inductive) set `Inf`.
+-- Inductive sets are not unique, so we cannot describe one with `the`; we postulate a named
+-- witness here (the home for set axioms) instead of eliminating a bare `∃I`.  ω is then carved
+-- out of `Inf` by Separation (which IS unique) in natural_numbers_zf.cor.
+axiom Inf : Sets
+axiom Inf_spec : Pred.term (inst Sets infBody Inf)
 
 -- Regularity.  imply (Nonempty x) (∃y. (y∈x ∧ ¬∃z.(z∈y ∧ z∈x)))
 -- ∃y:(y,⋆); ∃z:(z,(y,⋆))
@@ -225,7 +232,9 @@ axiom choice (F : Sets) :
 #check @pairing
 #check @union_ax
 #check @separation
-#check @infinity
+#check @infBody
+#check Inf
+#check Inf_spec
 #check @regularity
 #check @replacement
 #check @choice
