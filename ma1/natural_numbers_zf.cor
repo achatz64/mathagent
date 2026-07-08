@@ -100,8 +100,36 @@ noncomputable def omega_intro (t : Sets) (h : and (elem t Inf) (omegaPred t)) : 
               (iff_mpr _ _ (curry_uncurry Sets Sets elem t Inf) (and_elim_left _ _ h)))
             (iff_mpr _ _ (sepPhiBeta Sets omegaPred omega t) (and_elim_right _ _ h))))))
 
+-- ===== reading emptiness at a point:  isEmpty s ⊢ ¬(n∈s) =====
+-- Evaluate the context-quantifier `isEmpty s = Forall Sets Sets (¬Elem) s` at the point s
+-- (Forall_pointEval), instantiate the inner ∀z at z:=n (Forall_elim — the atom `z∈s` is
+-- memAt-clean because v0 ≡ fst), split ¬ with term_not, and cross memBeta/curry_uncurry.
+noncomputable def empty_not_mem (s n : Sets) (h : isEmpty s) : not (elem n s) :=
+  not_cong_mp
+    (Pred.term ((memAt Sets Elem s) ∘ pointAt Sets n))
+    (elem n s)
+    (iff_trans _ _ _ (memBeta Sets Elem n s) (curry_uncurry Sets Sets elem n s))
+    (iff_mp _ _
+      (term_not (Sets × Final) (pointAt Sets n) (memAt Sets Elem s))
+      (imply_elim _ _
+        (Forall_elim Sets (Pred.not (Sets × Final) (memAt Sets Elem s)) n)
+        (iff_mp _ _
+          (Forall_pointEval Sets Sets (Pred.not (Sets × Sets) Elem) s)
+          h)))
+
+-- ===== 0 ≠ succ n =====
+-- If ∅ = succ n then n ∈ ∅ (n ∈ succ n by nsucc_self, transported along the equality flipped by
+-- SetEq_sym_fun), but ∅ is empty.  The refutation function is a ∘-chain of the composable transports.
+noncomputable def zero_ne_succ (n : Sets) : not (curry Sets Sets PC SetEq zero (nsucc n)) :=
+  not_intro (curry Sets Sets PC SetEq zero (nsucc n)) (elem n zero)
+    (mem_subst_fun n (nsucc n) zero (nsucc_self n) ∘ SetEq_sym_fun zero (nsucc n))
+    (PropComb.k_comb (not (elem n zero)) (curry Sets Sets PC SetEq zero (nsucc n))
+      (empty_not_mem zero n emptyset_spec))
+
 #check omegaPred
 #check omega
 #check omega_spec
 #check N
 #check zero
+#check empty_not_mem
+#check zero_ne_succ

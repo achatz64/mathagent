@@ -19,6 +19,15 @@ noncomputable def emptyExU : ExistUniqueNeg Sets Elem :=
 noncomputable def emptyset : Sets := theNeg Sets Elem emptyExU
 noncomputable def emptyset_spec : isEmpty emptyset := theNeg_spec Sets Elem emptyExU
 
+-- uniqueness of empty sets:  two empty sets are SetEq.  Read each `isEmpty` off at the point
+-- (Forall_pointEval → the memAt-clean ¬-form, by v0 ≡ fst), run emptyUniqueCore, refold via SetEqExt.
+noncomputable def emptyUnique (a b : Sets) (ha : isEmpty a) (hb : isEmpty b) :
+    curry Sets Sets PC SetEq a b :=
+  iff_mpr _ _ (SetEqExt a b)
+    (emptyUniqueCore Sets (memAt Sets Elem a) (memAt Sets Elem b)
+      (iff_mp _ _ (Forall_pointEval Sets Sets (Pred.not (Sets × Sets) Elem) a) ha)
+      (iff_mp _ _ (Forall_pointEval Sets Sets (Pred.not (Sets × Sets) Elem) b) hb))
+
 -- ===== Pairing:  {a,b} = the unique c with ∀w. (w∈c ↔ w=a ∨ w=b)  (↔-path) =====
 --
 -- pairBody is EXACTLY set.cor's pairing-axiom body, so existence is `pairing a b` by defeq;

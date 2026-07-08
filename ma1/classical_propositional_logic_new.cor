@@ -62,6 +62,11 @@ noncomputable def or_idem_fn (A : PC) : or A A → A :=
 -- idempotence of disjunction: or A A → A (value form).
 noncomputable def or_idem (A : PC) (h : or A A) : A := or_idem_fn A h
 
+-- congruence of negation (forward):  A↔B , ¬A ⊢ ¬B.  Assume B, cross to A (iff_mpr), and take
+-- ¬A as the constant refutation (PropComb.k_comb).  No new axiom — pure not_intro plumbing.
+noncomputable def not_cong_mp (A B : PC) (h : iff A B) (hA : not A) : not B :=
+  not_intro B A (iff_mpr A B h) (PropComb.k_comb (not A) B hA)
+
 -- congruence of disjunction (forward), used at the value level: A↔A' , B↔B' , A∨B ⊢ A'∨B'.
 -- The scrutinee is the hypothesis parameter `h`, so the internal or_elim forms no anonymous
 -- function; the two branches are compositions of fully-applied terms.  (A standalone

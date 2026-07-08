@@ -115,8 +115,46 @@ noncomputable def mem_subst_left (a b z : Sets)
         (iff_mpr _ _ (memBeta Sets Elem a z)
           (iff_mpr _ _ (curry_uncurry Sets Sets elem a z) haz))))
 
+-- ===== composable (`_fun`) variants: the equality/membership proof lives in the RETURNED arrow =====
+-- The native checker forbids partial application of a def's head-parameter telescope, so
+-- `SetEq_sym a b` / `mem_subst z y a hzy` cannot be handed to `not_intro` / `or_elim` as a function.
+-- These variants keep everything but the transported proof in the head telescope and return the
+-- point-free FUNCTION, built by ∘-composing the same fully-applied bridges (no new axiom).
+
+-- symmetry as a function:  curry SetEq a b  →  curry SetEq b a.
+noncomputable def SetEq_sym_fun (a b : Sets) : curry Sets Sets PC SetEq a b → curry Sets Sets PC SetEq b a :=
+  iff_mpr _ _ (SetEqExt b a)
+  ∘ imply_elim _ _
+      (imply_elim _ _ (Forall_mono Sets (extBody a b) (extBody b a))
+        (Forall_iffSym Sets (memAt Sets Elem a) (memAt Sets Elem b)))
+  ∘ iff_mp _ _ (SetEqExt a b)
+
+-- container-slot transport as a function of the equality:  fix z∈y, map  y=a  ↦  z∈a.
+noncomputable def mem_subst_fun (z y a : Sets) (hzy : elem z y) :
+    curry Sets Sets PC SetEq y a → elem z a :=
+  iff_mp _ _ (curry_uncurry Sets Sets elem z a)
+  ∘ iff_mp _ _ (memBeta Sets Elem z a)
+  ∘ PropComb.c_comb
+      (imply (Pred.term ((memAt Sets Elem y) ∘ pointAt Sets z)) (Pred.term ((memAt Sets Elem a) ∘ pointAt Sets z)))
+      (Pred.term ((memAt Sets Elem y) ∘ pointAt Sets z))
+      (Pred.term ((memAt Sets Elem a) ∘ pointAt Sets z))
+      (imply_elim (Pred.term ((memAt Sets Elem y) ∘ pointAt Sets z)) (Pred.term ((memAt Sets Elem a) ∘ pointAt Sets z)))
+      (iff_mpr _ _ (memBeta Sets Elem z y) (iff_mpr _ _ (curry_uncurry Sets Sets elem z y) hzy))
+  ∘ iff_mp _ _ (term_imply (Sets × Final) (pointAt Sets z) (memAt Sets Elem y) (memAt Sets Elem a))
+  ∘ and_elim_left
+      (Pred.term ((Pred.imply (Sets × Final) (memAt Sets Elem y) (memAt Sets Elem a)) ∘ pointAt Sets z))
+      (Pred.term ((Pred.imply (Sets × Final) (memAt Sets Elem a) (memAt Sets Elem y)) ∘ pointAt Sets z))
+  ∘ iff_mp _ _
+      (term_and (Sets × Final) (pointAt Sets z)
+        (Pred.imply (Sets × Final) (memAt Sets Elem y) (memAt Sets Elem a))
+        (Pred.imply (Sets × Final) (memAt Sets Elem a) (memAt Sets Elem y)))
+  ∘ imply_elim _ _ (Forall_elim Sets (extBody y a) z)
+  ∘ iff_mp _ _ (SetEqExt y a)
+
 #check SetEq_refl
 #check SetEq_sym
 #check SetEq_trans
 #check mem_subst
 #check mem_subst_left
+#check SetEq_sym_fun
+#check mem_subst_fun

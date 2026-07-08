@@ -257,6 +257,21 @@ axiom Forall_reindex (X Y0 Y : Type) (R : Pred (X × Y0)) (f : Y → Y0) :
         (fst X (Y × Final))
         (f ∘ (fst Y Final ∘ snd X (Y × Final))))))
 
+-- ∀-POINT-EVAL (family (B)): read the Pred-Y produced by `Forall X Y P` AT A POINT t of the
+-- context Y.  FOL:  (λy. ∀x. R(x,y)) t  =  ∀x. R(x,t).  The substitution map (x,⋆) ↦ (x,t) is
+-- identity on the head X (`fst`) and the constant t on the context (`Cart.weakening`).
+-- MODEL (Pred T = T→PC, Forall X Y P = λy. ∀x. P(x,y)):  LHS = Forall X Y P t = ∀x. P(x,t);
+-- RHS = Pred.term (Forall X Final (P∘s)) = ∀x. P(s(x,⋆)) = ∀x. P(x,t).  Literally equal, so `iff`
+-- at PC (Forall opaque, no = at Type).  NON-DERIVABLE: Forall_elim instantiates the INNER x only
+-- at Y = Final; Forall_reindex reindexes the context but keeps it a context; nothing evaluates the
+-- opaque outer quantifier as a function at a point of a nontrivial context — this is that β (the
+-- outer-quantifier application law).  Used to produce/consume a context-quantified fact (omegaPred t,
+-- isEmpty s) at a concrete point.
+axiom Forall_pointEval (X Y : Type) (P : Pred (X × Y)) (t : Y) :
+  iff (Forall X Y P t)
+      (Pred.term (Forall X Final
+        (P ∘ pair (X × Final) X Y (fst X Final) (Cart.weakening Y (X × Final) t))))
+
 -- ∃ / term bridge (∃-analog of term_and/term_or/term_not, family (A)): push Pred.term through
 -- the ∃ quantifier, collapsing the context substitution s.  MODEL (Exist X Z P = λz. ∃x. P(x,z)):
 -- at the point ⋆ both sides are ∃x. P(x, s⋆) — literally equal (the lift `pair (fst)(s∘snd)` sends
