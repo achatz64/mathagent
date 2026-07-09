@@ -46,6 +46,7 @@ def joinSep (sep : String) : List String -> String
 
 inductive Proof where
   | basis : BasisName -> List Arg -> Proof
+  | call : BasisName -> List Arg -> List Proof -> Proof
   | app : Proof -> Proof -> Proof
   | iffTrans : String -> String -> String -> Proof -> Proof -> Proof
   | iffSym : String -> String -> Proof -> Proof
@@ -57,10 +58,11 @@ namespace Proof
 
 def basisNames : Proof -> List BasisName
   | basis name _ => [name]
+  | call name _ proofs => name :: proofs.foldr (fun proof names => basisNames proof ++ names) []
   | app fn arg => basisNames fn ++ basisNames arg
-  | iffTrans _ _ _ left right => basisNames left ++ basisNames right
-  | iffSym _ _ proof => basisNames proof
-  | implyElim _ _ fn arg => basisNames fn ++ basisNames arg
+  | iffTrans _ _ _ left right => BasisName.iffTrans :: basisNames left ++ basisNames right
+  | iffSym _ _ proof => BasisName.iffSym :: basisNames proof
+  | implyElim _ _ fn arg => BasisName.implyElim :: basisNames fn ++ basisNames arg
   | rawChecked _ names => names
 
 def usesOnlyAllowed (proof : Proof) : Bool :=
@@ -72,6 +74,16 @@ def renderArgs (args : List Arg) : String :=
 partial def render : Proof -> String
   | basis name [] => BasisName.coreName name
   | basis name args => parens (BasisName.coreName name ++ " " ++ renderArgs args)
+  | call name args proofs =>
+      let renderedArgs := renderArgs args
+      let renderedProofs := joinSep " " (proofs.map render)
+      let renderedInputs :=
+        match renderedArgs, renderedProofs with
+        | "", "" => ""
+        | "", proofs => " " ++ proofs
+        | args, "" => " " ++ args
+        | args, proofs => " " ++ args ++ " " ++ proofs
+      parens (BasisName.coreName name ++ renderedInputs)
   | app fn arg => parens (render fn ++ " " ++ render arg)
   | iffTrans left middle right first second =>
       parens ("iff_trans " ++ left ++ " " ++ middle ++ " " ++ right ++ " " ++
