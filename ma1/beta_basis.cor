@@ -45,6 +45,26 @@ axiom beta_v0_point_arg1 (A B : Type) (F : A → B → PC) (a : A) (b : B) :
 axiom beta_v0_point_arg2 (A B : Type) (F : A → B → PC) (a : A) (b : B) :
   iff (F a (Final.term B ((v0 B Final) ∘ pointAt B b))) (F a b)
 
+-- unary version of v0∘pointAt β, for schema predicate slots `phi ∘ v0`.
+-- MODEL: Final.term ((v0 A Final) ∘ pointAt A a) = a; both sides P a.
+axiom beta_v0_point_unary (A : Type) (P : Pred A) (a : A) :
+  iff (Pred.term (P ∘ ((v0 A Final) ∘ pointAt A a))) (P a)
+
+-- fst∘pair β observed at a point through the first slot of a binary PC-valued context.
+-- MODEL: fst(pair(f,g)(★)) = f(★); both sides F (f★) c.
+-- NON-DERIVABLE: fst∘pair β lives at arbitrary Type; observed at PC only.
+axiom beta_fst_pair_point_arg1 (Z A B C : Type) (F : A → C → PC)
+    (f : Z → A) (g : Z → B) (s : Final → Z) (c : C) :
+  iff (F (Final.term A ((fst A B) ∘ ((pair Z A B f g) ∘ s))) c)
+      (F (Final.term A (f ∘ s)) c)
+
+-- unary version of the same point observation, for `phi ∘ fst`.
+-- MODEL: at ★ both sides are P(f(★)).
+axiom beta_fst_pair_point_unary (Z A B : Type) (P : Pred A)
+    (f : Z → A) (g : Z → B) (s : Final → Z) :
+  iff (Pred.term ((P ∘ (fst A B)) ∘ ((pair Z A B f g) ∘ s)))
+      (Pred.term (P ∘ (f ∘ s)))
+
 -- weakening∘s β (a constant map composed with anything is the constant), observed
 -- through the first argument of a PC-valued context.
 -- MODEL: Final.term ((Cart.weakening A Z a) ∘ s) = a; both sides F a b.
@@ -120,6 +140,29 @@ axiom Forall_fst_pair_beta_left (I A B C : Type) (Q : Pred (A × C))
     (sub2 (I × Final) A C Q ((fst A B) ∘ (pair (I × Final) A B f g)) h)
     (sub2 (I × Final) A C Q f h)))
 
+-- same fst∘pair β, observed through the RIGHT slot of a binary atom.
+axiom Forall_fst_pair_beta_right (I A B C : Type) (Q : Pred (C × A))
+    (h : I × Final → C) (f : I × Final → A) (g : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C A Q h ((fst A B) ∘ (pair (I × Final) A B f g)))
+    (sub2 (I × Final) C A Q h f)))
+
+-- fst∘pair β with an explicit precomposition, observed through the LEFT slot.
+-- MODEL: fst(pair(f,g)(s(i,★))) = f(s(i,★)); both sides Q(f(s(i,★)), h(i,★)).
+axiom Forall_fst_pair_comp_beta_left (I Z A B C : Type) (Q : Pred (A × C))
+    (f : Z → A) (g : Z → B) (s : I × Final → Z) (h : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) A C Q ((fst A B) ∘ ((pair Z A B f g) ∘ s)) h)
+    (sub2 (I × Final) A C Q (f ∘ s) h)))
+
+-- grouped version needed when a pair-built map is first reindexed by `s`, then by `r`.
+-- MODEL: fst(pair(f,g)(s(r(i,★)))) = f(s(r(i,★))).
+axiom Forall_fst_pair_comp2_beta_left (I W Z A B C : Type) (Q : Pred (A × C))
+    (f : Z → A) (g : Z → B) (s : W → Z) (r : I × Final → W) (h : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) A C Q ((fst A B) ∘ (((pair Z A B f g) ∘ s) ∘ r)) h)
+    (sub2 (I × Final) A C Q (f ∘ (s ∘ r)) h)))
+
 -- fst ∘ pair β, observed through a UNARY predicate.
 -- MODEL: ((P ∘ fst) ∘ pair f g)(i,★) = P(f(i,★)); both sides P(f(i,★)).
 axiom Forall_fst_pair_unary_beta (I A B : Type) (P : Pred A)
@@ -135,6 +178,21 @@ axiom Forall_snd_pair_then_beta_right (I A B C D : Type) (Q : Pred (C × D))
   Pred.term (Forall I Final (Pred.iff (I × Final)
     (sub2 (I × Final) C D Q h ((k ∘ (snd A B)) ∘ (pair (I × Final) A B f g)))
     (sub2 (I × Final) C D Q h (k ∘ g))))
+
+-- same (k∘snd)∘pair β, observed through the LEFT slot of a binary atom.
+axiom Forall_snd_pair_then_beta_left (I A B C D : Type) (Q : Pred (D × C))
+    (k : B → D) (h : I × Final → C) (f : I × Final → A) (g : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) D C Q ((k ∘ (snd A B)) ∘ (pair (I × Final) A B f g)) h)
+    (sub2 (I × Final) D C Q (k ∘ g) h)))
+
+-- fst ∘ pointAt β, observed through the left slot of a binary atom.
+-- MODEL: (fst ∘ (pointAt c ∘ s))(i,★) = c.
+axiom Forall_pointAt_fst_beta_left (I X C : Type) (Q : Pred (X × C))
+    (c : X) (h : I × Final → C) (s : I × Final → Final) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) X C Q ((fst X Final) ∘ ((pointAt X c) ∘ s)) h)
+    (sub2 (I × Final) X C Q ((Cart.weakening X Final c) ∘ s) h)))
 
 -- fst ∘ pointAt β: pointAt c puts c in the first component, so reading fst back out
 -- is the constant c — observed through the right slot of a binary atom.
@@ -153,6 +211,14 @@ axiom Forall_const_comp_beta_right (I A B Z : Type) (Q : Pred (A × B))
   Pred.term (Forall I Final (Pred.iff (I × Final)
     (sub2 (I × Final) A B Q f ((Cart.weakening B Z b) ∘ s))
     (sub2 (I × Final) A B Q f (Cart.weakening B (I × Final) b))))
+
+-- weakening ∘ s β, observed through the left slot of a binary atom under ∀.
+-- MODEL: ((weakening a) ∘ s)(i,★) = a; both sides Q(a, h(i,★)).
+axiom Forall_const_comp_beta_left (I A B Z : Type) (Q : Pred (A × B))
+    (a : A) (h : I × Final → B) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) A B Q ((Cart.weakening A Z a) ∘ s) h)
+    (sub2 (I × Final) A B Q (Cart.weakening A (I × Final) a) h)))
 
 -- ===== derived glue: chain two Forall-closed iffs (uses only Forall_mono / Forall_iffTrans) =====
 noncomputable def Forall_iffTrans_apply (X : Type) (A B C : Pred (X × Final))

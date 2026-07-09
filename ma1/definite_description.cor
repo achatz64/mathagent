@@ -247,20 +247,48 @@ noncomputable def constAtomBeta (X : Type) (elt : Pred (X × X)) (c d t : X) :
 -- separation-φ β: the φ-slot of a Separation body, `phi ∘ v0`, evaluated at a point.  The maps
 -- smap/pointAt build the context (t,(s,⋆)); v0 reads the tested element t back out, so the whole
 -- composite is `phi t`.  MODEL: (phi∘v0)∘(smap s∘pointAt t) ⋆ = phi (v0 (t,(s,⋆))) = phi t; both
--- sides phi t.  NON-DERIVABLE from the current β-basis: needs a point-level fst∘pair observation
--- (the point sibling of Forall_fst_pair_unary_beta) to open v0∘smap — a candidate basis addition.
-axiom sepPhiBeta (X : Type) (phi : Pred X) (s t : X) :
-  iff (Pred.term ((phi ∘ (v0 X (X × Final))) ∘ (smap X s ∘ pointAt X t))) (phi t)
+-- sides phi t.
+-- DERIVED from the point-level β-basis: first clean the fst∘pair in smap, then read v0∘pointAt.
+noncomputable def sepPhiBeta (X : Type) (phi : Pred X) (s t : X) :
+  iff (Pred.term ((phi ∘ (v0 X (X × Final))) ∘ (smap X s ∘ pointAt X t))) (phi t) :=
+  iff_trans _ _ _
+    (beta_fst_pair_point_unary (X × Final) X (X × Final) phi
+      (v0 X Final)
+      (pair (X × Final) X Final
+        (Cart.weakening X (X × Final) s)
+        (snd X Final))
+      (pointAt X t))
+    (beta_v0_point_unary X phi t)
 
 -- atom β: a characterization atom `R(w, c)` (R applied to the bound w and a constant c),
 -- evaluated at the point (w,(·)) := (t, (s, ⋆)), is the elementary `R t c`.
--- MODEL: both sides are R (t, c).  NON-DERIVABLE from the current β-basis: beta_sub2_point opens
--- it, but the v0∘(smap∘pointAt) slot needs a point-level fst∘pair observation (candidate addition).
-axiom atomBeta (X : Type) (R : Pred (X × X)) (s c t : X) :
+-- MODEL: both sides are R (t, c).
+-- DERIVED from the point-level β-basis: open the atom with beta_sub2_point, clean the constant
+-- slot, then clean v0∘smap and v0∘pointAt in the variable slot.
+noncomputable def atomBeta (X : Type) (R : Pred (X × X)) (s c t : X) :
   iff (Pred.term
         ((sub2 (X × (X × Final)) X X R (v0 X (X × Final))
            (Cart.weakening X (X × (X × Final)) c)) ∘ (smap X s ∘ pointAt X t)))
-      (curry X X PC R t c)
+      (curry X X PC R t c) :=
+  iff_trans _ _ _
+    (beta_sub2_point (X × (X × Final)) X X R
+      (v0 X (X × Final))
+      (Cart.weakening X (X × (X × Final)) c)
+      (smap X s ∘ pointAt X t))
+    (iff_trans _ _ _
+      (beta_weakening_arg2 X X (X × (X × Final)) (curry X X PC R)
+        (Final.term X ((v0 X (X × Final)) ∘ (smap X s ∘ pointAt X t)))
+        c
+        (smap X s ∘ pointAt X t))
+      (iff_trans _ _ _
+        (beta_fst_pair_point_arg1 (X × Final) X (X × Final) X (curry X X PC R)
+          (v0 X Final)
+          (pair (X × Final) X Final
+            (Cart.weakening X (X × Final) s)
+            (snd X Final))
+          (pointAt X t)
+          c)
+        (beta_v0_point_arg1 X X (curry X X PC R) t c)))
 
 -- ===== ∀-lifted atom β (the binder-level companion of atomBeta) =====
 -- atomBeta cleans a smap-composed atom AT A POINT; this cleans it UNDER the ∀ binder (no point).
@@ -378,7 +406,145 @@ noncomputable def Forall_orAtomsClean (X : Type) (R : Pred (X × X)) (a b s : X)
 -- term_exist lift (which fills the tested-element slot with z and the set slot with U) to the clean
 -- and-body  (w∈A ∧ z∈w).  Same β-law wall (opaque pair/fst/snd/smap), postulated at PC under ∀.
 -- MODEL: at (w,⋆) both sides are R(w,A) ∧ R(z,w); U only fills the slot that is cleaned away.
-axiom Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :
+-- DERIVED from the binder-level β-basis: and-reindexing splits the body, each atom is cleaned
+-- by product/terminal observations, and Forall_andCong reassembles.
+
+noncomputable def Forall_exUnion_leftClean (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (memAt X R A))) :=
+  Forall_iffTrans_apply X
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (sub2 (X × Final) X X R
+      ((v0 X (X × (X × Final))) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+      ((Cart.weakening X (X × (X × (X × Final))) A) ∘
+        (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+    (memAt X R A)
+    (Forall_sub2_reindex_beta X (X × (X × (X × Final))) X X R
+      (v0 X (X × (X × Final)))
+      (Cart.weakening X (X × (X × (X × Final))) A)
+      (pair (X × Final) X (X × (X × Final)) (fst X Final)
+        ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (Forall_iffTrans_apply X
+      (sub2 (X × Final) X X R
+        ((v0 X (X × (X × Final))) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+        ((Cart.weakening X (X × (X × (X × Final))) A) ∘
+          (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+      (sub2 (X × Final) X X R
+        (v0 X Final)
+        ((Cart.weakening X (X × (X × (X × Final))) A) ∘
+          (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+      (memAt X R A)
+      (Forall_fst_pair_beta_left X X (X × (X × Final)) X R
+        (fst X Final)
+        ((smap X U ∘ pointAt X z) ∘ snd X Final)
+        ((Cart.weakening X (X × (X × (X × Final))) A) ∘
+          (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+      (Forall_const_comp_beta_right X X X (X × (X × (X × Final))) R
+        (v0 X Final)
+        A
+        (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+
+noncomputable def Forall_exUnion_rightClean (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v1 X X (X × Final)) (v0 X (X × (X × Final))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))) :=
+  Forall_iffTrans_apply X
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v1 X X (X × Final)) (v0 X (X × (X × Final))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (sub2 (X × Final) X X R
+      ((v1 X X (X × Final)) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+      ((v0 X (X × (X × Final))) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+    (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))
+    (Forall_sub2_reindex_beta X (X × (X × (X × Final))) X X R
+      (v1 X X (X × Final))
+      (v0 X (X × (X × Final)))
+      (pair (X × Final) X (X × (X × Final)) (fst X Final)
+        ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (Forall_iffTrans_apply X
+      (sub2 (X × Final) X X R
+        ((v1 X X (X × Final)) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+        ((v0 X (X × (X × Final))) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+      (sub2 (X × Final) X X R
+        ((v1 X X (X × Final)) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+        (v0 X Final))
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))
+      (Forall_fst_pair_beta_right X X (X × (X × Final)) X R
+        ((v1 X X (X × Final)) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+            ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+        (fst X Final)
+        ((smap X U ∘ pointAt X z) ∘ snd X Final))
+      (Forall_iffTrans_apply X
+        (sub2 (X × Final) X X R
+          ((v1 X X (X × Final)) ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+              ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+          (v0 X Final))
+        (sub2 (X × Final) X X R
+          ((fst X (X × Final)) ∘ ((smap X U ∘ pointAt X z) ∘ snd X Final))
+          (v0 X Final))
+        (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))
+        (Forall_snd_pair_then_beta_left X X (X × (X × Final)) X X R
+          (fst X (X × Final))
+          (v0 X Final)
+          (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final))
+        (Forall_iffTrans_apply X
+          (sub2 (X × Final) X X R
+            ((fst X (X × Final)) ∘ ((smap X U ∘ pointAt X z) ∘ snd X Final))
+            (v0 X Final))
+          (sub2 (X × Final) X X R
+            ((v0 X Final) ∘ ((pointAt X z) ∘ snd X Final))
+            (v0 X Final))
+          (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))
+          (Forall_fst_pair_comp2_beta_left X Final (X × Final) X (X × Final) X R
+            (v0 X Final)
+            (pair (X × Final) X Final
+              (Cart.weakening X (X × Final) U)
+              (snd X Final))
+            (pointAt X z)
+            (snd X Final)
+            (v0 X Final))
+          (Forall_iffTrans_apply X
+            (sub2 (X × Final) X X R
+              ((v0 X Final) ∘ ((pointAt X z) ∘ snd X Final))
+              (v0 X Final))
+            (sub2 (X × Final) X X R
+              ((Cart.weakening X Final z) ∘ snd X Final)
+              (v0 X Final))
+            (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))
+            (Forall_pointAt_fst_beta_left X X X R
+              z
+              (v0 X Final)
+              (snd X Final))
+            (Forall_const_comp_beta_left X X X Final R
+              z
+              (v0 X Final)
+              (snd X Final))))))
+
+noncomputable def Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :
   Pred.term (Forall X Final (Pred.iff (X × Final)
     ((Pred.and (X × (X × (X × Final)))
        (sub2 (X × (X × (X × Final))) X X R
@@ -389,7 +555,49 @@ axiom Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :
           ((smap X U ∘ pointAt X z) ∘ snd X Final)))
     (Pred.and (X × Final)
       (memAt X R A)
-      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))))
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))))) :=
+  Forall_iffTrans_apply X
+    ((Pred.and (X × (X × (X × Final)))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v1 X X (X × Final)) (v0 X (X × (X × Final)))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (Pred.and (X × Final)
+      ((sub2 (X × (X × (X × Final))) X X R
+         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+       ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+      ((sub2 (X × (X × (X × Final))) X X R
+         (v1 X X (X × Final)) (v0 X (X × (X × Final))))
+       ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final))))
+    (Pred.and (X × Final)
+      (memAt X R A)
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))
+    (Forall_and_reindex_beta X (X × (X × (X × Final)))
+      (pair (X × Final) X (X × (X × Final)) (fst X Final)
+        ((smap X U ∘ pointAt X z) ∘ snd X Final))
+      (sub2 (X × (X × (X × Final))) X X R
+        (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+      (sub2 (X × (X × (X × Final))) X X R
+        (v1 X X (X × Final)) (v0 X (X × (X × Final)))))
+    (imply_elim _ _
+      (imply_elim _ _
+        (Forall_andCong X
+          ((sub2 (X × (X × (X × Final))) X X R
+             (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+           ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+              ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+          (memAt X R A)
+          ((sub2 (X × (X × (X × Final))) X X R
+             (v1 X X (X × Final)) (v0 X (X × (X × Final))))
+           ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+              ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+          (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))
+        (Forall_exUnion_leftClean X R A z U))
+      (Forall_exUnion_rightClean X R A z U))
 
 -- ∃-body cleaning for the "∃e.(e∈I ∧ phi e)" shape (generic in R, phi, c) — the infinity/empty-witness
 -- companion of Forall_exUnionClean.  After term_exist lifts `(Exist … (e∈I ∧ phi e)) ∘ pointAt c` to a
