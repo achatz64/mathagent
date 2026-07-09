@@ -539,6 +539,11 @@ def prefixNotEvidence (child : PrefixCert) : PrefixCert :=
         Arg.pred clean
       ] [reindex, congruence] }
 
+-- Prefix evidence is the checked right-nested slice used by the current Core
+-- printer: one object binder has been crossed, and the statement is closed as
+-- `Forall X Final (Forall X (X × Final) ...)`.  Recursing through another
+-- quantifier needs a real context-stack renderer; adding ad hoc depth-2 rules
+-- here would defeat the finite-basis test this file is meant to support.
 partial def buildSmapPrefixEvidence? (bound : String) : Formula -> Option PrefixCert
   | Formula.atom "R" (Term.var varName) (Term.const constName) =>
       if varName = bound then
