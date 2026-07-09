@@ -22,9 +22,9 @@ constructor family per former suffices for all depths).
 
 Because `SubstEquiv` has finitely many constructors and the induction closes, the
 β-facts needed to consume substitution are finitely generated.  A constructor with
-no counterpart in `beta_basis.cor` identifies a missing live axiom (see comments:
-the imp/iff/not reindex homomorphisms and the general Beck–Chevalley lift are the
-current gaps).
+no counterpart in `beta_basis.cor` identifies a missing live axiom; after the
+connective families, the remaining live-basis gaps are the general unary predicate
+slot and the generic Beck–Chevalley lift.
 -/
 
 namespace ContextualHOL
@@ -110,9 +110,7 @@ inductive SubstEquiv (tc : Core.Term) : Nat -> Ty -> Core.Pred -> Core.Pred -> P
         (Core.Pred.papp newCtx argTy pred (substCoreTerm k newCtx tc arg))
   -- connective homomorphisms: reindexing distributes over each pointwise
   -- connective, composed via the ∀-lifted congruences.  Live counterparts:
-  -- Forall_and_reindex_beta / Forall_or_reindex_beta + Forall_andCong /
-  -- Forall_orCong (beta_basis.cor).  MISSING in the live basis: the imp / iff /
-  -- not versions — identified by these constructors as required additions.
+  -- Forall_and/or/imp/iff/not_reindex_beta plus Forall_*Cong (beta_basis.cor).
   | and (k : Nat) (newCtx oldCtx : Ty) (p p' q q' : Core.Pred) :
       SubstEquiv tc k newCtx p p' -> SubstEquiv tc k newCtx q q' ->
       SubstEquiv tc k newCtx (Core.Pred.and oldCtx p q) (Core.Pred.and newCtx p' q')

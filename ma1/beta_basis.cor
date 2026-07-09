@@ -98,6 +98,27 @@ axiom Forall_and_reindex_beta (I Y : Type) (s : I × Final → Y) (P Q : Pred Y)
     ((Pred.and Y P Q) ∘ s)
     (Pred.and (I × Final) (P ∘ s) (Q ∘ s))))
 
+-- implication-version of Forall_or_reindex_beta.
+-- MODEL: at (x,★) both sides are P(s(x,★)) → Q(s(x,★)).
+axiom Forall_imp_reindex_beta (I Y : Type) (s : I × Final → Y) (P Q : Pred Y) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((Pred.imply Y P Q) ∘ s)
+    (Pred.imply (I × Final) (P ∘ s) (Q ∘ s))))
+
+-- iff-version of Forall_or_reindex_beta.
+-- MODEL: at (x,★) both sides are P(s(x,★)) ↔ Q(s(x,★)).
+axiom Forall_iff_reindex_beta (I Y : Type) (s : I × Final → Y) (P Q : Pred Y) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((Pred.iff Y P Q) ∘ s)
+    (Pred.iff (I × Final) (P ∘ s) (Q ∘ s))))
+
+-- negation-version of Forall_or_reindex_beta.
+-- MODEL: at (x,★) both sides are ¬P(s(x,★)).
+axiom Forall_not_reindex_beta (I Y : Type) (s : I × Final → Y) (P : Pred Y) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((Pred.not Y P) ∘ s)
+    (Pred.not (I × Final) (P ∘ s))))
+
 -- ===== binder-level basis: ∀-lifted connective congruences (family (C)) =====
 
 -- ∨ respects ↔ under the binder: from ∀(A↔A') and ∀(B↔B') conclude ∀(A∨B ↔ A'∨B').
@@ -119,6 +140,32 @@ axiom Forall_andCong (I : Type) (A A' B B' : Pred (I × Final)) :
       (Pred.term (Forall I Final (Pred.iff (I × Final)
         (Pred.and (I × Final) A B)
         (Pred.and (I × Final) A' B')))))
+
+-- implication-version of Forall_andCong.
+-- MODEL: (A↔A') → (B↔B') → ((A→B) ↔ (A'→B')) is a propositional tautology, closed under ∀.
+axiom Forall_impCong (I : Type) (A A' B B' : Pred (I × Final)) :
+  imply (Pred.term (Forall I Final (Pred.iff (I × Final) A A')))
+    (imply (Pred.term (Forall I Final (Pred.iff (I × Final) B B')))
+      (Pred.term (Forall I Final (Pred.iff (I × Final)
+        (Pred.imply (I × Final) A B)
+        (Pred.imply (I × Final) A' B')))))
+
+-- iff-version of Forall_andCong.
+-- MODEL: (A↔A') → (B↔B') → ((A↔B) ↔ (A'↔B')) is a propositional tautology, closed under ∀.
+axiom Forall_iffCong (I : Type) (A A' B B' : Pred (I × Final)) :
+  imply (Pred.term (Forall I Final (Pred.iff (I × Final) A A')))
+    (imply (Pred.term (Forall I Final (Pred.iff (I × Final) B B')))
+      (Pred.term (Forall I Final (Pred.iff (I × Final)
+        (Pred.iff (I × Final) A B)
+        (Pred.iff (I × Final) A' B')))))
+
+-- negation-version of the congruence generators.
+-- MODEL: (A↔A') → (¬A ↔ ¬A') is a propositional tautology, closed under ∀.
+axiom Forall_notCong (I : Type) (A A' : Pred (I × Final)) :
+  imply (Pred.term (Forall I Final (Pred.iff (I × Final) A A')))
+    (Pred.term (Forall I Final (Pred.iff (I × Final)
+      (Pred.not (I × Final) A)
+      (Pred.not (I × Final) A'))))
 
 -- ===== binder-level basis: product/terminal β observed under one ∀ =====
 

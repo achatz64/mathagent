@@ -402,6 +402,62 @@ noncomputable def Forall_orAtomsClean (X : Type) (R : Pred (X × X)) (a b s : X)
         (Forall_atomSmapClean X R a s))
       (Forall_atomSmapClean X R b s))
 
+-- iff-version of Forall_orAtomsClean.  This is the characterization shape consumed by
+-- hasChar/charUnique-style bodies: reindexing a stored iff body through smap gives the
+-- canonical single-context iff of the two cleaned atoms.
+noncomputable def Forall_iffAtomsClean (X : Type) (R : Pred (X × X)) (a b s : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.iff (X × (X × Final))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) a))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) b)))
+     ∘ smap X s)
+    (Pred.iff (X × Final)
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) a))
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b))))) :=
+  Forall_iffTrans_apply X
+    ((Pred.iff (X × (X × Final))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) a))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (Cart.weakening X (X × (X × Final)) b)))
+     ∘ smap X s)
+    (Pred.iff (X × Final)
+      ((sub2 (X × (X × Final)) X X R
+          (v0 X (X × Final))
+          (Cart.weakening X (X × (X × Final)) a))
+        ∘ smap X s)
+      ((sub2 (X × (X × Final)) X X R
+          (v0 X (X × Final))
+          (Cart.weakening X (X × (X × Final)) b))
+        ∘ smap X s))
+    (Pred.iff (X × Final)
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) a))
+      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b)))
+    (Forall_iff_reindex_beta X (X × (X × Final)) (smap X s)
+      (sub2 (X × (X × Final)) X X R
+        (v0 X (X × Final))
+        (Cart.weakening X (X × (X × Final)) a))
+      (sub2 (X × (X × Final)) X X R
+        (v0 X (X × Final))
+        (Cart.weakening X (X × (X × Final)) b)))
+    (imply_elim _ _
+      (imply_elim _ _
+        (Forall_iffCong X
+          ((sub2 (X × (X × Final)) X X R
+              (v0 X (X × Final))
+              (Cart.weakening X (X × (X × Final)) a))
+            ∘ smap X s)
+          (sub2 (X × Final) X X R
+            (v0 X Final)
+            (Cart.weakening X (X × Final) a))
+          ((sub2 (X × (X × Final)) X X R
+              (v0 X (X × Final))
+              (Cart.weakening X (X × (X × Final)) b))
+            ∘ smap X s)
+          (sub2 (X × Final) X X R
+            (v0 X Final)
+            (Cart.weakening X (X × Final) b)))
+        (Forall_atomSmapClean X R a s))
+      (Forall_atomSmapClean X R b s))
+
 -- ∃-body cleaning (generic in R): clean the union inner body  (w∈A ∧ ·∈w)  composed with the
 -- term_exist lift (which fills the tested-element slot with z and the set slot with U) to the clean
 -- and-body  (w∈A ∧ z∈w).  Same β-law wall (opaque pair/fst/snd/smap), postulated at PC under ∀.
