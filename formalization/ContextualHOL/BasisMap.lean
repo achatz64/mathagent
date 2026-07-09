@@ -47,6 +47,14 @@ inductive BasisName where
   | forallIffSymApply
   | forallIffTransApply
   | forallFstPairUnaryBetaGrouped
+  | forallCtxSub2ReindexBeta
+  | forallCtxUnaryReindexBeta
+  | forallCtxAndReindexBeta
+  | forallCtxAndCong
+  | forallCtxFstPairBetaLeft
+  | forallCtxConstCompBetaRight
+  | forallCtxFstPairUnaryBetaGrouped
+  | forallCtxIffTransApply
   -- ma1/classical_first_order_logic_new.cor
   | forallReindex
   | curryUncurry
@@ -120,6 +128,14 @@ def coreName : BasisName -> String
   | forallIffSymApply => "Forall_iffSym_apply"
   | forallIffTransApply => "Forall_iffTrans_apply"
   | forallFstPairUnaryBetaGrouped => "Forall_fst_pair_unary_beta_grouped"
+  | forallCtxSub2ReindexBeta => "Forall_ctx_sub2_reindex_beta"
+  | forallCtxUnaryReindexBeta => "Forall_ctx_unary_reindex_beta"
+  | forallCtxAndReindexBeta => "Forall_ctx_and_reindex_beta"
+  | forallCtxAndCong => "Forall_ctx_andCong"
+  | forallCtxFstPairBetaLeft => "Forall_ctx_fst_pair_beta_left"
+  | forallCtxConstCompBetaRight => "Forall_ctx_const_comp_beta_right"
+  | forallCtxFstPairUnaryBetaGrouped => "Forall_ctx_fst_pair_unary_beta_grouped"
+  | forallCtxIffTransApply => "Forall_ctx_iffTrans_apply"
   | forallReindex => "Forall_reindex"
   | curryUncurry => "curry_uncurry"
   | relEqExt => "RelEqExt"
@@ -187,7 +203,15 @@ def origin : BasisName -> BasisOrigin
   | forallConstCompBetaLeft
   | forallIffSymApply
   | forallIffTransApply
-  | forallFstPairUnaryBetaGrouped => BasisOrigin.betaBasis
+  | forallFstPairUnaryBetaGrouped
+  | forallCtxSub2ReindexBeta
+  | forallCtxUnaryReindexBeta
+  | forallCtxAndReindexBeta
+  | forallCtxAndCong
+  | forallCtxFstPairBetaLeft
+  | forallCtxConstCompBetaRight
+  | forallCtxFstPairUnaryBetaGrouped
+  | forallCtxIffTransApply => BasisOrigin.betaBasis
   | forallReindex
   | curryUncurry
   | relEqExt
@@ -256,6 +280,14 @@ def all : List BasisName := [
   forallIffSymApply,
   forallIffTransApply,
   forallFstPairUnaryBetaGrouped,
+  forallCtxSub2ReindexBeta,
+  forallCtxUnaryReindexBeta,
+  forallCtxAndReindexBeta,
+  forallCtxAndCong,
+  forallCtxFstPairBetaLeft,
+  forallCtxConstCompBetaRight,
+  forallCtxFstPairUnaryBetaGrouped,
+  forallCtxIffTransApply,
   forallReindex,
   curryUncurry,
   relEqExt,

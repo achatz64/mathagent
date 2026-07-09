@@ -210,6 +210,83 @@ axiom Exist_reindex (X Y0 Y : Type) (R : Pred (X × Y0)) (f : Y → Y0) :
         (fst X (Y × Final))
         (f ∘ (fst Y Final ∘ snd X (Y × Final)))))))
 
+-- ===== generic-depth product β: the same observations under an outer context =====
+
+-- sub2 reindexing under an outer context.  This is the `∀j∀i` sibling of
+-- `Forall_sub2_reindex_beta`, needed when a substitution proof recurses under a
+-- quantifier body.
+-- MODEL: at every (j,★) and i, both sides compute to Q(f(s(i,(j,★))), g(s(i,(j,★)))).
+-- NON-DERIVABLE: no rule in the current Core layer turns a one-binder observation
+-- over `(I×J)×Final` into the right-nested observation `I×(J×Final)`.
+axiom Forall_ctx_sub2_reindex_beta (I J Z A B : Type) (Q : Pred (A × B))
+    (f : Z → A) (g : Z → B) (s : I × (J × Final) → Z) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((sub2 Z A B Q f g) ∘ s)
+    (sub2 (I × (J × Final)) A B Q (f ∘ s) (g ∘ s)))))
+
+-- unary predicate-slot reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are P(u(s(i,(j,★)))).
+-- NON-DERIVABLE: same right-nested-context obstruction as above.
+axiom Forall_ctx_unary_reindex_beta (I J Z A : Type) (P : Pred A)
+    (u : Z → A) (s : I × (J × Final) → Z) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((P ∘ u) ∘ s)
+    (P ∘ (u ∘ s)))))
+
+-- ∧ reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are P(s(i,(j,★))) ∧ Q(s(i,(j,★))).
+-- NON-DERIVABLE: same right-nested-context obstruction as above.
+axiom Forall_ctx_and_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
+    (P Q : Pred Y) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((Pred.and Y P Q) ∘ s)
+    (Pred.and (I × (J × Final)) (P ∘ s) (Q ∘ s)))))
+
+-- ∧ congruence under an outer context.
+-- MODEL: pointwise propositional congruence, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle.
+axiom Forall_ctx_andCong (I J : Type)
+    (A A' B B' : Pred (I × (J × Final))) :
+  imply (Pred.term (Forall J Final (Forall I (J × Final)
+    (Pred.iff (I × (J × Final)) A A'))))
+    (imply (Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) B B'))))
+      (Pred.term (Forall J Final (Forall I (J × Final)
+        (Pred.iff (I × (J × Final))
+          (Pred.and (I × (J × Final)) A B)
+          (Pred.and (I × (J × Final)) A' B'))))))
+
+-- fst∘pair β, observed through the left slot of a binary atom, under an outer context.
+-- MODEL: at (j,★), i, `(fst ∘ pair f g)(i,(j,★)) = f(i,(j,★))`.
+-- NON-DERIVABLE: same right-nested-context obstruction as above.
+axiom Forall_ctx_fst_pair_beta_left (I J A B C : Type) (Q : Pred (A × C))
+    (f : I × (J × Final) → A) (g : I × (J × Final) → B)
+    (h : I × (J × Final) → C) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    (sub2 (I × (J × Final)) A C Q
+      ((fst A B) ∘ (pair (I × (J × Final)) A B f g)) h)
+    (sub2 (I × (J × Final)) A C Q f h))))
+
+-- constant composition β, observed through the right slot of a binary atom, under an
+-- outer context.
+-- MODEL: at (j,★), i, `((weakening b) ∘ s)(i,(j,★)) = b`.
+-- NON-DERIVABLE: same right-nested-context obstruction as above.
+axiom Forall_ctx_const_comp_beta_right (I J A B Z : Type) (Q : Pred (A × B))
+    (f : I × (J × Final) → A) (b : B) (s : I × (J × Final) → Z) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    (sub2 (I × (J × Final)) A B Q f ((Cart.weakening B Z b) ∘ s))
+    (sub2 (I × (J × Final)) A B Q f
+      (Cart.weakening B (I × (J × Final)) b)))))
+
+-- grouped unary fst∘pair cleanup under an outer context.
+-- MODEL: at (j,★), i, P(f(i,(j,★))) on both sides.
+-- NON-DERIVABLE: same right-nested-context obstruction as above.
+axiom Forall_ctx_fst_pair_unary_beta_grouped (I J A B : Type) (P : Pred A)
+    (f : I × (J × Final) → A) (g : I × (J × Final) → B) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    (P ∘ ((fst A B) ∘ (pair (I × (J × Final)) A B f g)))
+    (P ∘ f))))
+
 -- ===== binder-level basis: product/terminal β observed under one ∀ =====
 
 -- atom reindexing: substituting into a sub2 atom composes into its argument maps.
@@ -342,6 +419,18 @@ noncomputable def Forall_iffTrans_apply (X : Type) (A B C : Pred (X × Final))
         h1))
     h2
 
+-- Same chaining helper one binder deeper.
+-- MODEL: pointwise transitivity of ↔, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle; kept
+-- as logical glue, not a math axiom.
+axiom Forall_ctx_iffTrans_apply (I J : Type) (A B C : Pred (I × (J × Final)))
+    (h1 : Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) A B))))
+    (h2 : Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) B C)))) :
+    Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) A C)))
+
 -- Derived grouped unary fst∘pair cleaner.  The primitive unary observation uses
 -- `((P∘fst)∘pair)`; the general unary reindex axiom bridges that to
 -- `P∘(fst∘pair)`, which is the shape emitted by the papp substitution case.
@@ -369,4 +458,12 @@ noncomputable def Forall_fst_pair_unary_beta_grouped (I A B : Type) (P : Pred A)
 #check @Forall_ExistCong
 #check @Exist_reindex
 #check @Forall_iffTrans_apply
+#check @Forall_ctx_sub2_reindex_beta
+#check @Forall_ctx_unary_reindex_beta
+#check @Forall_ctx_and_reindex_beta
+#check @Forall_ctx_andCong
+#check @Forall_ctx_fst_pair_beta_left
+#check @Forall_ctx_const_comp_beta_right
+#check @Forall_ctx_fst_pair_unary_beta_grouped
+#check @Forall_ctx_iffTrans_apply
 #check @Forall_fst_pair_unary_beta_grouped

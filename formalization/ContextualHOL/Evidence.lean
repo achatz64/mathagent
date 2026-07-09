@@ -65,8 +65,18 @@ def basisNames : Proof -> List BasisName
   | implyElim _ _ fn arg => BasisName.implyElim :: basisNames fn ++ basisNames arg
   | rawChecked _ names => names
 
+partial def containsRawChecked : Proof -> Bool
+  | basis _ _ => false
+  | call _ _ proofs => proofs.any containsRawChecked
+  | app fn arg => containsRawChecked fn || containsRawChecked arg
+  | iffTrans _ _ _ left right => containsRawChecked left || containsRawChecked right
+  | iffSym _ _ proof => containsRawChecked proof
+  | implyElim _ _ fn arg => containsRawChecked fn || containsRawChecked arg
+  | rawChecked _ _ => true
+
 def usesOnlyAllowed (proof : Proof) : Bool :=
-  proof.basisNames.all (fun name => BasisName.all.contains name)
+  !proof.containsRawChecked &&
+    proof.basisNames.all (fun name => BasisName.all.contains name)
 
 def renderArgs (args : List Arg) : String :=
   joinSep " " (args.map (fun arg => arg.text))
@@ -86,13 +96,15 @@ partial def render : Proof -> String
       parens (BasisName.coreName name ++ renderedInputs)
   | app fn arg => parens (render fn ++ " " ++ render arg)
   | iffTrans left middle right first second =>
-      parens ("iff_trans " ++ left ++ " " ++ middle ++ " " ++ right ++ " " ++
+      parens (BasisName.coreName BasisName.iffTrans ++ " " ++ left ++ " " ++
+        middle ++ " " ++ right ++ " " ++
         render first ++ " " ++ render second)
   | iffSym left right proof =>
-      parens ("iff_sym " ++ left ++ " " ++ right ++ " " ++ render proof)
+      parens (BasisName.coreName BasisName.iffSym ++ " " ++ left ++ " " ++
+        right ++ " " ++ render proof)
   | implyElim premise conclusion fn arg =>
-      parens ("imply_elim " ++ premise ++ " " ++ conclusion ++ " " ++
-        render fn ++ " " ++ render arg)
+      parens (BasisName.coreName BasisName.implyElim ++ " " ++ premise ++
+        " " ++ conclusion ++ " " ++ render fn ++ " " ++ render arg)
   | rawChecked text _ => text
 
 end Proof
