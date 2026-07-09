@@ -7,3 +7,7 @@ name = "ContextualHOL"
 [[lean_exe]]
 name = "generate_core_examples"
 root = "GenerateCoreExamples"
+
+[[lean_exe]]
+name = "generate_basis_derivations"
+root = "GenerateBasisDerivations"
