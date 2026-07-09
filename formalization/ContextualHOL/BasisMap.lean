@@ -50,7 +50,15 @@ inductive BasisName where
   | forallCtxSub2ReindexBeta
   | forallCtxUnaryReindexBeta
   | forallCtxAndReindexBeta
+  | forallCtxOrReindexBeta
+  | forallCtxImpReindexBeta
+  | forallCtxIffReindexBeta
+  | forallCtxNotReindexBeta
   | forallCtxAndCong
+  | forallCtxOrCong
+  | forallCtxImpCong
+  | forallCtxIffCong
+  | forallCtxNotCong
   | forallCtxFstPairBetaLeft
   | forallCtxConstCompBetaRight
   | forallCtxFstPairUnaryBetaGrouped
@@ -131,7 +139,15 @@ def coreName : BasisName -> String
   | forallCtxSub2ReindexBeta => "Forall_ctx_sub2_reindex_beta"
   | forallCtxUnaryReindexBeta => "Forall_ctx_unary_reindex_beta"
   | forallCtxAndReindexBeta => "Forall_ctx_and_reindex_beta"
+  | forallCtxOrReindexBeta => "Forall_ctx_or_reindex_beta"
+  | forallCtxImpReindexBeta => "Forall_ctx_imp_reindex_beta"
+  | forallCtxIffReindexBeta => "Forall_ctx_iff_reindex_beta"
+  | forallCtxNotReindexBeta => "Forall_ctx_not_reindex_beta"
   | forallCtxAndCong => "Forall_ctx_andCong"
+  | forallCtxOrCong => "Forall_ctx_orCong"
+  | forallCtxImpCong => "Forall_ctx_impCong"
+  | forallCtxIffCong => "Forall_ctx_iffCong"
+  | forallCtxNotCong => "Forall_ctx_notCong"
   | forallCtxFstPairBetaLeft => "Forall_ctx_fst_pair_beta_left"
   | forallCtxConstCompBetaRight => "Forall_ctx_const_comp_beta_right"
   | forallCtxFstPairUnaryBetaGrouped => "Forall_ctx_fst_pair_unary_beta_grouped"
@@ -207,7 +223,15 @@ def origin : BasisName -> BasisOrigin
   | forallCtxSub2ReindexBeta
   | forallCtxUnaryReindexBeta
   | forallCtxAndReindexBeta
+  | forallCtxOrReindexBeta
+  | forallCtxImpReindexBeta
+  | forallCtxIffReindexBeta
+  | forallCtxNotReindexBeta
   | forallCtxAndCong
+  | forallCtxOrCong
+  | forallCtxImpCong
+  | forallCtxIffCong
+  | forallCtxNotCong
   | forallCtxFstPairBetaLeft
   | forallCtxConstCompBetaRight
   | forallCtxFstPairUnaryBetaGrouped
@@ -283,7 +307,15 @@ def all : List BasisName := [
   forallCtxSub2ReindexBeta,
   forallCtxUnaryReindexBeta,
   forallCtxAndReindexBeta,
+  forallCtxOrReindexBeta,
+  forallCtxImpReindexBeta,
+  forallCtxIffReindexBeta,
+  forallCtxNotReindexBeta,
   forallCtxAndCong,
+  forallCtxOrCong,
+  forallCtxImpCong,
+  forallCtxIffCong,
+  forallCtxNotCong,
   forallCtxFstPairBetaLeft,
   forallCtxConstCompBetaRight,
   forallCtxFstPairUnaryBetaGrouped,

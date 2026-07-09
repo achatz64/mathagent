@@ -206,6 +206,18 @@ def congName : BinaryKind -> BasisName
   | imp => BasisName.forallImpCong
   | iff => BasisName.forallIffCong
 
+def ctxReindexName : BinaryKind -> BasisName
+  | and => BasisName.forallCtxAndReindexBeta
+  | or => BasisName.forallCtxOrReindexBeta
+  | imp => BasisName.forallCtxImpReindexBeta
+  | iff => BasisName.forallCtxIffReindexBeta
+
+def ctxCongName : BinaryKind -> BasisName
+  | and => BasisName.forallCtxAndCong
+  | or => BasisName.forallCtxOrCong
+  | imp => BasisName.forallCtxImpCong
+  | iff => BasisName.forallCtxIffCong
+
 end BinaryKind
 
 def binaryPred (kind : BinaryKind) (ctx left right : String) : String :=
@@ -453,15 +465,15 @@ def quantPappEvidence (pred : String) : PrefixCert :=
         ]
       ] }
 
-def prefixAndEvidence (left right : PrefixCert) : PrefixCert :=
+def prefixBinaryEvidence (kind : BinaryKind) (left right : PrefixCert) : PrefixCert :=
   let source :=
-    binaryPred BinaryKind.and "(X × (X × (X × Final)))" left.source right.source
+    binaryPred kind "(X × (X × (X × Final)))" left.source right.source
   let reindexed :=
-    binaryPred BinaryKind.and "(X × (X × Final))" left.original right.original
+    binaryPred kind "(X × (X × Final))" left.original right.original
   let clean :=
-    binaryPred BinaryKind.and "(X × (X × Final))" left.clean right.clean
+    binaryPred kind "(X × (X × Final))" left.clean right.clean
   let reindex :=
-    Evidence.Proof.basis BasisName.forallCtxAndReindexBeta [
+    Evidence.Proof.basis kind.ctxReindexName [
       Arg.ty "X",
       Arg.ty "X",
       Arg.ty "(X × (X × (X × Final)))",
@@ -472,7 +484,7 @@ def prefixAndEvidence (left right : PrefixCert) : PrefixCert :=
   let congruence :=
     Evidence.Proof.implyElim "_" "_"
       (Evidence.Proof.implyElim "_" "_"
-        (Evidence.Proof.basis BasisName.forallCtxAndCong [
+        (Evidence.Proof.basis kind.ctxCongName [
           Arg.ty "X",
           Arg.ty "X",
           Arg.pred left.original,
@@ -482,6 +494,39 @@ def prefixAndEvidence (left right : PrefixCert) : PrefixCert :=
         ])
         left.proof)
       right.proof
+  { source := source
+    original := comp source smapQuantLift
+    clean := clean
+    proof :=
+      Evidence.Proof.call BasisName.forallCtxIffTransApply [
+        Arg.ty "X",
+        Arg.ty "X",
+        Arg.pred (comp source smapQuantLift),
+        Arg.pred reindexed,
+        Arg.pred clean
+      ] [reindex, congruence] }
+
+def prefixNotEvidence (child : PrefixCert) : PrefixCert :=
+  let source := parens ("Pred.not (X × (X × (X × Final))) " ++ child.source)
+  let reindexed := parens ("Pred.not (X × (X × Final)) " ++ child.original)
+  let clean := parens ("Pred.not (X × (X × Final)) " ++ child.clean)
+  let reindex :=
+    Evidence.Proof.basis BasisName.forallCtxNotReindexBeta [
+      Arg.ty "X",
+      Arg.ty "X",
+      Arg.ty "(X × (X × (X × Final)))",
+      Arg.term smapQuantLift,
+      Arg.pred child.source
+    ]
+  let congruence :=
+    Evidence.Proof.implyElim "_" "_"
+      (Evidence.Proof.basis BasisName.forallCtxNotCong [
+        Arg.ty "X",
+        Arg.ty "X",
+        Arg.pred child.original,
+        Arg.pred child.clean
+      ])
+      child.proof
   { source := source
     original := comp source smapQuantLift
     clean := clean
@@ -506,15 +551,25 @@ partial def buildSmapPrefixEvidence? (bound : String) : Formula -> Option Prefix
       else
         none
   | Formula.and left right => do
-      pure (prefixAndEvidence
+      pure (prefixBinaryEvidence BinaryKind.and
         (<- buildSmapPrefixEvidence? bound left)
         (<- buildSmapPrefixEvidence? bound right))
+  | Formula.or left right => do
+      pure (prefixBinaryEvidence BinaryKind.or
+        (<- buildSmapPrefixEvidence? bound left)
+        (<- buildSmapPrefixEvidence? bound right))
+  | Formula.imp left right => do
+      pure (prefixBinaryEvidence BinaryKind.imp
+        (<- buildSmapPrefixEvidence? bound left)
+        (<- buildSmapPrefixEvidence? bound right))
+  | Formula.iff left right => do
+      pure (prefixBinaryEvidence BinaryKind.iff
+        (<- buildSmapPrefixEvidence? bound left)
+        (<- buildSmapPrefixEvidence? bound right))
+  | Formula.not body => do
+      pure (prefixNotEvidence (<- buildSmapPrefixEvidence? bound body))
   | Formula.atom _ _ _ => none
   | Formula.papp _ _ => none
-  | Formula.or _ _ => none
-  | Formula.imp _ _ => none
-  | Formula.iff _ _ => none
-  | Formula.not _ => none
   | Formula.all _ _ _ => none
   | Formula.ex _ _ _ => none
 

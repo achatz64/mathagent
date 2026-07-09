@@ -242,6 +242,42 @@ axiom Forall_ctx_and_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
     ((Pred.and Y P Q) ∘ s)
     (Pred.and (I × (J × Final)) (P ∘ s) (Q ∘ s)))))
 
+-- ∨ reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are P(s(i,(j,★))) ∨ Q(s(i,(j,★))).
+-- NON-DERIVABLE: same right-nested-context obstruction as the ∧ sibling.
+axiom Forall_ctx_or_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
+    (P Q : Pred Y) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((Pred.or Y P Q) ∘ s)
+    (Pred.or (I × (J × Final)) (P ∘ s) (Q ∘ s)))))
+
+-- → reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are P(s(i,(j,★))) → Q(s(i,(j,★))).
+-- NON-DERIVABLE: same right-nested-context obstruction as the ∧ sibling.
+axiom Forall_ctx_imp_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
+    (P Q : Pred Y) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((Pred.imply Y P Q) ∘ s)
+    (Pred.imply (I × (J × Final)) (P ∘ s) (Q ∘ s)))))
+
+-- ↔ reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are P(s(i,(j,★))) ↔ Q(s(i,(j,★))).
+-- NON-DERIVABLE: same right-nested-context obstruction as the ∧ sibling.
+axiom Forall_ctx_iff_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
+    (P Q : Pred Y) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((Pred.iff Y P Q) ∘ s)
+    (Pred.iff (I × (J × Final)) (P ∘ s) (Q ∘ s)))))
+
+-- ¬ reindexing under an outer context.
+-- MODEL: at (j,★), i, both sides are ¬P(s(i,(j,★))).
+-- NON-DERIVABLE: same right-nested-context obstruction as the ∧ sibling.
+axiom Forall_ctx_not_reindex_beta (I J Y : Type) (s : I × (J × Final) → Y)
+    (P : Pred Y) :
+  Pred.term (Forall J Final (Forall I (J × Final) (Pred.iff (I × (J × Final))
+    ((Pred.not Y P) ∘ s)
+    (Pred.not (I × (J × Final)) (P ∘ s)))))
+
 -- ∧ congruence under an outer context.
 -- MODEL: pointwise propositional congruence, closed under ∀j∀i.
 -- NON-DERIVABLE here without a general nested-∀ tautology application principle.
@@ -255,6 +291,60 @@ axiom Forall_ctx_andCong (I J : Type)
         (Pred.iff (I × (J × Final))
           (Pred.and (I × (J × Final)) A B)
           (Pred.and (I × (J × Final)) A' B'))))))
+
+-- ∨ congruence under an outer context.
+-- MODEL: pointwise propositional congruence, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle.
+axiom Forall_ctx_orCong (I J : Type)
+    (A A' B B' : Pred (I × (J × Final))) :
+  imply (Pred.term (Forall J Final (Forall I (J × Final)
+    (Pred.iff (I × (J × Final)) A A'))))
+    (imply (Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) B B'))))
+      (Pred.term (Forall J Final (Forall I (J × Final)
+        (Pred.iff (I × (J × Final))
+          (Pred.or (I × (J × Final)) A B)
+          (Pred.or (I × (J × Final)) A' B'))))))
+
+-- → congruence under an outer context.
+-- MODEL: pointwise propositional congruence, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle.
+axiom Forall_ctx_impCong (I J : Type)
+    (A A' B B' : Pred (I × (J × Final))) :
+  imply (Pred.term (Forall J Final (Forall I (J × Final)
+    (Pred.iff (I × (J × Final)) A A'))))
+    (imply (Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) B B'))))
+      (Pred.term (Forall J Final (Forall I (J × Final)
+        (Pred.iff (I × (J × Final))
+          (Pred.imply (I × (J × Final)) A B)
+          (Pred.imply (I × (J × Final)) A' B'))))))
+
+-- ↔ congruence under an outer context.
+-- MODEL: pointwise propositional congruence, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle.
+axiom Forall_ctx_iffCong (I J : Type)
+    (A A' B B' : Pred (I × (J × Final))) :
+  imply (Pred.term (Forall J Final (Forall I (J × Final)
+    (Pred.iff (I × (J × Final)) A A'))))
+    (imply (Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final)) B B'))))
+      (Pred.term (Forall J Final (Forall I (J × Final)
+        (Pred.iff (I × (J × Final))
+          (Pred.iff (I × (J × Final)) A B)
+          (Pred.iff (I × (J × Final)) A' B'))))))
+
+-- ¬ congruence under an outer context.
+-- MODEL: pointwise propositional congruence, closed under ∀j∀i.
+-- NON-DERIVABLE here without a general nested-∀ tautology application principle.
+axiom Forall_ctx_notCong (I J : Type)
+    (A A' : Pred (I × (J × Final))) :
+  imply (Pred.term (Forall J Final (Forall I (J × Final)
+    (Pred.iff (I × (J × Final)) A A'))))
+    (Pred.term (Forall J Final (Forall I (J × Final)
+      (Pred.iff (I × (J × Final))
+        (Pred.not (I × (J × Final)) A)
+        (Pred.not (I × (J × Final)) A')))))
 
 -- fst∘pair β, observed through the left slot of a binary atom, under an outer context.
 -- MODEL: at (j,★), i, `(fst ∘ pair f g)(i,(j,★)) = f(i,(j,★))`.
@@ -461,7 +551,15 @@ noncomputable def Forall_fst_pair_unary_beta_grouped (I A B : Type) (P : Pred A)
 #check @Forall_ctx_sub2_reindex_beta
 #check @Forall_ctx_unary_reindex_beta
 #check @Forall_ctx_and_reindex_beta
+#check @Forall_ctx_or_reindex_beta
+#check @Forall_ctx_imp_reindex_beta
+#check @Forall_ctx_iff_reindex_beta
+#check @Forall_ctx_not_reindex_beta
 #check @Forall_ctx_andCong
+#check @Forall_ctx_orCong
+#check @Forall_ctx_impCong
+#check @Forall_ctx_iffCong
+#check @Forall_ctx_notCong
 #check @Forall_ctx_fst_pair_beta_left
 #check @Forall_ctx_const_comp_beta_right
 #check @Forall_ctx_fst_pair_unary_beta_grouped
