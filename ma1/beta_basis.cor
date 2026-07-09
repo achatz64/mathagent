@@ -177,6 +177,39 @@ axiom Forall_notCong (I : Type) (A A' : Pred (I × Final)) :
       (Pred.not (I × Final) A)
       (Pred.not (I × Final) A'))))
 
+-- ===== binder-level basis: quantifier congruence and Beck-Chevalley =====
+
+-- ∀ respects ↔ under an outer context: from ∀i∀x(P↔Q), conclude ∀i((∀xP)↔(∀xQ)).
+-- MODEL: fibre validity — pointwise logical equivalence preserves universal quantification.
+-- This is the generic-depth congruence needed by the substitution lemma's `all` case.
+axiom Forall_ForallCong (X I : Type) (P Q : Pred (X × (I × Final))) :
+  imply (Pred.term (Forall I Final (Forall X (I × Final)
+    (Pred.iff (X × (I × Final)) P Q))))
+    (Pred.term (Forall I Final (Pred.iff (I × Final)
+      (Forall X (I × Final) P)
+      (Forall X (I × Final) Q))))
+
+-- ∃ respects ↔ under an outer context: from ∀i∀x(P↔Q), conclude ∀i((∃xP)↔(∃xQ)).
+-- MODEL: fibre validity — pointwise logical equivalence preserves existential quantification.
+-- This is the generic-depth congruence needed by the substitution lemma's `ex` case.
+axiom Forall_ExistCong (X I : Type) (P Q : Pred (X × (I × Final))) :
+  imply (Pred.term (Forall I Final (Forall X (I × Final)
+    (Pred.iff (X × (I × Final)) P Q))))
+    (Pred.term (Forall I Final (Pred.iff (I × Final)
+      (Exist X (I × Final) P)
+      (Exist X (I × Final) Q))))
+
+-- ∃-SUBSTITUTION (Beck-Chevalley), the existential sibling of `Forall_reindex`.
+-- FOL:  (∃x. R x y)[y := f z]  ↔  ∃x. R x (f z).
+-- MODEL: at every (z,★) both sides compute to ∃x. R(x, f z).
+axiom Exist_reindex (X Y0 Y : Type) (R : Pred (X × Y0)) (f : Y → Y0) :
+  Pred.term (Forall Y Final (Pred.iff (Y × Final)
+    ((Exist X Y0 R) ∘ (f ∘ fst Y Final))
+    (Exist X (Y × Final)
+      (R ∘ pair (X × (Y × Final)) X Y0
+        (fst X (Y × Final))
+        (f ∘ (fst Y Final ∘ snd X (Y × Final)))))))
+
 -- ===== binder-level basis: product/terminal β observed under one ∀ =====
 
 -- atom reindexing: substituting into a sub2 atom composes into its argument maps.
@@ -332,5 +365,8 @@ noncomputable def Forall_fst_pair_unary_beta_grouped (I A B : Type) (P : Pred A)
 #check @beta_sub2_point
 #check @Forall_sub2_reindex_beta
 #check @Forall_unary_reindex_beta
+#check @Forall_ForallCong
+#check @Forall_ExistCong
+#check @Exist_reindex
 #check @Forall_iffTrans_apply
 #check @Forall_fst_pair_unary_beta_grouped

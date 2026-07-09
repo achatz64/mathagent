@@ -21,10 +21,9 @@ canonical translation of φ over the extended context — at EVERY binder depth 
 constructor family per former suffices for all depths).
 
 Because `SubstEquiv` has finitely many constructors and the induction closes, the
-β-facts needed to consume substitution are finitely generated.  A constructor with
-no counterpart in `beta_basis.cor` identifies a missing live axiom; after the
-connective and unary predicate-slot families, the remaining live-basis gap is the
-generic Beck–Chevalley lift.
+β-facts needed to consume substitution are finitely generated.  Each constructor now
+has a live Core counterpart in `beta_basis.cor` / `classical_first_order_logic_new.cor`;
+the next tightening step is to emit/check Core proof terms from these constructors.
 -/
 
 namespace ContextualHOL
@@ -127,10 +126,9 @@ inductive SubstEquiv (tc : Core.Term) : Nat -> Ty -> Core.Pred -> Core.Pred -> P
       SubstEquiv tc k newCtx p p' ->
       SubstEquiv tc k newCtx (Core.Pred.not oldCtx p) (Core.Pred.not newCtx p')
   -- quantifiers: reindexing commutes with Forall/Exist along the LIFTED map
-  -- (depth k+1) — Beck–Chevalley.  Live counterpart: Forall_reindex
-  -- (classical_first_order_logic_new.cor) is the k = 0 closed instance; the
-  -- congruence needed to rewrite UNDER the binder at depth k ≥ 1 is a candidate
-  -- addition (a Forall-lifted Forall-congruence, family (C)).
+  -- (depth k+1) — Beck–Chevalley.  Live counterparts: Forall_reindex
+  -- (classical_first_order_logic_new.cor), Exist_reindex, Forall_ForallCong, and
+  -- Forall_ExistCong (beta_basis.cor).
   | all (k : Nat) (newCtx oldCtx bound : Ty) (p p' : Core.Pred) :
       SubstEquiv tc (k + 1) (Ty.prod bound newCtx) p p' ->
       SubstEquiv tc k newCtx (Core.Pred.all bound oldCtx p) (Core.Pred.all bound newCtx p')
