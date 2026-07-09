@@ -1,0 +1,295 @@
+import ContextualHOL.Core
+
+namespace ContextualHOL
+
+inductive BasisOrigin where
+  | betaBasis
+  | classicalFirstOrderLogic
+  | primitiveLogic
+  deriving Repr, BEq, DecidableEq
+
+inductive BasisName where
+  -- ma1/beta_basis.cor
+  | betaSub2Point
+  | betaV0PointArg1
+  | betaV0PointArg2
+  | betaV0PointUnary
+  | betaFstPairPointArg1
+  | betaFstPairPointUnary
+  | betaWeakeningArg1
+  | betaWeakeningArg2
+  | forallOrReindexBeta
+  | forallAndReindexBeta
+  | forallImpReindexBeta
+  | forallIffReindexBeta
+  | forallNotReindexBeta
+  | forallUnaryReindexBeta
+  | forallOrCong
+  | forallAndCong
+  | forallImpCong
+  | forallIffCong
+  | forallNotCong
+  | forallForallCong
+  | forallExistCong
+  | existReindex
+  | forallSub2ReindexBeta
+  | forallFstPairBetaLeft
+  | forallFstPairBetaRight
+  | forallFstPairCompBetaLeft
+  | forallFstPairComp2BetaLeft
+  | forallFstPairUnaryBeta
+  | forallSndPairThenBetaRight
+  | forallSndPairThenBetaLeft
+  | forallPointAtFstBetaLeft
+  | forallPointAtFstBetaRight
+  | forallConstCompBetaRight
+  | forallConstCompBetaLeft
+  | forallIffSymApply
+  | forallIffTransApply
+  | forallFstPairUnaryBetaGrouped
+  -- ma1/classical_first_order_logic_new.cor
+  | forallReindex
+  | curryUncurry
+  | relEqExt
+  | forallElim
+  | existIntro
+  | termImply
+  | termAnd
+  | termOr
+  | termNot
+  | termExist
+  | forallMono
+  | forallAnd
+  | existMono
+  | forallMonoCtx
+  | forallAndCtx
+  | forallIffTransCtx
+  | forallAndElimL
+  | forallIffMp
+  | forallIffRefl
+  | forallIffSym
+  | forallIffTrans
+  | forallAndMono
+  | forallAndOrDistrib
+  | forallAndProjL
+  -- primitive logical proof constants
+  | implyElim
+  | iffTrans
+  | iffSym
+  | iffMp
+  | iffMpr
+  deriving Repr, BEq, DecidableEq
+
+namespace BasisName
+
+def coreName : BasisName -> String
+  | betaSub2Point => "beta_sub2_point"
+  | betaV0PointArg1 => "beta_v0_point_arg1"
+  | betaV0PointArg2 => "beta_v0_point_arg2"
+  | betaV0PointUnary => "beta_v0_point_unary"
+  | betaFstPairPointArg1 => "beta_fst_pair_point_arg1"
+  | betaFstPairPointUnary => "beta_fst_pair_point_unary"
+  | betaWeakeningArg1 => "beta_weakening_arg1"
+  | betaWeakeningArg2 => "beta_weakening_arg2"
+  | forallOrReindexBeta => "Forall_or_reindex_beta"
+  | forallAndReindexBeta => "Forall_and_reindex_beta"
+  | forallImpReindexBeta => "Forall_imp_reindex_beta"
+  | forallIffReindexBeta => "Forall_iff_reindex_beta"
+  | forallNotReindexBeta => "Forall_not_reindex_beta"
+  | forallUnaryReindexBeta => "Forall_unary_reindex_beta"
+  | forallOrCong => "Forall_orCong"
+  | forallAndCong => "Forall_andCong"
+  | forallImpCong => "Forall_impCong"
+  | forallIffCong => "Forall_iffCong"
+  | forallNotCong => "Forall_notCong"
+  | forallForallCong => "Forall_ForallCong"
+  | forallExistCong => "Forall_ExistCong"
+  | existReindex => "Exist_reindex"
+  | forallSub2ReindexBeta => "Forall_sub2_reindex_beta"
+  | forallFstPairBetaLeft => "Forall_fst_pair_beta_left"
+  | forallFstPairBetaRight => "Forall_fst_pair_beta_right"
+  | forallFstPairCompBetaLeft => "Forall_fst_pair_comp_beta_left"
+  | forallFstPairComp2BetaLeft => "Forall_fst_pair_comp2_beta_left"
+  | forallFstPairUnaryBeta => "Forall_fst_pair_unary_beta"
+  | forallSndPairThenBetaRight => "Forall_snd_pair_then_beta_right"
+  | forallSndPairThenBetaLeft => "Forall_snd_pair_then_beta_left"
+  | forallPointAtFstBetaLeft => "Forall_pointAt_fst_beta_left"
+  | forallPointAtFstBetaRight => "Forall_pointAt_fst_beta_right"
+  | forallConstCompBetaRight => "Forall_const_comp_beta_right"
+  | forallConstCompBetaLeft => "Forall_const_comp_beta_left"
+  | forallIffSymApply => "Forall_iffSym_apply"
+  | forallIffTransApply => "Forall_iffTrans_apply"
+  | forallFstPairUnaryBetaGrouped => "Forall_fst_pair_unary_beta_grouped"
+  | forallReindex => "Forall_reindex"
+  | curryUncurry => "curry_uncurry"
+  | relEqExt => "RelEqExt"
+  | forallElim => "Forall_elim"
+  | existIntro => "Exist_intro"
+  | termImply => "term_imply"
+  | termAnd => "term_and"
+  | termOr => "term_or"
+  | termNot => "term_not"
+  | termExist => "term_exist"
+  | forallMono => "Forall_mono"
+  | forallAnd => "Forall_and"
+  | existMono => "Exist_mono"
+  | forallMonoCtx => "Forall_mono_ctx"
+  | forallAndCtx => "Forall_and_ctx"
+  | forallIffTransCtx => "Forall_iffTrans_ctx"
+  | forallAndElimL => "Forall_andElimL"
+  | forallIffMp => "Forall_iffMp"
+  | forallIffRefl => "Forall_iffRefl"
+  | forallIffSym => "Forall_iffSym"
+  | forallIffTrans => "Forall_iffTrans"
+  | forallAndMono => "Forall_andMono"
+  | forallAndOrDistrib => "Forall_andOrDistrib"
+  | forallAndProjL => "Forall_andProjL"
+  | implyElim => "imply_elim"
+  | iffTrans => "iff_trans"
+  | iffSym => "iff_sym"
+  | iffMp => "iff_mp"
+  | iffMpr => "iff_mpr"
+
+def origin : BasisName -> BasisOrigin
+  | betaSub2Point
+  | betaV0PointArg1
+  | betaV0PointArg2
+  | betaV0PointUnary
+  | betaFstPairPointArg1
+  | betaFstPairPointUnary
+  | betaWeakeningArg1
+  | betaWeakeningArg2
+  | forallOrReindexBeta
+  | forallAndReindexBeta
+  | forallImpReindexBeta
+  | forallIffReindexBeta
+  | forallNotReindexBeta
+  | forallUnaryReindexBeta
+  | forallOrCong
+  | forallAndCong
+  | forallImpCong
+  | forallIffCong
+  | forallNotCong
+  | forallForallCong
+  | forallExistCong
+  | existReindex
+  | forallSub2ReindexBeta
+  | forallFstPairBetaLeft
+  | forallFstPairBetaRight
+  | forallFstPairCompBetaLeft
+  | forallFstPairComp2BetaLeft
+  | forallFstPairUnaryBeta
+  | forallSndPairThenBetaRight
+  | forallSndPairThenBetaLeft
+  | forallPointAtFstBetaLeft
+  | forallPointAtFstBetaRight
+  | forallConstCompBetaRight
+  | forallConstCompBetaLeft
+  | forallIffSymApply
+  | forallIffTransApply
+  | forallFstPairUnaryBetaGrouped => BasisOrigin.betaBasis
+  | forallReindex
+  | curryUncurry
+  | relEqExt
+  | forallElim
+  | existIntro
+  | termImply
+  | termAnd
+  | termOr
+  | termNot
+  | termExist
+  | forallMono
+  | forallAnd
+  | existMono
+  | forallMonoCtx
+  | forallAndCtx
+  | forallIffTransCtx
+  | forallAndElimL
+  | forallIffMp
+  | forallIffRefl
+  | forallIffSym
+  | forallIffTrans
+  | forallAndMono
+  | forallAndOrDistrib
+  | forallAndProjL => BasisOrigin.classicalFirstOrderLogic
+  | implyElim
+  | iffTrans
+  | iffSym
+  | iffMp
+  | iffMpr => BasisOrigin.primitiveLogic
+
+def all : List BasisName := [
+  betaSub2Point,
+  betaV0PointArg1,
+  betaV0PointArg2,
+  betaV0PointUnary,
+  betaFstPairPointArg1,
+  betaFstPairPointUnary,
+  betaWeakeningArg1,
+  betaWeakeningArg2,
+  forallOrReindexBeta,
+  forallAndReindexBeta,
+  forallImpReindexBeta,
+  forallIffReindexBeta,
+  forallNotReindexBeta,
+  forallUnaryReindexBeta,
+  forallOrCong,
+  forallAndCong,
+  forallImpCong,
+  forallIffCong,
+  forallNotCong,
+  forallForallCong,
+  forallExistCong,
+  existReindex,
+  forallSub2ReindexBeta,
+  forallFstPairBetaLeft,
+  forallFstPairBetaRight,
+  forallFstPairCompBetaLeft,
+  forallFstPairComp2BetaLeft,
+  forallFstPairUnaryBeta,
+  forallSndPairThenBetaRight,
+  forallSndPairThenBetaLeft,
+  forallPointAtFstBetaLeft,
+  forallPointAtFstBetaRight,
+  forallConstCompBetaRight,
+  forallConstCompBetaLeft,
+  forallIffSymApply,
+  forallIffTransApply,
+  forallFstPairUnaryBetaGrouped,
+  forallReindex,
+  curryUncurry,
+  relEqExt,
+  forallElim,
+  existIntro,
+  termImply,
+  termAnd,
+  termOr,
+  termNot,
+  termExist,
+  forallMono,
+  forallAnd,
+  existMono,
+  forallMonoCtx,
+  forallAndCtx,
+  forallIffTransCtx,
+  forallAndElimL,
+  forallIffMp,
+  forallIffRefl,
+  forallIffSym,
+  forallIffTrans,
+  forallAndMono,
+  forallAndOrDistrib,
+  forallAndProjL,
+  implyElim,
+  iffTrans,
+  iffSym,
+  iffMp,
+  iffMpr
+]
+
+def allowedCoreNames : List String :=
+  all.map coreName
+
+end BasisName
+
+end ContextualHOL
