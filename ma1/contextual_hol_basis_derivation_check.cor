@@ -139,3 +139,7 @@ noncomputable def Forall_exUnionClean_generated_check (X : Type) (R : Pred (X ×
 #check @Forall_exUnion_leftClean_generated_check
 #check @Forall_exUnion_rightClean_generated_check
 #check @Forall_exUnionClean_generated_check
+#check @generated_formula_smap_phiClean
+#check @generated_formula_smap_orAtomsClean
+#check @generated_formula_smap_iffAtomsClean
+#check @generated_formula_smap_atomPhiClean

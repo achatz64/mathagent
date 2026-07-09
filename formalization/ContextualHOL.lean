@@ -5,3 +5,4 @@ import ContextualHOL.CorePrinter
 import ContextualHOL.Substitution
 import ContextualHOL.BasisMap
 import ContextualHOL.Evidence
+import ContextualHOL.SubstEvidenceBuilder
