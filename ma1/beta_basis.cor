@@ -541,6 +541,174 @@ noncomputable def Forall_fst_pair_unary_beta_grouped (I A B : Type) (P : Pred A)
         (pair (I × Final) A B f g)))
     (Forall_fst_pair_unary_beta I A B P f g)
 
+-- ===== M3 additions: k-fold lifted substitution-map cleanup (canonical spine) =====
+--
+-- The proof-lifting soundness argument (formalization/ContextualHOL/CoreThm.lean,
+-- see ma1/m3.md) cleans a projection composed with the k-fold binder lift of a
+-- substitution map ⟨t, id⟩ down to a canonical right-nested snd-spine, and both
+-- sides of the observed iff converge to the SAME spine.  Each recursion step is
+-- one of the observations below.  All are pointwise-trivial model validities;
+-- none are derivable (pair/fst/snd/i_comb β live at arbitrary Type, observable
+-- only at PC).
+
+-- lift-step β with regrouping, observed through the LEFT slot of a binary atom:
+-- peel one binder off a lifted map.  The pair's tail component is a composite
+-- g ∘ h and the clean side regroups to g ∘ (h ∘ w), restoring the recursion
+-- invariant  map ∘ (lift ∘ spine).
+-- MODEL: at (i,★) both sides are Q(m(g(h(w(i,★)))), h'(i,★)).
+axiom Forall_snd_pair_lift_beta_left (I W A B B0 C D : Type) (Q : Pred (D × C))
+    (m : B → D) (f : W → A) (g : B0 → B) (h : W → B0) (w : I × Final → W)
+    (h' : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) D C Q ((m ∘ (snd A B)) ∘ ((pair W A B f (g ∘ h)) ∘ w)) h')
+    (sub2 (I × Final) D C Q (m ∘ (g ∘ (h ∘ w))) h')))
+
+-- same lift-step β, observed through the RIGHT slot of a binary atom.
+-- MODEL: at (i,★) both sides are Q(h'(i,★), m(g(h(w(i,★))))).
+axiom Forall_snd_pair_lift_beta_right (I W A B B0 C D : Type) (Q : Pred (C × D))
+    (h' : I × Final → C) (m : B → D) (f : W → A) (g : B0 → B) (h : W → B0)
+    (w : I × Final → W) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C D Q h' ((m ∘ (snd A B)) ∘ ((pair W A B f (g ∘ h)) ∘ w)))
+    (sub2 (I × Final) C D Q h' (m ∘ (g ∘ (h ∘ w))))))
+
+-- same lift-step β, observed through a UNARY predicate slot.
+-- MODEL: at (i,★) both sides are P(m(g(h(w(i,★))))).
+axiom Forall_snd_pair_lift_unary_beta (I W A B B0 D : Type) (P : Pred D)
+    (m : B → D) (f : W → A) (g : B0 → B) (h : W → B0) (w : I × Final → W) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (P ∘ ((m ∘ (snd A B)) ∘ ((pair W A B f (g ∘ h)) ∘ w)))
+    (P ∘ (m ∘ (g ∘ (h ∘ w))))))
+
+-- boundary step at the substitution map itself: the tail component of ⟨t, id⟩ is
+-- i_comb, which is absorbed.  Observed through the LEFT slot.
+-- MODEL: at (i,★) both sides are Q(m(w(i,★)), h'(i,★)).
+axiom Forall_snd_pair_id_beta_left (I A B C D : Type) (Q : Pred (D × C))
+    (m : B → D) (f : B → A) (w : I × Final → B) (h' : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) D C Q ((m ∘ (snd A B)) ∘ ((pair B A B f (Cart.i_comb B)) ∘ w)) h')
+    (sub2 (I × Final) D C Q (m ∘ w) h')))
+
+-- same i_comb absorption, observed through the RIGHT slot.
+-- MODEL: at (i,★) both sides are Q(h'(i,★), m(w(i,★))).
+axiom Forall_snd_pair_id_beta_right (I A B C D : Type) (Q : Pred (C × D))
+    (h' : I × Final → C) (m : B → D) (f : B → A) (w : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C D Q h' ((m ∘ (snd A B)) ∘ ((pair B A B f (Cart.i_comb B)) ∘ w)))
+    (sub2 (I × Final) C D Q h' (m ∘ w))))
+
+-- same i_comb absorption, observed through a UNARY predicate slot.
+-- MODEL: at (i,★) both sides are P(m(w(i,★))).
+axiom Forall_snd_pair_id_unary_beta (I A B D : Type) (P : Pred D)
+    (m : B → D) (f : B → A) (w : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (P ∘ ((m ∘ (snd A B)) ∘ ((pair B A B f (Cart.i_comb B)) ∘ w)))
+    (P ∘ (m ∘ w))))
+
+-- snd-spine regrouping (pure associativity of an opaque ∘, observed through the
+-- LEFT slot): normalizes the left-nested projection spine to the right-nested
+-- canonical form the recursion produces.
+-- MODEL: at (i,★) both sides are Q(m(snd(w(i,★))), h'(i,★)).
+axiom Forall_snd_assoc_beta_left (I A B C D : Type) (Q : Pred (D × C))
+    (m : B → D) (w : I × Final → A × B) (h' : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) D C Q ((m ∘ (snd A B)) ∘ w) h')
+    (sub2 (I × Final) D C Q (m ∘ ((snd A B) ∘ w)) h')))
+
+-- same regrouping, observed through the RIGHT slot.
+-- MODEL: at (i,★) both sides are Q(h'(i,★), m(snd(w(i,★)))).
+axiom Forall_snd_assoc_beta_right (I A B C D : Type) (Q : Pred (C × D))
+    (h' : I × Final → C) (m : B → D) (w : I × Final → A × B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C D Q h' ((m ∘ (snd A B)) ∘ w))
+    (sub2 (I × Final) C D Q h' (m ∘ ((snd A B) ∘ w)))))
+
+-- same regrouping, observed through a UNARY predicate slot.
+-- MODEL: at (i,★) both sides are P(m(snd(w(i,★)))).
+axiom Forall_snd_assoc_unary_beta (I A B D : Type) (P : Pred D)
+    (m : B → D) (w : I × Final → A × B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (P ∘ ((m ∘ (snd A B)) ∘ w))
+    (P ∘ (m ∘ ((snd A B) ∘ w)))))
+
+-- fst∘pair β with an explicit precomposition, observed through the RIGHT slot
+-- (mirror of Forall_fst_pair_comp_beta_left).
+-- MODEL: at (i,★) both sides are Q(h(i,★), f(s(i,★))).
+axiom Forall_fst_pair_comp_beta_right (I Z A B C : Type) (Q : Pred (C × A))
+    (h : I × Final → C) (f : Z → A) (g : Z → B) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C A Q h ((fst A B) ∘ ((pair Z A B f g) ∘ s)))
+    (sub2 (I × Final) C A Q h (f ∘ s))))
+
+-- fst∘pair β with an explicit precomposition, observed through a UNARY slot.
+-- MODEL: at (i,★) both sides are P(f(s(i,★))).
+axiom Forall_fst_pair_comp_unary_beta (I Z A B : Type) (P : Pred A)
+    (f : Z → A) (g : Z → B) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (P ∘ ((fst A B) ∘ ((pair Z A B f g) ∘ s)))
+    (P ∘ (f ∘ s))))
+
+-- weakening ∘ s β, observed through a UNARY predicate slot (sibling of the
+-- binary Forall_const_comp_beta_left/right).
+-- MODEL: at (i,★) both sides are P(a).
+axiom Forall_const_comp_unary_beta (I A Z : Type) (P : Pred A)
+    (a : A) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (P ∘ ((Cart.weakening A Z a) ∘ s))
+    (P ∘ (Cart.weakening A (I × Final) a))))
+
+-- ===== M3 additions: closure/fusion for the quantifier cases =====
+
+-- read an inner ∀ through the plain closure projection (the f := id instance of
+-- Forall_reindex, stated directly because i_comb is opaque).
+-- MODEL: at (y,★) both sides are ∀x. R(x,y).
+axiom Forall_closure_beta (X Y : Type) (R : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.iff (Y × Final)
+    ((Forall X Y R) ∘ (fst Y Final))
+    (Forall X (Y × Final)
+      (R ∘ pair (X × (Y × Final)) X Y
+        (fst X (Y × Final))
+        ((fst Y Final) ∘ (snd X (Y × Final)))))))
+
+-- ∃ sibling of Forall_closure_beta.
+-- MODEL: at (y,★) both sides are ∃x. R(x,y).
+axiom Exist_closure_beta (X Y : Type) (R : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.iff (Y × Final)
+    ((Exist X Y R) ∘ (fst Y Final))
+    (Exist X (Y × Final)
+      (R ∘ pair (X × (Y × Final)) X Y
+        (fst X (Y × Final))
+        ((fst Y Final) ∘ (snd X (Y × Final)))))))
+
+-- context fusion (the generic-depth Beck–Chevalley seam): a one-binder
+-- observation over the flattened context X × Y, whose two sides are a
+-- lift-reindexed predicate and a plain one, refolds into the two-binder tower
+-- observation with the reindexing maps in Forall_reindex / Forall_closure_beta
+-- form.  This is how the soundness induction hypothesis (one binder, flattened)
+-- meets Forall_ForallCong / Forall_ExistCong (two-binder tower).
+-- MODEL: premise says ∀(x,y). [A(x, s y) ↔ B(x,y)]; conclusion says
+-- ∀y∀x. [A(x, s y) ↔ B(x,y)] — the same fibre content, re-curried.
+axiom Forall_lift_fuse (X Y Y0 : Type) (s : Y → Y0)
+    (A : Pred (X × Y0)) (B : Pred (X × Y))
+    (h : Pred.term (Forall (X × Y) Final (Pred.iff ((X × Y) × Final)
+      (A ∘ ((pair (X × Y) X Y0 (fst X Y) (s ∘ (snd X Y))) ∘ (fst (X × Y) Final)))
+      (B ∘ (fst (X × Y) Final))))) :
+    Pred.term (Forall Y Final (Forall X (Y × Final) (Pred.iff (X × (Y × Final))
+      (A ∘ (pair (X × (Y × Final)) X Y0
+        (fst X (Y × Final))
+        (s ∘ ((fst Y Final) ∘ (snd X (Y × Final))))))
+      (B ∘ (pair (X × (Y × Final)) X Y
+        (fst X (Y × Final))
+        ((fst Y Final) ∘ (snd X (Y × Final))))))))
+
+#check @Forall_snd_pair_lift_beta_left
+#check @Forall_snd_pair_id_beta_left
+#check @Forall_snd_assoc_beta_left
+#check @Forall_fst_pair_comp_beta_right
+#check @Forall_const_comp_unary_beta
+#check @Forall_closure_beta
+#check @Exist_closure_beta
+#check @Forall_lift_fuse
 #check @beta_sub2_point
 #check @Forall_sub2_reindex_beta
 #check @Forall_unary_reindex_beta

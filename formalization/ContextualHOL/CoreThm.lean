@@ -461,6 +461,116 @@ inductive CoreThm : CProp -> Prop where
       CoreThm (CProp.term (CPred.all J (CPred.all I (CPred.iff A B)))) ->
       CoreThm (CProp.term (CPred.all J (CPred.all I (CPred.iff B C)))) ->
       CoreThm (CProp.term (CPred.all J (CPred.all I (CPred.iff A C))))
+  -- ---- beta_basis.cor: M3 additions (lifted-map cleanup, canonical spine) ----
+  -- Forall_snd_pair_lift_beta_left / _right / _unary
+  | forallSndPairLiftBetaLeft (I W A B B0 C D : Ty) (Q : CPred (D ×' C))
+      (m : CMap B D) (f : CMap W A) (g : CMap B0 B) (h : CMap W B0)
+      (w : CMap (I ×' Ty.final) W) (h' : CMap (I ×' Ty.final) C) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.comp g h)) w)) h')
+        (CPred.sub2 Q (CMap.comp m (CMap.comp g (CMap.comp h w))) h')))
+  | forallSndPairLiftBetaRight (I W A B B0 C D : Ty) (Q : CPred (C ×' D))
+      (h' : CMap (I ×' Ty.final) C) (m : CMap B D) (f : CMap W A)
+      (g : CMap B0 B) (h : CMap W B0) (w : CMap (I ×' Ty.final) W) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q h' (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.comp g h)) w)))
+        (CPred.sub2 Q h' (CMap.comp m (CMap.comp g (CMap.comp h w))))))
+  | forallSndPairLiftUnaryBeta (I W A B B0 D : Ty) (P : CPred D)
+      (m : CMap B D) (f : CMap W A) (g : CMap B0 B) (h : CMap W B0)
+      (w : CMap (I ×' Ty.final) W) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.comp P (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.comp g h)) w)))
+        (CPred.comp P (CMap.comp m (CMap.comp g (CMap.comp h w))))))
+  -- Forall_snd_pair_id_beta_left / _right / _unary (i_comb absorption)
+  | forallSndPairIdBetaLeft (I A B C D : Ty) (Q : CPred (D ×' C))
+      (m : CMap B D) (f : CMap B A) (w : CMap (I ×' Ty.final) B)
+      (h' : CMap (I ×' Ty.final) C) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.id B)) w)) h')
+        (CPred.sub2 Q (CMap.comp m w) h')))
+  | forallSndPairIdBetaRight (I A B C D : Ty) (Q : CPred (C ×' D))
+      (h' : CMap (I ×' Ty.final) C) (m : CMap B D) (f : CMap B A)
+      (w : CMap (I ×' Ty.final) B) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q h' (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.id B)) w)))
+        (CPred.sub2 Q h' (CMap.comp m w))))
+  | forallSndPairIdUnaryBeta (I A B D : Ty) (P : CPred D)
+      (m : CMap B D) (f : CMap B A) (w : CMap (I ×' Ty.final) B) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.comp P (CMap.comp (CMap.comp m (CMap.snd A B))
+          (CMap.comp (CMap.pair f (CMap.id B)) w)))
+        (CPred.comp P (CMap.comp m w))))
+  -- Forall_snd_assoc_beta_left / _right / _unary (spine regrouping)
+  | forallSndAssocBetaLeft (I A B C D : Ty) (Q : CPred (D ×' C))
+      (m : CMap B D) (w : CMap (I ×' Ty.final) (A ×' B))
+      (h' : CMap (I ×' Ty.final) C) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q (CMap.comp (CMap.comp m (CMap.snd A B)) w) h')
+        (CPred.sub2 Q (CMap.comp m (CMap.comp (CMap.snd A B) w)) h')))
+  | forallSndAssocBetaRight (I A B C D : Ty) (Q : CPred (C ×' D))
+      (h' : CMap (I ×' Ty.final) C) (m : CMap B D)
+      (w : CMap (I ×' Ty.final) (A ×' B)) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q h' (CMap.comp (CMap.comp m (CMap.snd A B)) w))
+        (CPred.sub2 Q h' (CMap.comp m (CMap.comp (CMap.snd A B) w)))))
+  | forallSndAssocUnaryBeta (I A B D : Ty) (P : CPred D)
+      (m : CMap B D) (w : CMap (I ×' Ty.final) (A ×' B)) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.comp P (CMap.comp (CMap.comp m (CMap.snd A B)) w))
+        (CPred.comp P (CMap.comp m (CMap.comp (CMap.snd A B) w)))))
+  -- Forall_fst_pair_comp_beta_right / _unary
+  | forallFstPairCompBetaRight (I Z A B C : Ty) (Q : CPred (C ×' A))
+      (h : CMap (I ×' Ty.final) C) (f : CMap Z A) (g : CMap Z B)
+      (s : CMap (I ×' Ty.final) Z) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.sub2 Q h (CMap.comp (CMap.fst A B) (CMap.comp (CMap.pair f g) s)))
+        (CPred.sub2 Q h (CMap.comp f s))))
+  | forallFstPairCompUnaryBeta (I Z A B : Ty) (P : CPred A)
+      (f : CMap Z A) (g : CMap Z B) (s : CMap (I ×' Ty.final) Z) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.comp P (CMap.comp (CMap.fst A B) (CMap.comp (CMap.pair f g) s)))
+        (CPred.comp P (CMap.comp f s))))
+  -- Forall_const_comp_unary_beta (name-generic weakening, as elsewhere)
+  | forallConstCompUnaryBeta (I A Z : Ty) (P : CPred A)
+      (c : Name) (s : CMap (I ×' Ty.final) Z) :
+      CoreThm (Vy I (CPred.iff
+        (CPred.comp P (CMap.comp (CMap.weaken A Z c) s))
+        (CPred.comp P (CMap.weaken A (I ×' Ty.final) c))))
+  -- ---- beta_basis.cor: M3 additions (closure/fusion, quantifier cases) ----
+  -- Forall_closure_beta / Exist_closure_beta
+  | forallClosureBeta (X Y : Ty) (R : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.iff
+        (CPred.comp (CPred.all X R) (CMap.fst Y Ty.final))
+        (CPred.all X (CPred.comp R (CMap.pair
+          (CMap.fst X (Y ×' Ty.final))
+          (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final))))))))
+  | existClosureBeta (X Y : Ty) (R : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.iff
+        (CPred.comp (CPred.ex X R) (CMap.fst Y Ty.final))
+        (CPred.ex X (CPred.comp R (CMap.pair
+          (CMap.fst X (Y ×' Ty.final))
+          (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final))))))))
+  -- Forall_lift_fuse (rule-shaped: the generic-depth Beck–Chevalley seam)
+  | forallLiftFuse (X Y Y0 : Ty) (s : CMap Y Y0)
+      (A : CPred (X ×' Y0)) (B : CPred (X ×' Y)) :
+      CoreThm (Vy (X ×' Y) (CPred.iff
+        (CPred.comp A (CMap.comp
+          (CMap.pair (CMap.fst X Y) (CMap.comp s (CMap.snd X Y)))
+          (CMap.fst (X ×' Y) Ty.final)))
+        (CPred.comp B (CMap.fst (X ×' Y) Ty.final)))) ->
+      CoreThm (CProp.term (CPred.all Y (CPred.all X (CPred.iff
+        (CPred.comp A (CMap.pair
+          (CMap.fst X (Y ×' Ty.final))
+          (CMap.comp s (CMap.comp (CMap.fst Y Ty.final)
+            (CMap.snd X (Y ×' Ty.final))))))
+        (CPred.comp B (CMap.pair
+          (CMap.fst X (Y ×' Ty.final))
+          (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final)))))))))
 
 namespace CoreThm
 
@@ -584,19 +694,9 @@ def substSoundGoal (X Γctx : Ty) (tcm : CMap Γctx X) (tele : List Ty)
       (CMap.fst (tele.foldr Ty.prod Γctx) Ty.final)))
     (CPred.comp cQ (CMap.fst (tele.foldr Ty.prod Γctx) Ty.final)))
 
--- The `SubstEquiv`-soundness conjecture: the finite-basis certificate is
--- redeemable as CoreThm evidence at every depth.  The telescope `tele` lists
--- the Ψ bound types innermost-first, so `tele.length = k` and
--- `tele.foldr Ty.prod Γctx = C[Ψ ++ Γ]`.
-def SubstEquivSoundStmt : Prop :=
-  forall (tc : Core.Term) (X Γctx : Ty) (tcm : CMap Γctx X),
-    embedTerm? Γctx tc = some ⟨X, tcm⟩ ->
-    forall (tele : List Ty) (P Q : Core.Pred)
-      (cP : CPred (tele.foldr Ty.prod (X ×' Γctx)))
-      (cQ : CPred (tele.foldr Ty.prod Γctx)),
-      SubstEquiv tc tele.length (tele.foldr Ty.prod Γctx) P Q ->
-      embedPred? (tele.foldr Ty.prod (X ×' Γctx)) P = some cP ->
-      embedPred? (tele.foldr Ty.prod Γctx) Q = some cQ ->
-      CoreThm (substSoundGoal X Γctx tcm tele cP cQ)
+-- The `SubstEquiv`-soundness statement itself is proved (relationally, via
+-- `PredEmbedIs`) as `substEquiv_sound` in `ContextualHOL/SubstSound.lean`:
+-- the telescope `tele` lists the Ψ bound types innermost-first, so
+-- `tele.length = k` and `tele.foldr Ty.prod Γctx = C[Ψ ++ Γ]`.
 
 end ContextualHOL

@@ -63,6 +63,22 @@ inductive BasisName where
   | forallCtxConstCompBetaRight
   | forallCtxFstPairUnaryBetaGrouped
   | forallCtxIffTransApply
+  -- ma1/beta_basis.cor: M3 additions (lifted-map cleanup + closure/fusion)
+  | forallSndPairLiftBetaLeft
+  | forallSndPairLiftBetaRight
+  | forallSndPairLiftUnaryBeta
+  | forallSndPairIdBetaLeft
+  | forallSndPairIdBetaRight
+  | forallSndPairIdUnaryBeta
+  | forallSndAssocBetaLeft
+  | forallSndAssocBetaRight
+  | forallSndAssocUnaryBeta
+  | forallFstPairCompBetaRight
+  | forallFstPairCompUnaryBeta
+  | forallConstCompUnaryBeta
+  | forallClosureBeta
+  | existClosureBeta
+  | forallLiftFuse
   -- ma1/classical_first_order_logic_new.cor
   | forallReindex
   | curryUncurry
@@ -152,6 +168,21 @@ def coreName : BasisName -> String
   | forallCtxConstCompBetaRight => "Forall_ctx_const_comp_beta_right"
   | forallCtxFstPairUnaryBetaGrouped => "Forall_ctx_fst_pair_unary_beta_grouped"
   | forallCtxIffTransApply => "Forall_ctx_iffTrans_apply"
+  | forallSndPairLiftBetaLeft => "Forall_snd_pair_lift_beta_left"
+  | forallSndPairLiftBetaRight => "Forall_snd_pair_lift_beta_right"
+  | forallSndPairLiftUnaryBeta => "Forall_snd_pair_lift_unary_beta"
+  | forallSndPairIdBetaLeft => "Forall_snd_pair_id_beta_left"
+  | forallSndPairIdBetaRight => "Forall_snd_pair_id_beta_right"
+  | forallSndPairIdUnaryBeta => "Forall_snd_pair_id_unary_beta"
+  | forallSndAssocBetaLeft => "Forall_snd_assoc_beta_left"
+  | forallSndAssocBetaRight => "Forall_snd_assoc_beta_right"
+  | forallSndAssocUnaryBeta => "Forall_snd_assoc_unary_beta"
+  | forallFstPairCompBetaRight => "Forall_fst_pair_comp_beta_right"
+  | forallFstPairCompUnaryBeta => "Forall_fst_pair_comp_unary_beta"
+  | forallConstCompUnaryBeta => "Forall_const_comp_unary_beta"
+  | forallClosureBeta => "Forall_closure_beta"
+  | existClosureBeta => "Exist_closure_beta"
+  | forallLiftFuse => "Forall_lift_fuse"
   | forallReindex => "Forall_reindex"
   | curryUncurry => "curry_uncurry"
   | relEqExt => "RelEqExt"
@@ -235,7 +266,22 @@ def origin : BasisName -> BasisOrigin
   | forallCtxFstPairBetaLeft
   | forallCtxConstCompBetaRight
   | forallCtxFstPairUnaryBetaGrouped
-  | forallCtxIffTransApply => BasisOrigin.betaBasis
+  | forallCtxIffTransApply
+  | forallSndPairLiftBetaLeft
+  | forallSndPairLiftBetaRight
+  | forallSndPairLiftUnaryBeta
+  | forallSndPairIdBetaLeft
+  | forallSndPairIdBetaRight
+  | forallSndPairIdUnaryBeta
+  | forallSndAssocBetaLeft
+  | forallSndAssocBetaRight
+  | forallSndAssocUnaryBeta
+  | forallFstPairCompBetaRight
+  | forallFstPairCompUnaryBeta
+  | forallConstCompUnaryBeta
+  | forallClosureBeta
+  | existClosureBeta
+  | forallLiftFuse => BasisOrigin.betaBasis
   | forallReindex
   | curryUncurry
   | relEqExt
@@ -320,6 +366,21 @@ def all : List BasisName := [
   forallCtxConstCompBetaRight,
   forallCtxFstPairUnaryBetaGrouped,
   forallCtxIffTransApply,
+  forallSndPairLiftBetaLeft,
+  forallSndPairLiftBetaRight,
+  forallSndPairLiftUnaryBeta,
+  forallSndPairIdBetaLeft,
+  forallSndPairIdBetaRight,
+  forallSndPairIdUnaryBeta,
+  forallSndAssocBetaLeft,
+  forallSndAssocBetaRight,
+  forallSndAssocUnaryBeta,
+  forallFstPairCompBetaRight,
+  forallFstPairCompUnaryBeta,
+  forallConstCompUnaryBeta,
+  forallClosureBeta,
+  existClosureBeta,
+  forallLiftFuse,
   forallReindex,
   curryUncurry,
   relEqExt,
