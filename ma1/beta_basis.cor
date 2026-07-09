@@ -1,0 +1,180 @@
+import classical_first_order_logic_new
+
+-- The candidate finite β-BASIS (infra layer).
+--
+-- Every "bridge" axiom reads a stored combinator formula back to a cleaner form.
+-- Previously each was postulated per context shape (memBeta, Forall_orAtomsClean, …
+-- — core.md lesson 5).  This file states the basis they derive from instead: the
+-- categorical β-equations (curry/uncurry, fst/snd ∘ pair, weakening ∘ s), which Core
+-- cannot state at arbitrary Type (no equality there), OBSERVED through a PC-valued
+-- predicate — either at a point (★) or under one object-∀ binder.  Observed forms are
+-- legal (iff/Forall-closed iff live at PC) and each is a model validity.
+--
+-- Two families, mirroring the two observation contexts:
+--   * point-level:  equation observed at PC after evaluation at ★.
+--   * binder-level: equation observed under one ∀ over context I × Final; the SOURCE
+--     context Z stays generic, so one schema covers every depth of the reindexed body.
+-- Plus ∀-lifted congruence rules (family (C) fibre generators) to compose observations.
+
+-- ===== the point substitution  w := t :  Final → X × Final,  (⋆) ↦ (t, ⋆) =====
+-- (moved here from definite_description.cor: the point-level basis observes at it.)
+noncomputable def pointAt (X : Type) (t : X) : Final -> X × Final :=
+  pair Final X Final (Cart.weakening X Final t) (Cart.i_comb Final)
+
+-- ===== point-level basis =====
+
+-- curry/uncurry β observed at PC: a sub2-built atom evaluated at a point is the curried
+-- relation applied to the Final.term readings of its two substituted argument maps.
+-- MODEL: ((sub2 Z A B Q f g) ∘ s) ★ = Q (f (s★), g (s★)) and
+--        curry Q (Final.term (f∘s)) (Final.term (g∘s)) = Q (f (s★), g (s★)).
+-- NON-DERIVABLE: the pair/uncurry β lives at the arbitrary Type Z, where = is
+-- unavailable; it is postulable only observed at PC.
+axiom beta_sub2_point (Z A B : Type) (Q : Pred (A × B)) (f : Z → A) (g : Z → B)
+    (s : Final → Z) :
+  iff (Pred.term ((sub2 Z A B Q f g) ∘ s))
+      (curry A B PC Q (Final.term A (f ∘ s)) (Final.term B (g ∘ s)))
+
+-- v0∘pointAt β observed through the first argument of a PC-valued context.
+-- MODEL: Final.term ((v0 A Final) ∘ pointAt A a) = fst (a, ★) = a; both sides F a b.
+-- NON-DERIVABLE: fst ∘ pair β at arbitrary Type; observed at PC only.
+axiom beta_v0_point_arg1 (A B : Type) (F : A → B → PC) (a : A) (b : B) :
+  iff (F (Final.term A ((v0 A Final) ∘ pointAt A a)) b) (F a b)
+
+-- same law, second argument slot.
+-- MODEL: as beta_v0_point_arg1; both sides F a b.
+axiom beta_v0_point_arg2 (A B : Type) (F : A → B → PC) (a : A) (b : B) :
+  iff (F a (Final.term B ((v0 B Final) ∘ pointAt B b))) (F a b)
+
+-- weakening∘s β (a constant map composed with anything is the constant), observed
+-- through the first argument of a PC-valued context.
+-- MODEL: Final.term ((Cart.weakening A Z a) ∘ s) = a; both sides F a b.
+-- NON-DERIVABLE: the const β lives at arbitrary Type Z; observed at PC only.
+axiom beta_weakening_arg1 (A B Z : Type) (F : A → B → PC) (a : A) (b : B)
+    (s : Final → Z) :
+  iff (F (Final.term A ((Cart.weakening A Z a) ∘ s)) b) (F a b)
+
+-- same law, second argument slot.
+-- MODEL: as beta_weakening_arg1; both sides F a b.
+axiom beta_weakening_arg2 (A B Z : Type) (F : A → B → PC) (a : A) (b : B)
+    (s : Final → Z) :
+  iff (F a (Final.term B ((Cart.weakening B Z b) ∘ s))) (F a b)
+
+-- ===== binder-level basis: connective reindexing homomorphisms =====
+
+-- connectives are pointwise in the model, so reindexing distributes over them:
+-- (P ∨ Q) ∘ s = (P∘s) ∨ (Q∘s) pointwise — the ∀-closure of a fibre tautology.
+-- MODEL: at (x,★) both sides are P(s(x,★)) ∨ Q(s(x,★)).
+-- NON-DERIVABLE: Pred.or is opaque; the pointwise law lives at Pred Y where = is
+-- unavailable — postulable only as a Forall-closed iff at PC.
+axiom Forall_or_reindex_beta (X Y : Type) (s : X × Final → Y) (P Q : Pred Y) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.or Y P Q) ∘ s)
+    (Pred.or (X × Final) (P ∘ s) (Q ∘ s))))
+
+-- ∧-version of Forall_or_reindex_beta.
+-- MODEL: at (x,★) both sides are P(s(x,★)) ∧ Q(s(x,★)).
+axiom Forall_and_reindex_beta (I Y : Type) (s : I × Final → Y) (P Q : Pred Y) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((Pred.and Y P Q) ∘ s)
+    (Pred.and (I × Final) (P ∘ s) (Q ∘ s))))
+
+-- ===== binder-level basis: ∀-lifted connective congruences (family (C)) =====
+
+-- ∨ respects ↔ under the binder: from ∀(A↔A') and ∀(B↔B') conclude ∀(A∨B ↔ A'∨B').
+-- MODEL: fibre validity — (A↔A') → (B↔B') → (A∨B ↔ A'∨B') is a propositional
+-- tautology, closed under ∀.  Stated directly (like the other family-(C) generators)
+-- pending a generic fibre-tautology generator.
+axiom Forall_orCong (X : Type) (A A' B B' : Pred (X × Final)) :
+  imply (Pred.term (Forall X Final (Pred.iff (X × Final) A A')))
+    (imply (Pred.term (Forall X Final (Pred.iff (X × Final) B B')))
+      (Pred.term (Forall X Final (Pred.iff (X × Final)
+        (Pred.or (X × Final) A B)
+        (Pred.or (X × Final) A' B')))))
+
+-- ∧-version of Forall_orCong.
+-- MODEL: (A↔A') → (B↔B') → (A∧B ↔ A'∧B') is a propositional tautology, closed under ∀.
+axiom Forall_andCong (I : Type) (A A' B B' : Pred (I × Final)) :
+  imply (Pred.term (Forall I Final (Pred.iff (I × Final) A A')))
+    (imply (Pred.term (Forall I Final (Pred.iff (I × Final) B B')))
+      (Pred.term (Forall I Final (Pred.iff (I × Final)
+        (Pred.and (I × Final) A B)
+        (Pred.and (I × Final) A' B')))))
+
+-- ===== binder-level basis: product/terminal β observed under one ∀ =====
+
+-- atom reindexing: substituting into a sub2 atom composes into its argument maps.
+-- MODEL: at (i,★), ((sub2 Q f g) ∘ s)(i,★) = Q(f(s(i,★)), g(s(i,★))) = (sub2 Q (f∘s) (g∘s))(i,★).
+-- NON-DERIVABLE: uncurry/pair β at the arbitrary source Type Z; observed at PC under ∀.
+axiom Forall_sub2_reindex_beta (I Z A B : Type) (Q : Pred (A × B))
+    (f : Z → A) (g : Z → B) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((sub2 Z A B Q f g) ∘ s)
+    (sub2 (I × Final) A B Q (f ∘ s) (g ∘ s))))
+
+-- fst ∘ pair β, observed through the LEFT slot of a binary atom.
+-- MODEL: (fst ∘ pair f g)(i,★) = f(i,★); both sides Q(f(i,★), h(i,★)).
+-- NON-DERIVABLE: fst∘pair β at arbitrary Type; observed at PC under ∀.
+axiom Forall_fst_pair_beta_left (I A B C : Type) (Q : Pred (A × C))
+    (f : I × Final → A) (g : I × Final → B) (h : I × Final → C) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) A C Q ((fst A B) ∘ (pair (I × Final) A B f g)) h)
+    (sub2 (I × Final) A C Q f h)))
+
+-- fst ∘ pair β, observed through a UNARY predicate.
+-- MODEL: ((P ∘ fst) ∘ pair f g)(i,★) = P(f(i,★)); both sides P(f(i,★)).
+axiom Forall_fst_pair_unary_beta (I A B : Type) (P : Pred A)
+    (f : I × Final → A) (g : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((P ∘ (fst A B)) ∘ (pair (I × Final) A B f g))
+    (P ∘ f)))
+
+-- (k ∘ snd) ∘ pair β, observed through the RIGHT slot of a binary atom.
+-- MODEL: ((k ∘ snd) ∘ pair f g)(i,★) = k(g(i,★)); both sides Q(h(i,★), k(g(i,★))).
+axiom Forall_snd_pair_then_beta_right (I A B C D : Type) (Q : Pred (C × D))
+    (h : I × Final → C) (k : B → D) (f : I × Final → A) (g : I × Final → B) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C D Q h ((k ∘ (snd A B)) ∘ (pair (I × Final) A B f g)))
+    (sub2 (I × Final) C D Q h (k ∘ g))))
+
+-- fst ∘ pointAt β: pointAt c puts c in the first component, so reading fst back out
+-- is the constant c — observed through the right slot of a binary atom.
+-- MODEL: (fst ∘ (pointAt c ∘ s))(i,★) = fst (c, ★) = c = (weakening c ∘ s)(i,★).
+axiom Forall_pointAt_fst_beta_right (I X C : Type) (Q : Pred (C × X))
+    (h : I × Final → C) (c : X) (s : I × Final → Final) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) C X Q h ((fst X Final) ∘ ((pointAt X c) ∘ s)))
+    (sub2 (I × Final) C X Q h ((Cart.weakening X Final c) ∘ s))))
+
+-- weakening ∘ s β (const composed with anything is the const), observed through the
+-- right slot of a binary atom under ∀.
+-- MODEL: ((weakening b) ∘ s)(i,★) = b; both sides Q(f(i,★), b).
+axiom Forall_const_comp_beta_right (I A B Z : Type) (Q : Pred (A × B))
+    (f : I × Final → A) (b : B) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    (sub2 (I × Final) A B Q f ((Cart.weakening B Z b) ∘ s))
+    (sub2 (I × Final) A B Q f (Cart.weakening B (I × Final) b))))
+
+-- ===== derived glue: chain two Forall-closed iffs (uses only Forall_mono / Forall_iffTrans) =====
+noncomputable def Forall_iffTrans_apply (X : Type) (A B C : Pred (X × Final))
+    (h1 : Pred.term (Forall X Final (Pred.iff (X × Final) A B)))
+    (h2 : Pred.term (Forall X Final (Pred.iff (X × Final) B C))) :
+    Pred.term (Forall X Final (Pred.iff (X × Final) A C)) :=
+  imply_elim _ _
+    (imply_elim _ _
+      (Forall_mono X
+        (Pred.iff (X × Final) B C)
+        (Pred.iff (X × Final) A C))
+      (imply_elim _ _
+        (imply_elim _ _
+          (Forall_mono X
+            (Pred.iff (X × Final) A B)
+            (Pred.imply (X × Final)
+              (Pred.iff (X × Final) B C)
+              (Pred.iff (X × Final) A C)))
+          (Forall_iffTrans X A B C))
+        h1))
+    h2
+
+#check @beta_sub2_point
+#check @Forall_sub2_reindex_beta
+#check @Forall_iffTrans_apply

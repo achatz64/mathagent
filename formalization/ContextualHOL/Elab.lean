@@ -26,6 +26,9 @@ def lookupConst? (env : Env) (name : Name) : Option Ty :=
 def lookupRel? (env : Env) (name : Name) : Option RelSig :=
   lookupName name env.rels
 
+def lookupPred? (env : Env) (name : Name) : Option Ty :=
+  lookupName name env.preds
+
 def expectTy (actual expected : Ty) : Option Unit :=
   if actual = expected then some () else none
 
@@ -43,6 +46,10 @@ def checkFormula? (env : Env) (ctx : Ctx) : Formula -> Option Unit
       let rightTy <- inferTerm? env ctx right
       expectTy leftTy sig.left
       expectTy rightTy sig.right
+  | Formula.papp pred arg => do
+      let predTy <- lookupPred? env pred
+      let argTy <- inferTerm? env ctx arg
+      expectTy argTy predTy
   | Formula.and p q => do
       checkFormula? env ctx p
       checkFormula? env ctx q
@@ -50,6 +57,9 @@ def checkFormula? (env : Env) (ctx : Ctx) : Formula -> Option Unit
       checkFormula? env ctx p
       checkFormula? env ctx q
   | Formula.imp p q => do
+      checkFormula? env ctx p
+      checkFormula? env ctx q
+  | Formula.iff p q => do
       checkFormula? env ctx p
       checkFormula? env ctx q
   | Formula.not p => checkFormula? env ctx p

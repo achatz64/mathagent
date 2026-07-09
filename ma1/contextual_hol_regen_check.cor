@@ -1,0 +1,28 @@
+import set
+import generated_contextual_hol_examples
+
+-- Machine-checked "diff" for the contextual-HOL translator (formalization/):
+-- each def below ascribes the HANDWRITTEN set.cor statement as its type and supplies the
+-- instantiated GENERATED axiom as its body.  It checks iff the two statements are
+-- definitionally equal — i.e. the translator reproduces the handwritten Core form exactly
+-- (set.cor's Elem/SetEq/memCongBody are transparent defs, so unfolding is definitional).
+
+-- memCong_left_all: generated_memCong_left_all instantiated at (Sets, Elem, SetEq)
+-- IS the handwritten object-∀ member-slot congruence.
+noncomputable def memCong_left_all_regen (b z : Sets) :
+    Pred.term (Forall Sets Final (memCongBody b z)) :=
+  generated_memCong_left_all Sets b z Elem SetEq
+
+-- separation: generated_separation instantiated at (Sets, Elem) IS the handwritten
+-- Separation schema, φ-slot included.
+noncomputable def separation_regen (A : Sets) (phi : Pred Sets) :
+    Pred.term (Exist Sets Final (Forall Sets (Sets × Final)
+      (Pred.iff (Sets × (Sets × Final))
+        (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (v1 Sets Sets Final))
+        (Pred.and (Sets × (Sets × Final))
+          (sub2 (Sets × (Sets × Final)) Sets Sets Elem (v0 Sets (Sets × Final)) (Cart.weakening Sets (Sets × (Sets × Final)) A))
+          (phi ∘ (v0 Sets (Sets × Final))))))) :=
+  generated_separation Sets A phi Elem
+
+#check @memCong_left_all_regen
+#check @separation_regen

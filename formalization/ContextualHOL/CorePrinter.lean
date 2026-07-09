@@ -47,15 +47,23 @@ def collectTermBases (env : Env) : Term -> List Name -> List Name
 def collectFormulaBases (env : Env) : Formula -> List Name -> List Name
   | Formula.atom _ left right, acc =>
       collectTermBases env right (collectTermBases env left acc)
+  | Formula.papp pred arg, acc =>
+      let acc :=
+        match lookupPred? env pred with
+        | none => acc
+        | some ty => collectTyBases ty acc
+      collectTermBases env arg acc
   | Formula.and p q, acc => collectFormulaBases env q (collectFormulaBases env p acc)
   | Formula.or p q, acc => collectFormulaBases env q (collectFormulaBases env p acc)
   | Formula.imp p q, acc => collectFormulaBases env q (collectFormulaBases env p acc)
+  | Formula.iff p q, acc => collectFormulaBases env q (collectFormulaBases env p acc)
   | Formula.not p, acc => collectFormulaBases env p acc
   | Formula.all _ ty body, acc => collectFormulaBases env body (collectTyBases ty acc)
   | Formula.ex _ ty body, acc => collectFormulaBases env body (collectTyBases ty acc)
 
 def collectEnvBases (env : Env) (acc : List Name) : List Name :=
   let acc := env.consts.foldl (fun acc item => collectTyBases item.snd acc) acc
+  let acc := env.preds.foldl (fun acc item => collectTyBases item.snd acc) acc
   env.rels.foldl
     (fun acc item => collectTyBases item.snd.right (collectTyBases item.snd.left acc))
     acc
@@ -76,9 +84,12 @@ def renderRelBinders (env : Env) : List String :=
   env.rels.map (fun item =>
     parens (item.fst ++ " : Pred " ++ parens (renderTy item.snd.left ++ " × " ++ renderTy item.snd.right)))
 
+def renderPredBinders (env : Env) : List String :=
+  env.preds.map (fun item => parens (item.fst ++ " : Pred " ++ renderTy item.snd))
+
 def renderBinders (env : Env) (seq : Sequent) : String :=
   joinSep " " (renderTypeBinders (collectSequentBases env seq) ++
-    renderConstBinders env ++ renderRelBinders env)
+    renderConstBinders env ++ renderPredBinders env ++ renderRelBinders env)
 
 def takeCtx : Nat -> Ty -> Except String (List Ty × Ty)
   | 0, ctx => Except.ok ([], ctx)
@@ -108,6 +119,9 @@ partial def renderPred : Core.Pred -> Except String String
       let rightCore <- renderTerm ctx rightTerm
       pure (parens ("sub2 " ++ renderTy ctx ++ " " ++ renderTy left ++ " " ++ renderTy right ++
         " " ++ rel ++ " " ++ leftCore ++ " " ++ rightCore))
+  | Core.Pred.papp ctx _ pred arg => do
+      let argCore <- renderTerm ctx arg
+      pure (parens (pred ++ " ∘ " ++ argCore))
   | Core.Pred.and ctx p q => do
       let pCore <- renderPred p
       let qCore <- renderPred q
@@ -120,6 +134,10 @@ partial def renderPred : Core.Pred -> Except String String
       let pCore <- renderPred p
       let qCore <- renderPred q
       pure (parens ("Pred.imply " ++ renderTy ctx ++ " " ++ pCore ++ " " ++ qCore))
+  | Core.Pred.iff ctx p q => do
+      let pCore <- renderPred p
+      let qCore <- renderPred q
+      pure (parens ("Pred.iff " ++ renderTy ctx ++ " " ++ pCore ++ " " ++ qCore))
   | Core.Pred.not ctx p => do
       let pCore <- renderPred p
       pure (parens ("Pred.not " ++ renderTy ctx ++ " " ++ pCore))

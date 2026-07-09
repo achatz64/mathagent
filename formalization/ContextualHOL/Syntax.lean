@@ -37,9 +37,11 @@ inductive Term where
 
 inductive Formula where
   | atom : Name -> Term -> Term -> Formula
+  | papp : Name -> Term -> Formula
   | and : Formula -> Formula -> Formula
   | or : Formula -> Formula -> Formula
   | imp : Formula -> Formula -> Formula
+  | iff : Formula -> Formula -> Formula
   | not : Formula -> Formula
   | all : Name -> Ty -> Formula -> Formula
   | ex : Name -> Ty -> Formula -> Formula
@@ -53,6 +55,7 @@ structure RelSig where
 structure Env where
   consts : List (Name × Ty) := []
   rels : List (Name × RelSig) := []
+  preds : List (Name × Ty) := []
   deriving Repr, BEq, DecidableEq
 
 structure Sequent where

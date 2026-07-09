@@ -12,9 +12,11 @@ inductive Term where
 
 inductive Pred where
   | atom : Ty -> Ty -> Ty -> Name -> Term -> Term -> Pred
+  | papp : Ty -> Ty -> Name -> Term -> Pred
   | and : Ty -> Pred -> Pred -> Pred
   | or : Ty -> Pred -> Pred -> Pred
   | imp : Ty -> Pred -> Pred -> Pred
+  | iff : Ty -> Pred -> Pred -> Pred
   | not : Ty -> Pred -> Pred
   | all : Ty -> Ty -> Pred -> Pred
   | ex : Ty -> Ty -> Pred -> Pred
@@ -46,6 +48,12 @@ def translateFormula? (env : Env) (ctx : Ctx) : Formula -> Option Core.Pred
       let leftCore <- translateTerm? env ctx left
       let rightCore <- translateTerm? env ctx right
       pure (Core.Pred.atom (Ctx.obj ctx) sig.left sig.right rel leftCore rightCore)
+  | Formula.papp pred arg => do
+      let predTy <- lookupPred? env pred
+      let argTy <- inferTerm? env ctx arg
+      expectTy argTy predTy
+      let argCore <- translateTerm? env ctx arg
+      pure (Core.Pred.papp (Ctx.obj ctx) predTy pred argCore)
   | Formula.and p q => do
       pure (Core.Pred.and (Ctx.obj ctx)
         (<- translateFormula? env ctx p)
@@ -56,6 +64,10 @@ def translateFormula? (env : Env) (ctx : Ctx) : Formula -> Option Core.Pred
         (<- translateFormula? env ctx q))
   | Formula.imp p q => do
       pure (Core.Pred.imp (Ctx.obj ctx)
+        (<- translateFormula? env ctx p)
+        (<- translateFormula? env ctx q))
+  | Formula.iff p q => do
+      pure (Core.Pred.iff (Ctx.obj ctx)
         (<- translateFormula? env ctx p)
         (<- translateFormula? env ctx q))
   | Formula.not p => do
@@ -141,6 +153,19 @@ theorem checkFormula_isSome_translateFormula_isSome (env : Env) :
               simp [hLeftTranslated] at hLeftCore ⊢
             cases hRightTranslated : translateTerm? env ctx right <;>
               simp [hRightTranslated] at hRightCore ⊢
+  | papp pred arg =>
+      intro h
+      simp [checkFormula?, translateFormula?] at h ⊢
+      cases hPred : lookupPred? env pred <;> simp [hPred] at h ⊢
+      case some predTy =>
+        cases hArg : inferTerm? env ctx arg <;> simp [hArg] at h ⊢
+        case some argTy =>
+          cases hExpect : expectTy argTy predTy <;> simp [hExpect] at h ⊢
+          have hArgCore :
+              (translateTerm? env ctx arg).isSome = true :=
+            inferTerm_translateTerm_isSome env ctx arg (by simp [hArg])
+          cases hArgTranslated : translateTerm? env ctx arg <;>
+            simp [hArgTranslated] at hArgCore ⊢
   | and p q ihP ihQ =>
       intro h
       simp [checkFormula?, translateFormula?] at h ⊢
@@ -164,6 +189,17 @@ theorem checkFormula_isSome_translateFormula_isSome (env : Env) :
       cases hQTranslated : translateFormula? env ctx q <;>
         simp [hQTranslated] at hTQ ⊢
   | imp p q ihP ihQ =>
+      intro h
+      simp [checkFormula?, translateFormula?] at h ⊢
+      cases hP : checkFormula? env ctx p <;> simp [hP] at h
+      have hTP := ihP ctx (by simp [hP])
+      cases hPTranslated : translateFormula? env ctx p <;>
+        simp [hPTranslated] at hTP ⊢
+      cases hQ : checkFormula? env ctx q <;> simp [hQ] at h
+      have hTQ := ihQ ctx (by simp [hQ])
+      cases hQTranslated : translateFormula? env ctx q <;>
+        simp [hQTranslated] at hTQ ⊢
+  | iff p q ihP ihQ =>
       intro h
       simp [checkFormula?, translateFormula?] at h ⊢
       cases hP : checkFormula? env ctx p <;> simp [hP] at h
