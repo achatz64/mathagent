@@ -364,6 +364,484 @@ def forallIffAtomsCleanProof : Proof :=
     Evidence.Arg.pred iffAtomsClean
   ] [forallIffAtomsReindex, forallIffAtomsCong]
 
+def exMemPhiMap : String :=
+  "(pair (X × Final) X (X × Final) (fst X Final) ((pointAt X c) ∘ snd X Final))"
+
+def exMemPhiRawAtom : String :=
+  "(sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))"
+
+def exMemPhiAtomOriginal : String :=
+  "(" ++ exMemPhiRawAtom ++ " ∘ " ++ exMemPhiMap ++ ")"
+
+def exMemPhiAtomReindexed : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((v0 X (X × Final)) ∘ " ++ exMemPhiMap ++ ") " ++
+  "((v1 X X Final) ∘ " ++ exMemPhiMap ++ "))"
+
+def exMemPhiAtomFstClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "(v0 X Final) " ++
+  "((v1 X X Final) ∘ " ++ exMemPhiMap ++ "))"
+
+def exMemPhiAtomSndClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "(v0 X Final) " ++
+  "((fst X Final) ∘ ((pointAt X c) ∘ snd X Final)))"
+
+def exMemPhiAtomPointClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "(v0 X Final) " ++
+  "((Cart.weakening X Final c) ∘ snd X Final))"
+
+def exMemPhiAtomClean : String :=
+  "(memAt X R c)"
+
+def exMemPhiAtomSub2Reindex : Proof :=
+  Evidence.Proof.basis BasisName.forallSub2ReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X (X × Final))",
+    Evidence.Arg.term "(v1 X X Final)",
+    Evidence.Arg.term exMemPhiMap
+  ]
+
+def exMemPhiAtomFstBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallFstPairBetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × Final)",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((pointAt X c) ∘ snd X Final)",
+    Evidence.Arg.term ("((v1 X X Final) ∘ " ++ exMemPhiMap ++ ")")
+  ]
+
+def exMemPhiAtomSndBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallSndPairThenBetaRight [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × Final)",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((pointAt X c) ∘ snd X Final)"
+  ]
+
+def exMemPhiAtomPointAtBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallPointAtFstBetaRight [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "c",
+    Evidence.Arg.term "(snd X Final)"
+  ]
+
+def exMemPhiAtomConstBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallConstCompBetaRight [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "Final",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "c",
+    Evidence.Arg.term "(snd X Final)"
+  ]
+
+def exMemPhiAtomPointTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiAtomSndClean,
+    Evidence.Arg.pred exMemPhiAtomPointClean,
+    Evidence.Arg.pred exMemPhiAtomClean
+  ] [exMemPhiAtomPointAtBeta, exMemPhiAtomConstBeta]
+
+def exMemPhiAtomSndTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiAtomFstClean,
+    Evidence.Arg.pred exMemPhiAtomSndClean,
+    Evidence.Arg.pred exMemPhiAtomClean
+  ] [exMemPhiAtomSndBeta, exMemPhiAtomPointTail]
+
+def exMemPhiAtomFstTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiAtomReindexed,
+    Evidence.Arg.pred exMemPhiAtomFstClean,
+    Evidence.Arg.pred exMemPhiAtomClean
+  ] [exMemPhiAtomFstBeta, exMemPhiAtomSndTail]
+
+def exMemPhiAtomCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiAtomOriginal,
+    Evidence.Arg.pred exMemPhiAtomReindexed,
+    Evidence.Arg.pred exMemPhiAtomClean
+  ] [exMemPhiAtomSub2Reindex, exMemPhiAtomFstTail]
+
+def exMemPhiRawPhi : String :=
+  "(phi ∘ (v0 X (X × Final)))"
+
+def exMemPhiPhiOriginal : String :=
+  "(" ++ exMemPhiRawPhi ++ " ∘ " ++ exMemPhiMap ++ ")"
+
+def exMemPhiPhiReindexed : String :=
+  "(phi ∘ ((v0 X (X × Final)) ∘ " ++ exMemPhiMap ++ "))"
+
+def exMemPhiPhiClean : String :=
+  "(phi ∘ (v0 X Final))"
+
+def exMemPhiPhiReindex : Proof :=
+  Evidence.Proof.basis BasisName.forallUnaryReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "phi",
+    Evidence.Arg.term "(v0 X (X × Final))",
+    Evidence.Arg.term exMemPhiMap
+  ]
+
+def exMemPhiPhiFstBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallFstPairUnaryBetaGrouped [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × Final)",
+    Evidence.Arg.pred "phi",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((pointAt X c) ∘ snd X Final)"
+  ]
+
+def exMemPhiPhiCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiPhiOriginal,
+    Evidence.Arg.pred exMemPhiPhiReindexed,
+    Evidence.Arg.pred exMemPhiPhiClean
+  ] [exMemPhiPhiReindex, exMemPhiPhiFstBeta]
+
+def exMemPhiAndOriginal : String :=
+  "((Pred.and (X × (X × Final)) " ++ exMemPhiRawAtom ++ " " ++
+  exMemPhiRawPhi ++ ") ∘ " ++ exMemPhiMap ++ ")"
+
+def exMemPhiAndReindexed : String :=
+  "(Pred.and (X × Final) " ++ exMemPhiAtomOriginal ++ " " ++
+  exMemPhiPhiOriginal ++ ")"
+
+def exMemPhiAndClean : String :=
+  "(Pred.and (X × Final) " ++ exMemPhiAtomClean ++ " " ++
+  exMemPhiPhiClean ++ ")"
+
+def exMemPhiAndReindex : Proof :=
+  Evidence.Proof.basis BasisName.forallAndReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.term exMemPhiMap,
+    Evidence.Arg.pred exMemPhiRawAtom,
+    Evidence.Arg.pred exMemPhiRawPhi
+  ]
+
+def exMemPhiAndCong : Proof :=
+  Evidence.Proof.implyElim "_" "_"
+    (Evidence.Proof.implyElim "_" "_"
+      (Evidence.Proof.basis BasisName.forallAndCong [
+        Evidence.Arg.ty "X",
+        Evidence.Arg.pred exMemPhiAtomOriginal,
+        Evidence.Arg.pred exMemPhiAtomClean,
+        Evidence.Arg.pred exMemPhiPhiOriginal,
+        Evidence.Arg.pred exMemPhiPhiClean
+      ])
+      exMemPhiAtomCleanProof)
+    exMemPhiPhiCleanProof
+
+def exMemPhiCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exMemPhiAndOriginal,
+    Evidence.Arg.pred exMemPhiAndReindexed,
+    Evidence.Arg.pred exMemPhiAndClean
+  ] [exMemPhiAndReindex, exMemPhiAndCong]
+
+def exUnionMap : String :=
+  "(pair (X × Final) X (X × (X × Final)) (fst X Final) ((smap X U ∘ pointAt X z) ∘ snd X Final))"
+
+def exUnionRawLeft : String :=
+  "(sub2 (X × (X × (X × Final))) X X R " ++
+  "(v0 X (X × (X × Final))) " ++
+  "(Cart.weakening X (X × (X × (X × Final))) A))"
+
+def exUnionLeftOriginal : String :=
+  "(" ++ exUnionRawLeft ++ " ∘ " ++ exUnionMap ++ ")"
+
+def exUnionLeftReindexed : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((v0 X (X × (X × Final))) ∘ " ++ exUnionMap ++ ") " ++
+  "((Cart.weakening X (X × (X × (X × Final))) A) ∘ " ++ exUnionMap ++ "))"
+
+def exUnionLeftFstClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "(v0 X Final) " ++
+  "((Cart.weakening X (X × (X × (X × Final))) A) ∘ " ++ exUnionMap ++ "))"
+
+def exUnionLeftClean : String :=
+  "(memAt X R A)"
+
+def exUnionLeftSub2Reindex : Proof :=
+  Evidence.Proof.basis BasisName.forallSub2ReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × (X × Final)))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X (X × (X × Final)))",
+    Evidence.Arg.term "(Cart.weakening X (X × (X × (X × Final))) A)",
+    Evidence.Arg.term exUnionMap
+  ]
+
+def exUnionLeftFstBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallFstPairBetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((smap X U ∘ pointAt X z) ∘ snd X Final)",
+    Evidence.Arg.term ("((Cart.weakening X (X × (X × (X × Final))) A) ∘ " ++ exUnionMap ++ ")")
+  ]
+
+def exUnionLeftConstBeta : Proof :=
+  Evidence.Proof.basis BasisName.forallConstCompBetaRight [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × (X × Final)))",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "A",
+    Evidence.Arg.term exUnionMap
+  ]
+
+def exUnionLeftTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionLeftReindexed,
+    Evidence.Arg.pred exUnionLeftFstClean,
+    Evidence.Arg.pred exUnionLeftClean
+  ] [exUnionLeftFstBeta, exUnionLeftConstBeta]
+
+def exUnionLeftCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionLeftOriginal,
+    Evidence.Arg.pred exUnionLeftReindexed,
+    Evidence.Arg.pred exUnionLeftClean
+  ] [exUnionLeftSub2Reindex, exUnionLeftTail]
+
+def exUnionRawRight : String :=
+  "(sub2 (X × (X × (X × Final))) X X R " ++
+  "(v1 X X (X × Final)) " ++
+  "(v0 X (X × (X × Final))))"
+
+def exUnionRightOriginal : String :=
+  "(" ++ exUnionRawRight ++ " ∘ " ++ exUnionMap ++ ")"
+
+def exUnionRightReindexed : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((v1 X X (X × Final)) ∘ " ++ exUnionMap ++ ") " ++
+  "((v0 X (X × (X × Final))) ∘ " ++ exUnionMap ++ "))"
+
+def exUnionRightSlotClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((v1 X X (X × Final)) ∘ " ++ exUnionMap ++ ") " ++
+  "(v0 X Final))"
+
+def exUnionRightSndClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((fst X (X × Final)) ∘ ((smap X U ∘ pointAt X z) ∘ snd X Final)) " ++
+  "(v0 X Final))"
+
+def exUnionRightSmapClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((v0 X Final) ∘ ((pointAt X z) ∘ snd X Final)) " ++
+  "(v0 X Final))"
+
+def exUnionRightPointClean : String :=
+  "(sub2 (X × Final) X X R " ++
+  "((Cart.weakening X Final z) ∘ snd X Final) " ++
+  "(v0 X Final))"
+
+def exUnionRightClean : String :=
+  "(sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))"
+
+def exUnionRightSub2Reindex : Proof :=
+  Evidence.Proof.basis BasisName.forallSub2ReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × (X × Final)))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v1 X X (X × Final))",
+    Evidence.Arg.term "(v0 X (X × (X × Final)))",
+    Evidence.Arg.term exUnionMap
+  ]
+
+def exUnionRightFstPairRight : Proof :=
+  Evidence.Proof.basis BasisName.forallFstPairBetaRight [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term ("((v1 X X (X × Final)) ∘ " ++ exUnionMap ++ ")"),
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((smap X U ∘ pointAt X z) ∘ snd X Final)"
+  ]
+
+def exUnionRightSndPairLeft : Proof :=
+  Evidence.Proof.basis BasisName.forallSndPairThenBetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × Final))",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(fst X (X × Final))",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "(fst X Final)",
+    Evidence.Arg.term "((smap X U ∘ pointAt X z) ∘ snd X Final)"
+  ]
+
+def exUnionRightFstPairComp2 : Proof :=
+  Evidence.Proof.basis BasisName.forallFstPairComp2BetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "Final",
+    Evidence.Arg.ty "(X × Final)",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × Final)",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "(pair (X × Final) X Final (Cart.weakening X (X × Final) U) (snd X Final))",
+    Evidence.Arg.term "(pointAt X z)",
+    Evidence.Arg.term "(snd X Final)",
+    Evidence.Arg.term "(v0 X Final)"
+  ]
+
+def exUnionRightPointAtFst : Proof :=
+  Evidence.Proof.basis BasisName.forallPointAtFstBetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "z",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "(snd X Final)"
+  ]
+
+def exUnionRightConstComp : Proof :=
+  Evidence.Proof.basis BasisName.forallConstCompBetaLeft [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "Final",
+    Evidence.Arg.pred "R",
+    Evidence.Arg.term "z",
+    Evidence.Arg.term "(v0 X Final)",
+    Evidence.Arg.term "(snd X Final)"
+  ]
+
+def exUnionRightPointTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionRightSmapClean,
+    Evidence.Arg.pred exUnionRightPointClean,
+    Evidence.Arg.pred exUnionRightClean
+  ] [exUnionRightPointAtFst, exUnionRightConstComp]
+
+def exUnionRightSmapTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionRightSndClean,
+    Evidence.Arg.pred exUnionRightSmapClean,
+    Evidence.Arg.pred exUnionRightClean
+  ] [exUnionRightFstPairComp2, exUnionRightPointTail]
+
+def exUnionRightSndTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionRightSlotClean,
+    Evidence.Arg.pred exUnionRightSndClean,
+    Evidence.Arg.pred exUnionRightClean
+  ] [exUnionRightSndPairLeft, exUnionRightSmapTail]
+
+def exUnionRightFstTail : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionRightReindexed,
+    Evidence.Arg.pred exUnionRightSlotClean,
+    Evidence.Arg.pred exUnionRightClean
+  ] [exUnionRightFstPairRight, exUnionRightSndTail]
+
+def exUnionRightCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionRightOriginal,
+    Evidence.Arg.pred exUnionRightReindexed,
+    Evidence.Arg.pred exUnionRightClean
+  ] [exUnionRightSub2Reindex, exUnionRightFstTail]
+
+def exUnionAndOriginal : String :=
+  "((Pred.and (X × (X × (X × Final))) " ++ exUnionRawLeft ++ " " ++
+  exUnionRawRight ++ ") ∘ " ++ exUnionMap ++ ")"
+
+def exUnionAndReindexed : String :=
+  "(Pred.and (X × Final) " ++ exUnionLeftOriginal ++ " " ++
+  exUnionRightOriginal ++ ")"
+
+def exUnionAndClean : String :=
+  "(Pred.and (X × Final) " ++ exUnionLeftClean ++ " " ++
+  exUnionRightClean ++ ")"
+
+def exUnionAndReindex : Proof :=
+  Evidence.Proof.basis BasisName.forallAndReindexBeta [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.ty "(X × (X × (X × Final)))",
+    Evidence.Arg.term exUnionMap,
+    Evidence.Arg.pred exUnionRawLeft,
+    Evidence.Arg.pred exUnionRawRight
+  ]
+
+def exUnionAndCong : Proof :=
+  Evidence.Proof.implyElim "_" "_"
+    (Evidence.Proof.implyElim "_" "_"
+      (Evidence.Proof.basis BasisName.forallAndCong [
+        Evidence.Arg.ty "X",
+        Evidence.Arg.pred exUnionLeftOriginal,
+        Evidence.Arg.pred exUnionLeftClean,
+        Evidence.Arg.pred exUnionRightOriginal,
+        Evidence.Arg.pred exUnionRightClean
+      ])
+      exUnionLeftCleanProof)
+    exUnionRightCleanProof
+
+def exUnionCleanProof : Proof :=
+  Evidence.Proof.call BasisName.forallIffTransApply [
+    Evidence.Arg.ty "X",
+    Evidence.Arg.pred exUnionAndOriginal,
+    Evidence.Arg.pred exUnionAndReindexed,
+    Evidence.Arg.pred exUnionAndClean
+  ] [exUnionAndReindex, exUnionAndCong]
+
 def renderGeneratedMemBeta : String :=
   "noncomputable def generated_memBeta (X : Type) (elt : Pred (X × X)) (t s : X) :\n" ++
   "  iff (Pred.term ((memAt X elt s) ∘ pointAt X t)) (curry X X PC elt t s) :=\n" ++
@@ -433,6 +911,73 @@ def renderGeneratedForallIffAtomsClean : String :=
   "      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b))))) :=\n" ++
   "  " ++ forallIffAtomsCleanProof.render ++ "\n"
 
+def renderGeneratedForallExMemPhiAtomClean : String :=
+  "noncomputable def generated_Forall_exMemPhi_atomClean (X : Type) (R : Pred (X × X)) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))\n" ++
+  "      ∘ (pair (X × Final) X (X × Final)\n" ++
+  "          (fst X Final)\n" ++
+  "          ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (memAt X R c))) :=\n" ++
+  "  " ++ exMemPhiAtomCleanProof.render ++ "\n"
+
+def renderGeneratedForallExMemPhiPhiClean : String :=
+  "noncomputable def generated_Forall_exMemPhi_phiClean (X : Type) (phi : Pred X) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((phi ∘ (v0 X (X × Final)))\n" ++
+  "      ∘ (pair (X × Final) X (X × Final)\n" ++
+  "          (fst X Final)\n" ++
+  "          ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (phi ∘ (v0 X Final)))) :=\n" ++
+  "  " ++ exMemPhiPhiCleanProof.render ++ "\n"
+
+def renderGeneratedForallExMemPhiClean : String :=
+  "noncomputable def generated_Forall_exMemPhiClean (X : Type) (R : Pred (X × X)) (phi : Pred X) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((Pred.and (X × (X × Final))\n" ++
+  "       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))\n" ++
+  "       (phi ∘ (v0 X (X × Final))))\n" ++
+  "     ∘ (pair (X × Final) X (X × Final) (fst X Final) ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (Pred.and (X × Final)\n" ++
+  "      (memAt X R c)\n" ++
+  "      (phi ∘ (v0 X Final))))) :=\n" ++
+  "  " ++ exMemPhiCleanProof.render ++ "\n"
+
+def renderGeneratedForallExUnionLeftClean : String :=
+  "noncomputable def generated_Forall_exUnion_leftClean (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × (X × Final))) X X R\n" ++
+  "       (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (memAt X R A))) :=\n" ++
+  "  " ++ exUnionLeftCleanProof.render ++ "\n"
+
+def renderGeneratedForallExUnionRightClean : String :=
+  "noncomputable def generated_Forall_exUnion_rightClean (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × (X × Final))) X X R\n" ++
+  "       (v1 X X (X × Final)) (v0 X (X × (X × Final))))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))) :=\n" ++
+  "  " ++ exUnionRightCleanProof.render ++ "\n"
+
+def renderGeneratedForallExUnionClean : String :=
+  "noncomputable def generated_Forall_exUnionClean (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((Pred.and (X × (X × (X × Final)))\n" ++
+  "       (sub2 (X × (X × (X × Final))) X X R\n" ++
+  "         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))\n" ++
+  "       (sub2 (X × (X × (X × Final))) X X R\n" ++
+  "         (v1 X X (X × Final)) (v0 X (X × (X × Final)))))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (Pred.and (X × Final)\n" ++
+  "      (memAt X R A)\n" ++
+  "      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))))) :=\n" ++
+  "  " ++ exUnionCleanProof.render ++ "\n"
+
 def generatedDerivationsFile : String :=
   "-- Generated by formalization/GenerateBasisDerivations.lean.\n" ++
   "-- This file is an M2 certificate target: proofs are rendered from Evidence.Proof.\n" ++
@@ -444,7 +989,13 @@ def generatedDerivationsFile : String :=
   renderGeneratedAtomBeta ++ "\n" ++
   renderGeneratedForallAtomSmapClean ++ "\n" ++
   renderGeneratedForallOrAtomsClean ++ "\n" ++
-  renderGeneratedForallIffAtomsClean
+  renderGeneratedForallIffAtomsClean ++ "\n" ++
+  renderGeneratedForallExMemPhiAtomClean ++ "\n" ++
+  renderGeneratedForallExMemPhiPhiClean ++ "\n" ++
+  renderGeneratedForallExMemPhiClean ++ "\n" ++
+  renderGeneratedForallExUnionLeftClean ++ "\n" ++
+  renderGeneratedForallExUnionRightClean ++ "\n" ++
+  renderGeneratedForallExUnionClean
 
 def regenCheckFile : String :=
   "-- Generated by formalization/GenerateBasisDerivations.lean.\n" ++
@@ -504,6 +1055,61 @@ def regenCheckFile : String :=
   "      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) a))\n" ++
   "      (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b))))) :=\n" ++
   "  generated_Forall_iffAtomsClean X R a b s\n\n" ++
+  "noncomputable def Forall_exMemPhi_atomClean_generated_check (X : Type) (R : Pred (X × X)) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))\n" ++
+  "      ∘ (pair (X × Final) X (X × Final)\n" ++
+  "          (fst X Final)\n" ++
+  "          ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (memAt X R c))) :=\n" ++
+  "  generated_Forall_exMemPhi_atomClean X R c\n\n" ++
+  "noncomputable def Forall_exMemPhi_phiClean_generated_check (X : Type) (phi : Pred X) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((phi ∘ (v0 X (X × Final)))\n" ++
+  "      ∘ (pair (X × Final) X (X × Final)\n" ++
+  "          (fst X Final)\n" ++
+  "          ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (phi ∘ (v0 X Final)))) :=\n" ++
+  "  generated_Forall_exMemPhi_phiClean X phi c\n\n" ++
+  "noncomputable def Forall_exMemPhiClean_generated_check (X : Type) (R : Pred (X × X)) (phi : Pred X) (c : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((Pred.and (X × (X × Final))\n" ++
+  "       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))\n" ++
+  "       (phi ∘ (v0 X (X × Final))))\n" ++
+  "     ∘ (pair (X × Final) X (X × Final) (fst X Final) ((pointAt X c) ∘ snd X Final)))\n" ++
+  "    (Pred.and (X × Final)\n" ++
+  "      (memAt X R c)\n" ++
+  "      (phi ∘ (v0 X Final))))) :=\n" ++
+  "  generated_Forall_exMemPhiClean X R phi c\n\n" ++
+  "noncomputable def Forall_exUnion_leftClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × (X × Final))) X X R\n" ++
+  "       (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (memAt X R A))) :=\n" ++
+  "  generated_Forall_exUnion_leftClean X R A z U\n\n" ++
+  "noncomputable def Forall_exUnion_rightClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((sub2 (X × (X × (X × Final))) X X R\n" ++
+  "       (v1 X X (X × Final)) (v0 X (X × (X × Final))))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))) :=\n" ++
+  "  generated_Forall_exUnion_rightClean X R A z U\n\n" ++
+  "noncomputable def Forall_exUnionClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :\n" ++
+  "  Pred.term (Forall X Final (Pred.iff (X × Final)\n" ++
+  "    ((Pred.and (X × (X × (X × Final)))\n" ++
+  "       (sub2 (X × (X × (X × Final))) X X R\n" ++
+  "         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))\n" ++
+  "       (sub2 (X × (X × (X × Final))) X X R\n" ++
+  "         (v1 X X (X × Final)) (v0 X (X × (X × Final)))))\n" ++
+  "     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)\n" ++
+  "          ((smap X U ∘ pointAt X z) ∘ snd X Final)))\n" ++
+  "    (Pred.and (X × Final)\n" ++
+  "      (memAt X R A)\n" ++
+  "      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))))) :=\n" ++
+  "  generated_Forall_exUnionClean X R A z U\n\n" ++
   "#check @memBeta_generated_check\n" ++
   "#check @memBetaRev_generated_check\n" ++
   "#check @constAtomBeta_generated_check\n" ++
@@ -511,7 +1117,13 @@ def regenCheckFile : String :=
   "#check @atomBeta_generated_check\n" ++
   "#check @Forall_atomSmapClean_generated_check\n" ++
   "#check @Forall_orAtomsClean_generated_check\n" ++
-  "#check @Forall_iffAtomsClean_generated_check\n"
+  "#check @Forall_iffAtomsClean_generated_check\n" ++
+  "#check @Forall_exMemPhi_atomClean_generated_check\n" ++
+  "#check @Forall_exMemPhi_phiClean_generated_check\n" ++
+  "#check @Forall_exMemPhiClean_generated_check\n" ++
+  "#check @Forall_exUnion_leftClean_generated_check\n" ++
+  "#check @Forall_exUnion_rightClean_generated_check\n" ++
+  "#check @Forall_exUnionClean_generated_check\n"
 
 def ensureAllowed (proof : Proof) : IO Unit := do
   if proof.usesOnlyAllowed then
@@ -528,6 +1140,12 @@ def main (_args : List String) : IO Unit := do
   ensureAllowed forallAtomSmapCleanProof
   ensureAllowed forallOrAtomsCleanProof
   ensureAllowed forallIffAtomsCleanProof
+  ensureAllowed exMemPhiAtomCleanProof
+  ensureAllowed exMemPhiPhiCleanProof
+  ensureAllowed exMemPhiCleanProof
+  ensureAllowed exUnionLeftCleanProof
+  ensureAllowed exUnionRightCleanProof
+  ensureAllowed exUnionCleanProof
   IO.FS.writeFile "/home/andre/mathagent/ma1/generated_basis_derivations.cor"
     generatedDerivationsFile
   IO.FS.writeFile "/home/andre/mathagent/ma1/contextual_hol_basis_derivation_check.cor"

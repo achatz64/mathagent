@@ -64,6 +64,67 @@ noncomputable def Forall_iffAtomsClean_generated_check (X : Type) (R : Pred (X �
       (sub2 (X × Final) X X R (v0 X Final) (Cart.weakening X (X × Final) b))))) :=
   generated_Forall_iffAtomsClean X R a b s
 
+noncomputable def Forall_exMemPhi_atomClean_generated_check (X : Type) (R : Pred (X × X)) (c : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))
+      ∘ (pair (X × Final) X (X × Final)
+          (fst X Final)
+          ((pointAt X c) ∘ snd X Final)))
+    (memAt X R c))) :=
+  generated_Forall_exMemPhi_atomClean X R c
+
+noncomputable def Forall_exMemPhi_phiClean_generated_check (X : Type) (phi : Pred X) (c : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((phi ∘ (v0 X (X × Final)))
+      ∘ (pair (X × Final) X (X × Final)
+          (fst X Final)
+          ((pointAt X c) ∘ snd X Final)))
+    (phi ∘ (v0 X Final)))) :=
+  generated_Forall_exMemPhi_phiClean X phi c
+
+noncomputable def Forall_exMemPhiClean_generated_check (X : Type) (R : Pred (X × X)) (phi : Pred X) (c : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.and (X × (X × Final))
+       (sub2 (X × (X × Final)) X X R (v0 X (X × Final)) (v1 X X Final))
+       (phi ∘ (v0 X (X × Final))))
+     ∘ (pair (X × Final) X (X × Final) (fst X Final) ((pointAt X c) ∘ snd X Final)))
+    (Pred.and (X × Final)
+      (memAt X R c)
+      (phi ∘ (v0 X Final))))) :=
+  generated_Forall_exMemPhiClean X R phi c
+
+noncomputable def Forall_exUnion_leftClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (memAt X R A))) :=
+  generated_Forall_exUnion_leftClean X R A z U
+
+noncomputable def Forall_exUnion_rightClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((sub2 (X × (X × (X × Final))) X X R
+       (v1 X X (X × Final)) (v0 X (X × (X × Final))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final)))) :=
+  generated_Forall_exUnion_rightClean X R A z U
+
+noncomputable def Forall_exUnionClean_generated_check (X : Type) (R : Pred (X × X)) (A z U : X) :
+  Pred.term (Forall X Final (Pred.iff (X × Final)
+    ((Pred.and (X × (X × (X × Final)))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v0 X (X × (X × Final))) (Cart.weakening X (X × (X × (X × Final))) A))
+       (sub2 (X × (X × (X × Final))) X X R
+         (v1 X X (X × Final)) (v0 X (X × (X × Final)))))
+     ∘ (pair (X × Final) X (X × (X × Final)) (fst X Final)
+          ((smap X U ∘ pointAt X z) ∘ snd X Final)))
+    (Pred.and (X × Final)
+      (memAt X R A)
+      (sub2 (X × Final) X X R (Cart.weakening X (X × Final) z) (v0 X Final))))) :=
+  generated_Forall_exUnionClean X R A z U
+
 #check @memBeta_generated_check
 #check @memBetaRev_generated_check
 #check @constAtomBeta_generated_check
@@ -72,3 +133,9 @@ noncomputable def Forall_iffAtomsClean_generated_check (X : Type) (R : Pred (X �
 #check @Forall_atomSmapClean_generated_check
 #check @Forall_orAtomsClean_generated_check
 #check @Forall_iffAtomsClean_generated_check
+#check @Forall_exMemPhi_atomClean_generated_check
+#check @Forall_exMemPhi_phiClean_generated_check
+#check @Forall_exMemPhiClean_generated_check
+#check @Forall_exUnion_leftClean_generated_check
+#check @Forall_exUnion_rightClean_generated_check
+#check @Forall_exUnionClean_generated_check
