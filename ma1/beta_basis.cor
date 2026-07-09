@@ -119,6 +119,16 @@ axiom Forall_not_reindex_beta (I Y : Type) (s : I × Final → Y) (P : Pred Y) :
     ((Pred.not Y P) ∘ s)
     (Pred.not (I × Final) (P ∘ s))))
 
+-- unary predicate-slot reindexing: substituting into `P ∘ u` composes the map into
+-- the argument slot.  This is the general φ-slot counterpart of sub2 reindexing.
+-- MODEL: at (i,★), ((P ∘ u) ∘ s)(i,★) = P(u(s(i,★))) = (P ∘ (u∘s))(i,★).
+-- NON-DERIVABLE: composition associativity lives at arbitrary Type; observed under ∀.
+axiom Forall_unary_reindex_beta (I Z A : Type) (P : Pred A)
+    (u : Z → A) (s : I × Final → Z) :
+  Pred.term (Forall I Final (Pred.iff (I × Final)
+    ((P ∘ u) ∘ s)
+    (P ∘ (u ∘ s))))
+
 -- ===== binder-level basis: ∀-lifted connective congruences (family (C)) =====
 
 -- ∨ respects ↔ under the binder: from ∀(A↔A') and ∀(B↔B') conclude ∀(A∨B ↔ A'∨B').
@@ -268,6 +278,17 @@ axiom Forall_const_comp_beta_left (I A B Z : Type) (Q : Pred (A × B))
     (sub2 (I × Final) A B Q (Cart.weakening A (I × Final) a) h)))
 
 -- ===== derived glue: chain two Forall-closed iffs (uses only Forall_mono / Forall_iffTrans) =====
+noncomputable def Forall_iffSym_apply (X : Type) (A B : Pred (X × Final))
+    (h : Pred.term (Forall X Final (Pred.iff (X × Final) A B))) :
+    Pred.term (Forall X Final (Pred.iff (X × Final) B A)) :=
+  imply_elim _ _
+    (imply_elim _ _
+      (Forall_mono X
+        (Pred.iff (X × Final) A B)
+        (Pred.iff (X × Final) B A))
+      (Forall_iffSym X A B))
+    h
+
 noncomputable def Forall_iffTrans_apply (X : Type) (A B C : Pred (X × Final))
     (h1 : Pred.term (Forall X Final (Pred.iff (X × Final) A B)))
     (h2 : Pred.term (Forall X Final (Pred.iff (X × Final) B C))) :
@@ -288,6 +309,28 @@ noncomputable def Forall_iffTrans_apply (X : Type) (A B C : Pred (X × Final))
         h1))
     h2
 
+-- Derived grouped unary fst∘pair cleaner.  The primitive unary observation uses
+-- `((P∘fst)∘pair)`; the general unary reindex axiom bridges that to
+-- `P∘(fst∘pair)`, which is the shape emitted by the papp substitution case.
+noncomputable def Forall_fst_pair_unary_beta_grouped (I A B : Type) (P : Pred A)
+    (f : I × Final → A) (g : I × Final → B) :
+    Pred.term (Forall I Final (Pred.iff (I × Final)
+      (P ∘ ((fst A B) ∘ (pair (I × Final) A B f g)))
+      (P ∘ f))) :=
+  Forall_iffTrans_apply I
+    (P ∘ ((fst A B) ∘ (pair (I × Final) A B f g)))
+    ((P ∘ (fst A B)) ∘ (pair (I × Final) A B f g))
+    (P ∘ f)
+    (Forall_iffSym_apply I
+      ((P ∘ (fst A B)) ∘ (pair (I × Final) A B f g))
+      (P ∘ ((fst A B) ∘ (pair (I × Final) A B f g)))
+      (Forall_unary_reindex_beta I (A × B) A P
+        (fst A B)
+        (pair (I × Final) A B f g)))
+    (Forall_fst_pair_unary_beta I A B P f g)
+
 #check @beta_sub2_point
 #check @Forall_sub2_reindex_beta
+#check @Forall_unary_reindex_beta
 #check @Forall_iffTrans_apply
+#check @Forall_fst_pair_unary_beta_grouped

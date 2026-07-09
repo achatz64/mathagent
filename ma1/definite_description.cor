@@ -751,9 +751,24 @@ noncomputable def Forall_exMemPhi_phiClean (X : Type) (phi : Pred X) (c : X) :
           (fst X Final)
           ((pointAt X c) ∘ snd X Final)))
     (phi ∘ (v0 X Final)))) :=
-  Forall_fst_pair_unary_beta X X (X × Final) phi
-    (fst X Final)
-    ((pointAt X c) ∘ snd X Final)
+  Forall_iffTrans_apply X
+    ((phi ∘ (v0 X (X × Final)))
+      ∘ (pair (X × Final) X (X × Final)
+          (fst X Final)
+          ((pointAt X c) ∘ snd X Final)))
+    (phi ∘ ((v0 X (X × Final)) ∘
+      (pair (X × Final) X (X × Final)
+        (fst X Final)
+        ((pointAt X c) ∘ snd X Final))))
+    (phi ∘ (v0 X Final))
+    (Forall_unary_reindex_beta X (X × (X × Final)) X phi
+      (v0 X (X × Final))
+      (pair (X × Final) X (X × Final)
+        (fst X Final)
+        ((pointAt X c) ∘ snd X Final)))
+    (Forall_fst_pair_unary_beta_grouped X X (X × Final) phi
+      (fst X Final)
+      ((pointAt X c) ∘ snd X Final))
 
 noncomputable def Forall_exMemPhiClean (X : Type) (R : Pred (X × X)) (phi : Pred X) (c : X) :
   Pred.term (Forall X Final (Pred.iff (X × Final)
