@@ -228,12 +228,38 @@ def N2Edge.notReindex (i y : Ty) (s : CMap (Ty.prod i Ty.final) y)
   rule := .notReindex
   certificate := CoreThm.forallNotReindexBeta i y s p
 
+/- The executable root matcher recognizes the six initial N2 left-hand sides.
+   It returns only their forward orientation. Quantifier heads are excluded:
+   moving reindexing through a binder is the later Beck-Chevalley problem. -/
+def n2RootStep? {i : Ty} : CPred (Ty.prod i Ty.final) -> Option (N2Edge i)
+  | .comp (.comp p u) s => some (N2Edge.unaryReindex i _ _ p u s)
+  | .comp (.and p q) s => some (N2Edge.andReindex i _ s p q)
+  | .comp (.or p q) s => some (N2Edge.orReindex i _ s p q)
+  | .comp (.imp p q) s => some (N2Edge.impReindex i _ s p q)
+  | .comp (.iff p q) s => some (N2Edge.iffReindex i _ s p q)
+  | .comp (.not p) s => some (N2Edge.notReindex i _ s p)
+  | _ => none
+
+theorem n2RootStep?_replay {i : Ty} {p : CPred (Ty.prod i Ty.final)}
+    {edge : N2Edge i} (_ : n2RootStep? p = some edge) :
+    CoreThm (Vy i (CPred.iff edge.lhs edge.rhs)) := edge.certificate
+
 inductive N2Path (i : Ty) :
     CPred (Ty.prod i Ty.final) -> CPred (Ty.prod i Ty.final) -> Prop where
   | refl (p : CPred (Ty.prod i Ty.final)) : N2Path i p p
   | edge (edge : N2Edge i) : N2Path i edge.lhs edge.rhs
   | trans {p q r : CPred (Ty.prod i Ty.final)} :
       N2Path i p q -> N2Path i q r -> N2Path i p r
+  | andCong {p0 p1 q0 q1 : CPred (Ty.prod i Ty.final)} :
+      N2Path i p0 p1 -> N2Path i q0 q1 -> N2Path i (CPred.and p0 q0) (CPred.and p1 q1)
+  | orCong {p0 p1 q0 q1 : CPred (Ty.prod i Ty.final)} :
+      N2Path i p0 p1 -> N2Path i q0 q1 -> N2Path i (CPred.or p0 q0) (CPred.or p1 q1)
+  | impCong {p0 p1 q0 q1 : CPred (Ty.prod i Ty.final)} :
+      N2Path i p0 p1 -> N2Path i q0 q1 -> N2Path i (CPred.imp p0 q0) (CPred.imp p1 q1)
+  | iffCong {p0 p1 q0 q1 : CPred (Ty.prod i Ty.final)} :
+      N2Path i p0 p1 -> N2Path i q0 q1 -> N2Path i (CPred.iff p0 q0) (CPred.iff p1 q1)
+  | notCong {p0 p1 : CPred (Ty.prod i Ty.final)} :
+      N2Path i p0 p1 -> N2Path i (CPred.not p0) (CPred.not p1)
 
 theorem N2Path.replay {i : Ty} {p q : CPred (Ty.prod i Ty.final)}
     (path : N2Path i p q) : CoreThm (Vy i (CPred.iff p q)) := by
@@ -242,6 +268,96 @@ theorem N2Path.replay {i : Ty} {p q : CPred (Ty.prod i Ty.final)}
   | edge edge => exact edge.certificate
   | trans first second ihFirst ihSecond =>
       exact CoreThm.forallIffTransApply i _ _ _ ihFirst ihSecond
+  | andCong first second ihFirst ihSecond =>
+      exact CoreThm.mp (CoreThm.mp (CoreThm.forallAndCong i _ _ _ _) ihFirst) ihSecond
+  | orCong first second ihFirst ihSecond =>
+      exact CoreThm.mp (CoreThm.mp (CoreThm.forallOrCong i _ _ _ _) ihFirst) ihSecond
+  | impCong first second ihFirst ihSecond =>
+      exact CoreThm.mp (CoreThm.mp (CoreThm.forallImpCong i _ _ _ _) ihFirst) ihSecond
+  | iffCong first second ihFirst ihSecond =>
+      exact CoreThm.mp (CoreThm.mp (CoreThm.forallIffCong i _ _ _ _) ihFirst) ihSecond
+  | notCong first ihFirst =>
+      exact CoreThm.mp (CoreThm.forallNotCong i _ _) ihFirst
+
+structure N2Result (i : Ty) (p : CPred (Ty.prod i Ty.final)) where
+  rhs : CPred (Ty.prod i Ty.final)
+  trace : N2Path i p rhs
+
+/- A bounded structural N2 pass. Fuel bounds rewrite depth; every returned
+   result carries a trace that replays through the checked Core basis. -/
+def n2NormalizeFuel (i : Ty) :
+    (fuel : Nat) -> (p : CPred (Ty.prod i Ty.final)) -> N2Result i p
+  | 0, p => { rhs := p, trace := N2Path.refl p }
+  | _ + 1, .raw n (Ty.prod i Ty.final) =>
+      { rhs := .raw n (Ty.prod i Ty.final),
+        trace := N2Path.refl (.raw n (Ty.prod i Ty.final)) }
+  | fuel + 1, .and p q =>
+      let hp := n2NormalizeFuel i fuel p
+      let hq := n2NormalizeFuel i fuel q
+      { rhs := .and hp.rhs hq.rhs, trace := N2Path.andCong hp.trace hq.trace }
+  | fuel + 1, .or p q =>
+      let hp := n2NormalizeFuel i fuel p
+      let hq := n2NormalizeFuel i fuel q
+      { rhs := .or hp.rhs hq.rhs, trace := N2Path.orCong hp.trace hq.trace }
+  | fuel + 1, .imp p q =>
+      let hp := n2NormalizeFuel i fuel p
+      let hq := n2NormalizeFuel i fuel q
+      { rhs := .imp hp.rhs hq.rhs, trace := N2Path.impCong hp.trace hq.trace }
+  | fuel + 1, .iff p q =>
+      let hp := n2NormalizeFuel i fuel p
+      let hq := n2NormalizeFuel i fuel q
+      { rhs := .iff hp.rhs hq.rhs, trace := N2Path.iffCong hp.trace hq.trace }
+  | fuel + 1, .not p =>
+      let hp := n2NormalizeFuel i fuel p
+      { rhs := .not hp.rhs, trace := N2Path.notCong hp.trace }
+  | _ + 1, .all x p =>
+      { rhs := .all x p, trace := N2Path.refl (.all x p) }
+  | _ + 1, .ex x p =>
+      { rhs := .ex x p, trace := N2Path.refl (.ex x p) }
+  | _ + 1, .comp (.raw n ctx) s =>
+      { rhs := .comp (.raw n ctx) s, trace := N2Path.refl (.comp (.raw n ctx) s) }
+  | fuel + 1, .comp (.comp p u) s =>
+      let h := n2NormalizeFuel i fuel (CPred.comp p (CMap.comp u s))
+      { rhs := h.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.unaryReindex i _ _ p u s)) h.trace }
+  | fuel + 1, .comp (.and p q) s =>
+      let hp := n2NormalizeFuel i fuel (CPred.comp p s)
+      let hq := n2NormalizeFuel i fuel (CPred.comp q s)
+      { rhs := .and hp.rhs hq.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.andReindex i _ s p q))
+          (N2Path.andCong hp.trace hq.trace) }
+  | fuel + 1, .comp (.or p q) s =>
+      let hp := n2NormalizeFuel i fuel (CPred.comp p s)
+      let hq := n2NormalizeFuel i fuel (CPred.comp q s)
+      { rhs := .or hp.rhs hq.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.orReindex i _ s p q))
+          (N2Path.orCong hp.trace hq.trace) }
+  | fuel + 1, .comp (.imp p q) s =>
+      let hp := n2NormalizeFuel i fuel (CPred.comp p s)
+      let hq := n2NormalizeFuel i fuel (CPred.comp q s)
+      { rhs := .imp hp.rhs hq.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.impReindex i _ s p q))
+          (N2Path.impCong hp.trace hq.trace) }
+  | fuel + 1, .comp (.iff p q) s =>
+      let hp := n2NormalizeFuel i fuel (CPred.comp p s)
+      let hq := n2NormalizeFuel i fuel (CPred.comp q s)
+      { rhs := .iff hp.rhs hq.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.iffReindex i _ s p q))
+          (N2Path.iffCong hp.trace hq.trace) }
+  | fuel + 1, .comp (.not p) s =>
+      let hp := n2NormalizeFuel i fuel (CPred.comp p s)
+      { rhs := .not hp.rhs,
+        trace := N2Path.trans (N2Path.edge (N2Edge.notReindex i _ s p))
+          (N2Path.notCong hp.trace) }
+  | _ + 1, .comp (.all x p) s =>
+      { rhs := .comp (.all x p) s, trace := N2Path.refl (.comp (.all x p) s) }
+  | _ + 1, .comp (.ex x p) s =>
+      { rhs := .comp (.ex x p) s, trace := N2Path.refl (.comp (.ex x p) s) }
+
+theorem n2NormalizeFuel_replay (i : Ty) (fuel : Nat)
+    (p : CPred (Ty.prod i Ty.final)) :
+    CoreThm (Vy i (CPred.iff p (n2NormalizeFuel i fuel p).rhs)) :=
+  (n2NormalizeFuel i fuel p).trace.replay
 
 end Search
 end ContextualHOL

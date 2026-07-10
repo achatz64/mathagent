@@ -112,9 +112,14 @@ the existing M3 lifting certificates.
 
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
-name and its exact CoreThm certificate; N2Path adds reflexive and transitive
-replayable traces. Orientation, matching, and an idempotent normalizer remain
-the next PS1 increment.
+name and its exact CoreThm certificate; N2Path now also carries checked
+connective-congruence traces. The executable n2RootStep? matcher recognizes
+precisely those six left-hand sides and returns only the displayed forward
+orientation. n2NormalizeFuel is a bounded structural pass: every output has a
+replayable Core certificate, while quantifier-headed terms stay opaque. The
+remaining N2 obligations are a structural fuel bound, a full normal-form
+criterion, and the idempotence theorem; binder movement remains the separate
+Beck-Chevalley gate.
 
 **Boundary finding.** Negation is hypothesis-only for now. The M3 calculus has
 no falsity-forming rule from which a sound not-introduction action could be
