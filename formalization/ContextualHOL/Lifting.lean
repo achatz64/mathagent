@@ -208,9 +208,15 @@ section Rules
 
 variable {G : Ty} (Δ : List (CPred (G ×' Ty.final)))
 
+end Rules
+
 -- notation-free shorthand for "translated formula, closed": u ∘ fst G Final
-private def cl {G : Ty} (u : CPred G) : CPred (G ×' Ty.final) :=
+def cl {G : Ty} (u : CPred G) : CPred (G ×' Ty.final) :=
   CPred.comp u (CMap.fst G Ty.final)
+
+section Rules
+
+variable {G : Ty} (Δ : List (CPred (G ×' Ty.final)))
 
 theorem seqMp (x y : CPred G)
     (h1 : CoreThm (SeqLift G Δ (cl (CPred.imp x y))))

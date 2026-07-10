@@ -606,6 +606,71 @@ inductive CoreThm : CProp -> Prop where
         (CPred.comp B (CMap.pair
           (CMap.fst X (Y ×' Ty.final))
           (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final)))))))))
+  -- ---- beta_basis.cor: M3.3 closure-form quantifier/structural rules ----
+  -- Forall_gen_closure / Exist_gen_closure (adjunction in closure form)
+  | forallGenClosure (X Y : Ty) (psi : CPred Y) (P : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.comp (CPred.all X (CPred.imp (CPred.comp psi (CMap.snd X Y)) P))
+          (CMap.fst Y Ty.final))
+        (CPred.imp (CPred.comp psi (CMap.fst Y Ty.final))
+          (CPred.comp (CPred.all X P) (CMap.fst Y Ty.final)))))
+  | existGenClosure (X Y : Ty) (psi : CPred Y) (P : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.comp (CPred.all X (CPred.imp P (CPred.comp psi (CMap.snd X Y))))
+          (CMap.fst Y Ty.final))
+        (CPred.imp (CPred.comp (CPred.ex X P) (CMap.fst Y Ty.final))
+          (CPred.comp psi (CMap.fst Y Ty.final)))))
+  -- Forall_closure_fuse (rule-shaped plain fusion)
+  | forallClosureFuse (X Y : Ty) (B : CPred (X ×' Y)) :
+      CoreThm (Vy (X ×' Y) (CPred.comp B (CMap.fst (X ×' Y) Ty.final))) ->
+      CoreThm (Vy Y (CPred.all X (CPred.comp B (CMap.pair
+        (CMap.fst X (Y ×' Ty.final))
+        (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final)))))))
+  -- Forall_elim_closure / Exist_intro_closure (at a term of the context)
+  | forallElimClosure (X Y : Ty) (t : CMap Y X) (P : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.comp (CPred.all X P) (CMap.fst Y Ty.final))
+        (CPred.comp (CPred.comp P (CMap.pair t (CMap.id Y)))
+          (CMap.fst Y Ty.final))))
+  | existIntroClosure (X Y : Ty) (t : CMap Y X) (P : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.comp (CPred.comp P (CMap.pair t (CMap.id Y)))
+          (CMap.fst Y Ty.final))
+        (CPred.comp (CPred.ex X P) (CMap.fst Y Ty.final))))
+  -- Forall_inst_closure / Forall_weaken_closure (whole-sequent generators)
+  | forallInstClosure (X Y : Ty) (t : CMap Y X)
+      (m : CPred ((X ×' Y) ×' Ty.final)) :
+      CoreThm (Vy (X ×' Y) m) ->
+      CoreThm (Vy Y (CPred.comp m (CMap.pair
+        (CMap.comp (CMap.pair t (CMap.id Y)) (CMap.fst Y Ty.final))
+        (CMap.snd Y Ty.final))))
+  | forallWeakenClosure (X Y : Ty) (m : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y m) ->
+      CoreThm (Vy (X ×' Y) (CPred.comp m (CMap.pair
+        (CMap.comp (CMap.snd X Y) (CMap.fst (X ×' Y) Ty.final))
+        (CMap.snd (X ×' Y) Ty.final))))
+  -- the three map collapses through the generator maps
+  | forallInstAsmCollapse (X Y : Ty) (t : CMap Y X) (P : CPred Y) :
+      CoreThm (Vy Y (CPred.iff
+        (CPred.comp
+          (CPred.comp P (CMap.comp (CMap.snd X Y) (CMap.fst (X ×' Y) Ty.final)))
+          (CMap.pair (CMap.comp (CMap.pair t (CMap.id Y)) (CMap.fst Y Ty.final))
+            (CMap.snd Y Ty.final)))
+        (CPred.comp P (CMap.fst Y Ty.final))))
+  | forallInstBodyCollapse (X Y : Ty) (t : CMap Y X) (P : CPred (X ×' Y)) :
+      CoreThm (Vy Y (CPred.iff
+        (CPred.comp (CPred.comp P (CMap.fst (X ×' Y) Ty.final))
+          (CMap.pair (CMap.comp (CMap.pair t (CMap.id Y)) (CMap.fst Y Ty.final))
+            (CMap.snd Y Ty.final)))
+        (CPred.comp P (CMap.comp (CMap.pair t (CMap.id Y))
+          (CMap.fst Y Ty.final)))))
+  | forallWeakenAsmCollapse (X Y : Ty) (P : CPred Y) :
+      CoreThm (Vy (X ×' Y) (CPred.iff
+        (CPred.comp (CPred.comp P (CMap.fst Y Ty.final))
+          (CMap.pair (CMap.comp (CMap.snd X Y) (CMap.fst (X ×' Y) Ty.final))
+            (CMap.snd (X ×' Y) Ty.final)))
+        (CPred.comp P (CMap.comp (CMap.snd X Y)
+          (CMap.fst (X ×' Y) Ty.final)))))
 
 namespace CoreThm
 
@@ -733,5 +798,186 @@ def substSoundGoal (X Γctx : Ty) (tcm : CMap Γctx X) (tele : List Ty)
 -- `PredEmbedIs`) as `substEquiv_sound` in `ContextualHOL/SubstSound.lean`:
 -- the telescope `tele` lists the Ψ bound types innermost-first, so
 -- `tele.length = k` and `tele.foldr Ty.prod Γctx = C[Ψ ++ Γ]`.
+
+-- ===== the lifting-oriented translation+embedding =====
+
+-- HOL formula → embedded Core predicate over the context object; the single
+-- condition the lifting induction threads ("this formula is liftable").
+def liftFormula? (env : Env) (Γ : Ctx) (phi : Formula) :
+    Option (CPred (Ctx.obj Γ)) :=
+  (translateFormula? env Γ phi).bind (embedPred? (Ctx.obj Γ))
+
+theorem liftFormula?_imp (env : Env) (Γ : Ctx) (a b : Formula) :
+    liftFormula? env Γ (Formula.imp a b) =
+      match liftFormula? env Γ a, liftFormula? env Γ b with
+      | some ca, some cb => some (CPred.imp ca cb)
+      | _, _ => none := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env Γ a with
+  | none => rfl
+  | some pa =>
+      have h1 : Option.bind (some pa) (embedPred? (Ctx.obj Γ)) =
+          embedPred? (Ctx.obj Γ) pa := rfl
+      cases translateFormula? env Γ b with
+      | none =>
+          rw [h1]
+          cases embedPred? (Ctx.obj Γ) pa <;> rfl
+      | some pb =>
+          have h2 : Option.bind (some pb) (embedPred? (Ctx.obj Γ)) =
+              embedPred? (Ctx.obj Γ) pb := rfl
+          rw [h1, h2]
+          show embedPred? (Ctx.obj Γ) (Core.Pred.imp (Ctx.obj Γ) pa pb) = _
+          simp only [embedPred?]
+          rw [if_pos trivial]
+          cases embedPred? (Ctx.obj Γ) pa <;>
+            cases embedPred? (Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_and (env : Env) (Γ : Ctx) (a b : Formula) :
+    liftFormula? env Γ (Formula.and a b) =
+      match liftFormula? env Γ a, liftFormula? env Γ b with
+      | some ca, some cb => some (CPred.and ca cb)
+      | _, _ => none := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env Γ a with
+  | none => rfl
+  | some pa =>
+      have h1 : Option.bind (some pa) (embedPred? (Ctx.obj Γ)) =
+          embedPred? (Ctx.obj Γ) pa := rfl
+      cases translateFormula? env Γ b with
+      | none =>
+          rw [h1]
+          cases embedPred? (Ctx.obj Γ) pa <;> rfl
+      | some pb =>
+          have h2 : Option.bind (some pb) (embedPred? (Ctx.obj Γ)) =
+              embedPred? (Ctx.obj Γ) pb := rfl
+          rw [h1, h2]
+          show embedPred? (Ctx.obj Γ) (Core.Pred.and (Ctx.obj Γ) pa pb) = _
+          simp only [embedPred?]
+          rw [if_pos trivial]
+          cases embedPred? (Ctx.obj Γ) pa <;>
+            cases embedPred? (Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_or (env : Env) (Γ : Ctx) (a b : Formula) :
+    liftFormula? env Γ (Formula.or a b) =
+      match liftFormula? env Γ a, liftFormula? env Γ b with
+      | some ca, some cb => some (CPred.or ca cb)
+      | _, _ => none := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env Γ a with
+  | none => rfl
+  | some pa =>
+      have h1 : Option.bind (some pa) (embedPred? (Ctx.obj Γ)) =
+          embedPred? (Ctx.obj Γ) pa := rfl
+      cases translateFormula? env Γ b with
+      | none =>
+          rw [h1]
+          cases embedPred? (Ctx.obj Γ) pa <;> rfl
+      | some pb =>
+          have h2 : Option.bind (some pb) (embedPred? (Ctx.obj Γ)) =
+              embedPred? (Ctx.obj Γ) pb := rfl
+          rw [h1, h2]
+          show embedPred? (Ctx.obj Γ) (Core.Pred.or (Ctx.obj Γ) pa pb) = _
+          simp only [embedPred?]
+          rw [if_pos trivial]
+          cases embedPred? (Ctx.obj Γ) pa <;>
+            cases embedPred? (Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_iff (env : Env) (Γ : Ctx) (a b : Formula) :
+    liftFormula? env Γ (Formula.iff a b) =
+      match liftFormula? env Γ a, liftFormula? env Γ b with
+      | some ca, some cb => some (CPred.iff ca cb)
+      | _, _ => none := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env Γ a with
+  | none => rfl
+  | some pa =>
+      have h1 : Option.bind (some pa) (embedPred? (Ctx.obj Γ)) =
+          embedPred? (Ctx.obj Γ) pa := rfl
+      cases translateFormula? env Γ b with
+      | none =>
+          rw [h1]
+          cases embedPred? (Ctx.obj Γ) pa <;> rfl
+      | some pb =>
+          have h2 : Option.bind (some pb) (embedPred? (Ctx.obj Γ)) =
+              embedPred? (Ctx.obj Γ) pb := rfl
+          rw [h1, h2]
+          show embedPred? (Ctx.obj Γ) (Core.Pred.iff (Ctx.obj Γ) pa pb) = _
+          simp only [embedPred?]
+          rw [if_pos trivial]
+          cases embedPred? (Ctx.obj Γ) pa <;>
+            cases embedPred? (Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_not (env : Env) (Γ : Ctx) (a : Formula) :
+    liftFormula? env Γ (Formula.not a) =
+      (liftFormula? env Γ a).map CPred.not := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env Γ a with
+  | none => rfl
+  | some pa =>
+      have h1 : Option.bind (some pa) (embedPred? (Ctx.obj Γ)) =
+          embedPred? (Ctx.obj Γ) pa := rfl
+      rw [h1]
+      show embedPred? (Ctx.obj Γ) (Core.Pred.not (Ctx.obj Γ) pa) = _
+      simp only [embedPred?]
+      rw [if_pos trivial]
+      cases embedPred? (Ctx.obj Γ) pa <;> rfl
+
+theorem liftFormula?_all (env : Env) (Γ : Ctx) (x : Name) (X : Ty)
+    (b : Formula) :
+    liftFormula? env Γ (Formula.all x X b) =
+      (liftFormula? env ({ name := x, ty := X } :: Γ) b).map (CPred.all X) := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env ({ name := x, ty := X } :: Γ) b with
+  | none => rfl
+  | some pb =>
+      have h1 : Option.bind (some pb)
+          (embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ))) =
+          embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ)) pb := rfl
+      rw [h1]
+      show embedPred? (Ctx.obj Γ) (Core.Pred.all X (Ctx.obj Γ) pb) = _
+      simp only [embedPred?]
+      rw [if_pos trivial]
+      rw [show embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ)) pb =
+        embedPred? (X ×' Ctx.obj Γ) pb from rfl]
+      cases embedPred? (X ×' Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_ex (env : Env) (Γ : Ctx) (x : Name) (X : Ty)
+    (b : Formula) :
+    liftFormula? env Γ (Formula.ex x X b) =
+      (liftFormula? env ({ name := x, ty := X } :: Γ) b).map (CPred.ex X) := by
+  unfold liftFormula?
+  simp only [translateFormula?]
+  cases translateFormula? env ({ name := x, ty := X } :: Γ) b with
+  | none => rfl
+  | some pb =>
+      have h1 : Option.bind (some pb)
+          (embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ))) =
+          embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ)) pb := rfl
+      rw [h1]
+      show embedPred? (Ctx.obj Γ) (Core.Pred.ex X (Ctx.obj Γ) pb) = _
+      simp only [embedPred?]
+      rw [if_pos trivial]
+      rw [show embedPred? (Ctx.obj ({ name := x, ty := X } :: Γ)) pb =
+        embedPred? (X ×' Ctx.obj Γ) pb from rfl]
+      cases embedPred? (X ×' Ctx.obj Γ) pb <;> rfl
+
+theorem liftFormula?_imp_isSome (env : Env) (Γ : Ctx) (a b : Formula) :
+    (liftFormula? env Γ (Formula.imp a b)).isSome =
+      ((liftFormula? env Γ a).isSome && (liftFormula? env Γ b).isSome) := by
+  rw [liftFormula?_imp]
+  cases liftFormula? env Γ a <;> cases liftFormula? env Γ b <;> rfl
+
+theorem liftFormula?_all_isSome (env : Env) (Γ : Ctx) (x : Name) (X : Ty)
+    (b : Formula) :
+    (liftFormula? env Γ (Formula.all x X b)).isSome =
+      (liftFormula? env ({ name := x, ty := X } :: Γ) b).isSome := by
+  rw [liftFormula?_all]
+  cases liftFormula? env ({ name := x, ty := X } :: Γ) b <;> rfl
 
 end ContextualHOL

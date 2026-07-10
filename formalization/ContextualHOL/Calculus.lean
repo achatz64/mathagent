@@ -1,4 +1,4 @@
-import ContextualHOL.Substitution
+import ContextualHOL.CoreThm
 
 /-!
 # The contextual calculus  Γ | Δ ⊢ φ
@@ -46,9 +46,12 @@ Design decisions (see `ma1/m3.md` for the running status):
   formula `φ → ∃x.φ`, which mentions x both free and bound — excluded by the
   `avoids` discipline of `substFormula`.
 
-* Constructors carry `checkFormula?` side conditions exactly where the
-  lifting induction will need a translation to exist and cannot recover it
-  from the conclusion (cut formulas, schema components, quantifier bodies).
+* Constructors carry `(liftFormula? …).isSome` side conditions exactly where
+  the lifting induction will need a translated+embedded formula and cannot
+  recover it from the conclusion (cut formulas, schema components,
+  quantifier bodies, premise contexts of the structural generators).
+  Witness terms of the generators must not be `Term.raw` (raw has no
+  reindexing behaviour to certify).
 -/
 
 namespace ContextualHOL
@@ -248,79 +251,81 @@ inductive Proves (env : Env) : Ctx -> List Formula -> Formula -> Prop where
       phi ∈ Δ -> Proves env Γ Δ phi
   -- discharge the NEWEST assumption (no-op under the head-newest chain closure)
   | impIntro {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
       Proves env Γ (phi :: Δ) psi ->
       Proves env Γ Δ (Formula.imp phi psi)
   -- modus ponens (carries wf of the cut formula)
   | mp {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
       Proves env Γ Δ (Formula.imp phi psi) ->
       Proves env Γ Δ phi ->
       Proves env Γ Δ psi
   -- Hilbert schemas: K, S, and Łukasiewicz contraposition (classical), then
   -- the ∧/∨/↔ axioms.  Each lifts to one Y-generic ∀-lifted fibre tautology.
   | axK {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp phi (Formula.imp psi phi))
   | axS {Γ : Ctx} {Δ : List Formula} {phi psi chi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
-      checkFormula? env Γ chi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
+      (liftFormula? env Γ chi).isSome = true ->
       Proves env Γ Δ (Formula.imp
         (Formula.imp phi (Formula.imp psi chi))
         (Formula.imp (Formula.imp phi psi) (Formula.imp phi chi)))
   | axCP {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp
         (Formula.imp (Formula.not psi) (Formula.not phi))
         (Formula.imp phi psi))
   | axAndL {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.and phi psi) phi)
   | axAndR {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.and phi psi) psi)
   | axAndI {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp phi (Formula.imp psi (Formula.and phi psi)))
   | axOrL {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp phi (Formula.or phi psi))
   | axOrR {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp psi (Formula.or phi psi))
   | axOrE {Γ : Ctx} {Δ : List Formula} {phi psi chi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
-      checkFormula? env Γ chi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
+      (liftFormula? env Γ chi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.imp phi chi)
         (Formula.imp (Formula.imp psi chi)
           (Formula.imp (Formula.or phi psi) chi)))
   | axIffI {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.imp phi psi)
         (Formula.imp (Formula.imp psi phi) (Formula.iff phi psi)))
   | axIffL {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.iff phi psi) (Formula.imp phi psi))
   | axIffR {Γ : Ctx} {Δ : List Formula} {phi psi : Formula} :
-      checkFormula? env Γ phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (liftFormula? env Γ psi).isSome = true ->
       Proves env Γ Δ (Formula.imp (Formula.iff phi psi) (Formula.imp psi phi))
   -- ∀-introduction: the adjunction/context move.  The premise lives over the
   -- extended context; freshness of x for Δ is structural (a name condition),
   -- not a proviso about an eigenvariable.
   | allIntro {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi : Formula} :
       (forall psi, psi ∈ Δ -> occursFree x psi = false) ->
+      (forall psi, psi ∈ Δ ->
+        (liftFormula? env ({ name := x, ty := X } :: Γ) psi).isSome = true) ->
       Proves env ({ name := x, ty := X } :: Γ) Δ phi ->
       Proves env Γ Δ (Formula.all x X phi)
   -- counit of weakening ⊣ ∀: over a context whose head is x, the (shadow-)
@@ -328,15 +333,16 @@ inductive Proves (env : Env) : Ctx -> List Formula -> Formula -> Prop where
   -- at t := Term.var x (hence the `avoids` condition).
   | allCounit {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi : Formula} :
       avoids x phi = true ->
-      checkFormula? env ({ name := x, ty := X } :: Γ) phi = some () ->
       Proves env ({ name := x, ty := X } :: Γ) Δ
         (Formula.imp (Formula.all x X phi) phi)
   -- ∃-elimination: the dual adjunction move (Exist_gen shape).
   | exElim {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi psi : Formula} :
       (forall chi, chi ∈ Δ -> occursFree x chi = false) ->
       occursFree x psi = false ->
-      checkFormula? env ({ name := x, ty := X } :: Γ) phi = some () ->
-      checkFormula? env Γ psi = some () ->
+      (liftFormula? env ({ name := x, ty := X } :: Γ) phi).isSome = true ->
+      (forall chi, chi ∈ Δ ->
+        (liftFormula? env ({ name := x, ty := X } :: Γ) chi).isSome = true) ->
+      (liftFormula? env ({ name := x, ty := X } :: Γ) psi).isSome = true ->
       Proves env Γ Δ (Formula.ex x X phi) ->
       Proves env ({ name := x, ty := X } :: Γ) (phi :: Δ) psi ->
       Proves env Γ Δ psi
@@ -345,15 +351,19 @@ inductive Proves (env : Env) : Ctx -> List Formula -> Formula -> Prop where
   | exIntro {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi : Formula}
       {t : Term} :
       inferTerm? env Γ t = some X ->
+      (forall n ty, t ≠ Term.raw n ty) ->
       avoids x phi = true ->
       (forall w, t = Term.var w -> avoids w phi = true) ->
-      checkFormula? env ({ name := x, ty := X } :: Γ) phi = some () ->
+      (liftFormula? env ({ name := x, ty := X } :: Γ) phi).isSome = true ->
+      (liftFormula? env Γ (substFormula x t phi)).isSome = true ->
       Proves env Γ Δ (substFormula x t phi) ->
       Proves env Γ Δ (Formula.ex x X phi)
   -- structural generator 1: weakening (reindex along `snd`).
   | ctxWeaken {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi : Formula} :
       occursFree x phi = false ->
       (forall psi, psi ∈ Δ -> occursFree x psi = false) ->
+      (liftFormula? env Γ phi).isSome = true ->
+      (forall psi, psi ∈ Δ -> (liftFormula? env Γ psi).isSome = true) ->
       Proves env Γ Δ phi ->
       Proves env ({ name := x, ty := X } :: Γ) Δ phi
   -- structural generator 2: substitution (reindex along ⟨t, id⟩; β-content =
@@ -362,10 +372,13 @@ inductive Proves (env : Env) : Ctx -> List Formula -> Formula -> Prop where
   | ctxSubst {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty} {phi : Formula}
       {t : Term} :
       inferTerm? env Γ t = some X ->
+      (forall n ty, t ≠ Term.raw n ty) ->
       avoids x phi = true ->
       (forall w, t = Term.var w -> avoids w phi = true) ->
       (forall psi, psi ∈ Δ -> occursFree x psi = false) ->
-      checkFormula? env ({ name := x, ty := X } :: Γ) phi = some () ->
+      (liftFormula? env ({ name := x, ty := X } :: Γ) phi).isSome = true ->
+      (forall psi, psi ∈ Δ ->
+        (liftFormula? env ({ name := x, ty := X } :: Γ) psi).isSome = true) ->
       Proves env ({ name := x, ty := X } :: Γ) Δ phi ->
       Proves env Γ Δ (substFormula x t phi)
 
@@ -375,12 +388,12 @@ namespace Proves
 
 -- φ → φ, the SKK sanity derivation.
 theorem impRefl (env : Env) {Γ : Ctx} {Δ : List Formula} (phi : Formula)
-    (hphi : checkFormula? env Γ phi = some ()) :
+    (hphi : (liftFormula? env Γ phi).isSome = true) :
     Proves env Γ Δ (Formula.imp phi phi) := by
-  have hii : checkFormula? env Γ (Formula.imp phi phi) = some () := by
-    simp [checkFormula?, hphi]
-  exact mp (by simp [checkFormula?, hphi])
-    (mp (by simp [checkFormula?, hphi])
+  have hii : (liftFormula? env Γ (Formula.imp phi phi)).isSome = true := by
+    simp [liftFormula?_imp_isSome, hphi]
+  exact mp (by simp [liftFormula?_imp_isSome, hphi])
+    (mp (by simp [liftFormula?_imp_isSome, hphi])
       (axS (chi := phi) hphi hii hphi)
       (axK hphi hii))
     (axK hphi hphi)
@@ -391,24 +404,33 @@ theorem impRefl (env : Env) {Γ : Ctx} {Δ : List Formula} (phi : Formula)
 theorem allElim (env : Env) {Γ : Ctx} {Δ : List Formula} {x : Name} {X : Ty}
     {phi : Formula} {t : Term}
     (ht : inferTerm? env Γ t = some X)
+    (htraw : forall n ty, t ≠ Term.raw n ty)
     (havoid : avoids x phi = true)
     (htavoid : forall w, t = Term.var w -> avoids w phi = true)
     (hfresh : forall psi, psi ∈ Δ -> occursFree x psi = false)
-    (hwf : checkFormula? env ({ name := x, ty := X } :: Γ) phi = some ())
+    (hΔ0 : forall psi, psi ∈ Δ -> (liftFormula? env Γ psi).isSome = true)
+    (hΔx : forall psi, psi ∈ Δ ->
+      (liftFormula? env ({ name := x, ty := X } :: Γ) psi).isSome = true)
+    (hbody : (liftFormula? env ({ name := x, ty := X } :: Γ) phi).isSome = true)
+    (hdup : (liftFormula? env
+      ({ name := x, ty := X } :: { name := x, ty := X } :: Γ) phi).isSome = true)
     (h : Proves env Γ Δ (Formula.all x X phi)) :
     Proves env Γ Δ (substFormula x t phi) := by
+  have hallΓ : (liftFormula? env Γ (Formula.all x X phi)).isSome = true := by
+    rw [liftFormula?_all_isSome]
+    exact hbody
+  have hallx : (liftFormula? env ({ name := x, ty := X } :: Γ)
+      (Formula.all x X phi)).isSome = true := by
+    rw [liftFormula?_all_isSome]
+    exact hdup
   -- weaken the universal across its own binder name (x is shadowed, not free)
   have h1 : Proves env ({ name := x, ty := X } :: Γ) Δ (Formula.all x X phi) :=
-    ctxWeaken (by simp [occursFree]) hfresh h
+    ctxWeaken (by simp [occursFree]) hfresh hallΓ hΔ0 h
   -- instantiate at the context head via the counit
-  have hwfAll : checkFormula? env ({ name := x, ty := X } :: Γ)
-      (Formula.all x X phi) = some () := by
-    simp only [checkFormula?]
-    exact checkFormula_dup_head env { name := x, ty := X } Γ phi hwf
   have h2 : Proves env ({ name := x, ty := X } :: Γ) Δ phi :=
-    mp hwfAll (allCounit havoid hwf) h1
+    mp hallx (allCounit havoid) h1
   -- substitute the context head by t
-  exact ctxSubst ht havoid htavoid hfresh hwf h2
+  exact ctxSubst ht htraw havoid htavoid hfresh hbody hΔx h2
 
 end Proves
 
@@ -426,7 +448,7 @@ example : Proves demoEnv [] []
     (Formula.all "u" (Ty.base "X")
       (Formula.imp (Formula.papp "phi" (Term.var "u"))
         (Formula.papp "phi" (Term.var "u")))) :=
-  Proves.allIntro (fun _ h => nomatch h)
+  Proves.allIntro (fun _ h => nomatch h) (fun _ h => nomatch h)
     (Proves.impRefl demoEnv (Formula.papp "phi" (Term.var "u")) rfl)
 
 -- ⊢ (∀u. R(u,c)) → R(c,c) : the derived allElim at t := const c, under
@@ -440,12 +462,20 @@ example : Proves demoEnv [] []
   Proves.impIntro rfl
     (Proves.allElim demoEnv
       (t := Term.const "c")
-      rfl rfl (fun _ hw => nomatch hw)
+      rfl (fun _ _ hw => nomatch hw) rfl (fun _ hw => nomatch hw)
       (fun psi h => by
         cases h with
         | head => rfl
         | tail _ h => exact nomatch h)
-      rfl
+      (fun psi h => by
+        cases h with
+        | head => rfl
+        | tail _ h => exact nomatch h)
+      (fun psi h => by
+        cases h with
+        | head => rfl
+        | tail _ h => exact nomatch h)
+      rfl rfl
       (Proves.hyp (List.Mem.head _)))
 
 end CalculusExamples

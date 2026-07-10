@@ -633,6 +633,240 @@ theorem substEquiv_sound (X Γctx : Ty) (tc : Core.Term) (tcm : CMap Γctx X)
           (CoreThm.forallIffSymApply _ _ _
             (CoreThm.existClosureBeta bound (tele.foldr Ty.prod Γctx) cq)))
 
+-- ===== function → relation bridges =====
+
+theorem projMap?_is :
+    forall (n : Nat) (D A : Ty) (m : CMap D A),
+      projMap? D n = some ⟨A, m⟩ -> ProjMapIs D n A m := by
+  intro n
+  induction n with
+  | zero =>
+      intro D A m h
+      cases D <;> simp [projMap?] at h
+      case prod A' B =>
+        obtain ⟨hA, hm⟩ := h
+        subst hA
+        have hm' := eq_of_heq hm
+        subst hm'
+        exact ProjMapIs.zero A' B
+  | succ n ih =>
+      intro D A m h
+      cases D <;> simp [projMap?] at h
+      case prod T B =>
+        cases hB : projMap? B n with
+        | none => rw [hB] at h; simp at h
+        | some p =>
+            obtain ⟨C, m'⟩ := p
+            rw [hB] at h
+            simp at h
+            obtain ⟨hA, hm⟩ := h
+            subst hA
+            have hm' := eq_of_heq hm
+            subst hm'
+            exact ProjMapIs.succ T B C n m' (ih B C m' hB)
+
+theorem embedTerm?_is (ctx : Ty) (u : Core.Term) (A : Ty) (m : CMap ctx A)
+    (h : embedTerm? ctx u = some ⟨A, m⟩) : TermEmbedIs ctx u A m := by
+  cases u with
+  | proj n => exact TermEmbedIs.proj n A m (projMap?_is n ctx A m h)
+  | weakening ty ctx0 c =>
+      simp [embedTerm?] at h
+      obtain ⟨hA, hm⟩ := h
+      subst hA
+      have hm' := eq_of_heq hm
+      subst hm'
+      exact TermEmbedIs.weaken ty ctx0 c
+  | raw n ty => simp [embedTerm?] at h
+
+theorem embedPred?_is :
+    forall (P : Core.Pred) (ctx : Ty) (c : CPred ctx),
+      embedPred? ctx P = some c -> PredEmbedIs ctx P c := by
+  intro P
+  induction P with
+  | atom ctx' A B rel l r =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hl : embedTerm? ctx' l with
+        | none => rw [hl] at h; simp at h
+        | some pf =>
+            obtain ⟨A', f⟩ := pf
+            cases hr : embedTerm? ctx' r with
+            | none => rw [hl, hr] at h; simp at h
+            | some pg =>
+                obtain ⟨B', g⟩ := pg
+                rw [hl, hr] at h
+                replace h : (if hA : A' = A then
+                    (if hB : B' = B then
+                      some (CPred.sub2 (CPred.raw rel (A ×' B))
+                        (hA ▸ f) (hB ▸ g))
+                    else none) else none) = some c := h
+                split at h
+                next hA =>
+                  subst hA
+                  split at h
+                  next hB =>
+                    subst hB
+                    simp at h
+                    subst h
+                    exact PredEmbedIs.atom ctx' A' B' rel l r f g
+                      (embedTerm?_is ctx' l A' f hl)
+                      (embedTerm?_is ctx' r B' g hr)
+                  next => simp at h
+                next => simp at h
+      next => simp at h
+  | papp ctx' A p arg =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases ha : embedTerm? ctx' arg with
+        | none => rw [ha] at h; simp at h
+        | some pu =>
+            obtain ⟨A', u⟩ := pu
+            rw [ha] at h
+            replace h : (if hA : A' = A then
+                some (CPred.comp (CPred.raw p A) (hA ▸ u))
+              else none) = some c := h
+            split at h
+            next hA =>
+              subst hA
+              simp at h
+              subst h
+              exact PredEmbedIs.papp ctx' A' p arg u
+                (embedTerm?_is ctx' arg A' u ha)
+            next => simp at h
+      next => simp at h
+  | and ctx' p q ihp ihq =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? ctx' p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            cases hq : embedPred? ctx' q with
+            | none => rw [hp, hq] at h; simp at h
+            | some cq =>
+                rw [hp, hq] at h
+                simp at h
+                subst h
+                exact PredEmbedIs.and ctx' p q cp cq
+                  (ihp ctx' cp hp) (ihq ctx' cq hq)
+      next => simp at h
+  | or ctx' p q ihp ihq =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? ctx' p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            cases hq : embedPred? ctx' q with
+            | none => rw [hp, hq] at h; simp at h
+            | some cq =>
+                rw [hp, hq] at h
+                simp at h
+                subst h
+                exact PredEmbedIs.or ctx' p q cp cq
+                  (ihp ctx' cp hp) (ihq ctx' cq hq)
+      next => simp at h
+  | imp ctx' p q ihp ihq =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? ctx' p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            cases hq : embedPred? ctx' q with
+            | none => rw [hp, hq] at h; simp at h
+            | some cq =>
+                rw [hp, hq] at h
+                simp at h
+                subst h
+                exact PredEmbedIs.imp ctx' p q cp cq
+                  (ihp ctx' cp hp) (ihq ctx' cq hq)
+      next => simp at h
+  | iff ctx' p q ihp ihq =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? ctx' p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            cases hq : embedPred? ctx' q with
+            | none => rw [hp, hq] at h; simp at h
+            | some cq =>
+                rw [hp, hq] at h
+                simp at h
+                subst h
+                exact PredEmbedIs.iff ctx' p q cp cq
+                  (ihp ctx' cp hp) (ihq ctx' cq hq)
+      next => simp at h
+  | not ctx' p ihp =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? ctx' p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            rw [hp] at h
+            simp at h
+            subst h
+            exact PredEmbedIs.not ctx' p cp (ihp ctx' cp hp)
+      next => simp at h
+  | all bound ctx' p ihp =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? (bound ×' ctx') p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            rw [hp] at h
+            simp at h
+            subst h
+            exact PredEmbedIs.all bound ctx' p cp (ihp (bound ×' ctx') cp hp)
+      next => simp at h
+  | ex bound ctx' p ihp =>
+      intro ctx c h
+      simp only [embedPred?] at h
+      split at h
+      next hctx =>
+        subst hctx
+        cases hp : embedPred? (bound ×' ctx') p with
+        | none => rw [hp] at h; simp at h
+        | some cp =>
+            rw [hp] at h
+            simp at h
+            subst h
+            exact PredEmbedIs.ex bound ctx' p cp (ihp (bound ×' ctx') cp hp)
+      next => simp at h
+
+theorem liftFormula?_is (env : Env) (Γ : Ctx) (phi : Formula)
+    (c : CPred (Ctx.obj Γ)) (h : liftFormula? env Γ phi = some c) :
+    exists P, translateFormula? env Γ phi = some P ∧
+      PredEmbedIs (Ctx.obj Γ) P c := by
+  unfold liftFormula? at h
+  cases ht : translateFormula? env Γ phi with
+  | none => rw [ht] at h; simp at h
+  | some P =>
+      rw [ht] at h
+      simp at h
+      exact ⟨P, rfl, embedPred?_is P _ c h⟩
+
 -- the closed (top-level) instance, matching translate_substFormula_closed.
 theorem substEquiv_sound_closed (X Γctx : Ty) (tc : Core.Term)
     (tcm : CMap Γctx X) (htc : TermEmbedIs Γctx tc X tcm)

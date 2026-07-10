@@ -775,6 +775,111 @@ axiom Forall_iffProjR (Y : Type) (A B : Pred (Y × Final)) :
   Pred.term (Forall Y Final (Pred.imply (Y × Final)
     (Pred.iff (Y × Final) A B) (Pred.imply (Y × Final) B A)))
 
+-- ===== M3.3 additions: quantifier/structural rules in CLOSURE form =====
+--
+-- The lifting works with G-level predicates composed with the closure
+-- projection `fst Y Final`.  Stating the adjunction/instantiation rules
+-- directly over those composed shapes lets them chain through the sequent's
+-- implication chain with no two-binder plumbing.  All are Y-generic and
+-- model-trivial (each MODEL note evaluates both sides at a point).
+
+-- ∀-adjunction (GEN), closure form: at every y,
+--   [∀x(ψ(y) → P(x,y))] → (ψ(y) → ∀x P(x,y)).
+axiom Forall_gen_closure (X Y : Type) (psi : Pred Y) (P : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    ((Forall X Y (Pred.imply (X × Y) (psi ∘ (snd X Y)) P)) ∘ (fst Y Final))
+    (Pred.imply (Y × Final)
+      (psi ∘ (fst Y Final))
+      ((Forall X Y P) ∘ (fst Y Final)))))
+
+-- ∃-adjunction (GEN), closure form: at every y,
+--   [∀x(P(x,y) → ψ(y))] → ((∃x P(x,y)) → ψ(y)).
+axiom Exist_gen_closure (X Y : Type) (psi : Pred Y) (P : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    ((Forall X Y (Pred.imply (X × Y) P (psi ∘ (snd X Y)))) ∘ (fst Y Final))
+    (Pred.imply (Y × Final)
+      ((Exist X Y P) ∘ (fst Y Final))
+      (psi ∘ (fst Y Final)))))
+
+-- closure fusion (plain, rule-shaped): from ∀(x,y). B(x,y) infer ∀y∀x. B(x,y),
+-- with the reindexing map in Forall_closure_beta form.
+axiom Forall_closure_fuse (X Y : Type) (B : Pred (X × Y))
+    (h : Pred.term (Forall (X × Y) Final (B ∘ (fst (X × Y) Final)))) :
+  Pred.term (Forall Y Final (Forall X (Y × Final)
+    (B ∘ (pair (X × (Y × Final)) X Y
+      (fst X (Y × Final))
+      ((fst Y Final) ∘ (snd X (Y × Final)))))))
+
+-- inner-∀ instantiation at a term of the context, closure form: at every y,
+--   (∀x. P(x,y)) → P(t y, y).
+axiom Forall_elim_closure (X Y : Type) (t : Y → X) (P : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    ((Forall X Y P) ∘ (fst Y Final))
+    ((P ∘ (pair Y X Y t (Cart.i_comb Y))) ∘ (fst Y Final))))
+
+-- ∃-introduction at a term of the context, closure form: at every y,
+--   P(t y, y) → ∃x. P(x,y).
+axiom Exist_intro_closure (X Y : Type) (t : Y → X) (P : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    ((P ∘ (pair Y X Y t (Cart.i_comb Y))) ∘ (fst Y Final))
+    ((Exist X Y P) ∘ (fst Y Final))))
+
+-- closure instantiation (rule-shaped): from ∀(x,y). m((x,y),★) infer
+-- ∀y. m((t y, y), ★) — the substitution generator applied to a whole closed
+-- sequent body.
+axiom Forall_inst_closure (X Y : Type) (t : Y → X) (m : Pred ((X × Y) × Final))
+    (h : Pred.term (Forall (X × Y) Final m)) :
+  Pred.term (Forall Y Final
+    (m ∘ (pair (Y × Final) (X × Y) Final
+      ((pair Y X Y t (Cart.i_comb Y)) ∘ (fst Y Final))
+      (snd Y Final))))
+
+-- closure weakening (rule-shaped): from ∀y. m(y,★) infer ∀(x,y). m(y,★) —
+-- the weakening generator applied to a whole closed sequent body.
+axiom Forall_weaken_closure (X Y : Type) (m : Pred (Y × Final))
+    (h : Pred.term (Forall Y Final m)) :
+  Pred.term (Forall (X × Y) Final
+    (m ∘ (pair ((X × Y) × Final) Y Final
+      ((snd X Y) ∘ (fst (X × Y) Final))
+      (snd (X × Y) Final))))
+
+-- collapse of a weakened-assumption reading through the instantiation map:
+-- at every (y,★), snd(fst((t y, y), ★)) = y = fst(y,★).
+axiom Forall_inst_asm_collapse (X Y : Type) (t : Y → X) (P : Pred Y) :
+  Pred.term (Forall Y Final (Pred.iff (Y × Final)
+    ((P ∘ ((snd X Y) ∘ (fst (X × Y) Final)))
+      ∘ (pair (Y × Final) (X × Y) Final
+        ((pair Y X Y t (Cart.i_comb Y)) ∘ (fst Y Final))
+        (snd Y Final)))
+    (P ∘ (fst Y Final))))
+
+-- collapse of the conclusion reading through the instantiation map:
+-- at every (y,★), fst((t y, y), ★) = (t y, y) = (⟨t, id⟩ ∘ fst)(y,★).
+axiom Forall_inst_body_collapse (X Y : Type) (t : Y → X) (P : Pred (X × Y)) :
+  Pred.term (Forall Y Final (Pred.iff (Y × Final)
+    ((P ∘ (fst (X × Y) Final))
+      ∘ (pair (Y × Final) (X × Y) Final
+        ((pair Y X Y t (Cart.i_comb Y)) ∘ (fst Y Final))
+        (snd Y Final)))
+    (P ∘ ((pair Y X Y t (Cart.i_comb Y)) ∘ (fst Y Final)))))
+
+-- collapse of a closed reading through the weakening map:
+-- at every ((x,y),★), fst(y,★) = y = snd(fst((x,y),★)).
+axiom Forall_weaken_asm_collapse (X Y : Type) (P : Pred Y) :
+  Pred.term (Forall (X × Y) Final (Pred.iff ((X × Y) × Final)
+    ((P ∘ (fst Y Final))
+      ∘ (pair ((X × Y) × Final) Y Final
+        ((snd X Y) ∘ (fst (X × Y) Final))
+        (snd (X × Y) Final)))
+    (P ∘ ((snd X Y) ∘ (fst (X × Y) Final)))))
+
+#check @Forall_gen_closure
+#check @Exist_gen_closure
+#check @Forall_closure_fuse
+#check @Forall_elim_closure
+#check @Exist_intro_closure
+#check @Forall_inst_closure
+#check @Forall_weaken_closure
 #check @Forall_impK
 #check @Forall_impS
 #check @Forall_contrapose

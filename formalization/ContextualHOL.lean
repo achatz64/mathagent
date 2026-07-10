@@ -8,6 +8,7 @@ import ContextualHOL.CoreThm
 import ContextualHOL.SubstSound
 import ContextualHOL.Weakening
 import ContextualHOL.Lifting
+import ContextualHOL.ProvesLift
 import ContextualHOL.BasisMap
 import ContextualHOL.Evidence
 import ContextualHOL.SubstEvidenceBuilder

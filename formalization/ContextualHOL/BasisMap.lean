@@ -91,6 +91,17 @@ inductive BasisName where
   | forallIffIntro
   | forallIffProjL
   | forallIffProjR
+  -- ma1/beta_basis.cor: M3.3 additions (closure-form quantifier/structural rules)
+  | forallGenClosure
+  | existGenClosure
+  | forallClosureFuse
+  | forallElimClosure
+  | existIntroClosure
+  | forallInstClosure
+  | forallWeakenClosure
+  | forallInstAsmCollapse
+  | forallInstBodyCollapse
+  | forallWeakenAsmCollapse
   -- ma1/classical_first_order_logic_new.cor
   | forallReindex
   | curryUncurry
@@ -206,6 +217,16 @@ def coreName : BasisName -> String
   | forallIffIntro => "Forall_iffIntro"
   | forallIffProjL => "Forall_iffProjL"
   | forallIffProjR => "Forall_iffProjR"
+  | forallGenClosure => "Forall_gen_closure"
+  | existGenClosure => "Exist_gen_closure"
+  | forallClosureFuse => "Forall_closure_fuse"
+  | forallElimClosure => "Forall_elim_closure"
+  | existIntroClosure => "Exist_intro_closure"
+  | forallInstClosure => "Forall_inst_closure"
+  | forallWeakenClosure => "Forall_weaken_closure"
+  | forallInstAsmCollapse => "Forall_inst_asm_collapse"
+  | forallInstBodyCollapse => "Forall_inst_body_collapse"
+  | forallWeakenAsmCollapse => "Forall_weaken_asm_collapse"
   | forallReindex => "Forall_reindex"
   | curryUncurry => "curry_uncurry"
   | relEqExt => "RelEqExt"
@@ -315,7 +336,17 @@ def origin : BasisName -> BasisOrigin
   | forallOrElim
   | forallIffIntro
   | forallIffProjL
-  | forallIffProjR => BasisOrigin.betaBasis
+  | forallIffProjR
+  | forallGenClosure
+  | existGenClosure
+  | forallClosureFuse
+  | forallElimClosure
+  | existIntroClosure
+  | forallInstClosure
+  | forallWeakenClosure
+  | forallInstAsmCollapse
+  | forallInstBodyCollapse
+  | forallWeakenAsmCollapse => BasisOrigin.betaBasis
   | forallReindex
   | curryUncurry
   | relEqExt
@@ -426,6 +457,16 @@ def all : List BasisName := [
   forallIffIntro,
   forallIffProjL,
   forallIffProjR,
+  forallGenClosure,
+  existGenClosure,
+  forallClosureFuse,
+  forallElimClosure,
+  existIntroClosure,
+  forallInstClosure,
+  forallWeakenClosure,
+  forallInstAsmCollapse,
+  forallInstBodyCollapse,
+  forallWeakenAsmCollapse,
   forallReindex,
   curryUncurry,
   relEqExt,
