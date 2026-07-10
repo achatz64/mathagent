@@ -279,6 +279,33 @@ theorem N2Path.replay {i : Ty} {p q : CPred (Ty.prod i Ty.final)}
   | notCong first ihFirst =>
       exact CoreThm.mp (CoreThm.forallNotCong i _ _) ihFirst
 
+/- The N2 size counts only constructors through which this first pass
+   descends. Quantifier bodies are opaque in the present domain. -/
+def CPred.n2Size {ctx : Ty} : CPred ctx -> Nat
+  | .raw _ _ => 0
+  | .and p q => 1 + n2Size p + n2Size q
+  | .or p q => 1 + n2Size p + n2Size q
+  | .imp p q => 1 + n2Size p + n2Size q
+  | .iff p q => 1 + n2Size p + n2Size q
+  | .not p => 1 + n2Size p
+  | .all _ _ => 0
+  | .ex _ _ => 0
+  | .comp p _ => 1 + n2Size p
+
+def CPred.isN2Normal {ctx : Ty} : CPred ctx -> Bool
+  | .raw _ _ => true
+  | .and p q => isN2Normal p && isN2Normal q
+  | .or p q => isN2Normal p && isN2Normal q
+  | .imp p q => isN2Normal p && isN2Normal q
+  | .iff p q => isN2Normal p && isN2Normal q
+  | .not p => isN2Normal p
+  | .all _ _ => true
+  | .ex _ _ => true
+  | .comp (.raw _ _) _ => true
+  | .comp (.all _ _) _ => true
+  | .comp (.ex _ _) _ => true
+  | .comp _ _ => false
+
 structure N2Result (i : Ty) (p : CPred (Ty.prod i Ty.final)) where
   rhs : CPred (Ty.prod i Ty.final)
   trace : N2Path i p rhs
@@ -358,6 +385,172 @@ theorem n2NormalizeFuel_replay (i : Ty) (fuel : Nat)
     (p : CPred (Ty.prod i Ty.final)) :
     CoreThm (Vy i (CPred.iff p (n2NormalizeFuel i fuel p).rhs)) :=
   (n2NormalizeFuel i fuel p).trace.replay
+
+def n2Normalize (i : Ty) (p : CPred (Ty.prod i Ty.final)) : N2Result i p :=
+  n2NormalizeFuel i (CPred.n2Size p) p
+
+theorem n2Normalize_replay (i : Ty) (p : CPred (Ty.prod i Ty.final)) :
+    CoreThm (Vy i (CPred.iff p (n2Normalize i p).rhs)) :=
+  n2NormalizeFuel_replay i (CPred.n2Size p) p
+
+theorem n2NormalizeFuel_normal (i : Ty) :
+    forall (fuel : Nat) (p : CPred (Ty.prod i Ty.final)),
+      CPred.n2Size p <= fuel ->
+        CPred.isN2Normal (n2NormalizeFuel i fuel p).rhs = true := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro p h
+      cases p with
+      | raw n ctx => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | and p q => simp [CPred.n2Size] at h
+      | or p q => simp [CPred.n2Size] at h
+      | imp p q => simp [CPred.n2Size] at h
+      | iff p q => simp [CPred.n2Size] at h
+      | not p => simp [CPred.n2Size] at h
+      | all x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | ex x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | comp p s => simp [CPred.n2Size] at h
+  | succ fuel ih =>
+      intro p h
+      cases p with
+      | raw n ctx => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | and p q =>
+          have hpSize : CPred.n2Size p <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hqSize : CPred.n2Size q <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hp := ih p hpSize
+          have hq := ih q hqSize
+          simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+      | or p q =>
+          have hpSize : CPred.n2Size p <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hqSize : CPred.n2Size q <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hp := ih p hpSize
+          have hq := ih q hqSize
+          simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+      | imp p q =>
+          have hpSize : CPred.n2Size p <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hqSize : CPred.n2Size q <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hp := ih p hpSize
+          have hq := ih q hqSize
+          simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+      | iff p q =>
+          have hpSize : CPred.n2Size p <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hqSize : CPred.n2Size q <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hp := ih p hpSize
+          have hq := ih q hqSize
+          simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+      | not p =>
+          have hpSize : CPred.n2Size p <= fuel := by
+            simp only [CPred.n2Size] at h ⊢; omega
+          have hp := ih p hpSize
+          simp [n2NormalizeFuel, CPred.isN2Normal, hp]
+      | all x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | ex x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+      | comp r s =>
+          cases r with
+          | raw n ctx => simp [n2NormalizeFuel, CPred.isN2Normal]
+          | and p q =>
+              have hpSize : CPred.n2Size (CPred.comp p s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hqSize : CPred.n2Size (CPred.comp q s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hp := ih (CPred.comp p s) hpSize
+              have hq := ih (CPred.comp q s) hqSize
+              simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+          | or p q =>
+              have hpSize : CPred.n2Size (CPred.comp p s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hqSize : CPred.n2Size (CPred.comp q s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hp := ih (CPred.comp p s) hpSize
+              have hq := ih (CPred.comp q s) hqSize
+              simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+          | imp p q =>
+              have hpSize : CPred.n2Size (CPred.comp p s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hqSize : CPred.n2Size (CPred.comp q s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hp := ih (CPred.comp p s) hpSize
+              have hq := ih (CPred.comp q s) hqSize
+              simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+          | iff p q =>
+              have hpSize : CPred.n2Size (CPred.comp p s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hqSize : CPred.n2Size (CPred.comp q s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hp := ih (CPred.comp p s) hpSize
+              have hq := ih (CPred.comp q s) hqSize
+              simp [n2NormalizeFuel, CPred.isN2Normal, hp, hq]
+          | not p =>
+              have hpSize : CPred.n2Size (CPred.comp p s) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              have hp := ih (CPred.comp p s) hpSize
+              simp [n2NormalizeFuel, CPred.isN2Normal, hp]
+          | all x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+          | ex x p => simp [n2NormalizeFuel, CPred.isN2Normal]
+          | comp p u =>
+              have hpSize : CPred.n2Size (CPred.comp p (CMap.comp u s)) <= fuel := by
+                simp only [CPred.n2Size] at h ⊢; omega
+              simpa [n2NormalizeFuel] using ih (CPred.comp p (CMap.comp u s)) hpSize
+
+theorem n2Normalize_normal (i : Ty) (p : CPred (Ty.prod i Ty.final)) :
+    CPred.isN2Normal (n2Normalize i p).rhs = true :=
+  n2NormalizeFuel_normal i (CPred.n2Size p) p (Nat.le_refl _)
+
+theorem n2NormalizeFuel_fixed (i : Ty) :
+    forall (fuel : Nat) (p : CPred (Ty.prod i Ty.final)),
+      CPred.isN2Normal p = true ->
+        (n2NormalizeFuel i fuel p).rhs = p := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro p h
+      rfl
+  | succ fuel ih =>
+      intro p h
+      cases p with
+      | raw n ctx => rfl
+      | and p q =>
+          simp [CPred.isN2Normal] at h
+          simp [n2NormalizeFuel, ih p h.left, ih q h.right]
+      | or p q =>
+          simp [CPred.isN2Normal] at h
+          simp [n2NormalizeFuel, ih p h.left, ih q h.right]
+      | imp p q =>
+          simp [CPred.isN2Normal] at h
+          simp [n2NormalizeFuel, ih p h.left, ih q h.right]
+      | iff p q =>
+          simp [CPred.isN2Normal] at h
+          simp [n2NormalizeFuel, ih p h.left, ih q h.right]
+      | not p =>
+          simp [CPred.isN2Normal] at h
+          simp [n2NormalizeFuel, ih p h]
+      | all x p => rfl
+      | ex x p => rfl
+      | comp r s =>
+          cases r with
+          | raw n ctx => rfl
+          | and p q => simp [CPred.isN2Normal] at h
+          | or p q => simp [CPred.isN2Normal] at h
+          | imp p q => simp [CPred.isN2Normal] at h
+          | iff p q => simp [CPred.isN2Normal] at h
+          | not p => simp [CPred.isN2Normal] at h
+          | all x p => rfl
+          | ex x p => rfl
+          | comp p u => simp [CPred.isN2Normal] at h
+
+theorem n2Normalize_idempotent (i : Ty) (p : CPred (Ty.prod i Ty.final)) :
+    (n2Normalize i (n2Normalize i p).rhs).rhs = (n2Normalize i p).rhs :=
+  n2NormalizeFuel_fixed i (CPred.n2Size (n2Normalize i p).rhs)
+    (n2Normalize i p).rhs (n2Normalize_normal i p)
 
 end Search
 end ContextualHOL
