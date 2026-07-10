@@ -93,10 +93,12 @@ def projMap? : (ctx : Ty) -> Nat -> Option ((A : Ty) × CMap ctx A)
       | some ⟨C, m⟩ => some ⟨C, CMap.comp m (CMap.snd A B)⟩
   | _, _ => none
 
+-- `Core.Term.raw` is NOT embeddable: raw is the escape hatch, with no
+-- reindexing behaviour to certify (matches the `TermEmbedIs` relation).
 def embedTerm? (ctx : Ty) : Core.Term -> Option ((A : Ty) × CMap ctx A)
   | Core.Term.proj n => projMap? ctx n
   | Core.Term.weakening ty _ c => some ⟨ty, CMap.weaken ty ctx c⟩
-  | Core.Term.raw n ty => some ⟨ty, CMap.raw n ctx ty⟩
+  | Core.Term.raw _ _ => none
 
 def embedPred? : (ctx : Ty) -> Core.Pred -> Option (CPred ctx)
   | ctx, Core.Pred.atom ctx' A B rel l r =>
@@ -555,6 +557,39 @@ inductive CoreThm : CProp -> Prop where
         (CPred.ex X (CPred.comp R (CMap.pair
           (CMap.fst X (Y ×' Ty.final))
           (CMap.comp (CMap.fst Y Ty.final) (CMap.snd X (Y ×' Ty.final))))))))
+  -- ---- beta_basis.cor / cfol: ∀-lifted Hilbert tautology bundle ----
+  -- Forall_impK / Forall_impS / Forall_contrapose
+  | forallImpK (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp A (CPred.imp B A)))
+  | forallImpS (Y : Ty) (A B C : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.imp A (CPred.imp B C))
+        (CPred.imp (CPred.imp A B) (CPred.imp A C))))
+  | forallContrapose (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp
+        (CPred.imp (CPred.not B) (CPred.not A))
+        (CPred.imp A B)))
+  -- Forall_andProjL (classical_first_order_logic_new.cor) / Forall_andProjR
+  | forallAndProjL (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.and A B) A))
+  | forallAndProjR (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.and A B) B))
+  | forallAndIntro (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp A (CPred.imp B (CPred.and A B))))
+  | forallOrInL (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp A (CPred.or A B)))
+  | forallOrInR (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp B (CPred.or A B)))
+  | forallOrElim (Y : Ty) (A B C : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.imp A C)
+        (CPred.imp (CPred.imp B C) (CPred.imp (CPred.or A B) C))))
+  | forallIffIntro (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.imp A B)
+        (CPred.imp (CPred.imp B A) (CPred.iff A B))))
+  | forallIffProjL (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.iff A B) (CPred.imp A B)))
+  | forallIffProjR (Y : Ty) (A B : CPred (Y ×' Ty.final)) :
+      CoreThm (Vy Y (CPred.imp (CPred.iff A B) (CPred.imp B A)))
   -- Forall_lift_fuse (rule-shaped: the generic-depth Beck–Chevalley seam)
   | forallLiftFuse (X Y Y0 : Ty) (s : CMap Y Y0)
       (A : CPred (X ×' Y0)) (B : CPred (X ×' Y)) :

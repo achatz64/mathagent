@@ -270,19 +270,22 @@ theorem projNorm {I A0 : Ty} (o : SlotObs I A0) :
                 (o.sndAssoc _ _ m' w)
                 (ih _ c hm' hc')
 
--- T2a: the projection lands strictly inside the telescope.
-theorem peelInside {I A0 : Ty} (o : SlotObs I A0) (X Γctx : Ty)
-    (tcm : CMap Γctx X) :
+-- T2a: the projection lands strictly inside the telescope.  Generic in the
+-- base map σ0 (only the LIFT layers are peeled), so it serves both the
+-- substitution generator (σ0 = ⟨t, id⟩) and the weakening generator
+-- (σ0 = snd).
+theorem peelInside {I A0 : Ty} (o : SlotObs I A0) (B0 B1 : Ty)
+    (σ0 : CMap B1 B0) :
     forall (tele : List Ty) (n : Nat)
-      (m : CMap (tele.foldr Ty.prod (X ×' Γctx)) A0)
-      (w : CMap (I ×' Ty.final) (tele.foldr Ty.prod Γctx))
+      (m : CMap (tele.foldr Ty.prod B0) A0)
+      (w : CMap (I ×' Ty.final) (tele.foldr Ty.prod B1))
       (c : CMap (I ×' Ty.final) A0),
       n < tele.length ->
-      ProjMapIs (tele.foldr Ty.prod (X ×' Γctx)) n A0 m ->
-      ProjCanonIs (tele.foldr Ty.prod Γctx) n w A0 c ->
+      ProjMapIs (tele.foldr Ty.prod B0) n A0 m ->
+      ProjCanonIs (tele.foldr Ty.prod B1) n w A0 c ->
       CoreThm (Vy I (CPred.iff
         (o.view (CMap.comp m
-          (CMap.comp (liftMapAlong tele (substMap X Γctx tcm)) w)))
+          (CMap.comp (liftMapAlong tele σ0) w)))
         (o.view c))) := by
   intro tele
   induction tele with
@@ -303,7 +306,7 @@ theorem peelInside {I A0 : Ty} (o : SlotObs I A0) (X Γctx : Ty)
               | succ _ _ _ _ _ _ hc' =>
                   exact CoreThm.forallIffTransApply I _ _ _
                     (o.sndPairLift _ _ _ _ m' _
-                      (liftMapAlong rest (substMap X Γctx tcm)) _ w)
+                      (liftMapAlong rest σ0) _ w)
                     (ih n m' _ c (Nat.lt_of_succ_lt_succ hlt) hm' hc')
 
 -- T2b: the projection lands exactly on the substituted slot.
@@ -417,7 +420,8 @@ theorem termClean {I A0 : Ty} (o : SlotObs I A0) (X Γctx : Ty)
         | proj _ _ _ hm' =>
             obtain ⟨c, hc⟩ := projCanonIs_exists hm' w
             exact CoreThm.forallIffTransApply I _ _ _
-              (o.peelInside X Γctx tcm tele n _ w c hlt hm hc)
+              (o.peelInside (X ×' Γctx) Γctx (substMap X Γctx tcm)
+                tele n _ w c hlt hm hc)
               (CoreThm.forallIffSymApply I _ _ (o.projNorm w c hm' hc))
       · -- the boundary: substCoreTerm inserts (the shift of) tc
         subst heq

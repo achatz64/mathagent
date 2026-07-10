@@ -79,6 +79,18 @@ inductive BasisName where
   | forallClosureBeta
   | existClosureBeta
   | forallLiftFuse
+  -- ma1/beta_basis.cor: M3.3 additions (∀-lifted Hilbert tautology bundle)
+  | forallImpK
+  | forallImpS
+  | forallContrapose
+  | forallAndProjR
+  | forallAndIntro
+  | forallOrInL
+  | forallOrInR
+  | forallOrElim
+  | forallIffIntro
+  | forallIffProjL
+  | forallIffProjR
   -- ma1/classical_first_order_logic_new.cor
   | forallReindex
   | curryUncurry
@@ -183,6 +195,17 @@ def coreName : BasisName -> String
   | forallClosureBeta => "Forall_closure_beta"
   | existClosureBeta => "Exist_closure_beta"
   | forallLiftFuse => "Forall_lift_fuse"
+  | forallImpK => "Forall_impK"
+  | forallImpS => "Forall_impS"
+  | forallContrapose => "Forall_contrapose"
+  | forallAndProjR => "Forall_andProjR"
+  | forallAndIntro => "Forall_andIntro"
+  | forallOrInL => "Forall_orInL"
+  | forallOrInR => "Forall_orInR"
+  | forallOrElim => "Forall_orElim"
+  | forallIffIntro => "Forall_iffIntro"
+  | forallIffProjL => "Forall_iffProjL"
+  | forallIffProjR => "Forall_iffProjR"
   | forallReindex => "Forall_reindex"
   | curryUncurry => "curry_uncurry"
   | relEqExt => "RelEqExt"
@@ -281,7 +304,18 @@ def origin : BasisName -> BasisOrigin
   | forallConstCompUnaryBeta
   | forallClosureBeta
   | existClosureBeta
-  | forallLiftFuse => BasisOrigin.betaBasis
+  | forallLiftFuse
+  | forallImpK
+  | forallImpS
+  | forallContrapose
+  | forallAndProjR
+  | forallAndIntro
+  | forallOrInL
+  | forallOrInR
+  | forallOrElim
+  | forallIffIntro
+  | forallIffProjL
+  | forallIffProjR => BasisOrigin.betaBasis
   | forallReindex
   | curryUncurry
   | relEqExt
@@ -381,6 +415,17 @@ def all : List BasisName := [
   forallClosureBeta,
   existClosureBeta,
   forallLiftFuse,
+  forallImpK,
+  forallImpS,
+  forallContrapose,
+  forallAndProjR,
+  forallAndIntro,
+  forallOrInL,
+  forallOrInR,
+  forallOrElim,
+  forallIffIntro,
+  forallIffProjL,
+  forallIffProjR,
   forallReindex,
   curryUncurry,
   relEqExt,

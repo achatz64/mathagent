@@ -701,6 +701,85 @@ axiom Forall_lift_fuse (X Y Y0 : Type) (s : Y → Y0)
         (fst X (Y × Final))
         ((fst Y Final) ∘ (snd X (Y × Final))))))))
 
+-- ===== M3.3 additions: ∀-lifted Hilbert tautology bundle (family (C)) =====
+--
+-- The contextual-calculus lifting (ma1/m3.md) interprets Γ | Δ ⊢ φ as one ∀
+-- over the context object with a nested implication chain in the fibre.  Its
+-- Hilbert-style propositional layer lifts through these ∀-closed fibre
+-- tautologies, siblings of Forall_exfalso / Forall_andProjL: each body is ⊤
+-- in the classical fibre, so its ∀-closure is ⊤ in the model.
+
+-- K:  ∀( A → (B → A) ).
+axiom Forall_impK (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final
+    (Pred.imply (Y × Final) A (Pred.imply (Y × Final) B A)))
+
+-- S:  ∀( (A→(B→C)) → ((A→B) → (A→C)) ).
+axiom Forall_impS (Y : Type) (A B C : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.imply (Y × Final) A (Pred.imply (Y × Final) B C))
+    (Pred.imply (Y × Final)
+      (Pred.imply (Y × Final) A B)
+      (Pred.imply (Y × Final) A C))))
+
+-- classical contraposition:  ∀( (¬B→¬A) → (A→B) ).
+axiom Forall_contrapose (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.imply (Y × Final)
+      (Pred.not (Y × Final) B) (Pred.not (Y × Final) A))
+    (Pred.imply (Y × Final) A B)))
+
+-- ∧ projection, right slot (sibling of Forall_andProjL):  ∀( (A∧B) → B ).
+axiom Forall_andProjR (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.and (Y × Final) A B) B))
+
+-- ∧ introduction:  ∀( A → (B → (A∧B)) ).
+axiom Forall_andIntro (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final) A
+    (Pred.imply (Y × Final) B (Pred.and (Y × Final) A B))))
+
+-- ∨ introduction, left:  ∀( A → (A∨B) ).
+axiom Forall_orInL (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final) A
+    (Pred.or (Y × Final) A B)))
+
+-- ∨ introduction, right:  ∀( B → (A∨B) ).
+axiom Forall_orInR (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final) B
+    (Pred.or (Y × Final) A B)))
+
+-- ∨ elimination:  ∀( (A→C) → ((B→C) → ((A∨B)→C)) ).
+axiom Forall_orElim (Y : Type) (A B C : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.imply (Y × Final) A C)
+    (Pred.imply (Y × Final)
+      (Pred.imply (Y × Final) B C)
+      (Pred.imply (Y × Final) (Pred.or (Y × Final) A B) C))))
+
+-- ↔ introduction:  ∀( (A→B) → ((B→A) → (A↔B)) ).
+axiom Forall_iffIntro (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.imply (Y × Final) A B)
+    (Pred.imply (Y × Final)
+      (Pred.imply (Y × Final) B A)
+      (Pred.iff (Y × Final) A B))))
+
+-- ↔ projection, forward:  ∀( (A↔B) → (A→B) ).
+axiom Forall_iffProjL (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.iff (Y × Final) A B) (Pred.imply (Y × Final) A B)))
+
+-- ↔ projection, backward:  ∀( (A↔B) → (B→A) ).
+axiom Forall_iffProjR (Y : Type) (A B : Pred (Y × Final)) :
+  Pred.term (Forall Y Final (Pred.imply (Y × Final)
+    (Pred.iff (Y × Final) A B) (Pred.imply (Y × Final) B A)))
+
+#check @Forall_impK
+#check @Forall_impS
+#check @Forall_contrapose
+#check @Forall_orElim
+#check @Forall_iffIntro
 #check @Forall_snd_pair_lift_beta_left
 #check @Forall_snd_pair_id_beta_left
 #check @Forall_snd_assoc_beta_left
