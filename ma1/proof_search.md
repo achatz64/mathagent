@@ -108,7 +108,13 @@ finite conclusion-directed logical candidates. Its typed Step relation gives
 backward transitions for hyp, implication, conjunction, disjunction, and iff;
 step_sound replays every such transition into the M3 contextual Proves calculus.
 step_core_replay then packages it as conditional deep CoreThm evidence under
-the existing M3 lifting certificates. N2 is the next PS1 increment.
+the existing M3 lifting certificates.
+
+**First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
+and, or, implication, iff, and negation. N2Edge records the selected basis
+name and its exact CoreThm certificate; N2Path adds reflexive and transitive
+replayable traces. Orientation, matching, and an idempotent normalizer remain
+the next PS1 increment.
 
 **Boundary finding.** Negation is hypothesis-only for now. The M3 calculus has
 no falsity-forming rule from which a sound not-introduction action could be
