@@ -1,4 +1,4 @@
-import ContextualHOL.Syntax
+import ContextualHOL.ProvesLift
 
 namespace ContextualHOL
 namespace Search
@@ -52,7 +52,6 @@ inductive LogicalAction where
   | orIntroLeft
   | orIntroRight
   | iffIntro
-  | notIntro
   deriving Repr, BEq, DecidableEq
 
 def logicalCandidates (s : Sequent) : List LogicalAction :=
@@ -61,13 +60,14 @@ def logicalCandidates (s : Sequent) : List LogicalAction :=
   | .and _ _ => [LogicalAction.hyp, LogicalAction.andIntro]
   | .or _ _ => [LogicalAction.hyp, LogicalAction.orIntroLeft, LogicalAction.orIntroRight]
   | .iff _ _ => [LogicalAction.hyp, LogicalAction.iffIntro]
-  | .not _ => [LogicalAction.hyp, LogicalAction.notIntro]
+  | .not _ => [LogicalAction.hyp]
   | .atom _ _ _ => [LogicalAction.hyp]
   | .papp _ _ => [LogicalAction.hyp]
   | .all _ _ _ => [LogicalAction.hyp]
   | .ex _ _ _ => [LogicalAction.hyp]
 
 structure State where
+  env : Env
   sequent : Sequent
   deriving Repr, BEq, DecidableEq
 
@@ -79,6 +79,85 @@ def State.isPropositional (s : State) : Bool :=
 
 def State.candidates (s : State) : List LogicalAction :=
   logicalCandidates s.sequent
+
+def State.proves (s : State) : Prop :=
+  Proves s.env s.sequent.objectCtx s.sequent.assumptions s.sequent.conclusion
+
+def AllProves : List State -> Prop
+  | [] => True
+  | s :: rest => And (State.proves s) (AllProves rest)
+
+inductive Step : State -> LogicalAction -> List State -> Prop where
+  | hyp {env gamma delta phi} (hmem : List.Mem phi delta) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := phi } }
+        .hyp []
+  | impIntro {env gamma delta p q}
+      (hp : (liftFormula? env gamma p).isSome = true) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .imp p q } }
+        .impIntro
+        [{ env := env, sequent := { objectCtx := gamma, assumptions := p :: delta, conclusion := q } }]
+  | andIntro {env gamma delta p q}
+      (hp : (liftFormula? env gamma p).isSome = true)
+      (hq : (liftFormula? env gamma q).isSome = true) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .and p q } }
+        .andIntro
+        [{ env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := p } },
+         { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := q } }]
+  | orIntroLeft {env gamma delta p q}
+      (hp : (liftFormula? env gamma p).isSome = true)
+      (hq : (liftFormula? env gamma q).isSome = true) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .or p q } }
+        .orIntroLeft
+        [{ env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := p } }]
+  | orIntroRight {env gamma delta p q}
+      (hp : (liftFormula? env gamma p).isSome = true)
+      (hq : (liftFormula? env gamma q).isSome = true) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .or p q } }
+        .orIntroRight
+        [{ env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := q } }]
+  | iffIntro {env gamma delta p q}
+      (hp : (liftFormula? env gamma p).isSome = true)
+      (hq : (liftFormula? env gamma q).isSome = true) :
+      Step { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .iff p q } }
+        .iffIntro
+        [{ env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .imp p q } },
+         { env := env, sequent := { objectCtx := gamma, assumptions := delta, conclusion := .imp q p } }]
+
+theorem step_sound {s : State} {a : LogicalAction} {children : List State}
+    (hstep : Step s a children) :
+    AllProves children -> State.proves s := by
+  intro hchildren
+  cases hstep with
+  | hyp hmem =>
+      exact Proves.hyp hmem
+  | impIntro hp =>
+      exact Proves.impIntro hp (by
+        simpa [AllProves, State.proves] using hchildren)
+  | andIntro hp hq =>
+      simp [AllProves, State.proves] at hchildren
+      exact Proves.mp hq
+        (Proves.mp hp (Proves.axAndI hp hq) hchildren.left) hchildren.right
+  | orIntroLeft hp hq =>
+      simp [AllProves, State.proves] at hchildren
+      exact Proves.mp hp (Proves.axOrL hp hq) hchildren
+  | orIntroRight hp hq =>
+      simp [AllProves, State.proves] at hchildren
+      exact Proves.mp hq (Proves.axOrR hp hq) hchildren
+  | iffIntro hp hq =>
+      simp [AllProves, State.proves] at hchildren
+      exact Proves.mp (by simp [liftFormula?_imp_isSome, hp, hq])
+        (Proves.mp (by simp [liftFormula?_imp_isSome, hp, hq])
+          (Proves.axIffI hp hq) hchildren.left) hchildren.right
+
+theorem step_core_replay {s : State} {a : LogicalAction} {children : List State}
+    (hstep : Step s a children) (hchildren : AllProves children) :
+    forall (cdelta : List (CPred (Ctx.obj s.sequent.objectCtx)))
+      (cphi : CPred (Ctx.obj s.sequent.objectCtx)),
+      LiftsAll s.env s.sequent.objectCtx s.sequent.assumptions cdelta ->
+      liftFormula? s.env s.sequent.objectCtx s.sequent.conclusion = some cphi ->
+      CoreThm (SeqLift (Ctx.obj s.sequent.objectCtx) (cdelta.map cl) (cl cphi)) := by
+  intro cdelta cphi hdelta hphi
+  exact proves_lift s.env (step_sound hstep hchildren) cdelta cphi hdelta hphi
 
 end Search
 end ContextualHOL

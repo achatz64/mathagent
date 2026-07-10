@@ -102,10 +102,17 @@ certificate and its congruence closure is proved valid for the chosen domain.
 **Goal.** Define CoreSearch0 states, a finite rule-library interface,
 matching/indexing, and N0--N3.
 
-**Initial implementation.** Search.lean now fixes the syntax-only
-pre-normalization boundary: a propositional-fragment test, finite list
-formula closure, and finite conclusion-directed logical candidates. It makes
-no N2 or replay-soundness claim yet; those are the next PS1 increment.
+**Initial implementation.** Search.lean now fixes the pre-normalization
+boundary: a propositional-fragment test, finite list formula closure, and
+finite conclusion-directed logical candidates. Its typed Step relation gives
+backward transitions for hyp, implication, conjunction, disjunction, and iff;
+step_sound replays every such transition into the M3 contextual Proves calculus.
+step_core_replay then packages it as conditional deep CoreThm evidence under
+the existing M3 lifting certificates. N2 is the next PS1 increment.
+
+**Boundary finding.** Negation is hypothesis-only for now. The M3 calculus has
+no falsity-forming rule from which a sound not-introduction action could be
+compiled; PS2 must give a separate justified classical focused treatment.
 
 **Methods.**
 
