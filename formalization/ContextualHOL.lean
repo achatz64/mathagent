@@ -12,3 +12,4 @@ import ContextualHOL.ProvesLift
 import ContextualHOL.BasisMap
 import ContextualHOL.Evidence
 import ContextualHOL.SubstEvidenceBuilder
+import ContextualHOL.Search

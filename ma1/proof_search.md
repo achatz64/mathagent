@@ -53,8 +53,11 @@ The first engine, `CoreSearch0`, has a deliberately frozen boundary:
 * A state may use only the fixed logic/infra basis and explicitly imported math
   theorems.  It may not create a new `axiom`, `def`, or derived theorem during
   search.
-* The output is a derivation in a search calculus and an emitted Core proof
-  term.  M2/M3 evidence must check that emission.
+* The output is a derivation in a search calculus, replayed initially as a
+  deep CoreThm derivation with its named live-Core dependencies. M3 proves
+  that certificate boundary; it does not yet emit surface .cor proof terms.
+  A later end-to-end emission gate can add that interoperability layer without
+  changing the search calculus or making M4 a prerequisite.
 
 The initial fragment is propositional contextual HOL plus the already-lifted
 structural representation.  Quantifier witnesses are introduced only in the
@@ -96,8 +99,13 @@ certificate and its congruence closure is proved valid for the chosen domain.
 
 ### PS1 — Search syntax and certified normalization
 
-**Goal.** Define `CoreSearch0` states, a finite rule-library interface,
+**Goal.** Define CoreSearch0 states, a finite rule-library interface,
 matching/indexing, and N0--N3.
+
+**Initial implementation.** Search.lean now fixes the syntax-only
+pre-normalization boundary: a propositional-fragment test, finite list
+formula closure, and finite conclusion-directed logical candidates. It makes
+no N2 or replay-soundness claim yet; those are the next PS1 increment.
 
 **Methods.**
 
@@ -116,11 +124,11 @@ matching/indexing, and N0--N3.
 **Theorems.**
 
 ```text
-finiteCandidates: normalized state S -> Finset (Action S)
+finiteCandidates: normalized state S -> List (Action S)
 normalizationSound: normalize S = S' ->
   (SearchDerivable S <-> SearchDerivable S')
 normalizationIdempotent: normalize (normalize S) = normalize S
-actionEmissionSound: Action S S' -> CoreThm (close S) follows from close S'
+actionCoreThmSound: Action S S' -> CoreThm (close S) follows from close S'
 ```
 
 **Exit condition.** Every state transition and every rewrite is replayable as
@@ -173,8 +181,8 @@ those subformulas.  The final theorem gives a terminating decision procedure
 for the chosen propositional fragment, not for all Core.
 
 **Exit condition.** A breadth-first implementation terminates on every input
-in the fragment, is sound and complete for `ProvesProp`, and emits checked Core
-terms through M3.
+in the fragment, is sound and complete for ProvesProp, and replays to
+checked CoreThm evidence through M3.
 
 **Falsifier / pivot.** If translating ordinary short propositional proofs
 requires intermediate formulas outside `Closure(G)`, or N2/N3 cannot merge
@@ -261,6 +269,6 @@ translation/lint program without assuming that Core itself is the engine.
 
 Do not begin implementation while M3 is still changing.  Once M3 terminates,
 first audit its deliverables against the dependencies above: complete lifting,
-live Core emission/correspondence, and the exact available contextual proof
-constructors.  Then begin PS1 and PS2 in parallel only where the completed M3
+the CoreThm correspondence boundary, and the exact available contextual
+proof constructors. Then begin PS1, followed by PS2, where the completed M3
 propositional layer supplies stable interfaces.
