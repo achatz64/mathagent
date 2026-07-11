@@ -288,11 +288,60 @@ def AllProves : List State -> Prop
   | [] => True
   | s :: rest => And (State.proves s) (AllProves rest)
 
+inductive FormulaHead where
+  | atom
+  | papp
+  | and
+  | or
+  | imp
+  | iff
+  | not
+  | all
+  | ex
+  deriving Repr, BEq, DecidableEq
+
+def Formula.formulaHead : Formula -> FormulaHead
+  | .atom _ _ _ => .atom
+  | .papp _ _ => .papp
+  | .and _ _ => .and
+  | .or _ _ => .or
+  | .imp _ _ => .imp
+  | .iff _ _ => .iff
+  | .not _ => .not
+  | .all _ _ _ => .all
+  | .ex _ _ _ => .ex
+
+def FormulaHead.matches : FormulaHead -> FormulaHead -> Bool
+  | .atom, .atom => true
+  | .papp, .papp => true
+  | .and, .and => true
+  | .or, .or => true
+  | .imp, .imp => true
+  | .iff, .iff => true
+  | .not, .not => true
+  | .all, .all => true
+  | .ex, .ex => true
+  | _, _ => false
+
+inductive RuleKey where
+  | any
+  | head (formulaHead : FormulaHead)
+  deriving Repr, BEq, DecidableEq
+
+def RuleKey.matches : RuleKey -> Formula -> Bool
+  | .any, _ => true
+  | .head expected, formula => FormulaHead.matches expected (Formula.formulaHead formula)
+
 /- A finite imported library supplies typed backward transitions. Each entry
-   carries the contextual soundness argument required to use it. -/
+   carries both contextual soundness and a checked conclusion-index coverage
+   condition, so indexed retrieval cannot silently omit an applicable rule. -/
 structure Rule where
   name : Name
+  keys : List RuleKey
   transition : State -> Option (List State)
+  coverage : forall (s : State) (children : List State),
+    transition s = some children ->
+      keys.any (fun key => key.matches s.sequent.conclusion) = true
   sound : forall (s : State) (children : List State),
     transition s = some children -> AllProves children -> State.proves s
 
@@ -310,6 +359,65 @@ def ruleCandidates (library : List Rule) (s : State) : List (RuleApplication s) 
     match h : rule.transition s with
     | none => acc
     | some children => { rule := rule, children := children, applies := h } :: acc) []
+
+structure RuleIndex where
+  wildcardRules : List Rule := []
+  atomRules : List Rule := []
+  pappRules : List Rule := []
+  andRules : List Rule := []
+  orRules : List Rule := []
+  impRules : List Rule := []
+  iffRules : List Rule := []
+  notRules : List Rule := []
+  allRules : List Rule := []
+  exRules : List Rule := []
+
+def RuleIndex.add (index : RuleIndex) (key : RuleKey) (rule : Rule) : RuleIndex :=
+  match key with
+  | .any => { index with wildcardRules := index.wildcardRules ++ [rule] }
+  | .head .atom => { index with atomRules := index.atomRules ++ [rule] }
+  | .head .papp => { index with pappRules := index.pappRules ++ [rule] }
+  | .head .and => { index with andRules := index.andRules ++ [rule] }
+  | .head .or => { index with orRules := index.orRules ++ [rule] }
+  | .head .imp => { index with impRules := index.impRules ++ [rule] }
+  | .head .iff => { index with iffRules := index.iffRules ++ [rule] }
+  | .head .not => { index with notRules := index.notRules ++ [rule] }
+  | .head .all => { index with allRules := index.allRules ++ [rule] }
+  | .head .ex => { index with exRules := index.exRules ++ [rule] }
+
+def RuleIndex.addRule (index : RuleIndex) (rule : Rule) : RuleIndex :=
+  rule.keys.foldl (fun current key => current.add key rule) index
+
+def RuleIndex.build (library : List Rule) : RuleIndex :=
+  library.foldl RuleIndex.addRule {}
+
+def RuleIndex.lookupFormula (index : RuleIndex) (formula : Formula) : List Rule :=
+  index.wildcardRules ++
+    match Formula.formulaHead formula with
+    | .atom => index.atomRules
+    | .papp => index.pappRules
+    | .and => index.andRules
+    | .or => index.orRules
+    | .imp => index.impRules
+    | .iff => index.iffRules
+    | .not => index.notRules
+    | .all => index.allRules
+    | .ex => index.exRules
+
+theorem RuleIndex.mem_lookupFormula_add_of_matches
+    (index : RuleIndex) (rule : Rule) (key : RuleKey) (formula : Formula)
+    (h : key.matches formula = true) :
+    List.Mem rule ((index.add key rule).lookupFormula formula) := by
+  cases key with
+  | any =>
+      cases formula <;>
+        simp [RuleIndex.add, RuleIndex.lookupFormula, Formula.formulaHead]
+      all_goals exact List.mem_append_cons_self
+  | head formulaHead =>
+      cases formulaHead <;> cases formula <;>
+        simp [RuleIndex.add, RuleIndex.lookupFormula, RuleKey.matches,
+          FormulaHead.matches, Formula.formulaHead] at h ⊢
+      all_goals exact List.mem_append_right _ List.mem_append_cons_self
 
 theorem RuleApplication.core_replay {s : State} (app : RuleApplication s)
     (hchildren : AllProves app.children) :
@@ -495,9 +603,46 @@ theorem logicalTransition?_step (s : State) (action : LogicalAction)
           subst children
           exact Step.iffIntro hp hq
 
+def LogicalAction.keys : LogicalAction -> List RuleKey
+  | .hyp => [.any]
+  | .impIntro => [.head .imp]
+  | .andIntro => [.head .and]
+  | .orIntroLeft => [.head .or]
+  | .orIntroRight => [.head .or]
+  | .iffIntro => [.head .iff]
+
+theorem logicalTransition?_covered (s : State) (action : LogicalAction)
+    {children : List State} (h : logicalTransition? action s = some children) :
+    (LogicalAction.keys action).any
+      (fun key => key.matches s.sequent.conclusion) = true := by
+  cases s with
+  | mk env sequent =>
+    cases sequent with
+    | mk gamma delta conclusion =>
+      cases action with
+      | hyp => simp [LogicalAction.keys, RuleKey.matches]
+      | impIntro =>
+          cases conclusion <;>
+            simp [logicalTransition?, LogicalAction.keys, RuleKey.matches, FormulaHead.matches, Formula.formulaHead] at h ⊢
+      | andIntro =>
+          cases conclusion <;>
+            simp [logicalTransition?, LogicalAction.keys, RuleKey.matches, FormulaHead.matches, Formula.formulaHead] at h ⊢
+      | orIntroLeft =>
+          cases conclusion <;>
+            simp [logicalTransition?, LogicalAction.keys, RuleKey.matches, FormulaHead.matches, Formula.formulaHead] at h ⊢
+      | orIntroRight =>
+          cases conclusion <;>
+            simp [logicalTransition?, LogicalAction.keys, RuleKey.matches, FormulaHead.matches, Formula.formulaHead] at h ⊢
+      | iffIntro =>
+          cases conclusion <;>
+            simp [logicalTransition?, LogicalAction.keys, RuleKey.matches, FormulaHead.matches, Formula.formulaHead] at h ⊢
+
 def logicalRule (action : LogicalAction) : Rule where
   name := reprStr action
+  keys := LogicalAction.keys action
   transition := logicalTransition? action
+  coverage := fun s _children htransition =>
+    logicalTransition?_covered s action htransition
   sound := fun s _children htransition hchildren =>
     step_sound (logicalTransition?_step s action htransition) hchildren
 
@@ -510,8 +655,19 @@ theorem LogicalAction.mem_all (action : LogicalAction) : action ∈ LogicalActio
 def logicalLibrary : List Rule :=
   LogicalAction.all.map logicalRule
 
+def logicalIndex : RuleIndex :=
+  RuleIndex.build logicalLibrary
+
+theorem logicalIndex_lookup (s : Sequent) :
+    logicalIndex.lookupFormula s.conclusion =
+      (logicalCandidates s).map logicalRule := by
+  cases s with
+  | mk gamma delta conclusion =>
+      cases conclusion <;> rfl
+
 def State.ruleCandidates (s : State) : List (RuleApplication s) :=
-  ContextualHOL.Search.ruleCandidates logicalLibrary s
+  ContextualHOL.Search.ruleCandidates
+    (logicalIndex.lookupFormula s.sequent.conclusion) s
 
 inductive N2Rule where
   | unaryReindex

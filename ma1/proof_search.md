@@ -124,6 +124,17 @@ is proved exhaustive and logicalLibrary maps that finite enumeration into the
 generic rule interface; State.ruleCandidates therefore returns only applicable,
 replayable logical transitions.
 
+**First index slice.** FormulaHead classifies the nine formula constructors.
+Every Rule declares a finite key list and proves that any successful
+transition matches one of those keys. RuleIndex.build precomputes a wildcard
+bucket and one bucket per constructor; lookup reads only the wildcard bucket
+and the selected constructor bucket, rather than scanning declarations.
+RuleIndex.mem_lookupFormula_add_of_matches verifies matching insertion is
+retrievable, while logicalIndex_lookup proves the complete logical index
+returns exactly the former conclusion-directed enumeration. Atom and predicate
+application buckets are not yet split by typed symbol; that is the remaining
+matching/indexing refinement.
+
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
 name and its exact CoreThm certificate; N2Path now also carries checked
