@@ -64,14 +64,13 @@ structural representation.  Quantifier witnesses are introduced only in the
 later witness milestone.
 
 ## Certified normal forms
-
-"Normalization" is split into four different operations.  They must not be
-merged into an uncheckable simplifier.
+Search normalization is split into three operations. They must not be merged
+into an uncheckable simplifier. Surface-Core definitional comparison is a
+separate interoperability gate described below.
 
 | Name | Object normalized | Basis | Required evidence |
 |---|---|---|---|
 | N0 | contextual source AST: binder order, context product, implication chain, variable names | contextual syntax and renderer | syntactic equality |
-| N1 | transparent `def`/`abbrev` unfolding permitted by Core | Core checker | checker definitional equality |
 | N2 | closed `PC` propositions and exposed sequent closures | M1 beta basis, M2 Core correspondence, M3 context transport | emitted Core proof of `iff P P'` |
 | N3 | search state: sorted/subsumed assumptions, focused goal shape, solved-goal removal | search-calculus theorems | derivation-preserving map between states |
 
@@ -81,7 +80,7 @@ denote the same map in the intended model.  A N2 rewrite is permitted only when
 the finite live basis supplies the required `PC` observation and M2 can name or
 emit its evidence.
 
-Each normalizer must satisfy the following, for its declared domain:
+Each of N0, N2, and N3 must satisfy the following, for its declared domain:
 
 ```text
 normalize S = S'  =>  SearchDerivable S <-> SearchDerivable S'
@@ -95,12 +94,30 @@ set with a syntactic decrease measure.  An e-graph is explicitly postponed:
 it can be considered only if every e-class edge carries a replayable Core
 certificate and its congruence closure is proved valid for the chosen domain.
 
+### Surface-Core interoperability gate (formerly N1)
+
+Transparent def/abbrev unfolding belongs to the native Core checker, not to
+the current search-state representation. CoreSearch0 states contain typed
+contextual formulas and deep CPred/CoreThm evidence; they contain no checker
+Expr, declaration body, or unresolved transparent definition. Consequently,
+checker definitional equality has no SearchDerivable preservation or
+idempotence obligation in PS1 and does not block the search-utility program.
+
+The native checker may retain n1Compare? / n1DefEq as an executable,
+hole-rejecting boundary check. It is required when comparing generated and
+handwritten .cor, importing rules directly from surface Core, or emitting
+surface certificates, and is therefore an interoperability/M4 concern. The
+current checker normalizer is partial and regression-checked, not proved
+terminating or idempotent. A proof of that checker is required only if a future
+design puts surface Expr objects inside search; doing so is an explicit
+search-boundary change, not unfinished PS1 normalization.
+
 ## Milestones
 
 ### PS1 — Search syntax and certified normalization
 
 **Goal.** Define CoreSearch0 states, a finite rule-library interface,
-matching/indexing, and N0--N3.
+matching/indexing, and the N0, N2, and N3 search normalizers.
 
 **Initial implementation.** Search.lean now fixes the pre-normalization
 boundary: a propositional-fragment test, finite list formula closure, and
@@ -141,17 +158,6 @@ form, and the relation/predicate state-lookup theorems prove that every matching
 typed insertion is retrieved. logicalIndex_lookupState separately proves these
 new buckets do not alter the built-in logical candidate set. Term-constant head
 indexing remains part of the later first-order matcher refinement.
-
-**First N1 slice.** The native Core checker now exposes a separate n1Compare? /
-n1DefEq gate. It uses the checker normalizer and exact equality of the resulting
-Core Expr trees; unlike the existing compatible relation, it rejects holes,
-which are elaboration placeholders rather than Core terms. Permanent native
-regressions cover nullary abbrev unfolding, parameterized def unfolding, axiom
-opacity, hole rejection, and operational idempotence on a nested transparent
-term. The normalizer is currently declared partial: general termination and
-idempotence theorems require an explicit acyclic checked-environment invariant.
-Until that invariant is formalized, N1 is executable and regression-checked but
-not yet a completed normalizer theorem.
 
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
@@ -202,9 +208,10 @@ normalizationIdempotent: normalize (normalize S) = normalize S
 actionCoreThmSound: Action S S' -> CoreThm (close S) follows from close S'
 ```
 
-**Exit condition.** Every state transition and every rewrite is replayable as
-live Core evidence; candidate selection is finite and typed; no rewrite is
-justified only by the informal intended model.
+**Exit condition.** Every state transition and every N2/N3 rewrite is replayable
+as live Core evidence; N0 transformations are justified by syntactic equality;
+candidate selection is finite and typed; no rewrite is justified only by the
+informal intended model.
 
 **Falsifier / pivot.** If useful normal forms require arbitrary-map equality,
 an unbounded beta-rule family, or higher-order matching before even the
@@ -243,7 +250,7 @@ to the M3 calculus/Core.
 focusedSound: Focused G -> Proves G
 focusedComplete: ProvesProp G -> Focused G
 subformula: every formula in a Focused derivation of G is in Closure(G)
-finiteStateProp: quotienting propositional states by N0--N3 yields a finite set
+finiteStateProp: quotienting propositional states by N0+N2+N3 yields a finite set
 ```
 
 `Closure(G)` is explicitly the finite set of subformulas of the goal and
@@ -320,9 +327,11 @@ candidate actions considered, state merges, witness-pool stage,
 time, Core certificate size, and replay success.
 ```
 
-Run ablations: raw search, N0+N1 only, N0--N2, and N0--N3.  This identifies
-whether a claimed benefit comes from Core's representation or merely from a
-handwritten derived theorem.
+Run ablations: raw search, N0 only, N0+N2, and N0+N2+N3. This identifies
+whether a claimed benefit comes from the Core representation or merely from a
+handwritten derived theorem. The surface-Core definitional-equality gate is
+measured separately at import/emission boundaries; it does not change the
+search-state count.
 
 **Decision rule.** Core remains the search-language candidate only if:
 
