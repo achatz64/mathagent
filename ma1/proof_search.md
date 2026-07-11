@@ -70,7 +70,7 @@ separate interoperability gate described below.
 
 | Name | Object normalized | Basis | Required evidence |
 |---|---|---|---|
-| N0 | contextual source AST: binder order, context product, implication chain, variable names | contextual syntax and renderer | syntactic equality |
+| N0 | frozen contextual source AST: context order/product and implication closure | contextual syntax and renderer | syntactic equality |
 | N2 | closed `PC` propositions and exposed sequent closures | M1 beta basis, M2 Core correspondence, M3 context transport | emitted Core proof of `iff P P'` |
 | N3 | search state: sorted/subsumed assumptions, focused goal shape, solved-goal removal | search-calculus theorems | derivation-preserving map between states |
 
@@ -158,6 +158,18 @@ form, and the relation/predicate state-lookup theorems prove that every matching
 typed insertion is retrieved. logicalIndex_lookupState separately proves these
 new buckets do not alter the built-in logical candidate set. Term-constant head
 indexing remains part of the later first-order matcher refinement.
+
+**First N0 slice.** For the frozen propositional CoreSearch0 boundary, the typed
+source AST is already canonical: connective association and context order are
+structural, and the available logical transitions introduce no binders or fresh
+variable names. State.n0 is therefore syntactic identity, with proved
+State.n0_proves_iff and State.n0_idempotent laws. State.n0Closed? is the
+deterministic checked renderer boundary: it maps variables to projections,
+constructs Ctx.obj, builds the assumption implication chain, and closes the
+context in list order; checked sequents are proved to produce a result. This N0
+does not quotient alpha-equivalent quantified states. Such quotienting requires
+a renaming-preservation theorem and is an explicit extension gate before PS3,
+not a hidden assumption in propositional finiteness.
 
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
@@ -274,6 +286,7 @@ pretending it is normalized away.
 
 **Methods.**
 
+* Before memoizing quantified states, either extend N0 with a proved alpha-renaming-preservation theorem or keep binder names frozen from the input and witness policy; do not quotient by an unproved alpha key.
 * Search uses a growing, typed witness pool `T0 subset T1 subset ...` built
   only from the frozen import signature, contextual variables, and allowed
   fully-applied term formers.

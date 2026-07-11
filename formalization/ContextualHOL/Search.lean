@@ -84,6 +84,37 @@ def State.candidates (s : State) : List LogicalAction :=
 def State.proves (s : State) : Prop :=
   Proves s.env s.sequent.objectCtx s.sequent.assumptions s.sequent.conclusion
 
+/- N0 for CoreSearch0 frozen propositional source boundary. The contextual
+   AST already fixes connective association and context order, and the search
+   rules in this fragment introduce no binders or fresh variable names. Hence
+   source normalization is syntactic identity. Alpha-quotienting is not used
+   here; it requires a separate renaming-preservation theorem when quantifier
+   search is introduced. -/
+def State.n0 (s : State) : State := s
+
+theorem State.n0_eq (s : State) : s.n0 = s := rfl
+
+theorem State.n0_proves_iff (s : State) :
+    Iff (State.proves s) (State.proves s.n0) := by
+  rfl
+
+theorem State.n0_idempotent (s : State) : s.n0.n0 = s.n0 := by
+  rfl
+
+/- The deterministic contextual renderer boundary used by N0. It erases
+   contextual variable names to projections, constructs the right-nested
+   context product, builds the assumption implication chain, and closes the
+   context in list order. -/
+def State.n0Closed? (s : State) : Option Core.Closed :=
+  translateClosedSequent? s.env s.sequent
+
+theorem State.n0Closed?_isSome (s : State)
+    (hchecked : checkSequent? s.env s.sequent = some ()) :
+    s.n0Closed?.isSome = true :=
+  checkSequent_translateClosedSequent_isSome s.env s.sequent hchecked
+
+theorem State.n0Closed?_n0 (s : State) : s.n0.n0Closed? = s.n0Closed? := rfl
+
 /- N3 may change the list representation of assumptions only when it
    preserves membership exactly. This is needed because contextual binder
    rules carry freshness obligations over the full assumption list. -/
