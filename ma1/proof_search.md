@@ -127,13 +127,20 @@ replayable logical transitions.
 **First index slice.** FormulaHead classifies the nine formula constructors.
 Every Rule declares a finite key list and proves that any successful
 transition matches one of those keys. RuleIndex.build precomputes a wildcard
-bucket and one bucket per constructor; lookup reads only the wildcard bucket
-and the selected constructor bucket, rather than scanning declarations.
-RuleIndex.mem_lookupFormula_add_of_matches verifies matching insertion is
-retrievable, while logicalIndex_lookup proves the complete logical index
-returns exactly the former conclusion-directed enumeration. Atom and predicate
-application buckets are not yet split by typed symbol; that is the remaining
-matching/indexing refinement.
+bucket and one bucket per constructor; lookupFormula reads only the wildcard
+bucket and the selected constructor bucket, rather than scanning declarations.
+RuleIndex.mem_lookupKey_add verifies insertion is retrievable for every key form, while logicalIndex_lookup proves the complete logical index
+returns exactly the former conclusion-directed enumeration.
+
+**Typed-symbol refinement.** RuleKey now has relation and predicate keys that
+carry both the declaration name and its Core type signature. State.symbolKey?
+uses the same lookupRel? and lookupPred? operations as M3 formula checking; rule
+matching and bucket selection therefore consume one shared environment-derived
+key. The association buckets are executable, mem_lookupKey_add covers every key
+form, and the relation/predicate state-lookup theorems prove that every matching
+typed insertion is retrieved. logicalIndex_lookupState separately proves these
+new buckets do not alter the built-in logical candidate set. Term-constant head
+indexing remains part of the later first-order matcher refinement.
 
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis

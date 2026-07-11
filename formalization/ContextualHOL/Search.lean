@@ -326,11 +326,42 @@ def FormulaHead.matches : FormulaHead -> FormulaHead -> Bool
 inductive RuleKey where
   | any
   | head (formulaHead : FormulaHead)
+  | relation (name : Name) (left right : Ty)
+  | predicate (name : Name) (arg : Ty)
   deriving Repr, BEq, DecidableEq
 
-def RuleKey.matches : RuleKey -> Formula -> Bool
+def State.symbolKey? (s : State) : Option RuleKey :=
+  match s.sequent.conclusion with
+  | .atom name _ _ =>
+      match lookupRel? s.env name with
+      | none => none
+      | some sig => some (.relation name sig.left sig.right)
+  | .papp name _ =>
+      match lookupPred? s.env name with
+      | none => none
+      | some arg => some (.predicate name arg)
+  | _ => none
+
+def RuleKey.matches : RuleKey -> State -> Bool
   | .any, _ => true
-  | .head expected, formula => FormulaHead.matches expected (Formula.formulaHead formula)
+  | .head expected, s =>
+      FormulaHead.matches expected (Formula.formulaHead s.sequent.conclusion)
+  | .relation name left right, s =>
+      match s.symbolKey? with
+      | some (.relation actual actualLeft actualRight) =>
+          if actual = name then
+            if actualLeft = left then
+              if actualRight = right then true else false
+            else false
+          else false
+      | _ => false
+  | .predicate name arg, s =>
+      match s.symbolKey? with
+      | some (.predicate actual actualArg) =>
+          if actual = name then
+            if actualArg = arg then true else false
+          else false
+      | _ => false
 
 /- A finite imported library supplies typed backward transitions. Each entry
    carries both contextual soundness and a checked conclusion-index coverage
@@ -341,7 +372,7 @@ structure Rule where
   transition : State -> Option (List State)
   coverage : forall (s : State) (children : List State),
     transition s = some children ->
-      keys.any (fun key => key.matches s.sequent.conclusion) = true
+      keys.any (fun key => key.matches s) = true
   sound : forall (s : State) (children : List State),
     transition s = some children -> AllProves children -> State.proves s
 
@@ -360,6 +391,39 @@ def ruleCandidates (library : List Rule) (s : State) : List (RuleApplication s) 
     | none => acc
     | some children => { rule := rule, children := children, applies := h } :: acc) []
 
+def RuleIndex.addBucket [DecidableEq keyTy] (key : keyTy) (rule : Rule) :
+    List (keyTy × List Rule) -> List (keyTy × List Rule)
+  | [] => [(key, [rule])]
+  | (existing, rules) :: rest =>
+      if existing = key then
+        (existing, rules ++ [rule]) :: rest
+      else
+        (existing, rules) :: RuleIndex.addBucket key rule rest
+
+def RuleIndex.lookupBucket [DecidableEq keyTy] (key : keyTy) :
+    List (keyTy × List Rule) -> List Rule
+  | [] => []
+  | (existing, rules) :: rest =>
+      if existing = key then rules else RuleIndex.lookupBucket key rest
+
+theorem RuleIndex.mem_lookupBucket_addBucket [DecidableEq keyTy]
+    (key : keyTy) (rule : Rule) (buckets : List (keyTy × List Rule)) :
+    List.Mem rule (RuleIndex.lookupBucket key
+      (RuleIndex.addBucket key rule buckets)) := by
+  induction buckets with
+  | nil =>
+      rw [RuleIndex.addBucket, RuleIndex.lookupBucket, if_pos rfl]
+      exact List.Mem.head _
+  | cons entry rest ih =>
+      cases entry with
+      | mk existing rules =>
+          by_cases hkey : existing = key
+          · subst existing
+            rw [RuleIndex.addBucket, if_pos rfl, RuleIndex.lookupBucket, if_pos rfl]
+            exact List.mem_append_cons_self
+          · rw [RuleIndex.addBucket, if_neg hkey, RuleIndex.lookupBucket, if_neg hkey]
+            exact ih
+
 structure RuleIndex where
   wildcardRules : List Rule := []
   atomRules : List Rule := []
@@ -371,6 +435,8 @@ structure RuleIndex where
   notRules : List Rule := []
   allRules : List Rule := []
   exRules : List Rule := []
+  relationRules : List ((Name × Ty × Ty) × List Rule) := []
+  predicateRules : List ((Name × Ty) × List Rule) := []
 
 def RuleIndex.add (index : RuleIndex) (key : RuleKey) (rule : Rule) : RuleIndex :=
   match key with
@@ -384,6 +450,83 @@ def RuleIndex.add (index : RuleIndex) (key : RuleKey) (rule : Rule) : RuleIndex 
   | .head .not => { index with notRules := index.notRules ++ [rule] }
   | .head .all => { index with allRules := index.allRules ++ [rule] }
   | .head .ex => { index with exRules := index.exRules ++ [rule] }
+  | .relation name left right =>
+      { index with relationRules :=
+          RuleIndex.addBucket (name, left, right) rule index.relationRules }
+  | .predicate name arg =>
+      { index with predicateRules :=
+          RuleIndex.addBucket (name, arg) rule index.predicateRules }
+
+def RuleIndex.lookupKey (index : RuleIndex) : RuleKey -> List Rule
+  | .any => index.wildcardRules
+  | .head .atom => index.atomRules
+  | .head .papp => index.pappRules
+  | .head .and => index.andRules
+  | .head .or => index.orRules
+  | .head .imp => index.impRules
+  | .head .iff => index.iffRules
+  | .head .not => index.notRules
+  | .head .all => index.allRules
+  | .head .ex => index.exRules
+  | .relation name left right =>
+      RuleIndex.lookupBucket (name, left, right) index.relationRules
+  | .predicate name arg =>
+      RuleIndex.lookupBucket (name, arg) index.predicateRules
+
+theorem RuleIndex.mem_lookupKey_add (index : RuleIndex) (key : RuleKey) (rule : Rule) :
+    List.Mem rule ((index.add key rule).lookupKey key) := by
+  cases key with
+  | any =>
+      simp only [RuleIndex.add, RuleIndex.lookupKey]
+      exact List.mem_append_cons_self
+  | head formulaHead =>
+      cases formulaHead <;> simp only [RuleIndex.add, RuleIndex.lookupKey] <;>
+        exact List.mem_append_cons_self
+  | relation name left right =>
+      simpa only [RuleIndex.add, RuleIndex.lookupKey] using
+        RuleIndex.mem_lookupBucket_addBucket (name, left, right) rule index.relationRules
+  | predicate name arg =>
+      simpa only [RuleIndex.add, RuleIndex.lookupKey] using
+        RuleIndex.mem_lookupBucket_addBucket (name, arg) rule index.predicateRules
+
+theorem RuleKey.relation_matches_symbolKey (s : State) (name : Name) (left right : Ty)
+    (hmatch : (RuleKey.relation name left right).matches s = true) :
+    s.symbolKey? = some (.relation name left right) := by
+  cases hsymbol : s.symbolKey? with
+  | none => simp [RuleKey.matches, hsymbol] at hmatch
+  | some actual =>
+      cases actual with
+      | any => simp [RuleKey.matches, hsymbol] at hmatch
+      | head formulaHead => simp [RuleKey.matches, hsymbol] at hmatch
+      | relation actual actualLeft actualRight =>
+          simp [RuleKey.matches, hsymbol] at hmatch
+          have hname := hmatch.1
+          have hleft := hmatch.2.1
+          have hright := hmatch.2.2
+          subst actual
+          subst actualLeft
+          subst actualRight
+          rfl
+      | predicate actual actualArg => simp [RuleKey.matches, hsymbol] at hmatch
+
+theorem RuleKey.predicate_matches_symbolKey (s : State) (name : Name) (arg : Ty)
+    (hmatch : (RuleKey.predicate name arg).matches s = true) :
+    s.symbolKey? = some (.predicate name arg) := by
+  cases hsymbol : s.symbolKey? with
+  | none => simp [RuleKey.matches, hsymbol] at hmatch
+  | some actual =>
+      cases actual with
+      | any => simp [RuleKey.matches, hsymbol] at hmatch
+      | head formulaHead => simp [RuleKey.matches, hsymbol] at hmatch
+      | relation actual actualLeft actualRight =>
+          simp [RuleKey.matches, hsymbol] at hmatch
+      | predicate actual actualArg =>
+          simp [RuleKey.matches, hsymbol] at hmatch
+          have hname := hmatch.1
+          have harg := hmatch.2
+          subst actual
+          subst actualArg
+          rfl
 
 def RuleIndex.addRule (index : RuleIndex) (rule : Rule) : RuleIndex :=
   rule.keys.foldl (fun current key => current.add key rule) index
@@ -392,32 +535,31 @@ def RuleIndex.build (library : List Rule) : RuleIndex :=
   library.foldl RuleIndex.addRule {}
 
 def RuleIndex.lookupFormula (index : RuleIndex) (formula : Formula) : List Rule :=
-  index.wildcardRules ++
-    match Formula.formulaHead formula with
-    | .atom => index.atomRules
-    | .papp => index.pappRules
-    | .and => index.andRules
-    | .or => index.orRules
-    | .imp => index.impRules
-    | .iff => index.iffRules
-    | .not => index.notRules
-    | .all => index.allRules
-    | .ex => index.exRules
+  index.lookupKey .any ++ index.lookupKey (.head (Formula.formulaHead formula))
 
-theorem RuleIndex.mem_lookupFormula_add_of_matches
-    (index : RuleIndex) (rule : Rule) (key : RuleKey) (formula : Formula)
-    (h : key.matches formula = true) :
-    List.Mem rule ((index.add key rule).lookupFormula formula) := by
-  cases key with
-  | any =>
-      cases formula <;>
-        simp [RuleIndex.add, RuleIndex.lookupFormula, Formula.formulaHead]
-      all_goals exact List.mem_append_cons_self
-  | head formulaHead =>
-      cases formulaHead <;> cases formula <;>
-        simp [RuleIndex.add, RuleIndex.lookupFormula, RuleKey.matches,
-          FormulaHead.matches, Formula.formulaHead] at h ⊢
-      all_goals exact List.mem_append_right _ List.mem_append_cons_self
+def RuleIndex.lookupState (index : RuleIndex) (s : State) : List Rule :=
+  index.lookupFormula s.sequent.conclusion ++
+    match s.symbolKey? with
+    | none => []
+    | some key => index.lookupKey key
+
+theorem RuleIndex.mem_lookupState_add_relation_of_matches
+    (index : RuleIndex) (rule : Rule) (s : State) (name : Name) (left right : Ty)
+    (hmatch : (RuleKey.relation name left right).matches s = true) :
+    List.Mem rule ((index.add (.relation name left right) rule).lookupState s) := by
+  have hsymbol := RuleKey.relation_matches_symbolKey s name left right hmatch
+  simp only [RuleIndex.lookupState, hsymbol]
+  exact List.mem_append_right _
+    (RuleIndex.mem_lookupKey_add index (.relation name left right) rule)
+
+theorem RuleIndex.mem_lookupState_add_predicate_of_matches
+    (index : RuleIndex) (rule : Rule) (s : State) (name : Name) (arg : Ty)
+    (hmatch : (RuleKey.predicate name arg).matches s = true) :
+    List.Mem rule ((index.add (.predicate name arg) rule).lookupState s) := by
+  have hsymbol := RuleKey.predicate_matches_symbolKey s name arg hmatch
+  simp only [RuleIndex.lookupState, hsymbol]
+  exact List.mem_append_right _
+    (RuleIndex.mem_lookupKey_add index (.predicate name arg) rule)
 
 theorem RuleApplication.core_replay {s : State} (app : RuleApplication s)
     (hchildren : AllProves app.children) :
@@ -614,7 +756,7 @@ def LogicalAction.keys : LogicalAction -> List RuleKey
 theorem logicalTransition?_covered (s : State) (action : LogicalAction)
     {children : List State} (h : logicalTransition? action s = some children) :
     (LogicalAction.keys action).any
-      (fun key => key.matches s.sequent.conclusion) = true := by
+      (fun key => key.matches s) = true := by
   cases s with
   | mk env sequent =>
     cases sequent with
@@ -665,9 +807,39 @@ theorem logicalIndex_lookup (s : Sequent) :
   | mk gamma delta conclusion =>
       cases conclusion <;> rfl
 
+theorem logicalIndex_relationRules : logicalIndex.relationRules = [] := rfl
+
+theorem logicalIndex_predicateRules : logicalIndex.predicateRules = [] := rfl
+
+theorem logicalIndex_lookupState (s : State) :
+    logicalIndex.lookupState s =
+      (logicalCandidates s.sequent).map logicalRule := by
+  cases s with
+  | mk env sequent =>
+      cases sequent with
+      | mk gamma delta conclusion =>
+          cases conclusion with
+          | atom name left right =>
+              cases h : lookupRel? env name <;>
+                simp [RuleIndex.lookupState, State.symbolKey?, h, RuleIndex.lookupKey,
+                  logicalIndex_relationRules, RuleIndex.lookupBucket] <;>
+                exact logicalIndex_lookup (Sequent.mk gamma delta (.atom name left right))
+          | papp name arg =>
+              cases h : lookupPred? env name <;>
+                simp [RuleIndex.lookupState, State.symbolKey?, h, RuleIndex.lookupKey,
+                  logicalIndex_predicateRules, RuleIndex.lookupBucket] <;>
+                exact logicalIndex_lookup (Sequent.mk gamma delta (.papp name arg))
+          | and p q => rfl
+          | or p q => rfl
+          | imp p q => rfl
+          | iff p q => rfl
+          | not p => rfl
+          | all name ty body => rfl
+          | ex name ty body => rfl
+
 def State.ruleCandidates (s : State) : List (RuleApplication s) :=
   ContextualHOL.Search.ruleCandidates
-    (logicalIndex.lookupFormula s.sequent.conclusion) s
+    (logicalIndex.lookupState s) s
 
 inductive N2Rule where
   | unaryReindex
