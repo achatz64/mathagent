@@ -322,10 +322,30 @@ whose freshness obligations over the assumption list make `pMono` — required b
 every left rule — false in general (the PS1 structural finding on assumption
 weakening).  This is exactly the `ProvesProp` named in the theorem list below.
 
-In progress (increment 1b): the `FDeriv` inductive (the `∧/∨/→/↔` rules plus the
-two classical `¬` shifts compiled to `axCP`) and `focusedSound : FDeriv ->
-denote`, whose remaining reconstructions reduce to succedent-disjunction algebra
-over the residual and the two negation shifts.  Then the cut-admissibility gate.
+**Done (increment 1b — `focusedSound` proven, full build clean, no `sorry`):**
+the classical negation kernel and the soundness direction of the calculus.
+
+* *Classical kernel.*  Everything classical is derived purely from `axCP`
+  `(¬ψ→¬φ)→(φ→ψ)` plus the deduction theorem (`impIntro`), with **no `⊥` and no
+  added axioms**: `pEF` (ex falso `⊢¬a→(a→b)`), `pCM` (consequentia mirabilis
+  `⊢(¬p→p)→p`, the base case — its derivation nests an `axS` contraction over an
+  `axCP` instance, which is what breaks the DNE/DNI mutual circularity), `pDNE`
+  (`⊢¬¬p→p`), `pRaa` (reductio: `φ⊢ψ` and `φ⊢¬ψ` give `⊢¬φ`), and `pByCases`
+  (classical case split).  This is the genuinely non-analytic content; it lives
+  entirely in the compile-back, exactly as the thesis predicts.
+* *Calculus + soundness.*  `FDeriv`, the two-sided focused LK system (rules
+  `id`, `negR`, `negL`, `impR`, `impL`, `andR`, `andL`, `orR`, `orL`; principal
+  formula at the head of its side; `negR`/`negL` are the only classical rules),
+  and `focusedSound : FDeriv G -> denote G` proven by induction, one soundness
+  lemma per rule.  Each rule handles the ⊥-free empty-succedent case explicitly:
+  `negL`/`impL`/`orL`/`andL` genuinely produce/consume the empty succedent
+  (refuted branch) with no falsity constant, discharging it via `pEF`/`pRaa`.
+  The right rules consume the succedent-disjunction algebra (`pRightOr_mem`,
+  `pOrComm`, `pOrAssocL`) and the classical shifts consume `pByCases`.
+
+In progress (increment 1c): **cut/MP admissibility** — the strict gate, since
+completeness inducts over `Proves` reconstructing `mp` — then the K/S/`axCP`
+focused-derivation direction (`focusedComplete`) and subformula-boundedness.
 
 **Methods.**
 
