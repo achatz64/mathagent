@@ -279,14 +279,65 @@ search moves: backwards use of K/S-style schemas creates arbitrary intermediate
 formulas.  PS2 adds a separate, goal-directed calculus and compiles its proof
 to the M3 calculus/Core.
 
+**Decision — primitive classical negation, tested now (not a fragment).**
+Negation is the only genuinely classical and potentially non-analytic part of
+the language, so PS2 takes it on directly rather than proving a negation-free
+fragment that would pass while saying little about the actual thesis.  M3's
+`Proves` reaches negation only through `axCP` (Łukasiewicz contraposition
+`(¬ψ→¬φ)→(φ→ψ)`, `Calculus.lean`); there is no `⊥` constructor.  We do **not**
+add `⊥` to M3: that would change the already-checked target calculus and blur
+the test.  A negation-free certified fragment is retained only as the honest
+fallback **if PS2 is falsified**, never as the intended PS2 result.
+
+**First sub-milestone (strict gate).**  In order:
+
+1. Define the two-sided / multi-conclusion focused representation needed to
+   express primitive `not`; the single-conclusion `Gamma | Delta |- phi` shape
+   cannot move a negated hypothesis across the turnstile cleanly.  A refuted
+   branch must be represented **without** introducing a falsity constant.
+2. Prove **cut / MP admissibility** for that multi-conclusion focused system —
+   this is the gate, because the completeness induction over `Proves` must
+   reconstruct `mp`, and the K/S/CP reconstructions depend on it.
+3. Prove focused derivations of M3's K, S, and especially `axCP`.
+4. Prove the compilation stays **subformula-bounded**.
+
+The load-bearing join to M3 is the compile-*back* translation of a
+multi-conclusion sequent `Delta |- phi_1, ..., phi_n` to single-conclusion
+`Delta |- phi_1 ∨ ... ∨ phi_n` (equivalently `Delta, ¬phi_1, ..., ¬phi_{n-1} |-
+phi_n`); this step is precisely where `axCP` is consumed.
+
+**Implementation status (increment 1a — `ContextualHOL/Focused.lean`, builds
+clean, no `sorry`).**  Done: the two-sided `FSequent` (`ante |- succ`) and its
+**falsity-free `denote`** — a nonempty succedent is the right-nested disjunction
+`rightOr`, and the empty succedent is given the meaning "the antecedent is
+absurd" (proves every well-typed formula), so no `⊥` constant enters M3.  Also
+done: the propositional Hilbert meta-theory the soundness proof consumes
+(`pImpId` from K/S, `pOrInl/Inr/Elim`, and assumption-monotonicity `pMono`).
+
+The completeness/soundness target is a new inductive **`ProvesProp`**: the
+Hilbert base restricted to the propositional rules, with `ProvesProp.toProves`
+injecting it into full `Proves` for Core replay.  This is forced, not stylistic:
+full `Proves` carries the quantifier/context rules (`allIntro`, `ctxWeaken`, …)
+whose freshness obligations over the assumption list make `pMono` — required by
+every left rule — false in general (the PS1 structural finding on assumption
+weakening).  This is exactly the `ProvesProp` named in the theorem list below.
+
+In progress (increment 1b): the `FDeriv` inductive (the `∧/∨/→/↔` rules plus the
+two classical `¬` shifts compiled to `axCP`) and `focusedSound : FDeriv ->
+denote`, whose remaining reconstructions reduce to succedent-disjunction algebra
+over the residual and the two negation shifts.  Then the cut-admissibility gate.
+
 **Methods.**
 
 * Define invertible decomposition rules for implication, conjunction,
-  disjunction, negation, and iff; use a focus discipline for non-invertible
-  choices.
-* Keep the current contextual `Gamma | Delta |- phi` shape.  Assumptions are
-  represented by their canonical implication chain only at Core-emission time,
-  not used as the search data structure.
+  disjunction, and iff; use a focus discipline for non-invertible choices.
+  Primitive `not` is handled by the two-sided representation above, compiled to
+  `axCP`, not by an intuitionistic `¬`-introduction (M3 has no falsity rule).
+* Use a two-sided / multi-conclusion search shape internally; compile it to the
+  single-conclusion `Gamma | Delta |- phi` M3 sequent at Core-emission time via
+  the disjunction/negation translation.  Assumptions are represented by their
+  canonical implication chain only at that emission boundary, not used as the
+  search data structure.
 * Memoize normalized states.  A state key contains the normalized context,
   multiset/set discipline for assumptions (as justified by the calculus), and
   focused goal; it never contains its proof history.
@@ -297,25 +348,39 @@ to the M3 calculus/Core.
 **Theorems.**
 
 ```text
-focusedSound: Focused G -> Proves G
-focusedComplete: ProvesProp G -> Focused G
-subformula: every formula in a Focused derivation of G is in Closure(G)
+focusedSound:    Focused G -> Proves G
+focusedComplete: ProvesProp G <-> Focused G
+cutAdmissible:   focused MP/cut is admissible in the multi-conclusion system
+subformula:      every formula in a Focused derivation of G is in Closure(G)
 finiteStateProp: quotienting propositional states by N0+N3 yields a finite set
 ```
 
-`Closure(G)` is explicitly the finite set of subformulas of the goal and
-assumptions, together with the finite declared rule schemata instantiated from
-those subformulas.  The final theorem gives a terminating decision procedure
-for the chosen propositional fragment, not for all Core.
+The completeness target is deliberately **internal**: `ProvesProp G` is M3's own
+propositional provability over the K/S/`axCP` basis, not classical validity
+under boolean valuations.  This makes it a `Focused ↔ Proves`-restricted
+equivalence that is checkable against M3, and avoids a separate semantic
+completeness result.
+
+`Closure(G)` is the finite set of subformulas of the goal and assumptions,
+**closed under a single negation**, together with the finite declared rule
+schemata instantiated from those subformulas.  Negation-closure is required
+because `axCP` reconstruction at subformulas φ,ψ introduces `¬φ, ¬ψ`; it stays
+finite.  The final theorem gives a terminating decision procedure for the
+chosen propositional fragment, not for all Core.
 
 **Exit condition.** A breadth-first implementation terminates on every input
 in the fragment, is sound and complete for ProvesProp, and replays to
 checked CoreThm evidence through M3.
 
-**Falsifier / pivot.** If translating ordinary short propositional proofs
-requires intermediate formulas outside `Closure(G)`, or N3 cannot merge
-the syntactically different states generated by mere context plumbing, then
-Core provides no analytic advantage for the first tractable fragment.
+**Falsifier / pivot.** These are pre-registered, not discovered mid-proof.
+Primitive negation in the present Core/M3 representation is judged to obstruct
+analytic search if reconstructing `axCP` forces any of: (a) a falsity constant /
+empty-succedent machinery smuggled into M3; (b) double-negation auxiliaries or
+other formulas outside the negation-closed `Closure(G)`; or (c) intermediate
+formulas outside `Closure(G)` for ordinary short propositional proofs.  N3
+failing to merge states generated by mere context plumbing is likewise a
+falsifier.  On any of these, the honest fallback is a negation-free certified
+fragment — reported as a pivot, not as the intended PS2 result.
 
 ### PS3 — Quantifier witnesses and fair search
 
