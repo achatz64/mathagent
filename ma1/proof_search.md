@@ -116,6 +116,14 @@ ruleCandidates enumerates only its applicable transitions. Each returned
 RuleApplication replays to deep CoreThm evidence through M3; it does not rely
 on implicit weakening or dynamically created declarations.
 
+**Logical-library integration.** logicalTransition? now decides hypothesis
+membership and all liftability side conditions, then returns the exact child states
+for each built-in logical action. logicalTransition?_step reconstructs the
+existing certified Step from every successful computation. LogicalAction.all
+is proved exhaustive and logicalLibrary maps that finite enumeration into the
+generic rule interface; State.ruleCandidates therefore returns only applicable,
+replayable logical transitions.
+
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
 name and its exact CoreThm certificate; N2Path now also carries checked

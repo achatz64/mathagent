@@ -393,6 +393,126 @@ theorem step_core_replay {s : State} {a : LogicalAction} {children : List State}
   intro cdelta cphi hdelta hphi
   exact proves_lift s.env (step_sound hstep hchildren) cdelta cphi hdelta hphi
 
+/- The logical core is also exposed through the generic finite library.
+   A transition is present only when its liftability side conditions have
+   been decided successfully. -/
+def logicalTransition? : LogicalAction -> State -> Option (List State)
+  | .hyp, s =>
+      if assumptionContains s.sequent.conclusion s.sequent.assumptions = true then some [] else none
+  | .impIntro, s =>
+      match s.sequent.conclusion with
+      | .imp p q =>
+          if (liftFormula? s.env s.sequent.objectCtx p).isSome = true then
+            some [State.mk s.env (Sequent.mk s.sequent.objectCtx
+              (p :: s.sequent.assumptions) q)]
+          else none
+      | _ => none
+  | .andIntro, s =>
+      match s.sequent.conclusion with
+      | .and p q =>
+          if (liftFormula? s.env s.sequent.objectCtx p).isSome = true then
+            if (liftFormula? s.env s.sequent.objectCtx q).isSome = true then
+              some [State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions p),
+                State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions q)]
+            else none
+          else none
+      | _ => none
+  | .orIntroLeft, s =>
+      match s.sequent.conclusion with
+      | .or p q =>
+          if (liftFormula? s.env s.sequent.objectCtx p).isSome = true then
+            if (liftFormula? s.env s.sequent.objectCtx q).isSome = true then
+              some [State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions p)]
+            else none
+          else none
+      | _ => none
+  | .orIntroRight, s =>
+      match s.sequent.conclusion with
+      | .or p q =>
+          if (liftFormula? s.env s.sequent.objectCtx p).isSome = true then
+            if (liftFormula? s.env s.sequent.objectCtx q).isSome = true then
+              some [State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions q)]
+            else none
+          else none
+      | _ => none
+  | .iffIntro, s =>
+      match s.sequent.conclusion with
+      | .iff p q =>
+          if (liftFormula? s.env s.sequent.objectCtx p).isSome = true then
+            if (liftFormula? s.env s.sequent.objectCtx q).isSome = true then
+              some [State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions (.imp p q)),
+                State.mk s.env (Sequent.mk s.sequent.objectCtx s.sequent.assumptions (.imp q p))]
+            else none
+          else none
+      | _ => none
+
+theorem logicalTransition?_step (s : State) (action : LogicalAction)
+    {children : List State} (h : logicalTransition? action s = some children) :
+    Step s action children := by
+  cases s with
+  | mk env sequent =>
+    cases sequent with
+    | mk gamma delta conclusion =>
+      cases action with
+      | hyp =>
+          simp [logicalTransition?] at h
+          have hmem := h.1
+          have hchildren := h.2
+          subst children
+          exact Step.hyp ((assumptionContains_true _ _).mp hmem)
+      | impIntro =>
+          cases conclusion <;> simp [logicalTransition?] at h
+          have hp := h.1
+          have hchildren := h.2
+          subst children
+          exact Step.impIntro hp
+      | andIntro =>
+          cases conclusion <;> simp [logicalTransition?] at h
+          have hp := h.1
+          have hq := h.2.1
+          have hchildren := h.2.2
+          subst children
+          exact Step.andIntro hp hq
+      | orIntroLeft =>
+          cases conclusion <;> simp [logicalTransition?] at h
+          have hp := h.1
+          have hq := h.2.1
+          have hchildren := h.2.2
+          subst children
+          exact Step.orIntroLeft hp hq
+      | orIntroRight =>
+          cases conclusion <;> simp [logicalTransition?] at h
+          have hp := h.1
+          have hq := h.2.1
+          have hchildren := h.2.2
+          subst children
+          exact Step.orIntroRight hp hq
+      | iffIntro =>
+          cases conclusion <;> simp [logicalTransition?] at h
+          have hp := h.1
+          have hq := h.2.1
+          have hchildren := h.2.2
+          subst children
+          exact Step.iffIntro hp hq
+
+def logicalRule (action : LogicalAction) : Rule where
+  name := reprStr action
+  transition := logicalTransition? action
+  sound := fun s _children htransition hchildren =>
+    step_sound (logicalTransition?_step s action htransition) hchildren
+
+def LogicalAction.all : List LogicalAction :=
+  [.hyp, .impIntro, .andIntro, .orIntroLeft, .orIntroRight, .iffIntro]
+
+theorem LogicalAction.mem_all (action : LogicalAction) : action ∈ LogicalAction.all := by
+  cases action <;> simp [LogicalAction.all]
+
+def logicalLibrary : List Rule :=
+  LogicalAction.all.map logicalRule
+
+def State.ruleCandidates (s : State) : List (RuleApplication s) :=
+  ContextualHOL.Search.ruleCandidates logicalLibrary s
+
 inductive N2Rule where
   | unaryReindex
   | andReindex
