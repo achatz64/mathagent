@@ -59,6 +59,18 @@ The first engine, `CoreSearch0`, has a deliberately frozen boundary:
   A later end-to-end emission gate can add that interoperability layer without
   changing the search calculus or making M4 a prerequisite.
 
+**Deliberate proof-term omission.** The engine does not enumerate every Core
+proof term whose type is the current goal. It explores only the analytic moves
+of the search calculus. After a search derivation is found, a deterministic
+compiler generates the administrative K/S/`axCP`, context-transport, and beta
+plumbing required by the M3/Core certificate. Those generated terms are proof
+evidence, not alternative search actions or memoized states. This separation
+preserves soundness provided every search derivation has a checked compiler
+replay. Completeness remains the separate `ProvesProp -> Focused` obligation.
+The separation becomes a failure if replay needs theorem-specific
+invention, an unbounded new schema family, or unacceptable certificate growth;
+PS4 measures that boundary explicitly.
+
 The initial fragment is propositional contextual HOL plus the already-lifted
 structural representation.  Quantifier witnesses are introduced only in the
 later witness milestone.
@@ -299,7 +311,9 @@ fallback **if PS2 is falsified**, never as the intended PS2 result.
    this is the gate, because the completeness induction over `Proves` must
    reconstruct `mp`, and the K/S/CP reconstructions depend on it.
 3. Prove focused derivations of M3's K, S, and especially `axCP`.
-4. Prove the compilation stays **subformula-bounded**.
+4. Prove search stays **subformula-bounded**, and separately prove that
+   compilation stays inside a fixed finite replay-template closure with an
+   explicit size bound.
 
 The load-bearing join to M3 is the compile-*back* translation of a
 multi-conclusion sequent `Delta |- phi_1, ..., phi_n` to single-conclusion
@@ -331,8 +345,10 @@ the classical negation kernel and the soundness direction of the calculus.
   `⊢(¬p→p)→p`, the base case — its derivation nests an `axS` contraction over an
   `axCP` instance, which is what breaks the DNE/DNI mutual circularity), `pDNE`
   (`⊢¬¬p→p`), `pRaa` (reductio: `φ⊢ψ` and `φ⊢¬ψ` give `⊢¬φ`), and `pByCases`
-  (classical case split).  This is the genuinely non-analytic content; it lives
-  entirely in the compile-back, exactly as the thesis predicts.
+  (classical case split). These constructions may contain formulas that are
+  not search subformulas, such as `¬(¬p→p)`. They are deterministic
+  administrative content in compile-back and are never offered as search
+  choices or inserted into search-state keys.
 * *Calculus + soundness.*  `FDeriv`, the two-sided focused LK system (rules
   `id`, `negR`, `negL`, `impR`, `impL`, `andR`, `andL`, `orR`, `orL`; principal
   formula at the head of its side; `negR`/`negL` are the only classical rules),
@@ -371,7 +387,9 @@ focused-derivation direction (`focusedComplete`) and subformula-boundedness.
 focusedSound:    Focused G -> Proves G
 focusedComplete: ProvesProp G <-> Focused G
 cutAdmissible:   focused MP/cut is admissible in the multi-conclusion system
-subformula:      every formula in a Focused derivation of G is in Closure(G)
+subformula:      every formula in a Focused derivation of G is in SearchClosure(G)
+replayClosure:   every compiler-introduced formula is in ReplayClosure(G)
+replaySize:      compilation has an explicit size recurrence/bound
 finiteStateProp: quotienting propositional states by N0+N3 yields a finite set
 ```
 
@@ -381,12 +399,19 @@ under boolean valuations.  This makes it a `Focused ↔ Proves`-restricted
 equivalence that is checkable against M3, and avoids a separate semantic
 completeness result.
 
-`Closure(G)` is the finite set of subformulas of the goal and assumptions,
-**closed under a single negation**, together with the finite declared rule
-schemata instantiated from those subformulas.  Negation-closure is required
-because `axCP` reconstruction at subformulas φ,ψ introduces `¬φ, ¬ψ`; it stays
-finite.  The final theorem gives a terminating decision procedure for the
-chosen propositional fragment, not for all Core.
+`SearchClosure(G)` is the finite signed-subformula closure of the goal and
+assumptions. It bounds formulas that may occur in focused states and actions;
+the empty succedent is permitted as an internal refutation state, not reified
+as a new M3 formula. This is the closure used by memoization, the subformula
+theorem, and `finiteStateProp`.
+
+`ReplayClosure(G)` extends `SearchClosure(G)` with instances of a fixed finite
+compiler-template family, initially K, S, `axCP`, `pEF`, `pCM`, DNE, reductio,
+and the required disjunction/context plumbing. It may therefore contain
+administrative formulas such as `¬(¬p→p)` which never occur in focused search.
+Its obligations are replayability, finiteness, and a checked size bound—not the
+search-calculus subformula property. The final theorem gives a terminating
+decision procedure for the chosen propositional fragment, not for all Core.
 
 **Exit condition.** A breadth-first implementation terminates on every input
 in the fragment, is sound and complete for ProvesProp, and replays to
@@ -394,13 +419,12 @@ checked CoreThm evidence through M3.
 
 **Falsifier / pivot.** These are pre-registered, not discovered mid-proof.
 Primitive negation in the present Core/M3 representation is judged to obstruct
-analytic search if reconstructing `axCP` forces any of: (a) a falsity constant /
-empty-succedent machinery smuggled into M3; (b) double-negation auxiliaries or
-other formulas outside the negation-closed `Closure(G)`; or (c) intermediate
-formulas outside `Closure(G)` for ordinary short propositional proofs.  N3
-failing to merge states generated by mere context plumbing is likewise a
-falsifier.  On any of these, the honest fallback is a negation-free certified
-fragment — reported as a pivot, not as the intended PS2 result.
+analytic search if it forces any of: (a) a falsity constant or empty-succedent
+object reified inside M3; (b) formulas outside `SearchClosure(G)` in focused
+states or choices; (c) a replay-template family that grows with theorem or
+context depth rather than remaining fixed; or (d) replay certificates whose
+measured growth makes the separation practically useless. N3 failing to merge
+states generated by mere context plumbing is likewise a falsifier. 
 
 ### PS3 — Quantifier witnesses and fair search
 
@@ -460,7 +484,8 @@ For every family and budget, record:
 ```text
 solved / unsolved, normalized states visited, raw states generated,
 candidate actions considered, state merges, witness-pool stage,
-time, Core certificate size, and replay success.
+time, Core certificate size, search-derivation-to-certificate expansion ratio,
+replay-template instances, and replay success.
 ```
 
 Run state-space ablations: raw search, N0 only, and N0+N3. Separately run N2
@@ -469,7 +494,10 @@ separates state canonicalization from certificate normalization and identifies
 whether a claimed benefit comes from the Core representation or merely from a
 handwritten derived theorem. The surface-Core definitional-equality gate is
 also measured separately at import/emission boundaries; neither it nor N2
-changes the search-state count.
+changes the search-state count. The same measurements must distinguish focused
+search nodes from deterministically generated administrative Core nodes; an
+unbounded replay schema family or uncontrolled expansion fails the claimed
+search/certificate separation even when focused-state counts are small.
 
 **Decision rule.** Core remains the search-language candidate only if:
 
