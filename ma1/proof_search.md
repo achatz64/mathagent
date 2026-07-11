@@ -64,14 +64,16 @@ structural representation.  Quantifier witnesses are introduced only in the
 later witness milestone.
 
 ## Certified normal forms
-Search normalization is split into three operations. They must not be merged
-into an uncheckable simplifier. Surface-Core definitional comparison is a
-separate interoperability gate described below.
+Normalization is split by representation. N0 and N3 compose into the search-
+state normalizer consumed by candidate generation and memoization. N2 acts
+only after translation, on emitted Core propositions. These operations must
+not be merged into an uncheckable simplifier. Surface-Core definitional
+comparison is a separate interoperability gate described below.
 
 | Name | Object normalized | Basis | Required evidence |
 |---|---|---|---|
 | N0 | frozen contextual source AST: context order/product and implication closure | contextual syntax and renderer | syntactic equality |
-| N2 | closed `PC` propositions and exposed sequent closures | M1 beta basis, M2 Core correspondence, M3 context transport | emitted Core proof of `iff P P'` |
+| N2 | translated closed `PC` propositions and exposed sequent closures at emission time | M1 beta basis, M2 Core correspondence, M3 context transport | emitted Core proof of `iff P P'` |
 | N3 | search state: sorted/subsumed assumptions, focused goal shape, solved-goal removal | search-calculus theorems | derivation-preserving map between states |
 
 N2 is deliberately restricted.  Core has no equality at arbitrary `Type`, so
@@ -80,19 +82,26 @@ denote the same map in the intended model.  A N2 rewrite is permitted only when
 the finite live basis supplies the required `PC` observation and M2 can name or
 emit its evidence.
 
-Each of N0, N2, and N3 must satisfy the following, for its declared domain:
+The consumer-facing search contract is explicit:
 
 ```text
-normalize S = S'  =>  SearchDerivable S <-> SearchDerivable S'
-normalize (normalize S) = normalize S
+SearchDerivable S := State.proves S
+State.normalize S := N3 (N0 S)
+State.normalize S = S'  =>  SearchDerivable S <-> SearchDerivable S'
+State.normalize (State.normalize S) = State.normalize S
 ```
 
-For N2 the first line is obtained by Core proofs in both directions.  The
-implementation must record the rewrite trace; replaying it must reconstruct
-the Core certificate.  The first prototype uses an oriented, terminating rule
-set with a syntactic decrease measure.  An e-graph is explicitly postponed:
-it can be considered only if every e-class edge carries a replayable Core
-certificate and its congruence closure is proved valid for the chosen domain.
+N2 is not part of `State.normalize` and therefore does not merge search states
+or contribute to state-space finiteness. `State` stores contextual `Formula`,
+whereas N2 redexes exist in the translated `CPred`; there is no `CPred ->
+Formula` reification and M3 supplies `Proves -> CoreThm`, not a reflection from
+arbitrary Core evidence back into `Proves`. N2 instead satisfies its own
+emission contract: normalization is idempotent and records a trace whose replay
+constructs `CoreThm (iff P P')`. The first prototype uses an oriented,
+terminating rule set with a syntactic decrease measure. An e-graph is
+explicitly postponed: it can be considered only if every e-class edge carries
+a replayable Core certificate and its congruence closure is proved valid for
+the chosen domain.
 
 ### Surface-Core interoperability gate (formerly N1)
 
@@ -117,7 +126,8 @@ search-boundary change, not unfinished PS1 normalization.
 ### PS1 — Search syntax and certified normalization
 
 **Goal.** Define CoreSearch0 states, a finite rule-library interface,
-matching/indexing, and the N0, N2, and N3 search normalizers.
+matching/indexing, the composite N0/N3 state normalizer, and the N2 emitted-
+proposition normalizer.
 
 **Initial implementation.** Search.lean now fixes the pre-normalization
 boundary: a propositional-fragment test, finite list formula closure, and
@@ -234,8 +244,9 @@ compiled; PS2 must give a separate justified classical focused treatment.
   order matching/unification is outside PS1; rules that would require it are
   rejected from `CoreSearch0` and counted as a boundary failure, not hidden by
   a heuristic.
-* Implement N2 as a list of named, oriented rewrites.  A rewrite returns both
-  the next state and the M2 reference/proof term used to justify it.
+* Implement N2 as a list of named, oriented rewrites. A rewrite returns both
+  the next emitted proposition and the M2 reference/proof term used to justify
+  it; it does not rewrite the source search state.
 
 **Theorems.**
 
@@ -289,7 +300,7 @@ to the M3 calculus/Core.
 focusedSound: Focused G -> Proves G
 focusedComplete: ProvesProp G -> Focused G
 subformula: every formula in a Focused derivation of G is in Closure(G)
-finiteStateProp: quotienting propositional states by N0+N2+N3 yields a finite set
+finiteStateProp: quotienting propositional states by N0+N3 yields a finite set
 ```
 
 `Closure(G)` is explicitly the finite set of subformulas of the goal and
@@ -302,7 +313,7 @@ in the fragment, is sound and complete for ProvesProp, and replays to
 checked CoreThm evidence through M3.
 
 **Falsifier / pivot.** If translating ordinary short propositional proofs
-requires intermediate formulas outside `Closure(G)`, or N2/N3 cannot merge
+requires intermediate formulas outside `Closure(G)`, or N3 cannot merge
 the syntactically different states generated by mere context plumbing, then
 Core provides no analytic advantage for the first tractable fragment.
 
@@ -367,17 +378,20 @@ candidate actions considered, state merges, witness-pool stage,
 time, Core certificate size, and replay success.
 ```
 
-Run ablations: raw search, N0 only, N0+N2, and N0+N2+N3. This identifies
+Run state-space ablations: raw search, N0 only, and N0+N3. Separately run N2
+off/on at Core emission and compare certificate size and replay cost. This
+separates state canonicalization from certificate normalization and identifies
 whether a claimed benefit comes from the Core representation or merely from a
 handwritten derived theorem. The surface-Core definitional-equality gate is
-measured separately at import/emission boundaries; it does not change the
-search-state count.
+also measured separately at import/emission boundaries; neither it nor N2
+changes the search-state count.
 
 **Decision rule.** Core remains the search-language candidate only if:
 
 1. PS2 establishes a nontrivial finite analytic fragment;
 2. PS3 preserves one finite rule family across increasing context depth;
-3. N2/N3 materially control state growth on the plumbing families; and
+3. N3 materially controls state growth on the plumbing families, while N2
+   materially reduces emitted certificate size or replay cost; and
 4. the mathematical families require reusable rule schemas rather than
    theorem-specific search code.
 

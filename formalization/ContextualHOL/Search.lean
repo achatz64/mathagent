@@ -315,6 +315,32 @@ theorem State.n3_idempotent (s : State) : s.n3.n3 = s.n3 := by
   cases s
   simp [State.n3, dedupAssumptions_idempotent]
 
+/- The consumer-facing PS1 state-normalization contract. N0 fixes the source
+   representation and N3 canonicalizes the assumption set. N2 is intentionally
+   absent: it normalizes the translated CPred emitted from a state, not the
+   Formula syntax stored in the state itself. -/
+def SearchDerivable (s : State) : Prop := State.proves s
+
+def State.normalize (s : State) : State := s.n0.n3
+
+theorem State.normalize_proves_iff (s : State) :
+    SearchDerivable s ↔ SearchDerivable s.normalize := by
+  simpa [SearchDerivable, State.normalize] using
+    (State.n0_proves_iff s).trans (State.n3_proves_iff s.n0)
+
+theorem State.normalize_idempotent (s : State) :
+    s.normalize.normalize = s.normalize := by
+  simp [State.normalize, State.n0, State.n3_idempotent]
+
+theorem normalizationSound {s t : State} (h : s.normalize = t) :
+    SearchDerivable s ↔ SearchDerivable t := by
+  subst t
+  exact State.normalize_proves_iff s
+
+theorem normalizationIdempotent (s : State) :
+    s.normalize.normalize = s.normalize :=
+  State.normalize_idempotent s
+
 def AllProves : List State -> Prop
   | [] => True
   | s :: rest => And (State.proves s) (AllProves rest)
