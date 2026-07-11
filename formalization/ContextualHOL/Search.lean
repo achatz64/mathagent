@@ -319,6 +319,149 @@ def AllProves : List State -> Prop
   | [] => True
   | s :: rest => And (State.proves s) (AllProves rest)
 
+/- CoreSearch0 imported-rule patterns. Metavariables range only over whole,
+   typed contextual terms. The pattern language deliberately has no binder
+   case and no predicate/function-position metavariable, so this is
+   first-order matching rather than higher-order unification. -/
+inductive TermPattern where
+  | capture (name : Name) (ty : Ty)
+  | var (name : Name)
+  | const (name : Name)
+  | raw (name : Name) (ty : Ty)
+  deriving Repr, BEq, DecidableEq
+
+inductive FormulaPattern where
+  | atom (name : Name) (left right : TermPattern)
+  | papp (name : Name) (arg : TermPattern)
+  | and (left right : FormulaPattern)
+  | or (left right : FormulaPattern)
+  | imp (left right : FormulaPattern)
+  | iff (left right : FormulaPattern)
+  | not (body : FormulaPattern)
+  deriving Repr, BEq, DecidableEq
+
+abbrev MatchSubst := List (Prod Name (Prod Ty Term))
+
+def MatchSubst.lookup? (subst : MatchSubst) (name : Name) : Option (Prod Ty Term) :=
+  match subst with
+  | [] => none
+  | (candidate, value) :: rest =>
+      if candidate = name then some value else MatchSubst.lookup? rest name
+
+def MatchSubst.bind? (env : Env) (ctx : Ctx) (subst : MatchSubst)
+    (name : Name) (ty : Ty) (term : Term) : Option MatchSubst :=
+  if inferTerm? env ctx term != some ty then none
+  else
+    match subst.lookup? name with
+    | none => some ((name, (ty, term)) :: subst)
+    | some existing => if existing = (ty, term) then some subst else none
+
+def TermPattern.instantiate (subst : MatchSubst) : TermPattern -> Option Term
+  | .capture name ty =>
+      match subst.lookup? name with
+      | some (actualTy, term) => if actualTy = ty then some term else none
+      | none => none
+  | .var name => some (.var name)
+  | .const name => some (.const name)
+  | .raw name ty => some (.raw name ty)
+
+def FormulaPattern.instantiate (subst : MatchSubst) : FormulaPattern -> Option Formula
+  | .atom name left right => do
+      let leftTerm <- left.instantiate subst
+      let rightTerm <- right.instantiate subst
+      pure (.atom name leftTerm rightTerm)
+  | .papp name arg => do
+      let term <- arg.instantiate subst
+      pure (.papp name term)
+  | .and left right => do
+      let leftFormula <- left.instantiate subst
+      let rightFormula <- right.instantiate subst
+      pure (.and leftFormula rightFormula)
+  | .or left right => do
+      let leftFormula <- left.instantiate subst
+      let rightFormula <- right.instantiate subst
+      pure (.or leftFormula rightFormula)
+  | .imp left right => do
+      let leftFormula <- left.instantiate subst
+      let rightFormula <- right.instantiate subst
+      pure (.imp leftFormula rightFormula)
+  | .iff left right => do
+      let leftFormula <- left.instantiate subst
+      let rightFormula <- right.instantiate subst
+      pure (.iff leftFormula rightFormula)
+  | .not body => do
+      let formula <- body.instantiate subst
+      pure (.not formula)
+
+def matchTermPattern? (env : Env) (ctx : Ctx) (subst : MatchSubst) :
+    TermPattern -> Term -> Option MatchSubst
+  | .capture name ty, term => subst.bind? env ctx name ty term
+  | .var expected, .var actual => if actual = expected then some subst else none
+  | .const expected, .const actual => if actual = expected then some subst else none
+  | .raw expected expectedTy, .raw actual actualTy =>
+      if (actual, actualTy) = (expected, expectedTy) then some subst else none
+  | _, _ => none
+
+def matchFormulaPatternRaw? (env : Env) (ctx : Ctx) :
+    FormulaPattern -> Formula -> MatchSubst -> Option MatchSubst
+  | .atom expected left right, .atom actual leftTerm rightTerm, subst => do
+      if actual != expected then none else
+      let subst <- matchTermPattern? env ctx subst left leftTerm
+      matchTermPattern? env ctx subst right rightTerm
+  | .papp expected arg, .papp actual term, subst => do
+      if actual != expected then none else
+      matchTermPattern? env ctx subst arg term
+  | .and left right, .and leftFormula rightFormula, subst
+  | .or left right, .or leftFormula rightFormula, subst
+  | .imp left right, .imp leftFormula rightFormula, subst
+  | .iff left right, .iff leftFormula rightFormula, subst => do
+      let subst <- matchFormulaPatternRaw? env ctx left leftFormula subst
+      matchFormulaPatternRaw? env ctx right rightFormula subst
+  | .not body, .not formula, subst =>
+      matchFormulaPatternRaw? env ctx body formula subst
+  | _, _, _ => none
+
+structure FormulaMatch (pattern : FormulaPattern) (target : Formula) where
+  subst : MatchSubst
+  reconstruction : pattern.instantiate subst = some target
+
+/- The final reconstruction check is part of the executable gate. Therefore a
+   successful match carries the exact syntactic instance theorem consumed by
+   an imported rule; no intended-model matching assumption is admitted. -/
+def matchFormulaPattern? (env : Env) (ctx : Ctx)
+    (pattern : FormulaPattern) (target : Formula) : Option (FormulaMatch pattern target) :=
+  match matchFormulaPatternRaw? env ctx pattern target [] with
+  | none => none
+  | some subst =>
+      if h : pattern.instantiate subst = some target then
+        some { subst := subst, reconstruction := h }
+      else none
+
+theorem matchFormulaPattern_reconstruct {env : Env} {ctx : Ctx}
+    {pattern : FormulaPattern} {target : Formula} {result : FormulaMatch pattern target}
+    (_h : matchFormulaPattern? env ctx pattern target = some result) :
+    pattern.instantiate result.subst = some target := by
+  exact result.reconstruction
+
+private def matcherTyA : Ty := .base "MatcherA"
+private def matcherTyB : Ty := .base "MatcherB"
+private def matcherCtx : Ctx := [{ name := "x", ty := matcherTyA },
+  { name := "y", ty := matcherTyA }, { name := "z", ty := matcherTyB }]
+private def repeatedPattern : FormulaPattern :=
+  .and (.papp "P" (.capture "m" matcherTyA)) (.papp "Q" (.capture "m" matcherTyA))
+
+example : (matchFormulaPattern? {} matcherCtx repeatedPattern
+    (.and (.papp "P" (.var "x")) (.papp "Q" (.var "x")))).isSome = true := by
+  native_decide
+
+example : (matchFormulaPattern? {} matcherCtx repeatedPattern
+    (.and (.papp "P" (.var "x")) (.papp "Q" (.var "y")))).isSome = false := by
+  native_decide
+
+example : (matchFormulaPattern? {} matcherCtx repeatedPattern
+    (.and (.papp "P" (.var "z")) (.papp "Q" (.var "z")))).isSome = false := by
+  native_decide
+
 inductive FormulaHead where
   | atom
   | papp

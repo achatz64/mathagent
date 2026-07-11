@@ -159,6 +159,17 @@ typed insertion is retrieved. logicalIndex_lookupState separately proves these
 new buckets do not alter the built-in logical candidate set. Term-constant head
 indexing remains part of the later first-order matcher refinement.
 
+**First-order matcher.** `TermPattern` metavariables range only over complete
+typed contextual terms; repeated occurrences must receive the same syntactic
+term and type. `FormulaPattern` covers the propositional constructors and
+fixed relation/predicate positions, but deliberately has no binder case and no
+symbol-position metavariable. `matchFormulaPattern?` is deterministic and a
+successful result carries an exact reconstruction equation from the returned
+substitution. Executable regressions cover repeated-variable success,
+inconsistent repetition, and type mismatch. Binder and higher-order matching
+remain rejected at this boundary. Term-constant head indexing is the remaining
+PS1 indexing refinement.
+
 **First N0 slice.** For the frozen propositional CoreSearch0 boundary, the typed
 source AST is already canonical: connective association and context order are
 structural, and the available logical transitions introduce no binders or fresh
