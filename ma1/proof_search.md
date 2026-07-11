@@ -149,15 +149,15 @@ bucket and the selected constructor bucket, rather than scanning declarations.
 RuleIndex.mem_lookupKey_add verifies insertion is retrievable for every key form, while logicalIndex_lookup proves the complete logical index
 returns exactly the former conclusion-directed enumeration.
 
-**Typed-symbol refinement.** RuleKey now has relation and predicate keys that
-carry both the declaration name and its Core type signature. State.symbolKey?
-uses the same lookupRel? and lookupPred? operations as M3 formula checking; rule
-matching and bucket selection therefore consume one shared environment-derived
-key. The association buckets are executable, mem_lookupKey_add covers every key
-form, and the relation/predicate state-lookup theorems prove that every matching
-typed insertion is retrieved. logicalIndex_lookupState separately proves these
-new buckets do not alter the built-in logical candidate set. Term-constant head
-indexing remains part of the later first-order matcher refinement.
+**Typed-symbol refinement.** RuleKey has relation, predicate, and term-constant
+keys carrying declaration names and Core type signatures. State.symbolKey? uses
+the same lookupRel? and lookupPred? operations as M3 formula checking.
+Term.termConstantKey? likewise accepts only declared constants through
+lookupConst?; variables and raw embedded terms do not masquerade as constants.
+RuleIndex has typed association buckets for all three key forms. The
+relation/predicate/term-constant retrieval theorems prove that every matching
+typed insertion is returned by State lookup. logicalIndex_lookupState proves
+these imported-rule buckets do not change the built-in logical candidate set.
 
 **First-order matcher.** `TermPattern` metavariables range only over complete
 typed contextual terms; repeated occurrences must receive the same syntactic
@@ -167,8 +167,24 @@ symbol-position metavariable. `matchFormulaPattern?` is deterministic and a
 successful result carries an exact reconstruction equation from the returned
 substitution. Executable regressions cover repeated-variable success,
 inconsistent repetition, and type mismatch. Binder and higher-order matching
-remain rejected at this boundary. Term-constant head indexing is the remaining
-PS1 indexing refinement.
+are unrepresentable at this boundary.
+
+**Imported-rule enforcement.** `PatternRule.toRule` is the CoreSearch0 import
+path. It constructs the low-level certified transition only after the
+restricted matcher succeeds, and proves both declared-key coverage and
+contextual soundness transfer. The lower-level `Rule` interface remains for
+the built-in logical transitions, whose matchers and soundness proofs are
+defined directly. Thus an imported rule cannot silently substitute a
+higher-order unifier while still claiming to be a CoreSearch0 pattern rule.
+
+**PS1 exit audit.** N0, N2, and N3 have executable idempotence and
+derivability-preservation evidence on their declared domains; N2 traces replay
+live CoreThm certificates. Candidate libraries and every index lookup are
+finite lists. Built-in and imported applications replay through contextual
+soundness and M3 lifting. Typed relation, predicate, and term-constant buckets
+have no-lost-candidate theorems, and imported rules are restricted to the
+first-order pattern language. The declared PS1 exit condition is therefore
+met; quantified/binder matching remains the explicit PS3 extension gate.
 
 **First N0 slice.** For the frozen propositional CoreSearch0 boundary, the typed
 source AST is already canonical: connective association and context order are

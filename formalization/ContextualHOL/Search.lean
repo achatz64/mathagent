@@ -502,7 +502,25 @@ inductive RuleKey where
   | head (formulaHead : FormulaHead)
   | relation (name : Name) (left right : Ty)
   | predicate (name : Name) (arg : Ty)
+  | termConstant (name : Name) (ty : Ty)
   deriving Repr, BEq, DecidableEq
+
+def Term.termConstantKey? (env : Env) : Term -> Option (Prod Name Ty)
+  | .const name =>
+      match lookupConst? env name with
+      | none => none
+      | some ty => some (name, ty)
+  | .var _ => none
+  | .raw _ _ => none
+
+def Formula.termConstantKeys (env : Env) : Formula -> List (Prod Name Ty)
+  | .atom _ left right =>
+      [Term.termConstantKey? env left, Term.termConstantKey? env right].filterMap id
+  | .papp _ arg => [Term.termConstantKey? env arg].filterMap id
+  | _ => []
+
+def State.termConstantKeys (s : State) : List (Prod Name Ty) :=
+  Formula.termConstantKeys s.env s.sequent.conclusion
 
 def State.symbolKey? (s : State) : Option RuleKey :=
   match s.sequent.conclusion with
@@ -515,6 +533,30 @@ def State.symbolKey? (s : State) : Option RuleKey :=
       | none => none
       | some arg => some (.predicate name arg)
   | _ => none
+
+def termConstantContains (name : Name) (ty : Ty) :
+    List (Prod Name Ty) -> Bool
+  | [] => false
+  | key :: rest =>
+      if key = (name, ty) then true else termConstantContains name ty rest
+
+theorem termConstantContains_true (name : Name) (ty : Ty) :
+    forall keys, termConstantContains name ty keys = true ->
+      List.Mem (name, ty) keys := by
+  intro keys
+  induction keys with
+  | nil => simp [termConstantContains]
+  | cons first rest ih =>
+      by_cases hfirst : first = (name, ty)
+      case pos =>
+          intro _
+          subst first
+          exact List.Mem.head _
+      case neg =>
+          intro h
+          have hrest : termConstantContains name ty rest = true := by
+            simpa [termConstantContains, hfirst] using h
+          exact List.Mem.tail _ (ih hrest)
 
 def RuleKey.matches : RuleKey -> State -> Bool
   | .any, _ => true
@@ -537,6 +579,9 @@ def RuleKey.matches : RuleKey -> State -> Bool
           else false
       | _ => false
 
+  | .termConstant name ty, s =>
+      termConstantContains name ty s.termConstantKeys
+
 /- A finite imported library supplies typed backward transitions. Each entry
    carries both contextual soundness and a checked conclusion-index coverage
    condition, so indexed retrieval cannot silently omit an applicable rule. -/
@@ -549,6 +594,56 @@ structure Rule where
       keys.any (fun key => key.matches s) = true
   sound : forall (s : State) (children : List State),
     transition s = some children -> AllProves children -> State.proves s
+
+/- Imported CoreSearch0 rules enter through this adapter. The lower-level
+   Rule structure remains available for the built-in logical rules, whose
+   transitions are proved directly. PatternRule prevents an imported rule from
+   silently replacing first-order matching with a broader unifier. -/
+structure PatternRule where
+  name : Name
+  pattern : FormulaPattern
+  keys : List RuleKey
+  premises : (s : State) ->
+    FormulaMatch pattern s.sequent.conclusion -> List State
+  coverage : forall (s : State)
+    (_result : FormulaMatch pattern s.sequent.conclusion),
+      keys.any (fun key => key.matches s) = true
+  sound : forall (s : State)
+    (result : FormulaMatch pattern s.sequent.conclusion),
+      AllProves (premises s result) -> State.proves s
+
+def PatternRule.transition (rule : PatternRule) (s : State) : Option (List State) :=
+  match matchFormulaPattern? s.env s.sequent.objectCtx
+      rule.pattern s.sequent.conclusion with
+  | none => none
+  | some result => some (rule.premises s result)
+
+def PatternRule.toRule (patternRule : PatternRule) : Rule where
+  name := patternRule.name
+  keys := patternRule.keys
+  transition := patternRule.transition
+  coverage := by
+    intro s children hchildren
+    cases hmatch : matchFormulaPattern? s.env s.sequent.objectCtx
+        patternRule.pattern s.sequent.conclusion with
+    | none =>
+        simp [PatternRule.transition, hmatch] at hchildren
+    | some result =>
+        have heq : patternRule.premises s result = children := by
+          simpa [PatternRule.transition, hmatch] using hchildren
+        subst children
+        exact patternRule.coverage s result
+  sound := by
+    intro s children hchildren hproves
+    cases hmatch : matchFormulaPattern? s.env s.sequent.objectCtx
+        patternRule.pattern s.sequent.conclusion with
+    | none =>
+        simp [PatternRule.transition, hmatch] at hchildren
+    | some result =>
+        have heq : patternRule.premises s result = children := by
+          simpa [PatternRule.transition, hmatch] using hchildren
+        subst children
+        exact patternRule.sound s result hproves
 
 structure RuleApplication (s : State) where
   rule : Rule
@@ -611,6 +706,7 @@ structure RuleIndex where
   exRules : List Rule := []
   relationRules : List ((Name × Ty × Ty) × List Rule) := []
   predicateRules : List ((Name × Ty) × List Rule) := []
+  termConstantRules : List ((Name × Ty) × List Rule) := []
 
 def RuleIndex.add (index : RuleIndex) (key : RuleKey) (rule : Rule) : RuleIndex :=
   match key with
@@ -631,6 +727,10 @@ def RuleIndex.add (index : RuleIndex) (key : RuleKey) (rule : Rule) : RuleIndex 
       { index with predicateRules :=
           RuleIndex.addBucket (name, arg) rule index.predicateRules }
 
+  | .termConstant name ty =>
+      { index with termConstantRules :=
+          RuleIndex.addBucket (name, ty) rule index.termConstantRules }
+
 def RuleIndex.lookupKey (index : RuleIndex) : RuleKey -> List Rule
   | .any => index.wildcardRules
   | .head .atom => index.atomRules
@@ -647,6 +747,9 @@ def RuleIndex.lookupKey (index : RuleIndex) : RuleKey -> List Rule
   | .predicate name arg =>
       RuleIndex.lookupBucket (name, arg) index.predicateRules
 
+  | .termConstant name ty =>
+      RuleIndex.lookupBucket (name, ty) index.termConstantRules
+
 theorem RuleIndex.mem_lookupKey_add (index : RuleIndex) (key : RuleKey) (rule : Rule) :
     List.Mem rule ((index.add key rule).lookupKey key) := by
   cases key with
@@ -662,6 +765,10 @@ theorem RuleIndex.mem_lookupKey_add (index : RuleIndex) (key : RuleKey) (rule : 
   | predicate name arg =>
       simpa only [RuleIndex.add, RuleIndex.lookupKey] using
         RuleIndex.mem_lookupBucket_addBucket (name, arg) rule index.predicateRules
+
+  | termConstant name ty =>
+      simpa only [RuleIndex.add, RuleIndex.lookupKey] using
+        RuleIndex.mem_lookupBucket_addBucket (name, ty) rule index.termConstantRules
 
 theorem RuleKey.relation_matches_symbolKey (s : State) (name : Name) (left right : Ty)
     (hmatch : (RuleKey.relation name left right).matches s = true) :
@@ -682,6 +789,7 @@ theorem RuleKey.relation_matches_symbolKey (s : State) (name : Name) (left right
           subst actualRight
           rfl
       | predicate actual actualArg => simp [RuleKey.matches, hsymbol] at hmatch
+      | termConstant actual actualTy => simp [RuleKey.matches, hsymbol] at hmatch
 
 theorem RuleKey.predicate_matches_symbolKey (s : State) (name : Name) (arg : Ty)
     (hmatch : (RuleKey.predicate name arg).matches s = true) :
@@ -701,6 +809,7 @@ theorem RuleKey.predicate_matches_symbolKey (s : State) (name : Name) (arg : Ty)
           subst actual
           subst actualArg
           rfl
+      | termConstant actual actualTy => simp [RuleKey.matches, hsymbol] at hmatch
 
 def RuleIndex.addRule (index : RuleIndex) (rule : Rule) : RuleIndex :=
   rule.keys.foldl (fun current key => current.add key rule) index
@@ -708,14 +817,45 @@ def RuleIndex.addRule (index : RuleIndex) (rule : Rule) : RuleIndex :=
 def RuleIndex.build (library : List Rule) : RuleIndex :=
   library.foldl RuleIndex.addRule {}
 
+def RuleIndex.lookupTermConstants (index : RuleIndex) :
+    List (Prod Name Ty) -> List Rule
+  | [] => []
+  | key :: rest =>
+      RuleIndex.lookupBucket key index.termConstantRules ++
+        index.lookupTermConstants rest
+
+theorem RuleIndex.mem_lookupTermConstants_of_mem (index : RuleIndex) (rule : Rule)
+    (keys : List (Prod Name Ty)) (key : Prod Name Ty)
+    (hkey : List.Mem key keys)
+    (hrule : List.Mem rule (RuleIndex.lookupBucket key index.termConstantRules)) :
+    List.Mem rule (index.lookupTermConstants keys) := by
+  induction keys with
+  | nil => cases hkey
+  | cons first rest ih =>
+      cases hkey with
+      | head =>
+          exact List.mem_append_left _ hrule
+      | tail _ htail =>
+          exact List.mem_append_right _ (ih htail)
+
+theorem RuleIndex.lookupTermConstants_empty (index : RuleIndex)
+    (hempty : index.termConstantRules = []) :
+    forall keys, index.lookupTermConstants keys = [] := by
+  intro keys
+  induction keys with
+  | nil => rfl
+  | cons key rest ih =>
+      simp [RuleIndex.lookupTermConstants, hempty, RuleIndex.lookupBucket, ih]
+
 def RuleIndex.lookupFormula (index : RuleIndex) (formula : Formula) : List Rule :=
   index.lookupKey .any ++ index.lookupKey (.head (Formula.formulaHead formula))
 
 def RuleIndex.lookupState (index : RuleIndex) (s : State) : List Rule :=
   index.lookupFormula s.sequent.conclusion ++
-    match s.symbolKey? with
+    (match s.symbolKey? with
     | none => []
-    | some key => index.lookupKey key
+    | some key => index.lookupKey key) ++
+    index.lookupTermConstants s.termConstantKeys
 
 theorem RuleIndex.mem_lookupState_add_relation_of_matches
     (index : RuleIndex) (rule : Rule) (s : State) (name : Name) (left right : Ty)
@@ -723,8 +863,9 @@ theorem RuleIndex.mem_lookupState_add_relation_of_matches
     List.Mem rule ((index.add (.relation name left right) rule).lookupState s) := by
   have hsymbol := RuleKey.relation_matches_symbolKey s name left right hmatch
   simp only [RuleIndex.lookupState, hsymbol]
-  exact List.mem_append_right _
-    (RuleIndex.mem_lookupKey_add index (.relation name left right) rule)
+  exact List.mem_append_left _
+    (List.mem_append_right _
+      (RuleIndex.mem_lookupKey_add index (.relation name left right) rule))
 
 theorem RuleIndex.mem_lookupState_add_predicate_of_matches
     (index : RuleIndex) (rule : Rule) (s : State) (name : Name) (arg : Ty)
@@ -732,8 +873,27 @@ theorem RuleIndex.mem_lookupState_add_predicate_of_matches
     List.Mem rule ((index.add (.predicate name arg) rule).lookupState s) := by
   have hsymbol := RuleKey.predicate_matches_symbolKey s name arg hmatch
   simp only [RuleIndex.lookupState, hsymbol]
+  exact List.mem_append_left _
+    (List.mem_append_right _
+      (RuleIndex.mem_lookupKey_add index (.predicate name arg) rule))
+
+theorem RuleKey.termConstant_matches_mem (s : State) (name : Name) (ty : Ty)
+    (hmatch : (RuleKey.termConstant name ty).matches s = true) :
+    List.Mem (name, ty) s.termConstantKeys := by
+  apply termConstantContains_true name ty s.termConstantKeys
+  simpa only [RuleKey.matches] using hmatch
+
+theorem RuleIndex.mem_lookupState_add_termConstant_of_matches
+    (index : RuleIndex) (rule : Rule) (s : State) (name : Name) (ty : Ty)
+    (hmatch : (RuleKey.termConstant name ty).matches s = true) :
+    List.Mem rule ((index.add (.termConstant name ty) rule).lookupState s) := by
+  have hkey := RuleKey.termConstant_matches_mem s name ty hmatch
   exact List.mem_append_right _
-    (RuleIndex.mem_lookupKey_add index (.predicate name arg) rule)
+    (RuleIndex.mem_lookupTermConstants_of_mem
+      (index.add (.termConstant name ty) rule) rule s.termConstantKeys
+      (name, ty) hkey (by
+        simpa only [RuleIndex.add] using
+          RuleIndex.mem_lookupBucket_addBucket (name, ty) rule index.termConstantRules))
 
 theorem RuleApplication.core_replay {s : State} (app : RuleApplication s)
     (hchildren : AllProves app.children) :
@@ -985,6 +1145,14 @@ theorem logicalIndex_relationRules : logicalIndex.relationRules = [] := rfl
 
 theorem logicalIndex_predicateRules : logicalIndex.predicateRules = [] := rfl
 
+theorem logicalIndex_termConstantRules :
+    logicalIndex.termConstantRules = [] := rfl
+
+theorem logicalIndex_lookupTermConstants (keys : List (Prod Name Ty)) :
+    logicalIndex.lookupTermConstants keys = [] :=
+  RuleIndex.lookupTermConstants_empty logicalIndex
+    logicalIndex_termConstantRules keys
+
 theorem logicalIndex_lookupState (s : State) :
     logicalIndex.lookupState s =
       (logicalCandidates s.sequent).map logicalRule := by
@@ -996,12 +1164,14 @@ theorem logicalIndex_lookupState (s : State) :
           | atom name left right =>
               cases h : lookupRel? env name <;>
                 simp [RuleIndex.lookupState, State.symbolKey?, h, RuleIndex.lookupKey,
-                  logicalIndex_relationRules, RuleIndex.lookupBucket] <;>
+                  logicalIndex_relationRules, RuleIndex.lookupBucket,
+                  logicalIndex_lookupTermConstants] <;>
                 exact logicalIndex_lookup (Sequent.mk gamma delta (.atom name left right))
           | papp name arg =>
               cases h : lookupPred? env name <;>
                 simp [RuleIndex.lookupState, State.symbolKey?, h, RuleIndex.lookupKey,
-                  logicalIndex_predicateRules, RuleIndex.lookupBucket] <;>
+                  logicalIndex_predicateRules, RuleIndex.lookupBucket,
+                  logicalIndex_lookupTermConstants] <;>
                 exact logicalIndex_lookup (Sequent.mk gamma delta (.papp name arg))
           | and p q => rfl
           | or p q => rfl
