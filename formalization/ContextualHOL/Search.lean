@@ -84,9 +84,242 @@ def State.candidates (s : State) : List LogicalAction :=
 def State.proves (s : State) : Prop :=
   Proves s.env s.sequent.objectCtx s.sequent.assumptions s.sequent.conclusion
 
+/- N3 may change the list representation of assumptions only when it
+   preserves membership exactly. This is needed because contextual binder
+   rules carry freshness obligations over the full assumption list. -/
+theorem proves_assumption_equiv {env : Env} {gamma : Ctx}
+    {delta delta0 : List Formula} {phi : Formula}
+    (hiff : forall psi, List.Mem psi delta ↔ List.Mem psi delta0) :
+    Proves env gamma delta phi -> Proves env gamma delta0 phi := by
+  intro proof
+  induction proof generalizing delta0 with
+  | hyp hmem => exact Proves.hyp ((hiff _).mp hmem)
+  | impIntro hp proof ih =>
+      apply Proves.impIntro hp
+      apply ih
+      intro chi
+      constructor
+      · intro hmem
+        cases hmem with
+        | head => exact List.Mem.head _
+        | tail _ htail => exact List.Mem.tail _ ((hiff _).mp htail)
+      · intro hmem
+        cases hmem with
+        | head => exact List.Mem.head _
+        | tail _ htail => exact List.Mem.tail _ ((hiff _).mpr htail)
+  | mp hp first second ihFirst ihSecond =>
+      exact Proves.mp hp (ihFirst hiff) (ihSecond hiff)
+  | axK hp hq => exact Proves.axK hp hq
+  | axS hp hq hr => exact Proves.axS hp hq hr
+  | axCP hp hq => exact Proves.axCP hp hq
+  | axAndL hp hq => exact Proves.axAndL hp hq
+  | axAndR hp hq => exact Proves.axAndR hp hq
+  | axAndI hp hq => exact Proves.axAndI hp hq
+  | axOrL hp hq => exact Proves.axOrL hp hq
+  | axOrR hp hq => exact Proves.axOrR hp hq
+  | axOrE hp hq hr => exact Proves.axOrE hp hq hr
+  | axIffI hp hq => exact Proves.axIffI hp hq
+  | axIffL hp hq => exact Proves.axIffL hp hq
+  | axIffR hp hq => exact Proves.axIffR hp hq
+  | allIntro hfree hlift proof ih =>
+      apply Proves.allIntro
+      · intro psi hmem
+        exact hfree psi ((hiff psi).mpr hmem)
+      · intro psi hmem
+        exact hlift psi ((hiff psi).mpr hmem)
+      · exact ih hiff
+  | allCounit hav => exact Proves.allCounit hav
+  | exElim hfree hpsi hphi hdelta hgoal first second ihFirst ihSecond =>
+      apply Proves.exElim
+      · intro chi hmem
+        exact hfree chi ((hiff chi).mpr hmem)
+      · exact hpsi
+      · exact hphi
+      · intro chi hmem
+        exact hdelta chi ((hiff chi).mpr hmem)
+      · exact hgoal
+      · exact ihFirst hiff
+      · apply ihSecond
+        intro chi
+        constructor
+        · intro hmem
+          cases hmem with
+          | head => exact List.Mem.head _
+          | tail _ htail => exact List.Mem.tail _ ((hiff _).mp htail)
+        · intro hmem
+          cases hmem with
+          | head => exact List.Mem.head _
+          | tail _ htail => exact List.Mem.tail _ ((hiff _).mpr htail)
+  | exIntro ht hraw hav hvar hphi hsubst proof ih =>
+      exact Proves.exIntro ht hraw hav hvar hphi hsubst (ih hiff)
+  | ctxWeaken hphi hdelta hliftPhi hliftDelta proof ih =>
+      apply Proves.ctxWeaken
+      · exact hphi
+      · intro psi hmem
+        exact hdelta psi ((hiff psi).mpr hmem)
+      · exact hliftPhi
+      · intro psi hmem
+        exact hliftDelta psi ((hiff psi).mpr hmem)
+      · exact ih hiff
+  | ctxSubst ht hraw hav hvar hdelta hphi hdeltaLift proof ih =>
+      apply Proves.ctxSubst
+      · exact ht
+      · exact hraw
+      · exact hav
+      · exact hvar
+      · intro psi hmem
+        exact hdelta psi ((hiff psi).mpr hmem)
+      · exact hphi
+      · intro psi hmem
+        exact hdeltaLift psi ((hiff psi).mpr hmem)
+      · exact ih hiff
+
+/- N3 assumption representation: retain the last occurrence of each formula. -/
+def assumptionContains (phi : Formula) : List Formula -> Bool
+  | [] => false
+  | psi :: rest => if phi = psi then true else assumptionContains phi rest
+
+theorem assumptionContains_true (phi : Formula) :
+    forall rest : List Formula, assumptionContains phi rest = true ↔ phi ∈ rest := by
+  intro rest
+  induction rest with
+  | nil => simp [assumptionContains]
+  | cons psi rest ih =>
+      by_cases heq : phi = psi
+      · subst psi
+        simp [assumptionContains]
+      · simp [assumptionContains, heq, ih]
+
+def dedupAssumptions : List Formula -> List Formula
+  | [] => []
+  | phi :: rest =>
+      if assumptionContains phi rest then dedupAssumptions rest
+      else phi :: dedupAssumptions rest
+
+theorem mem_dedupAssumptions (psi : Formula) :
+    forall delta : List Formula,
+      List.Mem psi (dedupAssumptions delta) ↔ List.Mem psi delta := by
+  intro delta
+  induction delta with
+  | nil => simp [dedupAssumptions]
+  | cons phi rest ih =>
+      by_cases hmem : assumptionContains phi rest = true
+      · have hphi : phi ∈ rest := (assumptionContains_true phi rest).mp hmem
+        simp only [dedupAssumptions, if_pos hmem]
+        constructor
+        · intro h
+          exact List.Mem.tail _ (ih.mp h)
+        · intro h
+          cases h with
+          | head => exact ih.mpr hphi
+          | tail _ htail => exact ih.mpr htail
+      · have hphi : phi ∉ rest := by
+          intro h
+          exact hmem ((assumptionContains_true phi rest).mpr h)
+        simp only [dedupAssumptions, if_neg hmem]
+        constructor
+        · intro h
+          cases h with
+          | head => exact List.Mem.head _
+          | tail _ htail => exact List.Mem.tail _ (ih.mp htail)
+        · intro h
+          cases h with
+          | head => exact List.Mem.head _
+          | tail _ htail => exact List.Mem.tail _ (ih.mpr htail)
+
+theorem dedupAssumptions_noDup (delta : List Formula) :
+    List.Nodup (dedupAssumptions delta) := by
+  induction delta with
+  | nil => simp [dedupAssumptions]
+  | cons phi rest ih =>
+      by_cases hmem : assumptionContains phi rest = true
+      · simp only [dedupAssumptions, if_pos hmem]
+        exact ih
+      · simp only [dedupAssumptions, if_neg hmem]
+        have hnot : phi ∉ dedupAssumptions rest := by
+          intro h
+          apply hmem
+          exact (assumptionContains_true phi rest).mpr ((mem_dedupAssumptions phi rest).mp h)
+        exact List.nodup_cons.mpr ⟨hnot, ih⟩
+
+theorem dedupAssumptions_of_noDup :
+    forall delta : List Formula, List.Nodup delta -> dedupAssumptions delta = delta := by
+  intro delta hnodup
+  induction delta with
+  | nil => rfl
+  | cons phi rest ih =>
+      have hnot : phi ∉ rest := List.nodup_cons.mp hnodup |>.left
+      have hrest : List.Nodup rest := List.nodup_cons.mp hnodup |>.right
+      have hmem : assumptionContains phi rest ≠ true := by
+        intro h
+        exact hnot ((assumptionContains_true phi rest).mp h)
+      simp only [dedupAssumptions, if_neg hmem]
+      rw [ih hrest]
+
+theorem dedupAssumptions_idempotent (delta : List Formula) :
+    dedupAssumptions (dedupAssumptions delta) = dedupAssumptions delta :=
+  dedupAssumptions_of_noDup (dedupAssumptions delta) (dedupAssumptions_noDup delta)
+
+def State.n3 (s : State) : State :=
+  { env := s.env,
+    sequent :=
+      { objectCtx := s.sequent.objectCtx,
+        assumptions := dedupAssumptions s.sequent.assumptions,
+        conclusion := s.sequent.conclusion } }
+
+theorem State.n3_proves_iff (s : State) : State.proves s ↔ State.proves s.n3 := by
+  constructor
+  · intro h
+    apply proves_assumption_equiv (env := s.env) (gamma := s.sequent.objectCtx)
+    intro psi
+    exact (mem_dedupAssumptions psi s.sequent.assumptions).symm
+    exact h
+  · intro h
+    apply proves_assumption_equiv (env := s.env) (gamma := s.sequent.objectCtx)
+    intro psi
+    exact mem_dedupAssumptions psi s.sequent.assumptions
+    exact h
+
+theorem State.n3_idempotent (s : State) : s.n3.n3 = s.n3 := by
+  cases s
+  simp [State.n3, dedupAssumptions_idempotent]
+
 def AllProves : List State -> Prop
   | [] => True
   | s :: rest => And (State.proves s) (AllProves rest)
+
+/- A finite imported library supplies typed backward transitions. Each entry
+   carries the contextual soundness argument required to use it. -/
+structure Rule where
+  name : Name
+  transition : State -> Option (List State)
+  sound : forall (s : State) (children : List State),
+    transition s = some children -> AllProves children -> State.proves s
+
+structure RuleApplication (s : State) where
+  rule : Rule
+  children : List State
+  applies : rule.transition s = some children
+
+theorem RuleApplication.sound {s : State} (app : RuleApplication s) :
+    AllProves app.children -> State.proves s :=
+  app.rule.sound s app.children app.applies
+
+def ruleCandidates (library : List Rule) (s : State) : List (RuleApplication s) :=
+  library.foldr (fun rule acc =>
+    match h : rule.transition s with
+    | none => acc
+    | some children => { rule := rule, children := children, applies := h } :: acc) []
+
+theorem RuleApplication.core_replay {s : State} (app : RuleApplication s)
+    (hchildren : AllProves app.children) :
+    forall (cdelta : List (CPred (Ctx.obj s.sequent.objectCtx)))
+      (cphi : CPred (Ctx.obj s.sequent.objectCtx)),
+      LiftsAll s.env s.sequent.objectCtx s.sequent.assumptions cdelta ->
+      liftFormula? s.env s.sequent.objectCtx s.sequent.conclusion = some cphi ->
+      CoreThm (SeqLift (Ctx.obj s.sequent.objectCtx) (cdelta.map cl) (cl cphi)) := by
+  intro cdelta cphi hdelta hphi
+  exact proves_lift s.env (app.sound hchildren) cdelta cphi hdelta hphi
 
 inductive Step : State -> LogicalAction -> List State -> Prop where
   | hyp {env gamma delta phi} (hmem : List.Mem phi delta) :

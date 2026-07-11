@@ -110,16 +110,32 @@ step_sound replays every such transition into the M3 contextual Proves calculus.
 step_core_replay then packages it as conditional deep CoreThm evidence under
 the existing M3 lifting certificates.
 
+**Finite-library interface.** Rule is a typed backward transition with its
+contextual soundness proof. A declared library is a finite List Rule, and
+ruleCandidates enumerates only its applicable transitions. Each returned
+RuleApplication replays to deep CoreThm evidence through M3; it does not rely
+on implicit weakening or dynamically created declarations.
+
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
 name and its exact CoreThm certificate; N2Path now also carries checked
-connective-congruence traces. The executable n2RootStep? matcher recognizes precisely those six
-left-hand sides and returns only the displayed forward orientation. n2Normalize uses a
+connective-congruence traces. The executable n2RootStep? matcher recognizes precisely
+those six left-hand sides and returns only the displayed forward orientation. n2Normalize uses a
 structural size budget; its output has a replayable Core certificate, satisfies
 the declared binder-opaque normal-form test, and is syntactically idempotent.
 Thus this N2 domain meets the stated normalizer laws. Quantifier-headed terms
 remain opaque: binder movement is the separate Beck-Chevalley gate for a later
 N2 extension.
+
+**First N3 slice.** State.n3 is an executable last-occurrence deduplication
+of assumptions. It proves exact membership preservation, no duplicates,
+idempotence, and a two-way transfer of the contextual Proves judgment.
+
+**Structural finding.** Arbitrary assumption weakening is not a valid generic
+M3 transformation: the named all-introduction and context rules carry
+freshness obligations over the full assumption list. N3 must therefore
+preserve assumption membership exactly; imported-rule application must carry
+its own checked structural derivation rather than rely on blanket weakening.
 
 **Boundary finding.** Negation is hypothesis-only for now. The M3 calculus has
 no falsity-forming rule from which a sound not-introduction action could be
