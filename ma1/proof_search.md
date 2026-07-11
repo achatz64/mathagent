@@ -142,6 +142,17 @@ typed insertion is retrieved. logicalIndex_lookupState separately proves these
 new buckets do not alter the built-in logical candidate set. Term-constant head
 indexing remains part of the later first-order matcher refinement.
 
+**First N1 slice.** The native Core checker now exposes a separate n1Compare? /
+n1DefEq gate. It uses the checker normalizer and exact equality of the resulting
+Core Expr trees; unlike the existing compatible relation, it rejects holes,
+which are elaboration placeholders rather than Core terms. Permanent native
+regressions cover nullary abbrev unfolding, parameterized def unfolding, axiom
+opacity, hole rejection, and operational idempotence on a nested transparent
+term. The normalizer is currently declared partial: general termination and
+idempotence theorems require an explicit acyclic checked-environment invariant.
+Until that invariant is formalized, N1 is executable and regression-checked but
+not yet a completed normalizer theorem.
+
 **First N2 slice.** N2Rule fixes six live reindexing schemas: unary,
 and, or, implication, iff, and negation. N2Edge records the selected basis
 name and its exact CoreThm certificate; N2Path now also carries checked

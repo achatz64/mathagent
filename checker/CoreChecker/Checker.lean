@@ -71,6 +71,32 @@ partial def normalize (env : Env) : Expr -> Expr
   | .comp f g => .comp (normalize env f) (normalize env g)
   | e => e
 
+def Expr.hasHole : Expr -> Bool
+  | .hole => true
+  | .arrow a b | .prod a b | .app a b | .comp a b => a.hasHole || b.hasHole
+  | _ => false
+
+structure N1Result where
+  leftNormal : Expr
+  rightNormal : Expr
+deriving Repr, Inhabited
+
+/- N1 is stricter than compatible: holes are checker placeholders, not Core
+   terms, and cannot certify definitional equality. -/
+partial def n1Compare? (env : Env) (left right : Expr) : Option N1Result :=
+  if left.hasHole || right.hasHole then
+    none
+  else
+    let leftNormal := normalize env left
+    let rightNormal := normalize env right
+    if leftNormal == rightNormal then
+      some { leftNormal, rightNormal }
+    else
+      none
+
+partial def n1DefEq (env : Env) (left right : Expr) : Bool :=
+  (n1Compare? env left right).isSome
+
 partial def qualifyExpr (env : Env) (locals : Std.HashMap Name Expr) : Expr -> Expr
   | .ident n =>
       if locals.contains n then
@@ -266,5 +292,59 @@ def checkSource (file src : String) : Except Diagnostic Env := do
 def checkSourceIn (env : Env) (file src : String) : Except Diagnostic Env := do
   let cmds <- parseFile file src
   checkCommandsIn env file cmds
+
+namespace N1Tests
+
+private def aliasName : Name := toString 1
+private def identityName : Name := toString 2
+private def opaqueName : Name := toString 3
+private def typeParamName : Name := toString 4
+private def termParamName : Name := toString 5
+
+private def aliasDecl : Decl where
+  name := aliasName
+  kind := .abbrev
+  params := #[]
+  type := .sortType
+  body := some .sortProp
+
+private def identityDecl : Decl where
+  name := identityName
+  kind := .defn
+  params := #[{ name := typeParamName, type := .sortType },
+    { name := termParamName, type := .ident typeParamName }]
+  type := .ident typeParamName
+  body := some (.ident termParamName)
+
+private def opaqueDecl : Decl where
+  name := opaqueName
+  kind := .axiom
+  params := #[]
+  type := .sortType
+  body := none
+
+private def testEnv : Env where
+  decls := (({} : Std.HashMap Name Decl).insert aliasDecl.name aliasDecl)
+    |>.insert identityDecl.name identityDecl
+    |>.insert opaqueDecl.name opaqueDecl
+
+example : n1DefEq testEnv (.ident aliasName) .sortProp = true := by native_decide
+
+example : n1DefEq testEnv
+    (.app (.app (.ident identityName) .sortType) .sortProp) .sortProp = true := by
+  native_decide
+
+example : n1DefEq testEnv (.ident opaqueName) .sortType = false := by native_decide
+
+example : n1DefEq testEnv .hole .hole = false := by native_decide
+
+private def nested : Expr :=
+  .arrow (.ident aliasName)
+    (.app (.app (.ident identityName) .sortType) .sortProp)
+
+example : normalize testEnv (normalize testEnv nested) == normalize testEnv nested := by
+  native_decide
+
+end N1Tests
 
 end CoreChecker
