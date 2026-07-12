@@ -164,6 +164,106 @@ theorem ProvesProp.toProves {env : Env} {Γ : Ctx} {Δ : List Formula} {φ : For
   | axIffL h1 h2 => exact Proves.axIffL h1 h2
   | axIffR h1 h2 => exact Proves.axIffR h1 h2
 
+/-! ## Reified certificates (`PPTerm`)
+
+    `PPTerm` is a `Type`-valued mirror of `ProvesProp` with the identical fifteen
+    constructors.  It exists so the *intermediate* formulas and the size of a
+    produced certificate — invisible in the erased `Prop` — become first-class
+    data.  This is what lets us adjudicate the replay-side falsifiers: that the
+    classical compile-back stays within a fixed finite template family
+    (`replayClosure`) and grows only by a bounded per-rule amount (`replaySize`).
+    `PPTerm.toProvesProp` erases a certificate back to the `Prop` judgement, so
+    the search layer stays in `Prop` and soundness is preserved. -/
+
+inductive PPTerm (env : Env) : Ctx -> List Formula -> Formula -> Type where
+  | hyp {Γ Δ φ} : φ ∈ Δ -> PPTerm env Γ Δ φ
+  | impIntro {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      PPTerm env Γ (φ :: Δ) ψ -> PPTerm env Γ Δ (Formula.imp φ ψ)
+  | mp {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp φ ψ) -> PPTerm env Γ Δ φ ->
+      PPTerm env Γ Δ ψ
+  | axK {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp φ (Formula.imp ψ φ))
+  | axS {Γ Δ φ ψ χ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true -> (liftFormula? env Γ χ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.imp φ (Formula.imp ψ χ))
+        (Formula.imp (Formula.imp φ ψ) (Formula.imp φ χ)))
+  | axCP {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.imp (Formula.not ψ) (Formula.not φ))
+        (Formula.imp φ ψ))
+  | axAndL {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.and φ ψ) φ)
+  | axAndR {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.and φ ψ) ψ)
+  | axAndI {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp φ (Formula.imp ψ (Formula.and φ ψ)))
+  | axOrL {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp φ (Formula.or φ ψ))
+  | axOrR {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp ψ (Formula.or φ ψ))
+  | axOrE {Γ Δ φ ψ χ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true -> (liftFormula? env Γ χ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.imp φ χ)
+        (Formula.imp (Formula.imp ψ χ) (Formula.imp (Formula.or φ ψ) χ)))
+  | axIffI {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.imp φ ψ)
+        (Formula.imp (Formula.imp ψ φ) (Formula.iff φ ψ)))
+  | axIffL {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.iff φ ψ) (Formula.imp φ ψ))
+  | axIffR {Γ Δ φ ψ} : (liftFormula? env Γ φ).isSome = true ->
+      (liftFormula? env Γ ψ).isSome = true ->
+      PPTerm env Γ Δ (Formula.imp (Formula.iff φ ψ) (Formula.imp ψ φ))
+
+/-- Erase a reified certificate to the `Prop` judgement.  Soundness of a
+    `PPTerm` is exactly `ProvesProp` of its conclusion, so the search layer never
+    has to leave `Prop`. -/
+def PPTerm.toProvesProp {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
+    PPTerm env Γ Δ φ -> ProvesProp env Γ Δ φ
+  | _, _, _, .hyp hmem => ProvesProp.hyp hmem
+  | _, _, _, .impIntro hwt t => ProvesProp.impIntro hwt t.toProvesProp
+  | _, _, _, .mp hwt t u => ProvesProp.mp hwt t.toProvesProp u.toProvesProp
+  | _, _, _, .axK h1 h2 => ProvesProp.axK h1 h2
+  | _, _, _, .axS h1 h2 h3 => ProvesProp.axS h1 h2 h3
+  | _, _, _, .axCP h1 h2 => ProvesProp.axCP h1 h2
+  | _, _, _, .axAndL h1 h2 => ProvesProp.axAndL h1 h2
+  | _, _, _, .axAndR h1 h2 => ProvesProp.axAndR h1 h2
+  | _, _, _, .axAndI h1 h2 => ProvesProp.axAndI h1 h2
+  | _, _, _, .axOrL h1 h2 => ProvesProp.axOrL h1 h2
+  | _, _, _, .axOrR h1 h2 => ProvesProp.axOrR h1 h2
+  | _, _, _, .axOrE h1 h2 h3 => ProvesProp.axOrE h1 h2 h3
+  | _, _, _, .axIffI h1 h2 => ProvesProp.axIffI h1 h2
+  | _, _, _, .axIffL h1 h2 => ProvesProp.axIffL h1 h2
+  | _, _, _, .axIffR h1 h2 => ProvesProp.axIffR h1 h2
+
+/-- Certificate size: the number of rule nodes in the reified derivation.  Only
+    `impIntro` and `mp` have premises; every axiom node is a leaf. -/
+def PPTerm.size {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
+    PPTerm env Γ Δ φ -> Nat
+  | _, _, _, .hyp _ => 1
+  | _, _, _, .impIntro _ t => t.size + 1
+  | _, _, _, .mp _ t u => t.size + u.size + 1
+  | _, _, _, .axK _ _ => 1
+  | _, _, _, .axS _ _ _ => 1
+  | _, _, _, .axCP _ _ => 1
+  | _, _, _, .axAndL _ _ => 1
+  | _, _, _, .axAndR _ _ => 1
+  | _, _, _, .axAndI _ _ => 1
+  | _, _, _, .axOrL _ _ => 1
+  | _, _, _, .axOrR _ _ => 1
+  | _, _, _, .axOrE _ _ _ => 1
+  | _, _, _, .axIffI _ _ => 1
+  | _, _, _, .axIffL _ _ => 1
+  | _, _, _, .axIffR _ _ => 1
+
 /-! ## Derived propositional meta-theory over the Hilbert base
 
     All lemmas are parametric in the assumption list `Δ`; they package the K/S,

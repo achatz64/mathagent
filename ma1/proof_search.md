@@ -363,10 +363,26 @@ the classical negation kernel and soundness of the analytic LK substrate.
   The right rules consume the succedent-disjunction algebra (`pRightOr_mem`,
   `pOrComm`, `pOrAssocL`) and the classical shifts consume `pByCases`.
 
-In progress (increment 1c): **cut/MP admissibility** for the analytic substrate
-— the strict gate, since completeness inducts over `Proves` reconstructing
-`mp` — followed by the actual focus discipline, the K/S/`axCP`
-focused-derivation direction (`focusedComplete`), and subformula-boundedness.
+**In progress (increment 1c — reprioritized: replay guards first).** The audit
+of increment 1b established that primitive negation pushes *zero* non-analytic
+content into focused search states or choices — the entire classical payload
+(`pCM`'s `¬(¬p→p)` etc.) lives in the deterministic compile-back. That relocates
+the pre-registered falsifier from search (b) to replay: the compiler-template
+family must stay *fixed* (c) and certificate growth must stay *bounded* (d).
+Because those payload formulas are exactly where the stress-test's teeth now
+live, they are adjudicated *before* cut-admissibility, not after — proving cut
+over an unadjudicated certificate family would build on unverified ground.
+
+Since `ProvesProp` is `Prop`, its intermediate formulas and size are erased, so
+the guards cannot even be *stated* over the produced certificate. Substrate for
+this is now in place: **`PPTerm`**, a `Type`-valued mirror of `ProvesProp` (same
+15 constructors) with `PPTerm.toProvesProp` erasure (search stays in `Prop`) and
+`PPTerm.size`. Next: a `Type`-valued `analyticCert : FDeriv → PPTerm` compile
+(the nil "proves-everything" succedent reifies as a *function*, the one real
+design point — shared with cut-admissibility), then `replayClosure`
+(`PPTerm.formulas ⊆ ReplayClosure(G)`, reusing `Formula.subformulas`) and the
+`replaySize` recurrence. Only then: cut/MP admissibility, the focus discipline,
+`focusedComplete`, and subformula-boundedness.
 
 **Methods.**
 
