@@ -1520,6 +1520,78 @@ theorem compileSoundSingle {A : List Formula} {φ : Formula}
     (t : FTrace env Γ ⟨A, [φ]⟩) : Proves env Γ A φ :=
   ProvesProp.toProves (PPTerm.toProvesProp (compile t : PPTerm env Γ A φ))
 
+/-! ## Assumption discharge — making key reuse a real, checked operation
+
+    The replay cache key of a node `PPTerm Γ Δ φ` is the *assumption-discharged*
+    conclusion `dischargeKey Δ φ` (the deduction-theorem normal form; still open
+    over the fixed contextual variables in `Γ`, hence "closed w.r.t. assumptions",
+    not absolutely closed).  For that key to certify genuine reuse we must exhibit
+    the two transport operations, so that a memoizing replayer can prove the key
+    once and re-apply it in any context where the node recurs:
+
+    * `discharge`   : `LiftsAllF Γ Δ → PPTerm Γ Δ φ → PPTerm Γ [] (dischargeKey Δ φ)`
+    * `instantiate` : `LiftsAllF Γ Δ → PPTerm Γ [] (dischargeKey Δ φ) → PPTerm Γ Δ φ`
+
+    Both are `sorry`-free structural functions.  `discharge` iterates `impIntro`
+    (needing each antecedent well typed — `PPTerm` does *not* itself enforce that
+    unused antecedents lift, which is exactly what `LiftsAllF Γ Δ` supplies).
+    `instantiate` weakens the closed proof back under `Δ` and re-applies the
+    hypotheses by `mp`. -/
+
+/-- Assumption-discharged conclusion: the deduction-theorem normal form of
+    `Δ ⊢ φ`, folding each assumption into an implication (most-recently-added
+    assumption outermost, matching iterated `impIntro`). -/
+def dischargeKey : List Formula -> Formula -> Formula
+  | [], φ => φ
+  | a :: as, φ => dischargeKey as (Formula.imp a φ)
+
+/-- Type-level assumption weakening (the `PPTerm` analogue of `pMono`): a
+    certificate valid under `Δ` is valid under any `Δ'` containing `Δ`. -/
+def PPTerm.weaken {env : Env} {Γ : Ctx} : {Δ Δ' : List Formula} -> {φ : Formula} ->
+    (∀ x, x ∈ Δ -> x ∈ Δ') -> PPTerm env Γ Δ φ -> PPTerm env Γ Δ' φ
+  | _, _, _, hsub, .hyp hmem => .hyp (hsub _ hmem)
+  | _, _, _, hsub, .impIntro hwt t =>
+      .impIntro hwt (t.weaken (fun x hx => by
+        rcases List.mem_cons.1 hx with h | h
+        · exact h ▸ List.mem_cons_self
+        · exact List.mem_cons_of_mem _ (hsub _ h)))
+  | _, _, _, hsub, .mp hwt t u => .mp hwt (t.weaken hsub) (u.weaken hsub)
+  | _, _, _, _, .axK h1 h2 => .axK h1 h2
+  | _, _, _, _, .axS h1 h2 h3 => .axS h1 h2 h3
+  | _, _, _, _, .axCP h1 h2 => .axCP h1 h2
+  | _, _, _, _, .axAndL h1 h2 => .axAndL h1 h2
+  | _, _, _, _, .axAndR h1 h2 => .axAndR h1 h2
+  | _, _, _, _, .axAndI h1 h2 => .axAndI h1 h2
+  | _, _, _, _, .axOrL h1 h2 => .axOrL h1 h2
+  | _, _, _, _, .axOrR h1 h2 => .axOrR h1 h2
+  | _, _, _, _, .axOrE h1 h2 h3 => .axOrE h1 h2 h3
+  | _, _, _, _, .axIffI h1 h2 => .axIffI h1 h2
+  | _, _, _, _, .axIffL h1 h2 => .axIffL h1 h2
+  | _, _, _, _, .axIffR h1 h2 => .axIffR h1 h2
+
+/-- Discharge every assumption of a certificate into the closed key, by iterated
+    `impIntro`.  `LiftsAllF Γ Δ` provides the per-antecedent well-typedness that
+    `impIntro` demands. -/
+def PPTerm.discharge {env : Env} {Γ : Ctx} : (Δ : List Formula) -> {φ : Formula} ->
+    LiftsAllF env Γ Δ -> PPTerm env Γ Δ φ -> PPTerm env Γ [] (dischargeKey Δ φ)
+  | [], _, _, t => t
+  | _ :: as, _, hwt, t =>
+      PPTerm.discharge as hwt.tail (PPTerm.impIntro hwt.head t)
+
+/-- Re-instantiate a discharged (closed-w.r.t.-assumptions) certificate back
+    under its assumption list `Δ`: weaken the closed proof into `Δ` and re-apply
+    each hypothesis by `mp`.  The inverse direction to `discharge`, so together
+    they make cache-key reuse a type-checked round trip. -/
+def PPTerm.instantiate {env : Env} {Γ : Ctx} : (Δ : List Formula) -> {φ : Formula} ->
+    LiftsAllF env Γ Δ -> PPTerm env Γ [] (dischargeKey Δ φ) -> PPTerm env Γ Δ φ
+  | [], _, _, t => t
+  | a :: as, φ, hwt, t =>
+      let inner : PPTerm env Γ as (Formula.imp a φ) :=
+        PPTerm.instantiate as hwt.tail t
+      PPTerm.mp hwt.head
+        (inner.weaken (fun _ hx => List.mem_cons_of_mem _ hx))
+        (PPTerm.hyp List.mem_cons_self)
+
 /-! ## Replay cost under sharing (the context-discharged memoized model)
 
     The naive tree measure `PPTerm.size` is *not* polynomial: the empty-succedent
@@ -1533,61 +1605,68 @@ theorem compileSoundSingle {A : List Formula} {φ : Formula}
     tree bound.  The correct model is a memoizing replay whose cache key is the
     *fully context-discharged* conclusion of each node: a node `PPTerm Γ Δ φ`
     replays the closed theorem `Δ ⊢ φ` in deduction-theorem normal form, i.e. the
-    single closed formula `Δ.foldr imp φ`.  Two nodes are the same replayable
+    single closed formula `dischargeKey Δ φ`.  Two nodes are the same replayable
     sub-theorem exactly when this closed formula agrees — so keying on the bare
     conclusion `φ` (ignoring `Δ`) is *unsound* (it conflates `a ⊢ φ` with `⊢ φ`).
-    `PPTerm.nodeKeys` records the discharged closed conclusion of every node;
+    Reuse of this key is a real, checked operation: `PPTerm.discharge` /
+    `PPTerm.instantiate` transport a certificate to its closed key and back.
+    `PPTerm.nodeKeys` records the discharged conclusion of every node;
     `replayCost` is the number of *distinct* keys, which is the real memoized
     replay cost, insensitive to the `let`-sharing that inflates `size`.
 
-    Whether `replayCost` is polynomial is the open replay gate: it holds iff the
-    set of distinct discharged keys is polynomially bounded (each maps to a
-    distinct `(Δ, φ)` node-sequent of the trace).  An atom-vocabulary bound is
-    necessary but *not* sufficient — the discharged keys can carry arbitrarily
-    deep administrative implication shapes, so the closure argument needs a
-    cardinality bound on the context-aware keys themselves. -/
+    Whether `replayCost` is polynomial is the **still-open** replay gate.  It is
+    *not yet* reduced to "keys ≤ trace nodes × const": the certificate builders
+    `pMono` (copies a whole child certificate into a new context) and
+    `pRightOr_mem` (recurses over the succedent) change the assumption context,
+    so after discharge they can emit *new* keys per search step — that transport
+    is exactly where an exponential key family could still surface, and it needs
+    a separate context-transport lemma before any node-count bound is claimed.
+    An atom-vocabulary bound is likewise necessary but *not* sufficient — the
+    discharged keys can carry arbitrarily deep administrative implication shapes,
+    so the closure ultimately needs a cardinality bound on the context-aware keys
+    themselves, not merely a vocabulary bound. -/
 
 /-- The list of *context-discharged* conclusion keys of every node in a
     certificate.  A node `PPTerm Γ Δ φ` contributes the closed formula
-    `Δ.foldr imp φ` — the deduction-theorem normal form of the sub-theorem it
+    `dischargeKey Δ φ` — the deduction-theorem normal form of the sub-theorem it
     proves — so that the key faithfully distinguishes `a ⊢ φ` from `⊢ φ`.  A
     memoizing replayer proves each *distinct* key once.  Constructor arguments are
     named so the conclusion is rebuilt explicitly (matching the index directly
     breaks the motive). -/
 def PPTerm.nodeKeys {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
     PPTerm env Γ Δ φ -> List Formula
-  | _, Δ, _, .hyp (φ := φ) _ => [Δ.foldr Formula.imp φ]
+  | _, Δ, _, .hyp (φ := φ) _ => [dischargeKey Δ φ]
   | _, Δ, _, .impIntro (φ := a) (ψ := b) _ t =>
-      Δ.foldr Formula.imp (Formula.imp a b) :: t.nodeKeys
-  | _, Δ, _, .mp (ψ := b) _ t u => Δ.foldr Formula.imp b :: (t.nodeKeys ++ u.nodeKeys)
+      dischargeKey Δ (Formula.imp a b) :: t.nodeKeys
+  | _, Δ, _, .mp (ψ := b) _ t u => dischargeKey Δ b :: (t.nodeKeys ++ u.nodeKeys)
   | _, Δ, _, .axK (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp a (Formula.imp b a))]
+      [dischargeKey Δ (Formula.imp a (Formula.imp b a))]
   | _, Δ, _, .axS (φ := a) (ψ := b) (χ := c) _ _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.imp a (Formula.imp b c))
+      [dischargeKey Δ (Formula.imp (Formula.imp a (Formula.imp b c))
         (Formula.imp (Formula.imp a b) (Formula.imp a c)))]
   | _, Δ, _, .axCP (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp
+      [dischargeKey Δ
         (Formula.imp (Formula.imp (Formula.not b) (Formula.not a)) (Formula.imp a b))]
   | _, Δ, _, .axAndL (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.and a b) a)]
+      [dischargeKey Δ (Formula.imp (Formula.and a b) a)]
   | _, Δ, _, .axAndR (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.and a b) b)]
+      [dischargeKey Δ (Formula.imp (Formula.and a b) b)]
   | _, Δ, _, .axAndI (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp a (Formula.imp b (Formula.and a b)))]
+      [dischargeKey Δ (Formula.imp a (Formula.imp b (Formula.and a b)))]
   | _, Δ, _, .axOrL (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp a (Formula.or a b))]
+      [dischargeKey Δ (Formula.imp a (Formula.or a b))]
   | _, Δ, _, .axOrR (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp b (Formula.or a b))]
+      [dischargeKey Δ (Formula.imp b (Formula.or a b))]
   | _, Δ, _, .axOrE (φ := a) (ψ := b) (χ := c) _ _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.imp a c)
+      [dischargeKey Δ (Formula.imp (Formula.imp a c)
         (Formula.imp (Formula.imp b c) (Formula.imp (Formula.or a b) c)))]
   | _, Δ, _, .axIffI (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp
+      [dischargeKey Δ
         (Formula.imp (Formula.imp a b) (Formula.imp (Formula.imp b a) (Formula.iff a b)))]
   | _, Δ, _, .axIffL (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.iff a b) (Formula.imp a b))]
+      [dischargeKey Δ (Formula.imp (Formula.iff a b) (Formula.imp a b))]
   | _, Δ, _, .axIffR (φ := a) (ψ := b) _ _ =>
-      [Δ.foldr Formula.imp (Formula.imp (Formula.iff a b) (Formula.imp b a))]
+      [dischargeKey Δ (Formula.imp (Formula.iff a b) (Formula.imp b a))]
 
 /-- Local deduplication (no Mathlib/Batteries in this repo).  Structural on the
     list; keeps the first occurrence of each element. -/

@@ -446,28 +446,38 @@ is **unsound** — it conflates `a ⊢ φ` with `⊢ φ` and under-counts. The
 `let`-shared duplicate branches that make `size` exponential have identical
 `(Γ,Δ,φ)`, hence identical discharged key, so memoization collapses exactly them.
 Substrate landed and `lake build`-clean (12/12, no sorry/admit/axiom):
-`Formula.atoms`, `PPTerm.nodeKeys` (the *discharged* closed conclusion of every
-node), a local `dedup` (no Mathlib in this repo), and `PPTerm.replayCost :=
-(dedup t.nodeKeys).length` — now an actually-checked def, not a doc formula (an
-earlier note claimed `replayCost` had landed; it had not — only the comment
-existed. Corrected.). This **reduces the size falsifier (d) to the closure
-falsifier (c)**: `replayCost` is polynomially bounded **iff** the set of distinct
-discharged keys is finite/poly-bounded.
+`Formula.atoms`; `dischargeKey Δ φ` (deduction-normal-form key); `PPTerm.nodeKeys`
+(the *discharged* key of every node); a local `dedup` (no Mathlib in this repo);
+and `PPTerm.replayCost := (dedup t.nodeKeys).length` — now an actually-checked
+def, not a doc formula (an earlier note claimed `replayCost` had landed; it had
+not — only the comment existed. Corrected.). **Key reuse is now a real, checked
+round trip** (per the follow-up audit — a bare metric is not the cost of an
+implemented replay): `PPTerm.weaken` (Type-level assumption weakening, the
+`PPTerm` analogue of `pMono`), `PPTerm.discharge : LiftsAllF Γ Δ → PPTerm Γ Δ φ →
+PPTerm Γ [] (dischargeKey Δ φ)` (iterated `impIntro`; the `LiftsAllF` premise
+supplies the per-antecedent well-typedness `PPTerm` does not itself enforce), and
+`PPTerm.instantiate` (the inverse: weaken the closed proof back under `Δ`,
+re-apply hypotheses by `mp`). The key is "closed **w.r.t. assumptions**" — it may
+still depend on the fixed contextual variables in `Γ`. This **reduces the size
+falsifier (d) to the closure falsifier (c)**: `replayCost` is polynomially bounded
+**iff** the set of distinct discharged keys is finite/poly-bounded.
 
-*Remaining in 1c:* `replayClosure` — prove the distinct discharged keys of
-`compile tr` are polynomially bounded. The honest reduction: each key maps to a
-distinct `(Δ, φ)` node-sequent, so the count is `≤` the number of trace nodes ×
-(bounded admin nodes per compile branch); this ties the replay bound to the
-**search-side trace-size bound** (a separate milestone). Two sub-parts (per the
-audit): (i) witnesses stay in the finite search closure; (ii) packed `rightOr`
-and administrative template formulas stay in the finite replay closure. **Caveat
-(audit):** an atom-vocabulary ("no new atoms") bound is *necessary but not
-sufficient* — discharged keys carry arbitrarily deep administrative
-implication/disjunction shapes, so the closure needs a **cardinality** bound on
-the context-aware keys, not merely a vocabulary bound. This is the settled
-cache-key contract; the large `replayClosure` induction is deferred until the
-trace-size bound it reduces to is in place. Then cut/MP admissibility, the focus
-discipline, `focusedComplete`, subformula-boundedness.
+*Remaining in 1c:* `replayClosure` — bound the distinct discharged keys of
+`compile tr`. **The tempting reduction "keys ≤ trace nodes × const" is NOT yet
+justified and is explicitly not claimed** (audit): `pMono` copies a whole child
+certificate into a new context and `pRightOr_mem` recurses over the succedent, so
+after discharge they can emit *new* keys per search step — a **context-transport
+lemma** is needed there first, and that transport is exactly where an exponential
+key family could still surface. Two sub-parts (per the audit): (i) witnesses stay
+in the finite search closure; (ii) packed `rightOr` and administrative template
+formulas stay in the finite replay closure. **Caveat:** an atom-vocabulary ("no
+new atoms") bound is *necessary but not sufficient* — discharged keys carry
+arbitrarily deep administrative implication/disjunction shapes, so the closure
+needs a **cardinality** bound on the context-aware keys, not merely a vocabulary
+bound. The cache-key contract is now settled *and its transport certified*; the
+large `replayClosure` induction is deferred until the context-transport lemma and
+the search-side trace-size bound it reduces to are in place. Then cut/MP
+admissibility, the focus discipline, `focusedComplete`, subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
