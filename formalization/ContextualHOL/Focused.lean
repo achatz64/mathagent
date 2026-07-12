@@ -20,6 +20,20 @@ actual focus discipline, and subformula-boundedness follow.
 -/
 
 namespace ContextualHOL
+
+/-- Every atomic (non-connective) subformula of `φ`.  Defined at `ContextualHOL`
+    scope so dot-notation `f.atoms` resolves for `f : Formula` everywhere. -/
+def Formula.atoms : Formula -> List Formula
+  | .atom n t u => [.atom n t u]
+  | .papp n t => [.papp n t]
+  | .and q r => q.atoms ++ r.atoms
+  | .or q r => q.atoms ++ r.atoms
+  | .imp q r => q.atoms ++ r.atoms
+  | .iff q r => q.atoms ++ r.atoms
+  | .not q => q.atoms
+  | .all _ _ q => q.atoms
+  | .ex _ _ q => q.atoms
+
 namespace Focused
 
 open ContextualHOL
@@ -1505,6 +1519,51 @@ def compile {env : Env} {Γ : Ctx} : {S : FSequent} -> FTrace env Γ S -> Reifie
 theorem compileSoundSingle {A : List Formula} {φ : Formula}
     (t : FTrace env Γ ⟨A, [φ]⟩) : Proves env Γ A φ :=
   ProvesProp.toProves (PPTerm.toProvesProp (compile t : PPTerm env Γ A φ))
+
+/-! ## Replay cost under sharing (the DAG / memoized model)
+
+    The naive tree measure `PPTerm.size` is *not* polynomial: the empty-succedent
+    `impL` and `orL` branches of `compile` embed one child certificate in both the
+    positive and negative halves of the produced `Contradiction`, so a chain of
+    such rules doubles the tree at every level (`S(d) = 2·S(d-1)+O(1) = 2^d`).
+
+    But `compile` builds those repeats with a single `let`-bound value referenced
+    twice: the certificate *value* is a shared DAG, and a replayer that memoizes
+    proved sub-lemmas pays for each **distinct** conclusion once.  The honest
+    replay cost is therefore the number of distinct formulas that occur as node
+    conclusions — `PPTerm.replayCost` below — which is bounded by the (finite)
+    formula closure rather than by the tree size.  `PPTerm.formulas` collects the
+    conclusion of every node; `replayCost` deduplicates it. -/
+
+/-- The list of conclusion formulas of every node in a certificate.  A memoizing
+    replayer proves each *distinct* element once, so the deduplicated length of
+    this list is the real replay cost, insensitive to the `let`-sharing that
+    inflates `size`.  Constructor arguments are named so the conclusion is
+    rebuilt explicitly (matching the index directly breaks the motive). -/
+def PPTerm.formulas {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
+    PPTerm env Γ Δ φ -> List Formula
+  | _, _, _, .hyp (φ := φ) _ => [φ]
+  | _, _, _, .impIntro (φ := a) (ψ := b) _ t => Formula.imp a b :: t.formulas
+  | _, _, _, .mp (ψ := b) _ t u => b :: (t.formulas ++ u.formulas)
+  | _, _, _, .axK (φ := a) (ψ := b) _ _ => [Formula.imp a (Formula.imp b a)]
+  | _, _, _, .axS (φ := a) (ψ := b) (χ := c) _ _ _ =>
+      [Formula.imp (Formula.imp a (Formula.imp b c))
+        (Formula.imp (Formula.imp a b) (Formula.imp a c))]
+  | _, _, _, .axCP (φ := a) (ψ := b) _ _ =>
+      [Formula.imp (Formula.imp (Formula.not b) (Formula.not a)) (Formula.imp a b)]
+  | _, _, _, .axAndL (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.and a b) a]
+  | _, _, _, .axAndR (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.and a b) b]
+  | _, _, _, .axAndI (φ := a) (ψ := b) _ _ =>
+      [Formula.imp a (Formula.imp b (Formula.and a b))]
+  | _, _, _, .axOrL (φ := a) (ψ := b) _ _ => [Formula.imp a (Formula.or a b)]
+  | _, _, _, .axOrR (φ := a) (ψ := b) _ _ => [Formula.imp b (Formula.or a b)]
+  | _, _, _, .axOrE (φ := a) (ψ := b) (χ := c) _ _ _ =>
+      [Formula.imp (Formula.imp a c)
+        (Formula.imp (Formula.imp b c) (Formula.imp (Formula.or a b) c))]
+  | _, _, _, .axIffI (φ := a) (ψ := b) _ _ =>
+      [Formula.imp (Formula.imp a b) (Formula.imp (Formula.imp b a) (Formula.iff a b))]
+  | _, _, _, .axIffL (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.iff a b) (Formula.imp a b)]
+  | _, _, _, .axIffR (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.iff a b) (Formula.imp b a)]
 
 end Focused
 end ContextualHOL

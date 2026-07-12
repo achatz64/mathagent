@@ -416,18 +416,41 @@ structural analysis of the existing `sound*` nil cases settles it:
   is the only rule bridging a nil premise to a non-nil conclusion, and it needs
   exactly `¬φ`.
 
-Residual growth: only binary left rules (`orL`/`impL`) can use one branch ×2
-(via `Contradiction.explode`, `O(1)` over the witness); choosing the *larger*
-branch as primary gives `T(n)=T(large)+2·T(small) ≈ n^1.58` — **polynomial,
-never exponential**. So the size recurrence — the genuine falsifier-(d) test —
-comes out **polynomial**, and PS2 stands. (The falsifier came within one
-representation choice of firing; recorded because it is the real result of this
-increment.)
+**Correction (the size recurrence, measured on the actual compiler — active
+falsifier-(d) test).** The witness representation removes the *unconditional*
+`negR`-at-nil doubling, but it does **not** by itself give a polynomial tree
+bound. The empty-succedent `impL` and `orL` branches each embed one child
+certificate in **both** halves of the produced `Contradiction`:
+`impL`-nil threads `dψ` (which contains `compile t`) into both `posρ` and
+`negρ`; `orL`-nil calls `c2.explode` (carrying `c2.pos`,`c2.neg`) in both
+outputs. The doubled branch is **fixed** by the rule (`t` for `impL`, `u` for
+`orL`) — the "choose the larger branch" mitigation is *not available*: `impL`'s
+two premises have different logical roles, unlike symmetric `orL`. So nesting a
+doubled branch gives `S(d) = 2·S(d−1)+O(1) = 2^d`: **as a tree, `PPTerm.size` is
+exponential in derivation depth.** The earlier "`n^1.58`" claim was wrong and is
+retracted.
 
-*Remaining in 1c:* `replaySize` (define `size` on the `compile` output and prove
-the polynomial bound — now possible since `compile` yields real terms) and
-`replayClosure` (`PPTerm.formulas ⊆ ReplayClosure(G)`). Then cut/MP
-admissibility, the focus discipline, `focusedComplete`, subformula-boundedness.
+**Resolution — the DAG / memoized-replay cost model (falsifier (d) is a
+measure artifact, moved to falsifier (c)).** `compile` builds those repeats with
+a single `let`-bound value referenced twice: the certificate *value* is a shared
+DAG, and only the structural `size` tree-walk re-counts the shared subterm. A
+replayer that memoizes proved sub-lemmas (Core naturally caches proved theorems)
+pays for each **distinct** node conclusion once. The honest replay cost is
+therefore `PPTerm.replayCost := (PPTerm.formulas t).dedup.length` — the number of
+distinct conclusion formulas, insensitive to `let`-sharing. Substrate landed and
+`lake build`-clean: `Formula.atoms`, `PPTerm.formulas` (conclusion of every
+node), `PPTerm.replayCost`. This **reduces the size falsifier (d) to the closure
+falsifier (c)**: `replayCost` is polynomially bounded **iff** `PPTerm.formulas`
+stays inside a finite `ReplayClosure(G)`. Discharging (c) is now the single
+remaining replay gate — no separate exponential-tree obstacle survives it.
+
+*Remaining in 1c:* `replayClosure` — prove `PPTerm.formulas (compile tr) ⊆
+ReplayClosure(G)` with `|ReplayClosure(G)|` polynomial in the sequent, which
+simultaneously bounds `replayCost` (falsifier d, memoized model) and is
+falsifier (c) itself. Two sub-parts (per the audit): (i) witnesses stay in the
+finite search/state closure; (ii) all packed `rightOr` and administrative
+template formulas stay in the finite replay closure. Then cut/MP admissibility,
+the focus discipline, `focusedComplete`, subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
