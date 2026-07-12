@@ -1672,21 +1672,25 @@ theorem compileCtxsWT {A : List Formula} {φ : Formula}
     conclusion `φ` (ignoring `Δ`) is *unsound* (it conflates `a ⊢ φ` with `⊢ φ`).
     Reuse of this key is a real, checked operation: `PPTerm.discharge` /
     `PPTerm.instantiate` transport a certificate to its closed key and back.
-    `PPTerm.nodeKeys` records the discharged conclusion of every node;
-    `replayCost` is the number of *distinct* keys, which is the real memoized
-    replay cost, insensitive to the `let`-sharing that inflates `size`.
+    `PPTerm.nodeKeys` records the discharged conclusion of every node.
+    `replayCost` is the number of distinct keys and is the checked target metric
+    for a future memoizing replayer. It is not yet an achieved replay cost because
+    no memo table or shared Core-emission graph has been implemented.
 
-    Whether `replayCost` is polynomial is the **still-open** replay gate.  It is
-    *not yet* reduced to "keys ≤ trace nodes × const": the certificate builders
-    `pMono` (copies a whole child certificate into a new context) and
-    `pRightOr_mem` (recurses over the succedent) change the assumption context,
-    so after discharge they can emit *new* keys per search step — that transport
-    is exactly where an exponential key family could still surface, and it needs
-    a separate context-transport lemma before any node-count bound is claimed.
-    An atom-vocabulary bound is likewise necessary but *not* sufficient — the
-    discharged keys can carry arbitrarily deep administrative implication shapes,
-    so the closure ultimately needs a cardinality bound on the context-aware keys
-    themselves, not merely a vocabulary bound. -/
+    The context-transport gate is now proved using root-relative `ReplayShape`
+    values (introduced assumptions plus node conclusion). `nodeKeys` is exactly
+    those shapes rendered against the root assumption context. `pMono` preserves
+    the complete shape list, hence also `shapeCost`, exactly. `pRightOr_mem`
+    never duplicates its input certificate and adds at most two nodes/shapes per
+    inspected succedent position. Thus these two transport operations are not an
+    exponential multiplier.
+
+    Polynomial `replayCost (compile tr)` remains open at the compiler level. It
+    now requires a deduplicated recurrence over all compile templates together
+    with a search-trace size bound, followed by an actual memoizing replayer.
+    An atom-vocabulary bound is necessary but not sufficient: discharged keys can
+    carry deep administrative implication/disjunction shapes, so the remaining
+    theorem must bound context-aware keys themselves. -/
 
 /-- The list of *context-discharged* conclusion keys of every node in a
     certificate.  A node `PPTerm Γ Δ φ` contributes the closed formula
@@ -1730,11 +1734,188 @@ def PPTerm.nodeKeys {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : For
   | _, Δ, _, .axIffR (φ := a) (ψ := b) _ _ =>
       [dischargeKey Δ (Formula.imp (Formula.iff a b) (Formula.imp b a))]
 
+/-! ## Exact context transport for replay keys -/
+
+abbrev ReplayShape := Prod (List Formula) Formula
+
+def pushReplayShape (a : Formula) (s : ReplayShape) : ReplayShape :=
+  (s.1 ++ [a], s.2)
+
+/-- Root-relative assumptions introduced by impIntro, paired with each conclusion. -/
+def PPTerm.nodeShapes {env : Env} : {G : Ctx} -> {D : List Formula} ->
+    {f : Formula} -> PPTerm env G D f -> List ReplayShape
+  | _, _, _, @PPTerm.hyp _ _ _ f _ => [([], f)]
+  | _, _, _, @PPTerm.impIntro _ _ _ a b _ t =>
+      ([], Formula.imp a b) :: t.nodeShapes.map (pushReplayShape a)
+  | _, _, _, @PPTerm.mp _ _ _ a b _ t u =>
+      ([], b) :: (t.nodeShapes ++ u.nodeShapes)
+  | _, _, _, @PPTerm.axK _ _ _ a b _ _ =>
+      [([], Formula.imp a (Formula.imp b a))]
+  | _, _, _, @PPTerm.axS _ _ _ a b c _ _ _ =>
+      [([], Formula.imp (Formula.imp a (Formula.imp b c))
+        (Formula.imp (Formula.imp a b) (Formula.imp a c)))]
+  | _, _, _, @PPTerm.axCP _ _ _ a b _ _ =>
+      [([], Formula.imp (Formula.imp (Formula.not b) (Formula.not a)) (Formula.imp a b))]
+  | _, _, _, @PPTerm.axAndL _ _ _ a b _ _ => [([], Formula.imp (Formula.and a b) a)]
+  | _, _, _, @PPTerm.axAndR _ _ _ a b _ _ => [([], Formula.imp (Formula.and a b) b)]
+  | _, _, _, @PPTerm.axAndI _ _ _ a b _ _ =>
+      [([], Formula.imp a (Formula.imp b (Formula.and a b)))]
+  | _, _, _, @PPTerm.axOrL _ _ _ a b _ _ => [([], Formula.imp a (Formula.or a b))]
+  | _, _, _, @PPTerm.axOrR _ _ _ a b _ _ => [([], Formula.imp b (Formula.or a b))]
+  | _, _, _, @PPTerm.axOrE _ _ _ a b c _ _ _ =>
+      [([], Formula.imp (Formula.imp a c)
+        (Formula.imp (Formula.imp b c) (Formula.imp (Formula.or a b) c)))]
+  | _, _, _, @PPTerm.axIffI _ _ _ a b _ _ =>
+      [([], Formula.imp (Formula.imp a b)
+        (Formula.imp (Formula.imp b a) (Formula.iff a b)))]
+  | _, _, _, @PPTerm.axIffL _ _ _ a b _ _ =>
+      [([], Formula.imp (Formula.iff a b) (Formula.imp a b))]
+  | _, _, _, @PPTerm.axIffR _ _ _ a b _ _ =>
+      [([], Formula.imp (Formula.iff a b) (Formula.imp b a))]
+
+def renderReplayShape (base : List Formula) (s : ReplayShape) : Formula :=
+  dischargeKey (s.1 ++ base) s.2
+
+/-- Node keys are exactly root-relative shapes rendered over the root context. -/
+theorem PPTerm.nodeKeys_eq_renderShapes {env : Env} {G : Ctx} {D : List Formula}
+    {f : Formula} (t : PPTerm env G D f) :
+    t.nodeKeys = t.nodeShapes.map (renderReplayShape D) := by
+  induction t with
+  | impIntro hwt t ih =>
+      simp [PPTerm.nodeKeys, PPTerm.nodeShapes, renderReplayShape, pushReplayShape,
+        ih, List.map_map, Function.comp_def, List.append_assoc]
+  | mp hwt t u iht ihu =>
+      simp [PPTerm.nodeKeys, PPTerm.nodeShapes, renderReplayShape, iht, ihu,
+        List.map_append]
+  | _ => simp [PPTerm.nodeKeys, PPTerm.nodeShapes, renderReplayShape]
+
+/-- Assumption weakening preserves every root-relative shape exactly. -/
+theorem PPTerm.nodeShapes_pMono {env : Env} {G : Ctx} {D D2 : List Formula}
+    (hsub : (x : Formula) -> List.Mem x D -> List.Mem x D2)
+    {f : Formula} (t : PPTerm env G D f) :
+    (PPTerm.pMono hsub t).nodeShapes = t.nodeShapes := by
+  induction t generalizing D2 with
+  | impIntro hwt t ih =>
+      simp [PPTerm.pMono, PPTerm.nodeShapes, ih]
+  | mp hwt t u iht ihu =>
+      simp [PPTerm.pMono, PPTerm.nodeShapes, iht, ihu]
+  | _ => simp [PPTerm.pMono, PPTerm.nodeShapes]
+
+/-- The root-relative shape list has one entry per certificate node. -/
+theorem PPTerm.nodeShapes_length_eq_size {env : Env} {G : Ctx} {D : List Formula}
+    {f : Formula} (t : PPTerm env G D f) :
+    t.nodeShapes.length = t.size := by
+  induction t with
+  | impIntro hwt t ih =>
+      simp [PPTerm.nodeShapes, PPTerm.size, ih]
+  | mp hwt t u iht ihu =>
+      simp [PPTerm.nodeShapes, PPTerm.size, iht, ihu]
+  | _ => simp [PPTerm.nodeShapes, PPTerm.size]
+
+@[simp] theorem PPTerm.size_pOrInl {env : Env} {G : Ctx} {D : List Formula}
+    {a b : Formula} (ha : (liftFormula? env G a).isSome = true)
+    (hb : (liftFormula? env G b).isSome = true) (t : PPTerm env G D a) :
+    (PPTerm.pOrInl ha hb t).size = 1 + t.size + 1 := by
+  unfold PPTerm.pOrInl
+  simp [PPTerm.size]
+
+@[simp] theorem PPTerm.size_pOrInr {env : Env} {G : Ctx} {D : List Formula}
+    {a b : Formula} (ha : (liftFormula? env G a).isSome = true)
+    (hb : (liftFormula? env G b).isSome = true) (t : PPTerm env G D b) :
+    (PPTerm.pOrInr ha hb t).size = 1 + t.size + 1 := by
+  unfold PPTerm.pOrInr
+  simp [PPTerm.size]
+
+@[simp] theorem PPTerm.size_cast {env : Env} {G : Ctx} {D : List Formula}
+    {f g : Formula} (h : f = g) (t : PPTerm env G D f) :
+    (h ▸ t).size = t.size := by
+  cases h
+  rfl
+
+/-- Right-disjunction packing adds at most two certificate nodes per inspected
+    succedent position; it never duplicates the input certificate. -/
+theorem PPTerm.size_pRightOr_mem_le {env : Env} {G : Ctx} {A : List Formula} :
+    (head : Formula) -> (tail : List Formula) -> {q : Formula} ->
+    (hm : List.Mem q (head :: tail)) -> (t : PPTerm env G A q) ->
+    (hall : LiftsAllF env G (head :: tail)) ->
+    (PPTerm.pRightOr_mem head tail hm t hall).size <=
+      t.size + 2 * (tail.length + 1)
+  | head, [], q, hm, t, hall => by
+      have hq : q = head := List.mem_singleton.1 hm
+      cases hq
+      change (List.mem_singleton.1 hm ▸ t).size <= t.size + 2
+      have hp : List.mem_singleton.1 hm = Eq.refl head := Subsingleton.elim _ _
+      cases hp
+      simp
+  | head, next :: tail, q, hm, t, hall => by
+      simp only [PPTerm.pRightOr_mem]
+      split
+      case isTrue heq =>
+        cases heq
+        simp [rightOr, PPTerm.size_pOrInl]
+        omega
+      case isFalse hne =>
+        have ih := PPTerm.size_pRightOr_mem_le
+          (env := env) (G := G) (A := A) next tail
+          ((List.mem_cons.1 hm).resolve_left hne) t hall.tail
+        simp [rightOr, PPTerm.size_pOrInr]
+        omega
+
+/-- The same linear bound stated on stable replay shapes. -/
+theorem PPTerm.nodeShapes_pRightOr_mem_length_le {env : Env} {G : Ctx}
+    {A : List Formula} (head : Formula) (tail : List Formula) {q : Formula}
+    (hm : List.Mem q (head :: tail)) (t : PPTerm env G A q)
+    (hall : LiftsAllF env G (head :: tail)) :
+    (PPTerm.pRightOr_mem head tail hm t hall).nodeShapes.length <=
+      t.nodeShapes.length + 2 * (tail.length + 1) := by
+  rw [PPTerm.nodeShapes_length_eq_size, PPTerm.nodeShapes_length_eq_size]
+  exact PPTerm.size_pRightOr_mem_le head tail hm t hall
+
+/-- Exact transport: pMono changes only the root suffix used to render shapes. -/
+theorem PPTerm.nodeKeys_pMono {env : Env} {G : Ctx} {D D2 : List Formula}
+    (hsub : (x : Formula) -> List.Mem x D -> List.Mem x D2)
+    {f : Formula} (t : PPTerm env G D f) :
+    (PPTerm.pMono hsub t).nodeKeys =
+      t.nodeShapes.map (renderReplayShape D2) := by
+  rw [PPTerm.nodeKeys_eq_renderShapes, PPTerm.nodeShapes_pMono]
+
 /-- Local deduplication (no Mathlib/Batteries in this repo).  Structural on the
     list; keeps the first occurrence of each element. -/
 def dedup {α : Type} [DecidableEq α] : List α -> List α
   | [] => []
   | a :: as => let d := dedup as; if a ∈ d then d else a :: d
+
+/-- Number of distinct root-relative replay shapes. -/
+def PPTerm.shapeCost {env : Env} {G : Ctx} {D : List Formula} {f : Formula}
+    (t : PPTerm env G D f) : Nat :=
+  (dedup t.nodeShapes).length
+
+theorem dedup_length_le {alpha : Type} [DecidableEq alpha] (xs : List alpha) :
+    (dedup xs).length <= xs.length := by
+  induction xs with
+  | nil => simp [dedup]
+  | cons x xs ih =>
+      simp only [dedup]
+      split <;> simp_all
+      omega
+
+/-- pMono introduces no new distinct relative replay shapes. -/
+theorem PPTerm.shapeCost_pMono {env : Env} {G : Ctx} {D D2 : List Formula}
+    (hsub : (x : Formula) -> List.Mem x D -> List.Mem x D2)
+    {f : Formula} (t : PPTerm env G D f) :
+    (PPTerm.pMono hsub t).shapeCost = t.shapeCost := by
+  simp [PPTerm.shapeCost, PPTerm.nodeShapes_pMono]
+
+/-- Conservative distinct-shape bound for right-disjunction packing. -/
+theorem PPTerm.shapeCost_pRightOr_mem_le {env : Env} {G : Ctx}
+    {A : List Formula} (head : Formula) (tail : List Formula) {q : Formula}
+    (hm : List.Mem q (head :: tail)) (t : PPTerm env G A q)
+    (hall : LiftsAllF env G (head :: tail)) :
+    (PPTerm.pRightOr_mem head tail hm t hall).shapeCost <=
+      t.nodeShapes.length + 2 * (tail.length + 1) := by
+  unfold PPTerm.shapeCost
+  exact Nat.le_trans (dedup_length_le _)
+    (PPTerm.nodeShapes_pRightOr_mem_length_le head tail hm t hall)
 
 /-- The honest memoized replay cost: the number of *distinct* context-discharged
     node keys.  This collapses the `let`-shared duplicate branches (identical

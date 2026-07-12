@@ -484,22 +484,30 @@ shared Core-emission graph, so `replayCost` remains a well-specified **target**
 cost model, an *achieved* replay cost only once a memoizing replayer is defined
 against `discharge`/`instantiate`.
 
-*Remaining in 1c:* `replayClosure` — bound the distinct discharged keys of
-`compile tr`. **The tempting reduction "keys ≤ trace nodes × const" is NOT yet
-justified and is explicitly not claimed** (audit): `pMono` copies a whole child
-certificate into a new context and `pRightOr_mem` recurses over the succedent, so
-after discharge they can emit *new* keys per search step — a **context-transport
-lemma** is needed there first, and that transport is exactly where an exponential
-key family could still surface. Two sub-parts (per the audit): (i) witnesses stay
-in the finite search closure; (ii) packed `rightOr` and administrative template
-formulas stay in the finite replay closure. **Caveat:** an atom-vocabulary ("no
-new atoms") bound is *necessary but not sufficient* — discharged keys carry
-arbitrarily deep administrative implication/disjunction shapes, so the closure
-needs a **cardinality** bound on the context-aware keys, not merely a vocabulary
-bound. The cache-key contract is now settled *and its transport certified*; the
-large `replayClosure` induction is deferred until the context-transport lemma and
-the search-side trace-size bound it reduces to are in place. Then cut/MP
-admissibility, the focus discipline, `focusedComplete`, subformula-boundedness.
+*Context transport (landed and checked).* The earlier concern that `pMono`
+or `pRightOr_mem` might independently generate an exponential key family has
+now been isolated and discharged. `ReplayShape = (introduced assumptions,
+conclusion)` records a node relative to the root assumption list, and
+`nodeKeys_eq_renderShapes` proves that discharged keys are exactly these shapes
+rendered against that root. `nodeShapes_pMono` and `shapeCost_pMono` prove
+that weakening preserves the full relative-shape list and its distinct count
+exactly. `size_pRightOr_mem_le` and
+`nodeShapes_pRightOr_mem_length_le` prove that right-disjunction packing does
+not duplicate its input and adds at most `2 * (tail.length + 1)` nodes/shapes.
+The focused module builds with these theorems and no `sorry`/`admit`.
+
+*Remaining in 1c:* the compiler-wide theorem is still open. The next obligation
+is a deduplicated recurrence for the complete `compile` output: each compiler
+rule must add only a bounded family of relative shapes beyond the union of its
+premise families. This must cover the contradiction witness branches and every
+named replay template, then combine with a search-side trace-size bound. Only
+that theorem can establish a polynomial bound on distinct discharged keys.
+Afterward, define the actual memoizing replayer against
+`discharge`/`instantiate`; until then `replayCost` remains a checked target
+metric, not an achieved Core-emission cost. Atom-vocabulary preservation remains
+necessary but insufficient because administrative implication/disjunction
+shapes can be deep. Then proceed to `replayClosure`, cut/MP admissibility, the
+focus discipline, `focusedComplete`, and subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
