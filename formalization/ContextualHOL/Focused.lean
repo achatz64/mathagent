@@ -630,6 +630,74 @@ inductive FDeriv (env : Env) (Γ : Ctx) : FSequent -> Prop where
       FDeriv env Γ ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: A, Θ⟩ ->
       FDeriv env Γ ⟨Formula.iff φ ψ :: A, Θ⟩
 
+/-! ## The `Type`-valued search trace (`FTrace`)
+
+    `FDeriv` is a `Prop` with many constructors, so Lean forbids recursing from it
+    into `Type`-valued certificate data (no large elimination).  `FTrace` is the
+    identical rule structure carried in `Type`: it is precisely the data a search
+    produces.  `FTrace.toFDeriv` erases it to the `Prop` judgement (so search,
+    memoization, and `finiteStateProp` stay in `Prop`); a separate `compile`
+    (next) turns it into a reified `PPTerm` certificate whose formulas and size
+    can be inspected for the replay-closure and size theorems. -/
+
+inductive FTrace (env : Env) (Γ : Ctx) : FSequent -> Type where
+  | id {A S : List Formula} {φ : Formula} :
+      φ ∈ A -> φ ∈ S -> LiftsAllF env Γ S -> FTrace env Γ ⟨A, S⟩
+  | negR {A Θ : List Formula} {φ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> LiftsAllF env Γ Θ ->
+      FTrace env Γ ⟨φ :: A, Θ⟩ -> FTrace env Γ ⟨A, Formula.not φ :: Θ⟩
+  | negL {A Θ : List Formula} {φ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> LiftsAllF env Γ Θ ->
+      FTrace env Γ ⟨A, φ :: Θ⟩ -> FTrace env Γ ⟨Formula.not φ :: A, Θ⟩
+  | impR {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ -> FTrace env Γ ⟨φ :: A, ψ :: Θ⟩ ->
+      FTrace env Γ ⟨A, Formula.imp φ ψ :: Θ⟩
+  | impL {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ -> FTrace env Γ ⟨A, φ :: Θ⟩ -> FTrace env Γ ⟨ψ :: A, Θ⟩ ->
+      FTrace env Γ ⟨Formula.imp φ ψ :: A, Θ⟩
+  | andR {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ -> FTrace env Γ ⟨A, φ :: Θ⟩ -> FTrace env Γ ⟨A, ψ :: Θ⟩ ->
+      FTrace env Γ ⟨A, Formula.and φ ψ :: Θ⟩
+  | andL {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      FTrace env Γ ⟨φ :: ψ :: A, Θ⟩ -> FTrace env Γ ⟨Formula.and φ ψ :: A, Θ⟩
+  | orR {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ -> FTrace env Γ ⟨A, φ :: ψ :: Θ⟩ ->
+      FTrace env Γ ⟨A, Formula.or φ ψ :: Θ⟩
+  | orL {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ -> FTrace env Γ ⟨φ :: A, Θ⟩ -> FTrace env Γ ⟨ψ :: A, Θ⟩ ->
+      FTrace env Γ ⟨Formula.or φ ψ :: A, Θ⟩
+  | iffR {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ ->
+      FTrace env Γ ⟨A, Formula.imp φ ψ :: Θ⟩ ->
+      FTrace env Γ ⟨A, Formula.imp ψ φ :: Θ⟩ ->
+      FTrace env Γ ⟨A, Formula.iff φ ψ :: Θ⟩
+  | iffL {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      FTrace env Γ ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: A, Θ⟩ ->
+      FTrace env Γ ⟨Formula.iff φ ψ :: A, Θ⟩
+
+/-- Erase a search trace to the `Prop` derivability judgement. -/
+def FTrace.toFDeriv {env : Env} {Γ : Ctx} : {S : FSequent} ->
+    FTrace env Γ S -> FDeriv env Γ S
+  | _, .id hA hS hall => FDeriv.id hA hS hall
+  | _, .negR hφ hΘ t => FDeriv.negR hφ hΘ t.toFDeriv
+  | _, .negL hφ hΘ t => FDeriv.negL hφ hΘ t.toFDeriv
+  | _, .impR hφ hψ hΘ t => FDeriv.impR hφ hψ hΘ t.toFDeriv
+  | _, .impL hφ hψ hΘ t u => FDeriv.impL hφ hψ hΘ t.toFDeriv u.toFDeriv
+  | _, .andR hφ hψ hΘ t u => FDeriv.andR hφ hψ hΘ t.toFDeriv u.toFDeriv
+  | _, .andL hφ hψ t => FDeriv.andL hφ hψ t.toFDeriv
+  | _, .orR hφ hψ hΘ t => FDeriv.orR hφ hψ hΘ t.toFDeriv
+  | _, .orL hφ hψ hΘ t u => FDeriv.orL hφ hψ hΘ t.toFDeriv u.toFDeriv
+  | _, .iffR hφ hψ hΘ t u => FDeriv.iffR hφ hψ hΘ t.toFDeriv u.toFDeriv
+  | _, .iffL hφ hψ t => FDeriv.iffL hφ hψ t.toFDeriv
+
 /-! ## Rule-wise soundness
 
     Each lemma reconstructs the conclusion's denotation from the premises', using

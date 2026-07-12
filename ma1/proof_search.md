@@ -374,15 +374,38 @@ live, they are adjudicated *before* cut-admissibility, not after — proving cut
 over an unadjudicated certificate family would build on unverified ground.
 
 Since `ProvesProp` is `Prop`, its intermediate formulas and size are erased, so
-the guards cannot even be *stated* over the produced certificate. Substrate for
-this is now in place: **`PPTerm`**, a `Type`-valued mirror of `ProvesProp` (same
-15 constructors) with `PPTerm.toProvesProp` erasure (search stays in `Prop`) and
-`PPTerm.size`. Next: a `Type`-valued `analyticCert : FDeriv → PPTerm` compile
-(the nil "proves-everything" succedent reifies as a *function*, the one real
-design point — shared with cut-admissibility), then `replayClosure`
-(`PPTerm.formulas ⊆ ReplayClosure(G)`, reusing `Formula.subformulas`) and the
-`replaySize` recurrence. Only then: cut/MP admissibility, the focus discipline,
-`focusedComplete`, and subformula-boundedness.
+the guards cannot even be *stated* over the produced certificate. And `FDeriv` is
+a many-constructor `Prop`, so Lean forbids recursing from it into `Type` — a
+`FDeriv → PPTerm` compile is impossible, not merely awkward. The substrate is
+therefore two `Type`-valued mirrors, both now in place and green:
+
+* **`PPTerm`** mirrors `ProvesProp` (same 15 constructors) with
+  `PPTerm.toProvesProp` erasure (search stays in `Prop`) and `PPTerm.size`.
+* **`FTrace`** mirrors `FDeriv`'s rule structure in `Type` — the actual data a
+  search produces — with `FTrace.toFDeriv` erasure to the `Prop` judgement.
+
+Next is `compile : FTrace → ReifiedDenote`, where `ReifiedDenote ⟨A,φ::Θ⟩ =
+PPTerm A (rightOr φ Θ)` and `ReifiedDenote ⟨A,[]⟩ = ∀ query, wt → PPTerm A query`.
+Two load-bearing subtleties (not incidental):
+
+1. *Query discipline.* The empty-succedent case is a **function** that can be
+   asked at formulas outside `ReplayClosure(G)`, so the closure theorem cannot
+   quantify over it unrestrictedly. It needs a *query-relative* local closure
+   theorem plus a root theorem bounding the finite set of queries actually
+   generated from `G`.
+2. *Size is the experiment, not paperwork.* `negR` at empty succedent
+   instantiates its premise-function at **both `φ` and `¬φ`**; the `replaySize`
+   recurrence must expose that branching rather than assume constant per-rule
+   overhead. If it compounds multiplicatively with derivation depth, that *is*
+   falsifier (d) — so the recurrence is where PS2 could still be falsified.
+
+For a *meaningful* fixed-family theorem (c), `compile` is structured from a
+finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
+plumbing) — "all certificates use the 15 primitive `PPTerm` constructors" is
+vacuous. Then `replayClosure` (`PPTerm.formulas ⊆ ReplayClosure(G)`, reusing
+`Search.lean`'s `Formula.subformulas`) and the `replaySize` recurrence. Only
+then: cut/MP admissibility, the focus discipline, `focusedComplete`, and
+subformula-boundedness.
 
 **Methods.**
 
