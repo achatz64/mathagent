@@ -1520,50 +1520,89 @@ theorem compileSoundSingle {A : List Formula} {φ : Formula}
     (t : FTrace env Γ ⟨A, [φ]⟩) : Proves env Γ A φ :=
   ProvesProp.toProves (PPTerm.toProvesProp (compile t : PPTerm env Γ A φ))
 
-/-! ## Replay cost under sharing (the DAG / memoized model)
+/-! ## Replay cost under sharing (the context-discharged memoized model)
 
     The naive tree measure `PPTerm.size` is *not* polynomial: the empty-succedent
     `impL` and `orL` branches of `compile` embed one child certificate in both the
     positive and negative halves of the produced `Contradiction`, so a chain of
     such rules doubles the tree at every level (`S(d) = 2·S(d-1)+O(1) = 2^d`).
 
-    But `compile` builds those repeats with a single `let`-bound value referenced
-    twice: the certificate *value* is a shared DAG, and a replayer that memoizes
-    proved sub-lemmas pays for each **distinct** conclusion once.  The honest
-    replay cost is therefore the number of distinct formulas that occur as node
-    conclusions — `PPTerm.replayCost` below — which is bounded by the (finite)
-    formula closure rather than by the tree size.  `PPTerm.formulas` collects the
-    conclusion of every node; `replayCost` deduplicates it. -/
+    Sharing rescues this only under an **honest, checked** cost model — a Lean
+    `let` that shares a value at *evaluation* time gives neither shared Core proof
+    syntax nor a memoizing replayer, so on its own it does not discharge the
+    tree bound.  The correct model is a memoizing replay whose cache key is the
+    *fully context-discharged* conclusion of each node: a node `PPTerm Γ Δ φ`
+    replays the closed theorem `Δ ⊢ φ` in deduction-theorem normal form, i.e. the
+    single closed formula `Δ.foldr imp φ`.  Two nodes are the same replayable
+    sub-theorem exactly when this closed formula agrees — so keying on the bare
+    conclusion `φ` (ignoring `Δ`) is *unsound* (it conflates `a ⊢ φ` with `⊢ φ`).
+    `PPTerm.nodeKeys` records the discharged closed conclusion of every node;
+    `replayCost` is the number of *distinct* keys, which is the real memoized
+    replay cost, insensitive to the `let`-sharing that inflates `size`.
 
-/-- The list of conclusion formulas of every node in a certificate.  A memoizing
-    replayer proves each *distinct* element once, so the deduplicated length of
-    this list is the real replay cost, insensitive to the `let`-sharing that
-    inflates `size`.  Constructor arguments are named so the conclusion is
-    rebuilt explicitly (matching the index directly breaks the motive). -/
-def PPTerm.formulas {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
+    Whether `replayCost` is polynomial is the open replay gate: it holds iff the
+    set of distinct discharged keys is polynomially bounded (each maps to a
+    distinct `(Δ, φ)` node-sequent of the trace).  An atom-vocabulary bound is
+    necessary but *not* sufficient — the discharged keys can carry arbitrarily
+    deep administrative implication shapes, so the closure argument needs a
+    cardinality bound on the context-aware keys themselves. -/
+
+/-- The list of *context-discharged* conclusion keys of every node in a
+    certificate.  A node `PPTerm Γ Δ φ` contributes the closed formula
+    `Δ.foldr imp φ` — the deduction-theorem normal form of the sub-theorem it
+    proves — so that the key faithfully distinguishes `a ⊢ φ` from `⊢ φ`.  A
+    memoizing replayer proves each *distinct* key once.  Constructor arguments are
+    named so the conclusion is rebuilt explicitly (matching the index directly
+    breaks the motive). -/
+def PPTerm.nodeKeys {env : Env} : {Γ : Ctx} -> {Δ : List Formula} -> {φ : Formula} ->
     PPTerm env Γ Δ φ -> List Formula
-  | _, _, _, .hyp (φ := φ) _ => [φ]
-  | _, _, _, .impIntro (φ := a) (ψ := b) _ t => Formula.imp a b :: t.formulas
-  | _, _, _, .mp (ψ := b) _ t u => b :: (t.formulas ++ u.formulas)
-  | _, _, _, .axK (φ := a) (ψ := b) _ _ => [Formula.imp a (Formula.imp b a)]
-  | _, _, _, .axS (φ := a) (ψ := b) (χ := c) _ _ _ =>
-      [Formula.imp (Formula.imp a (Formula.imp b c))
-        (Formula.imp (Formula.imp a b) (Formula.imp a c))]
-  | _, _, _, .axCP (φ := a) (ψ := b) _ _ =>
-      [Formula.imp (Formula.imp (Formula.not b) (Formula.not a)) (Formula.imp a b)]
-  | _, _, _, .axAndL (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.and a b) a]
-  | _, _, _, .axAndR (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.and a b) b]
-  | _, _, _, .axAndI (φ := a) (ψ := b) _ _ =>
-      [Formula.imp a (Formula.imp b (Formula.and a b))]
-  | _, _, _, .axOrL (φ := a) (ψ := b) _ _ => [Formula.imp a (Formula.or a b)]
-  | _, _, _, .axOrR (φ := a) (ψ := b) _ _ => [Formula.imp b (Formula.or a b)]
-  | _, _, _, .axOrE (φ := a) (ψ := b) (χ := c) _ _ _ =>
-      [Formula.imp (Formula.imp a c)
-        (Formula.imp (Formula.imp b c) (Formula.imp (Formula.or a b) c))]
-  | _, _, _, .axIffI (φ := a) (ψ := b) _ _ =>
-      [Formula.imp (Formula.imp a b) (Formula.imp (Formula.imp b a) (Formula.iff a b))]
-  | _, _, _, .axIffL (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.iff a b) (Formula.imp a b)]
-  | _, _, _, .axIffR (φ := a) (ψ := b) _ _ => [Formula.imp (Formula.iff a b) (Formula.imp b a)]
+  | _, Δ, _, .hyp (φ := φ) _ => [Δ.foldr Formula.imp φ]
+  | _, Δ, _, .impIntro (φ := a) (ψ := b) _ t =>
+      Δ.foldr Formula.imp (Formula.imp a b) :: t.nodeKeys
+  | _, Δ, _, .mp (ψ := b) _ t u => Δ.foldr Formula.imp b :: (t.nodeKeys ++ u.nodeKeys)
+  | _, Δ, _, .axK (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp a (Formula.imp b a))]
+  | _, Δ, _, .axS (φ := a) (ψ := b) (χ := c) _ _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.imp a (Formula.imp b c))
+        (Formula.imp (Formula.imp a b) (Formula.imp a c)))]
+  | _, Δ, _, .axCP (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp
+        (Formula.imp (Formula.imp (Formula.not b) (Formula.not a)) (Formula.imp a b))]
+  | _, Δ, _, .axAndL (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.and a b) a)]
+  | _, Δ, _, .axAndR (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.and a b) b)]
+  | _, Δ, _, .axAndI (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp a (Formula.imp b (Formula.and a b)))]
+  | _, Δ, _, .axOrL (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp a (Formula.or a b))]
+  | _, Δ, _, .axOrR (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp b (Formula.or a b))]
+  | _, Δ, _, .axOrE (φ := a) (ψ := b) (χ := c) _ _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.imp a c)
+        (Formula.imp (Formula.imp b c) (Formula.imp (Formula.or a b) c)))]
+  | _, Δ, _, .axIffI (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp
+        (Formula.imp (Formula.imp a b) (Formula.imp (Formula.imp b a) (Formula.iff a b)))]
+  | _, Δ, _, .axIffL (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.iff a b) (Formula.imp a b))]
+  | _, Δ, _, .axIffR (φ := a) (ψ := b) _ _ =>
+      [Δ.foldr Formula.imp (Formula.imp (Formula.iff a b) (Formula.imp b a))]
+
+/-- Local deduplication (no Mathlib/Batteries in this repo).  Structural on the
+    list; keeps the first occurrence of each element. -/
+def dedup {α : Type} [DecidableEq α] : List α -> List α
+  | [] => []
+  | a :: as => let d := dedup as; if a ∈ d then d else a :: d
+
+/-- The honest memoized replay cost: the number of *distinct* context-discharged
+    node keys.  This collapses the `let`-shared duplicate branches (identical
+    `(Γ, Δ, φ)`, hence identical discharged key) that make `size` exponential,
+    while keeping distinct-context nodes distinct.  Bounding this is the open
+    replay gate (`replayClosure`). -/
+def PPTerm.replayCost {env : Env} {Γ : Ctx} {Δ : List Formula} {φ : Formula}
+    (t : PPTerm env Γ Δ φ) : Nat :=
+  (dedup t.nodeKeys).length
 
 end Focused
 end ContextualHOL

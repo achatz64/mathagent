@@ -430,27 +430,44 @@ doubled branch gives `S(d) = 2·S(d−1)+O(1) = 2^d`: **as a tree, `PPTerm.size`
 exponential in derivation depth.** The earlier "`n^1.58`" claim was wrong and is
 retracted.
 
-**Resolution — the DAG / memoized-replay cost model (falsifier (d) is a
-measure artifact, moved to falsifier (c)).** `compile` builds those repeats with
-a single `let`-bound value referenced twice: the certificate *value* is a shared
-DAG, and only the structural `size` tree-walk re-counts the shared subterm. A
-replayer that memoizes proved sub-lemmas (Core naturally caches proved theorems)
-pays for each **distinct** node conclusion once. The honest replay cost is
-therefore `PPTerm.replayCost := (PPTerm.formulas t).dedup.length` — the number of
-distinct conclusion formulas, insensitive to `let`-sharing. Substrate landed and
-`lake build`-clean: `Formula.atoms`, `PPTerm.formulas` (conclusion of every
-node), `PPTerm.replayCost`. This **reduces the size falsifier (d) to the closure
-falsifier (c)**: `replayCost` is polynomially bounded **iff** `PPTerm.formulas`
-stays inside a finite `ReplayClosure(G)`. Discharging (c) is now the single
-remaining replay gate — no separate exponential-tree obstacle survives it.
+**Resolution — the context-discharged memoized-replay cost model (falsifier (d)
+moved to falsifier (c)), and a correction to a first over-statement.** A first
+pass framed this as "`let`-sharing makes the certificate value a DAG, so `size`
+overcounts." That framing was rejected on audit and is **not** a valid discharge:
+a Lean `let` shares a value at *evaluation* time but gives neither shared Core
+proof syntax nor a memoizing replayer, so for the implemented `PPTerm` **tree**
+the `2^d` bound still stands until a real memoized replay is defined. The honest
+model is an explicit memoizing replay whose **cache key is the fully
+context-discharged conclusion** of each node: a node `PPTerm Γ Δ φ` replays the
+closed theorem `Δ ⊢ φ` in deduction-theorem normal form — the single closed
+formula `Δ.foldr imp φ`. Two nodes are the *same* replayable sub-theorem exactly
+when this closed formula agrees; keying on the bare conclusion `φ` (ignoring `Δ`)
+is **unsound** — it conflates `a ⊢ φ` with `⊢ φ` and under-counts. The
+`let`-shared duplicate branches that make `size` exponential have identical
+`(Γ,Δ,φ)`, hence identical discharged key, so memoization collapses exactly them.
+Substrate landed and `lake build`-clean (12/12, no sorry/admit/axiom):
+`Formula.atoms`, `PPTerm.nodeKeys` (the *discharged* closed conclusion of every
+node), a local `dedup` (no Mathlib in this repo), and `PPTerm.replayCost :=
+(dedup t.nodeKeys).length` — now an actually-checked def, not a doc formula (an
+earlier note claimed `replayCost` had landed; it had not — only the comment
+existed. Corrected.). This **reduces the size falsifier (d) to the closure
+falsifier (c)**: `replayCost` is polynomially bounded **iff** the set of distinct
+discharged keys is finite/poly-bounded.
 
-*Remaining in 1c:* `replayClosure` — prove `PPTerm.formulas (compile tr) ⊆
-ReplayClosure(G)` with `|ReplayClosure(G)|` polynomial in the sequent, which
-simultaneously bounds `replayCost` (falsifier d, memoized model) and is
-falsifier (c) itself. Two sub-parts (per the audit): (i) witnesses stay in the
-finite search/state closure; (ii) all packed `rightOr` and administrative
-template formulas stay in the finite replay closure. Then cut/MP admissibility,
-the focus discipline, `focusedComplete`, subformula-boundedness.
+*Remaining in 1c:* `replayClosure` — prove the distinct discharged keys of
+`compile tr` are polynomially bounded. The honest reduction: each key maps to a
+distinct `(Δ, φ)` node-sequent, so the count is `≤` the number of trace nodes ×
+(bounded admin nodes per compile branch); this ties the replay bound to the
+**search-side trace-size bound** (a separate milestone). Two sub-parts (per the
+audit): (i) witnesses stay in the finite search closure; (ii) packed `rightOr`
+and administrative template formulas stay in the finite replay closure. **Caveat
+(audit):** an atom-vocabulary ("no new atoms") bound is *necessary but not
+sufficient* — discharged keys carry arbitrarily deep administrative
+implication/disjunction shapes, so the closure needs a **cardinality** bound on
+the context-aware keys, not merely a vocabulary bound. This is the settled
+cache-key contract; the large `replayClosure` induction is deferred until the
+trace-size bound it reduces to is in place. Then cut/MP admissibility, the focus
+discipline, `focusedComplete`, subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
