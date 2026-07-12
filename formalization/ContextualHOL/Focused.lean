@@ -2252,6 +2252,16 @@ def Contradiction.shapeCost {env : Env} {Γ : Ctx} {A : List Formula}
     (c : Contradiction env Γ A) : Nat :=
   (dedup (c.pos.nodeShapes ++ c.neg.nodeShapes)).length
 
+/-- **The single distinct-shape measure on a reified certificate.**  It dispatches on
+    the succedent so that the eventual compiler induction `shapeCost (compile tr) ≤ K *
+    trSize` has *one* statement covering both the refuted (empty-succedent, a
+    `Contradiction` scored jointly) and the derived (nonempty-succedent, a single
+    `PPTerm`) branches. -/
+def ReifiedDenote.shapeCost {env : Env} {Γ : Ctx} :
+    {S : FSequent} -> ReifiedDenote env Γ S -> Nat
+  | ⟨_, []⟩, c => Contradiction.shapeCost c
+  | ⟨_, _ :: _⟩, t => PPTerm.shapeCost t
+
 /-- **Empty-succedent `orL` anti-doubling bound.**  The compiled contradiction's joint
     distinct-shape count is bounded by a fixed local admin family plus the joint shape
     counts of the two premises, **each with coefficient one** — the double `explode` of
@@ -2329,6 +2339,99 @@ theorem orL_empty_shapeCost_le_const
       ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ)).length = 36 := by
     simp only [orLcutAdmin, explodeAdmin, PPTerm.pEF, PPTerm.pImpK, PPTerm.nodeShapes,
       List.length_append, List.length_map, List.length_cons, List.length_nil]
+  omega
+
+/-! ### Step 2(a), continued: the empty-succedent `impL` arm
+
+    The other double-embedding arm.  Here the `φ`-side premise compiles to a *single*
+    certificate `ih1 : PPTerm A φ` (its succedent `[φ]` is nonempty) while the `ψ`-side
+    premise compiles to a `Contradiction` `cu` on `ψ :: A`.  The compiled node shares
+    `ih1` between both output certificates via the common `dψ = mp hφ hyp (pMono ih1)`
+    node.  Kept as set-containment, that shared `ih1` (and the joint `cu`) is charged
+    once, giving the same **coefficient-one** recurrence as `orL`. -/
+
+/-- The 8 child-free admin shapes contributed by the empty-succedent `impL` arm
+    (four per certificate; the shared `ψ` and `φ.imp ψ` shapes are listed in both). -/
+def impLcutAdmin (φ ψ W : Formula) : List ReplayShape :=
+  [([], W), ([], ψ.imp W), ([], ψ), ([], φ.imp ψ),
+   ([], W.not), ([], ψ.imp W.not), ([], ψ), ([], φ.imp ψ)]
+
+/-- **Empty-succedent `impL` anti-doubling bound.**  The compiled contradiction's joint
+    distinct-shape count is bounded by a fixed local admin family plus the joint shape
+    count of the `ψ`-side contradiction `cu` and the single `φ`-side certificate `ih1`,
+    **each with coefficient one** — the shared `ih1` (embedded in both certificates via
+    the common `dψ` node) does not double its shape contribution. -/
+theorem impL_empty_shapeCost_le
+    {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih1 : PPTerm env Γ A φ) (cu : Contradiction env Γ (ψ :: A)) :
+    Contradiction.shapeCost
+      (⟨cu.witness, cu.wwt,
+        PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.pos))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1)),
+        PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.neg))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1))⟩ :
+        Contradiction env Γ (Formula.imp φ ψ :: A))
+      ≤ (impLcutAdmin φ ψ cu.witness).length + cu.shapeCost + ih1.shapeCost := by
+  have hsub :
+      (PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.pos))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1))).nodeShapes
+        ++ (PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.neg))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1))).nodeShapes
+      ⊆ impLcutAdmin φ ψ cu.witness
+        ++ (cu.pos.nodeShapes ++ cu.neg.nodeShapes).map (pushReplayShape ψ)
+        ++ ih1.nodeShapes := by
+    simp only [PPTerm.nodeShapes, PPTerm.nodeShapes_pMono, impLcutAdmin,
+      List.map_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  simp only [Contradiction.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hAB := dedup_append_length_le
+    (impLcutAdmin φ ψ cu.witness
+      ++ (cu.pos.nodeShapes ++ cu.neg.nodeShapes).map (pushReplayShape ψ))
+    ih1.nodeShapes
+  have hA := dedup_append_length_le
+    (impLcutAdmin φ ψ cu.witness)
+    ((cu.pos.nodeShapes ++ cu.neg.nodeShapes).map (pushReplayShape ψ))
+  have hbadmin := dedup_length_le (impLcutAdmin φ ψ cu.witness)
+  have hcu : (dedup ((cu.pos.nodeShapes ++ cu.neg.nodeShapes).map (pushReplayShape ψ))).length
+      = (dedup (cu.pos.nodeShapes ++ cu.neg.nodeShapes)).length :=
+    dedup_map_length_of_injective (pushReplayShape ψ) (pushReplayShape_injective ψ) _
+  have hih1 : (dedup ih1.nodeShapes).length = ih1.shapeCost := rfl
+  omega
+
+/-- Numeral form: the empty-succedent `impL` arm adds at most the fixed constant `8`
+    distinct shapes on top of the `ψ`-side contradiction's joint shape count and the
+    `φ`-side certificate's shape count. -/
+theorem impL_empty_shapeCost_le_const
+    {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih1 : PPTerm env Γ A φ) (cu : Contradiction env Γ (ψ :: A)) :
+    Contradiction.shapeCost
+      (⟨cu.witness, cu.wwt,
+        PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.pos))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1)),
+        PPTerm.mp hψ
+          (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) (PPTerm.impIntro hψ cu.neg))
+          (PPTerm.mp hφ (PPTerm.hyp (List.mem_cons_self))
+            (PPTerm.pMono (fun _ hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1))⟩ :
+        Contradiction env Γ (Formula.imp φ ψ :: A))
+      ≤ 8 + cu.shapeCost + ih1.shapeCost := by
+  have h := impL_empty_shapeCost_le hφ hψ ih1 cu
+  have hlen : (impLcutAdmin φ ψ cu.witness).length = 8 := by
+    simp only [impLcutAdmin, List.length_cons, List.length_nil]
   omega
 
 end Focused

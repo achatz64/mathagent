@@ -562,23 +562,47 @@ representative hardest arm — the empty-succedent `orL` node with the double
   *set* is charged once. (Bounding `c.pos.shapeCost + c.neg.shapeCost` separately would
   reintroduce the `2×`; the joint measure is what avoids it.)
 
+*Step 2(a), continued — the `impL` empty arm + the unified measure (landed and checked).*
+Same recipe, second double-embedding arm, all `grind`/`omega`-closed, `sorry`-free,
+`lake build` 18/18:
+
+* `impL_empty_shapeCost_le` / `impL_empty_shapeCost_le_const` — the empty-succedent
+  `impL` node. Structurally *asymmetric* to `orL`: the `φ`-side premise compiles to a
+  **single** `PPTerm A φ` (call it `ih1`) while the `ψ`-side premise compiles to a
+  `Contradiction` `cu` on `ψ :: A`. The compiled node shares `ih1` between both output
+  certificates via the common `dψ = mp hφ hyp (pMono ih1)` node. Kept as
+  set-containment, that shared `ih1` (mixed measure: `ih1.shapeCost`, the single-cert
+  count) and the joint `cu` (`cu.shapeCost`) are each charged **once**:
+  `shapeCost(result) ≤ impLcutAdmin.length + cu.shapeCost + ih1.shapeCost`, numeral form
+  `≤ 8 + cu.shapeCost + ih1.shapeCost` (`impLcutAdmin` = 4 fixed shapes per certificate,
+  the `ψ`/`φ.imp ψ` overlap listed in both = 8). Coefficient one on both premises.
+* `ReifiedDenote.shapeCost` — **the single distinct-shape measure**, dispatching on the
+  succedent (`⟨_,[]⟩ ↦ Contradiction.shapeCost`, `⟨_,_::_⟩ ↦ PPTerm.shapeCost`). This is
+  the one statement the eventual compiler induction `shapeCost (compile tr) ≤ K · trSize`
+  will be phrased against, covering both the refuted (empty) and derived (nonempty)
+  branches uniformly — per the audit's recommendation.
+
 *Remaining in 1c — the other arms + the global recurrence (mechanical).* The pattern is
-now fully de-risked and reusable: `impL` empty (the other double-`explode` arm),
-`negL`/`andL` empty (`X3=X4=[]` degenerate collapses), and the nonempty-succedent
-arms (single `PPTerm`, use `shapeCost_impIntro_le`/`shapeCost_mp_le`/`shapeCost_pMono`
-directly). Each yields `shapeCost(compile node) ≤ Kᵢ + Σ premise shapeCosts` with a
-per-arm constant `Kᵢ`; taking `K = maxᵢ Kᵢ` and inducting on the trace gives
-`shapeCost(compile tr) ≤ K · trSize`.
+now fully de-risked and reusable for the rest: `negL`/`andL` empty (`X3=X4=[]` degenerate
+collapses), and the nonempty-succedent arms (single `PPTerm`, use
+`shapeCost_impIntro_le`/`shapeCost_mp_le`/`shapeCost_pMono` directly). Each yields
+`ReifiedDenote.shapeCost (compile node) ≤ Kᵢ + Σ premise shapeCosts` with a per-arm
+constant `Kᵢ`; taking `K = maxᵢ Kᵢ` and inducting on the trace gives
+`ReifiedDenote.shapeCost (compile tr) ≤ K · trSize`.
 
 *Sharpened exit condition (per Codex audit, 2026-07-12).* `collapse4` + the per-arm
-recurrence establish a bound **linear in the FTrace/trace-DAG size**, i.e. *the compiler
-adds no second exponential on top of its trace*. This is narrower than — and must not be
+recurrences establish a bound **linear in the `FTrace` (tree) size** — `FTrace` is
+currently a *tree*, so `trSize` is a tree-node count and the recurrence shows linearity
+in *tree-trace* size only. This is **distinct from** linearity in a *trace-DAG* size:
+claiming the latter requires PS2 to first introduce an actual DAG representation +
+memoization theorem (a separate, not-yet-built artifact). Do not merge "FTrace size" and
+"trace-DAG size" in the prose. Either bound is in turn narrower than — and must not be
 conflated with — a polynomial in the original search problem: `trSize` itself can be
-exponential. So falsifier (d) is refuted **relative to the trace**; the residual open
-gate is whether analytic search admits a polynomially bounded **memoized trace DAG**
-(the search-side finite-state bound + an actual memoizing replayer). State 2(a)'s result
-as: *"compiler replay has a linear distinct-shape bound in the search trace/DAG size."*
-Afterward define the actual memoizing replayer against `discharge`/`instantiate`; until
+exponential in the search problem. So the honest reading of 2(a) is: *the compiler adds
+no second exponential on top of its (tree) trace.* Falsifier (d) is refuted **relative to
+the tree trace**; the residual open gate is whether analytic search admits a polynomially
+bounded **memoized trace DAG** (the search-side finite-state bound + a DAG trace
+representation + an actual memoizing replayer). Afterward define the actual memoizing replayer against `discharge`/`instantiate`; until
 then `replayCost` remains a checked target metric, not an achieved Core-emission cost.
 Then proceed to `replayClosure`, cut-admissibility (of `FDeriv`, not the vacuous
 MP-admissibility of `ProvesProp`), the focus discipline, `focusedComplete`, and
