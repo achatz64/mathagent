@@ -622,10 +622,12 @@ polynomial in the original search problem: `weightedCost tr` itself can be expon
 the search problem. So the honest reading of 2(a) is: *the compiler adds no second
 exponential on top of its (weighted) tree trace.* Falsifier (d) is refuted **relative to
 the weighted tree trace**. The next question — whether analytic search admits a
-*polynomially* bounded **memoized trace DAG** — is now **resolved in the negative**
+*polynomially* bounded **memoized trace DAG** — is now **abandoned as a target**
 (see *DAG-size resolution* below): the memoized state space is **finite**
-(`≤ 4^{|Sub(G)|}`, which is all termination — the actual exit condition — requires)
-but **not polynomial**, and cannot be, on pain of `P = NP`. The achievable and
+(a `≤ 4^{|Sub(G)|}` design argument — the theorem `finiteStateProp` must still
+establish it — and finiteness is all termination, the actual exit condition,
+requires) while a *polynomial* bound is complexity-theoretically **unjustified and
+not to be expected** (it would imply `coNP ⊆ P`, i.e. `P = NP`). The achievable and
 needed search-side artifact is therefore the **finite**-state bound
 (`finiteStateProp`), not a polynomial one; plus a DAG trace representation + an
 actual memoizing replayer against `discharge`/`instantiate`. Until
@@ -634,49 +636,59 @@ Then proceed to `replayClosure`, cut-admissibility (of `FDeriv`, not the vacuous
 MP-admissibility of `ProvesProp`), the focus discipline, `focusedComplete`, and
 subformula-boundedness.
 
-*DAG-size resolution (2026-07-12) — the memoized DAG is finite, not polynomial.*
-The recurring "central falsifier" was whether the **memoized analytic-search DAG**
-— the set of distinct sequents / discharged keys reachable from a goal `G`, onto
-which memoization collapses the exponential search *tree* — is **polynomially**
-bounded in `|G|`. It is not, and this is now a settled negative result, not an
-open gate:
+*DAG-size resolution (2026-07-12) — finite is the target; polynomial is abandoned
+as complexity-theoretically unjustified.* The recurring "central falsifier" was
+whether the **memoized analytic-search DAG** — the set of distinct sequents /
+discharged keys reachable from a goal `G`, onto which memoization collapses the
+exponential search *tree* — is **polynomially** bounded in `|G|`. The polynomial
+target is dropped; the finite bound is the real, and sufficient, goal:
 
-1. *Finite (survives — all the exit condition needs).* Every reachable sequent is
-   a pair of sub-**sets** of the signed subformula closure `Sub(G) =
-   SearchClosure(G)` (analyticity: each rule replaces a principal formula by strict
-   subformulas and introduces nothing outside the closure). So the reachable set
-   has size `≤ 4^{|Sub(G)|}` — **finite**. Finiteness is exactly what termination
-   of a memoizing breadth-first search needs, and is what `finiteStateProp`
-   asserts. The **exit condition** (termination + soundness + completeness) is
-   therefore *not* threatened.
+1. *Finite (the target — all the exit condition needs; still to be proved as
+   `finiteStateProp`).* Every reachable sequent is a pair of sub-**sets** of the
+   signed subformula closure `Sub(G) = SearchClosure(G)` (analyticity: each rule
+   replaces a principal formula by strict subformulas and introduces nothing
+   outside the closure). So the reachable set has size `≤ 4^{|Sub(G)|}` —
+   **finite**. This is at present a *design argument*, not yet a theorem: it
+   depends on proving closure under the rules, set-normalized contexts, and that
+   the final focused rules introduce nothing further — which is exactly what
+   `finiteStateProp` must establish. Finiteness is what termination of a memoizing
+   breadth-first search needs, so the **exit condition** (termination + soundness +
+   completeness) rests on `finiteStateProp`, not on any polynomial claim.
 
-2. *Not polynomial (the falsifier fires).* A **polynomial** bound on that DAG would
-   collapse `coNP` into `P`. If every `G` had a reachable-sequent DAG of `≤ p(|G|)`
-   nodes, that DAG is computable in `poly(|G|)` time (BFS: `≤ p(|G|)` nodes, each
-   with `≤ 2·|Sub(G)|` rule-successors), and a monotone least fixpoint over it
-   (mark `id`-axioms, propagate through rules) decides derivability in `poly` time.
-   The calculus is sound and complete for classical propositional provability
-   (`ProvesProp` over the `K`/`S`/`axCP` basis is classical, so its decision
-   problem is `coNP`-complete `TAUT`), so this puts a `coNP`-complete problem in
-   `P`, i.e. `P = NP`. Unconditionally, Haken's exponential lower bound for
-   DAG-like/resolution refutations of the pigeonhole principle — which analytic
-   multi-conclusion sequent search subsumes — already exhibits explicit families
-   whose memoized DAG is exponential. Either way, "polynomially bounded memoized
-   trace DAG" is **refuted**, not open.
+2. *Polynomial (abandoned — complexity-theoretically unjustified, not disproved
+   here).* A **polynomial** bound on that DAG would collapse `coNP` into `P`. If
+   every `G` had a reachable-sequent DAG of `≤ p(|G|)` nodes, that DAG is computable
+   in `poly(|G|)` time (BFS: `≤ p(|G|)` nodes, each with `≤ 2·|Sub(G)|`
+   rule-successors), and a monotone least fixpoint over it (mark `id`-axioms,
+   propagate through rules) decides derivability in `poly` time. The calculus is
+   sound and complete for classical propositional provability (`ProvesProp` over
+   the `K`/`S`/`axCP` basis is classical, so its decision problem is `coNP`-complete
+   `TAUT`), so this would put a `coNP`-complete problem in `P`, i.e. `P = NP`. This
+   is decisive evidence *against* the polynomial target — no such bound should be
+   expected — but it is a **conditional** implication (`P = NP`), not an
+   unconditional proof that the bound is false. Note the two available unconditional
+   lower bounds do **not** close this: Haken's exponential bound is for *resolution*,
+   and if this analytic multi-conclusion calculus *subsumes* resolution it is the
+   **stronger** system, so lower bounds transfer strong→weak, not weak→strong — a
+   stronger proof system can have *shorter* proofs, so Haken gives no lower bound
+   here. An unconditional exponential lower bound for this exact normalized focused
+   state graph has not been proved (proving one is Frege/sequent-system proof
+   complexity, substantially harder than resolution and not attempted here).
 
 *Consequence for PS2.* The correct search-side target is the **finite** state
 bound (`finiteStateProp`) giving **termination**, not a polynomial one.
-"Polynomially bounded memoized trace DAG" is struck as a goal — unachievable for
-any complete procedure over a `coNP`-hard fragment. This does **not** weaken PS2:
+"Polynomially bounded memoized trace DAG" is struck as a goal — complexity-
+theoretically unjustified (⟹ `P = NP`) for any complete procedure over a
+`coNP`-hard fragment, and not worth pursuing. This does **not** weaken PS2:
 a certifying decision procedure for classical propositional logic is *expected* to
 be worst-case exponential. PS2's value is **soundness + completeness + termination
 + a certificate that adds no *further* exponential** (the linear-in-weighted-trace
 compiler result), not polynomial-time decision. `replayCost`/`weightedCost` are
 accordingly **finite** checked metrics, not polynomial ones. The earlier
 "`replayCost` polynomially bounded **iff** distinct discharged keys poly-bounded"
-reduction still holds, but its right-hand side is now known **false** (the key set
-is exponential for hard families); the honest reading is "`replayCost` is *finite*,
-bounded by `|ReplayClosure(G)|`."
+reduction still holds, but its right-hand side is not to be expected (poly ⟹
+`P = NP`); the honest, provable reading is "`replayCost` is *finite*, bounded by
+`|ReplayClosure(G)|`."
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
