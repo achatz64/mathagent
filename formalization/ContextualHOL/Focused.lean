@@ -1943,6 +1943,218 @@ theorem dedup_map_length_le {alpha beta : Type} [DecidableEq alpha] [DecidableEq
         · rw [if_pos hfx, List.length_cons]; omega
         · rw [if_neg hfx, List.length_cons, List.length_cons]; omega
 
+/-! ### Distinct-count is set-determined
+
+    The step-2(a) collapse rests on one fact: `(dedup _).length` counts a *set*,
+    so duplicating a sublist (the empty-succedent double `explode`) cannot increase
+    it, and an injective relabelling (the uniform `pushReplayShape` suffix push under
+    `impIntro`) preserves it exactly.  These are the reusable tools; the per-rule
+    `compile` recurrence below feeds subset/duplication/relabelling facts into them. -/
+
+/-- Injective map preserves `Nodup`. -/
+theorem nodup_map_of_injective {α β : Type} (f : α → β)
+    (hf : ∀ a b, f a = f b → a = b) :
+    (l : List α) → l.Nodup → (l.map f).Nodup
+  | [], _ => by simp
+  | a :: l, h => by
+      rw [List.nodup_cons] at h
+      rw [List.map_cons, List.nodup_cons]
+      refine ⟨?_, nodup_map_of_injective f hf l h.2⟩
+      intro hmem
+      rw [List.mem_map] at hmem
+      obtain ⟨x, hx, hfx⟩ := hmem
+      exact h.1 (hf x a hfx ▸ hx)
+
+/-- `dedup` produces a duplicate-free list. -/
+theorem dedup_nodup {α : Type} [DecidableEq α] :
+    (l : List α) → (dedup l).Nodup
+  | [] => by simp [dedup]
+  | a :: l => by
+      simp only [dedup]
+      split
+      · exact dedup_nodup l
+      · rename_i hnm
+        rw [List.nodup_cons]
+        exact ⟨hnm, dedup_nodup l⟩
+
+/-- Pigeonhole: a `Nodup` list embedded (elementwise) in another list is no longer. -/
+theorem nodup_length_le {α : Type} [DecidableEq α] :
+    (l1 l2 : List α) → l1.Nodup → (∀ a, a ∈ l1 → a ∈ l2) →
+    l1.length ≤ l2.length
+  | [], l2, _, _ => by simp
+  | a :: l1, l2, hnd, hsub => by
+      rw [List.nodup_cons] at hnd
+      have hal2 : a ∈ l2 := hsub a (by simp)
+      have hsub' : ∀ x, x ∈ l1 → x ∈ l2.erase a := by
+        intro x hx
+        have hxa : x ≠ a := by
+          intro h; exact hnd.1 (h ▸ hx)
+        exact (List.mem_erase_of_ne hxa).2 (hsub x (by simp [hx]))
+      have ih := nodup_length_le l1 (l2.erase a) hnd.2 hsub'
+      rw [List.length_erase_of_mem hal2] at ih
+      have h1 : 0 < l2.length := List.length_pos_of_mem hal2
+      simp only [List.length_cons]
+      omega
+
+/-- Distinct-element count is monotone under elementwise inclusion. -/
+theorem dedup_length_le_of_subset {α : Type} [DecidableEq α]
+    (l1 l2 : List α) (h : ∀ a, a ∈ l1 → a ∈ l2) :
+    (dedup l1).length ≤ (dedup l2).length := by
+  apply nodup_length_le (dedup l1) (dedup l2) (dedup_nodup l1)
+  intro a ha
+  exact (mem_dedup l2 a).2 (h a ((mem_dedup l1 a).1 ha))
+
+/-- Distinct-element count depends only on the element set. -/
+theorem dedup_length_congr {α : Type} [DecidableEq α]
+    (l1 l2 : List α) (h : ∀ a, a ∈ l1 ↔ a ∈ l2) :
+    (dedup l1).length = (dedup l2).length :=
+  Nat.le_antisymm
+    (dedup_length_le_of_subset l1 l2 (fun a => (h a).1))
+    (dedup_length_le_of_subset l2 l1 (fun a => (h a).2))
+
+/-- Subadditivity of the distinct-element count over concatenation. -/
+theorem dedup_append_length_le {α : Type} [DecidableEq α]
+    (xs ys : List α) :
+    (dedup (xs ++ ys)).length ≤ (dedup xs).length + (dedup ys).length := by
+  have hsub : ∀ a, a ∈ dedup (xs ++ ys) → a ∈ dedup xs ++ dedup ys := by
+    intro a ha
+    have : a ∈ xs ++ ys := (mem_dedup _ a).1 ha
+    rw [List.mem_append] at this ⊢
+    cases this with
+    | inl h => exact Or.inl ((mem_dedup xs a).2 h)
+    | inr h => exact Or.inr ((mem_dedup ys a).2 h)
+  have := nodup_length_le (dedup (xs ++ ys)) (dedup xs ++ dedup ys)
+    (dedup_nodup _) hsub
+  rw [List.length_append] at this
+  exact this
+
+/-- Duplicating a sublist does not change the distinct-element count. -/
+theorem dedup_append_self_length {α : Type} [DecidableEq α] (xs : List α) :
+    (dedup (xs ++ xs)).length = (dedup xs).length :=
+  dedup_length_congr _ _ (fun a => by
+    rw [List.mem_append]; exact ⟨fun h => h.elim id id, Or.inl⟩)
+
+/-- An injective map preserves the distinct-element count exactly. -/
+theorem dedup_map_length_of_injective {α β : Type} [DecidableEq α] [DecidableEq β]
+    (f : α → β) (hf : ∀ a b, f a = f b → a = b) (xs : List α) :
+    (dedup (xs.map f)).length = (dedup xs).length := by
+  refine Nat.le_antisymm (dedup_map_length_le f xs) ?_
+  have hnd : ((dedup xs).map f).Nodup :=
+    nodup_map_of_injective f hf _ (dedup_nodup xs)
+  have hsub : ∀ b, b ∈ (dedup xs).map f → b ∈ dedup (xs.map f) := by
+    intro b hb
+    rw [List.mem_map] at hb
+    obtain ⟨a, ha, rfl⟩ := hb
+    exact (mem_dedup (xs.map f) (f a)).2 (List.mem_map.2 ⟨a, (mem_dedup xs a).1 ha, rfl⟩)
+  have := nodup_length_le ((dedup xs).map f) (dedup (xs.map f)) hnd hsub
+  rw [List.length_map] at this
+  exact this
+
+/-- `dedup` grows by at most one under a cons. -/
+theorem dedup_cons_length_le {α : Type} [DecidableEq α] (x : α) (xs : List α) :
+    (dedup (x :: xs)).length ≤ 1 + (dedup xs).length := by
+  simp only [dedup]
+  split
+  · omega
+  · simp [List.length_cons]; omega
+
+/-- `pushReplayShape a` is injective. -/
+theorem pushReplayShape_injective (a : Formula) :
+    ∀ s s', pushReplayShape a s = pushReplayShape a s' → s = s' := by
+  intro s s' h
+  simp only [pushReplayShape, Prod.mk.injEq] at h
+  have h1 := List.append_cancel_right h.1
+  exact Prod.ext h1 h.2
+
+/-- Generic structural bound for `impIntro`: introducing an assumption adds a
+    single local shape and relabels every child shape by an *injective* suffix
+    push, so the distinct-shape count grows by at most one. -/
+theorem PPTerm.shapeCost_impIntro_le {env : Env} {G : Ctx} {D : List Formula}
+    {a b : Formula} (hwt : (liftFormula? env G a).isSome = true)
+    (t : PPTerm env G (a :: D) b) :
+    (PPTerm.impIntro hwt t).shapeCost ≤ 1 + t.shapeCost := by
+  unfold PPTerm.shapeCost
+  simp only [PPTerm.nodeShapes]
+  refine Nat.le_trans (dedup_cons_length_le _ _) ?_
+  rw [dedup_map_length_of_injective (pushReplayShape a) (pushReplayShape_injective a)]
+  omega
+
+/-- Generic structural bound for `mp`: the node contributes one local shape and
+    the (deduplicated) union of its two premises' shapes. -/
+theorem PPTerm.shapeCost_mp_le {env : Env} {G : Ctx} {D : List Formula}
+    {a b : Formula} (hwt : (liftFormula? env G a).isSome = true)
+    (t : PPTerm env G D (Formula.imp a b)) (u : PPTerm env G D a) :
+    (PPTerm.mp hwt t u).shapeCost ≤ 1 + t.shapeCost + u.shapeCost := by
+  unfold PPTerm.shapeCost
+  simp only [PPTerm.nodeShapes]
+  refine Nat.le_trans (dedup_cons_length_le _ _) ?_
+  have := dedup_append_length_le t.nodeShapes u.nodeShapes
+  omega
+
+/-! ### The anti-doubling collapse core
+
+    These two lemmas are the mathematical heart of step 2(a): they say that a shape
+    list contained in an admin family plus some shared children is bounded by the
+    admin size plus each child counted **once, deduplicated** — even when a child
+    appears inside several parents.  The empty-succedent `orL`/`impL` arms embed the
+    compiled second premise `c2` in *both* the positive and negative certificate (the
+    double `explode`), which doubles `size`; feeding those two occurrences in as the
+    shared children `X3, X4` of `collapse4` charges them once, so `shapeCost` does not
+    double.  The per-arm membership plumbing that instantiates `collapse4` against the
+    concrete `compile` cases is the remaining mechanical work. -/
+
+/-- **Shared-subterm collapse** (raw-admin form).  `P`, `N` each live inside a
+    bounded local family (`Apos`, `Aneg`) together with a *common* shared list `S`;
+    the distinct-shape count of `P ++ N` charges `S` once, never twice. -/
+theorem shared_collapse {α : Type} [DecidableEq α]
+    (P N Apos Aneg S : List α)
+    (hp : ∀ a, a ∈ P → a ∈ Apos ++ S)
+    (hn : ∀ a, a ∈ N → a ∈ Aneg ++ S) :
+    (dedup (P ++ N)).length ≤ Apos.length + Aneg.length + (dedup S).length := by
+  have hsub : ∀ a, a ∈ P ++ N → a ∈ (Apos ++ Aneg) ++ S := by
+    intro a ha
+    rw [List.mem_append] at ha
+    cases ha with
+    | inl h =>
+        have := hp a h
+        rw [List.mem_append] at this ⊢
+        rw [List.mem_append]
+        cases this with
+        | inl h2 => exact Or.inl (Or.inl h2)
+        | inr h2 => exact Or.inr h2
+    | inr h =>
+        have := hn a h
+        rw [List.mem_append] at this ⊢
+        rw [List.mem_append]
+        cases this with
+        | inl h2 => exact Or.inl (Or.inr h2)
+        | inr h2 => exact Or.inr h2
+  have h1 := dedup_length_le_of_subset (P ++ N) ((Apos ++ Aneg) ++ S) hsub
+  have h2 := dedup_append_length_le (Apos ++ Aneg) S
+  have h3 := dedup_append_length_le Apos Aneg
+  have h4 := dedup_length_le Apos
+  have h5 := dedup_length_le Aneg
+  omega
+
+/-- **Deduped multi-child collapse.**  A shape list `L` contained in an admin family
+    `A` together with four child families (each possibly of exponential raw length,
+    but here counted **deduplicated**) has distinct-shape count bounded by the admin
+    size plus the four deduped child counts.  When `L = pos ++ neg` and the shared
+    `c2` children `X3, X4` appear inside *both* halves, they are listed once on the
+    right — the anti-doubling bound for the empty-succedent arms.  `andL` is the
+    `X3 = X4 = []` case. -/
+theorem collapse4 {α : Type} [DecidableEq α] (L A X1 X2 X3 X4 : List α)
+    (h : ∀ a, a ∈ L → a ∈ A ++ X1 ++ X2 ++ X3 ++ X4) :
+    (dedup L).length ≤ A.length + (dedup X1).length + (dedup X2).length
+      + (dedup X3).length + (dedup X4).length := by
+  have h1 := dedup_length_le_of_subset L (A ++ X1 ++ X2 ++ X3 ++ X4) h
+  have hA := dedup_length_le A
+  have e1 := dedup_append_length_le (A ++ X1 ++ X2 ++ X3) X4
+  have e2 := dedup_append_length_le (A ++ X1 ++ X2) X3
+  have e3 := dedup_append_length_le (A ++ X1) X2
+  have e4 := dedup_append_length_le A X1
+  omega
+
 /-- pMono introduces no new distinct relative replay shapes. -/
 theorem PPTerm.shapeCost_pMono {env : Env} {G : Ctx} {D D2 : List Formula}
     (hsub : (x : Formula) -> List.Mem x D -> List.Mem x D2)

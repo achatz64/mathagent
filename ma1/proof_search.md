@@ -506,27 +506,54 @@ split them — hence `replayCost ≤ shapeCost` (via `dedup_map_length_le` +
 in fact the better model — it is `pMono`-invariant, where `replayCost` (rendered)
 is not.
 
-*Remaining in 1c — the actual doubling crux.* The context-transport lemmas are
-necessary infrastructure but do **not** by themselves discharge falsifier (d);
-the 2^d source is unchanged, and it is the empty-succedent `orL`/`impL` compile
-arms, not `pMono`/`pRightOr_mem`. Concretely `orL` embeds `c2.explode` **twice**
-(`c2.explode c1.wwt` and `c2.explode (wtNot c1.wwt)`), doubling `size`. That
-collapses in `shapeCost` **only because** `explode` is pure `mp` (no `impIntro`),
-so it embeds `c2.pos`/`c2.neg` at the *same* root-relative context both times ⇒
-identical `nodeShapes` ⇒ `dedup` merges them. This collapse is *true but not yet
-proved*: it needs (i) a lemma that `nodeShapes (explode c χ)` is `c`'s shapes plus
-`O(1)` admin, and (ii) a `dedup` lemma that identical sub-shape-lists collapse.
-Then the deduplicated recurrence for the complete `compile` output: each compiler
-rule must add only a bounded family of relative shapes beyond the union of its
-premise families. This must cover the contradiction witness branches and every
-named replay template, then combine with a search-side trace-size bound. Only
-that theorem can establish a polynomial bound on distinct discharged keys.
-Afterward, define the actual memoizing replayer against
-`discharge`/`instantiate`; until then `replayCost` remains a checked target
-metric, not an achieved Core-emission cost. Atom-vocabulary preservation remains
-necessary but insufficient because administrative implication/disjunction
-shapes can be deep. Then proceed to `replayClosure`, cut/MP admissibility, the
-focus discipline, `focusedComplete`, and subformula-boundedness.
+*Step 2(a) — the collapse core (landed and checked).* The 2^d source is the
+empty-succedent `orL`/`impL` compile arms (not `pMono`/`pRightOr_mem`): `orL`
+embeds `c2.explode` **twice** (`c2.explode c1.wwt` and `c2.explode (wtNot c1.wwt)`),
+doubling `size`. The mathematical content of why this does **not** double
+`shapeCost` is now proved, in three landed layers:
+
+1. *`dedup` is set-determined.* `nodup_length_le` (a Mathlib-free pigeonhole via
+   `List.erase`), `dedup_nodup`, `dedup_length_le_of_subset`, `dedup_length_congr`,
+   `dedup_append_length_le` (subadditivity), `dedup_append_self_length`
+   (duplication is free), and `dedup_map_length_of_injective` (an injective
+   relabelling — e.g. the uniform `pushReplayShape` suffix push under `impIntro` —
+   preserves the count exactly). These are the tools; `(dedup _).length` counts a
+   *set*, so duplicating a sublist cannot grow it.
+2. *Generic per-node structural bounds.* `shapeCost_impIntro_le`
+   (`≤ 1 + child`, via the injective push), `shapeCost_mp_le`
+   (`≤ 1 + t + u`), and the existing `shapeCost_pMono` (`= child`). Every compile
+   combinator (`pOrElim`, `pEF`, `explode`, `pOrLcut`, …) is a fixed composition of
+   `mp`/`impIntro`/`pMono`/`hyp`/axioms, so these compose to a "fixed local family +
+   deduped premise families" bound — **except** at the doubling arm, where naive
+   subadditivity over `pos ++ neg` would double-count the shared `c2` (confirmed:
+   subadditivity alone gives 2× per level = 2^d).
+3. *The anti-doubling collapse.* `collapse4` (and the raw-admin `shared_collapse`):
+   a shape list `L ⊆ A ++ X1 ++ X2 ++ X3 ++ X4` has distinct count
+   `≤ |A| + Σ (dedup Xi).length`, each child counted **once, deduplicated**. With
+   `L = pos ++ neg`, `X3, X4` = the twice-embedded `c2.pos/c2.neg` shapes (uniformly
+   `push ψ`-transported in *both* halves), the doubling is charged once. This is the
+   rigorous statement of "the double `explode` collapses in `shapeCost`."
+
+*Remaining in 1c — the per-arm plumbing (mechanical).* What is left is instantiating
+`collapse4` against each concrete `compile` arm: prove the membership
+`∀ s ∈ (compile arm).nodeShapes, s ∈ A ++ X1 ++ … ++ X4` with `A` the (child-free,
+`O(1)`) admin family. The exact `nodeShapes` normal forms are known — e.g.
+`(c.explode hχ).nodeShapes` simp-normalises (via `Contradiction.explode`,
+`PPTerm.nodeShapes`) to `([],χ) :: ([],c.witness→χ) :: (pEF.nodeShapes ++ c.neg.nodeShapes) ++ c.pos.nodeShapes`,
+and `(pOrLcut …).nodeShapes` to its 7 admin singletons interleaved with
+`h1.nodeShapes.map (push φ)` and `h2.nodeShapes.map (push ψ)` — so the subset is a
+`simp only [pOrLcut, pOrElim, Contradiction.explode, nodeShapes, nodeShapes_pMono,
+List.map_cons, List.map_append]` normalisation followed by `List.cons_subset` /
+`List.append_subset` bookkeeping. Then assemble the per-rule `shapeCost` recurrence
+over all `compile` cases (each adds only a bounded local family beyond the deduped
+union of its premise families), giving `shapeCost (compile tr) ≤ K · trSize` — cost
+**linear in the FTrace size**, even though `size` is `2^d`. That refutes falsifier
+(d). The closed polynomial in the *search* then combines this with the step-5
+trace-size / analytic-closure bound. Afterward define the actual memoizing replayer
+against `discharge`/`instantiate`; until then `replayCost` remains a checked target
+metric, not an achieved Core-emission cost. Then proceed to `replayClosure`,
+cut-admissibility (of `FDeriv`, not the vacuous MP-admissibility of `ProvesProp`),
+the focus discipline, `focusedComplete`, and subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
