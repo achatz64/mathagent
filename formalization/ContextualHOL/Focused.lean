@@ -1035,5 +1035,476 @@ theorem analyticIffRefl {φ : Formula}
     exact FDeriv.id (env := env) (Γ := Γ) (A := [φ]) (S := [φ]) (φ := φ)
       (by simp) (by simp) (LiftsAllF.cons hφ LiftsAllF.nil)
 
+/-! ## The `ReplayTemplate` kernel on reified certificates
+
+    These are the `PPTerm` (Type-valued) counterparts of the propositional
+    kernel above — the *named* finite template family the compiler draws on
+    (so "fixed family" is a statement about *these labels*, not the vacuous
+    "uses the 15 primitive `PPTerm` constructors").  Each is the same derivation
+    as its `Prop` namesake with `ProvesProp` replaced by `PPTerm`, so it carries
+    real certificate structure whose `size` and formulas can be inspected. -/
+
+/-- `φ ⇒ φ` as a certificate. -/
+def PPTerm.pImpId {φ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true) :
+    PPTerm env Γ Δ (Formula.imp φ φ) := by
+  have hkφ : (liftFormula? env Γ (Formula.imp φ φ)).isSome = true := by
+    simp [liftFormula?_imp_isSome, hφ]
+  have hS := PPTerm.axS (env := env) (Γ := Γ) (Δ := Δ) (φ := φ) (ψ := Formula.imp φ φ)
+    (χ := φ) hφ hkφ hφ
+  have hK1 := PPTerm.axK (env := env) (Γ := Γ) (Δ := Δ) (φ := φ) (ψ := Formula.imp φ φ) hφ hkφ
+  have hK2 := PPTerm.axK (env := env) (Γ := Γ) (Δ := Δ) (φ := φ) (ψ := φ) hφ hφ
+  have hwt2 : (liftFormula? env Γ (Formula.imp φ (Formula.imp φ φ))).isSome = true := by
+    simp [liftFormula?_imp_isSome, hφ]
+  exact PPTerm.mp hwt2
+    (PPTerm.mp (by simp [liftFormula?_imp_isSome, hφ, hkφ]) hS hK1) hK2
+
+/-- Left disjunction introduction certificate. -/
+def PPTerm.pOrInl {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (h : PPTerm env Γ Δ φ) :
+    PPTerm env Γ Δ (Formula.or φ ψ) :=
+  PPTerm.mp hφ (PPTerm.axOrL hφ hψ) h
+
+/-- Right disjunction introduction certificate. -/
+def PPTerm.pOrInr {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (h : PPTerm env Γ Δ ψ) :
+    PPTerm env Γ Δ (Formula.or φ ψ) :=
+  PPTerm.mp hψ (PPTerm.axOrR hφ hψ) h
+
+/-- Disjunction elimination certificate. -/
+def PPTerm.pOrElim {φ ψ χ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hχ : (liftFormula? env Γ χ).isSome = true)
+    (hor : PPTerm env Γ Δ (Formula.or φ ψ))
+    (hl : PPTerm env Γ Δ (Formula.imp φ χ))
+    (hr : PPTerm env Γ Δ (Formula.imp ψ χ)) :
+    PPTerm env Γ Δ χ := by
+  have hlφχ : (liftFormula? env Γ (Formula.imp φ χ)).isSome = true := by
+    simp [liftFormula?_imp_isSome, hφ, hχ]
+  have hlψχ : (liftFormula? env Γ (Formula.imp ψ χ)).isSome = true := by
+    simp [liftFormula?_imp_isSome, hψ, hχ]
+  have horψ : (liftFormula? env Γ (Formula.or φ ψ)).isSome = true := by
+    simp [liftFormula?_or_isSome, hφ, hψ]
+  exact PPTerm.mp horψ
+    (PPTerm.mp hlψχ (PPTerm.mp hlφχ (PPTerm.axOrE hφ hψ hχ) hl) hr) hor
+
+/-- Weakening a certificate into an implication: `⊢ b` gives `⊢ a → b`. -/
+def PPTerm.pImpK {a b : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (h : PPTerm env Γ Δ b) :
+    PPTerm env Γ Δ (Formula.imp a b) :=
+  PPTerm.mp hb (PPTerm.axK hb ha) h
+
+/-- Hypothetical syllogism certificate. -/
+def PPTerm.pImpTrans {a b c : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (hc : (liftFormula? env Γ c).isSome = true)
+    (hab : PPTerm env Γ Δ (Formula.imp a b))
+    (hbc : PPTerm env Γ Δ (Formula.imp b c)) :
+    PPTerm env Γ Δ (Formula.imp a c) := by
+  have h1 : PPTerm env Γ Δ (Formula.imp a (Formula.imp b c)) :=
+    PPTerm.pImpK ha (wtImp hb hc) hbc
+  have hS := PPTerm.axS (Δ := Δ) (φ := a) (ψ := b) (χ := c) ha hb hc
+  exact PPTerm.mp (wtImp ha hb) (PPTerm.mp (wtImp ha (wtImp hb hc)) hS h1) hab
+
+/-- Ex-falso certificate: `⊢ ¬a → (a → b)`. -/
+def PPTerm.pEF {a b : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) :
+    PPTerm env Γ Δ (Formula.imp (Formula.not a) (Formula.imp a b)) := by
+  have hna := wtNot ha
+  have hnb := wtNot hb
+  have hbctx : PPTerm env Γ (a :: Formula.not a :: Δ) b := by
+    have hnahyp : PPTerm env Γ (a :: Formula.not a :: Δ) (Formula.not a) :=
+      PPTerm.hyp (by simp)
+    have hahyp : PPTerm env Γ (a :: Formula.not a :: Δ) a :=
+      PPTerm.hyp (by simp)
+    have hc : PPTerm env Γ (a :: Formula.not a :: Δ)
+        (Formula.imp (Formula.not b) (Formula.not a)) := PPTerm.pImpK hnb hna hnahyp
+    have himp : PPTerm env Γ (a :: Formula.not a :: Δ) (Formula.imp a b) :=
+      PPTerm.mp (wtImp hnb hna) (PPTerm.axCP ha hb) hc
+    exact PPTerm.mp ha himp hahyp
+  exact PPTerm.impIntro hna (PPTerm.impIntro ha hbctx)
+
+/-- Consequentia mirabilis certificate: `⊢ (¬p → p) → p`. -/
+def PPTerm.pCM {p : Formula} (hp : (liftFormula? env Γ p).isSome = true) :
+    PPTerm env Γ Δ (Formula.imp (Formula.imp (Formula.not p) p) p) := by
+  have hnp := wtNot hp
+  have hY : (liftFormula? env Γ (Formula.imp (Formula.not p) p)).isSome = true := wtImp hnp hp
+  have hQ : (liftFormula? env Γ (Formula.not (Formula.imp (Formula.not p) p))).isSome = true :=
+    wtNot hY
+  have hF : PPTerm env Γ Δ (Formula.imp (Formula.not p)
+      (Formula.imp p (Formula.not (Formula.imp (Formula.not p) p)))) := PPTerm.pEF hp hQ
+  have hS1 := PPTerm.axS (Δ := Δ) (φ := Formula.not p) (ψ := p)
+    (χ := Formula.not (Formula.imp (Formula.not p) p)) hnp hp hQ
+  have hP1 : PPTerm env Γ Δ (Formula.imp (Formula.imp (Formula.not p) p)
+      (Formula.imp (Formula.not p) (Formula.not (Formula.imp (Formula.not p) p)))) :=
+    PPTerm.mp (wtImp hnp (wtImp hp hQ)) hS1 hF
+  have hP2 : PPTerm env Γ Δ (Formula.imp
+      (Formula.imp (Formula.not p) (Formula.not (Formula.imp (Formula.not p) p)))
+      (Formula.imp (Formula.imp (Formula.not p) p) p)) := PPTerm.axCP hY hp
+  have hP3 : PPTerm env Γ Δ (Formula.imp (Formula.imp (Formula.not p) p)
+      (Formula.imp (Formula.imp (Formula.not p) p) p)) :=
+    PPTerm.pImpTrans hY (wtImp hnp hQ) (wtImp hY hp) hP1 hP2
+  have hS2 := PPTerm.axS (Δ := Δ) (φ := Formula.imp (Formula.not p) p)
+    (ψ := Formula.imp (Formula.not p) p) (χ := p) hY hY hp
+  exact PPTerm.mp (wtImp hY hY)
+    (PPTerm.mp (wtImp hY (wtImp hY hp)) hS2 hP3) (PPTerm.pImpId hY)
+
+/-- Double-negation elimination certificate: `⊢ ¬¬p → p`. -/
+def PPTerm.pDNE {p : Formula} (hp : (liftFormula? env Γ p).isSome = true) :
+    PPTerm env Γ Δ (Formula.imp (Formula.not (Formula.not p)) p) := by
+  have hnp := wtNot hp
+  have hnnp := wtNot hnp
+  have hstar : PPTerm env Γ (Formula.not (Formula.not p) :: Δ)
+      (Formula.imp (Formula.not (Formula.not p)) (Formula.imp (Formula.not p) p)) :=
+    PPTerm.pEF hnp hp
+  have hh : PPTerm env Γ (Formula.not (Formula.not p) :: Δ) (Formula.not (Formula.not p)) :=
+    PPTerm.hyp (by simp)
+  have hd : PPTerm env Γ (Formula.not (Formula.not p) :: Δ) (Formula.imp (Formula.not p) p) :=
+    PPTerm.mp hnnp hstar hh
+  have hres : PPTerm env Γ (Formula.not (Formula.not p) :: Δ) p :=
+    PPTerm.mp (wtImp hnp hp) (PPTerm.pCM hp) hd
+  exact PPTerm.impIntro hnnp hres
+
+/-- Reductio certificate: from `φ ⊢ ψ` and `φ ⊢ ¬ψ` conclude `⊢ ¬φ`. -/
+def PPTerm.pRaa {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hp : PPTerm env Γ (φ :: Δ) ψ) (hn : PPTerm env Γ (φ :: Δ) (Formula.not ψ)) :
+    PPTerm env Γ Δ (Formula.not φ) := by
+  have hnφ := wtNot hφ
+  have hnψ := wtNot hψ
+  have hself : PPTerm env Γ (φ :: Δ) (Formula.not φ) := by
+    have hef : PPTerm env Γ (φ :: Δ)
+        (Formula.imp (Formula.not ψ) (Formula.imp ψ (Formula.not φ))) := PPTerm.pEF hψ hnφ
+    exact PPTerm.mp hψ (PPTerm.mp hnψ hef hn) hp
+  have hSR : PPTerm env Γ Δ (Formula.imp φ (Formula.not φ)) :=
+    PPTerm.impIntro hφ hself
+  have hSR' : PPTerm env Γ Δ (Formula.imp (Formula.not (Formula.not φ)) (Formula.not φ)) :=
+    PPTerm.pImpTrans (wtNot hnφ) hφ hnφ (PPTerm.pDNE hφ) hSR
+  exact PPTerm.mp (wtImp (wtNot hnφ) hnφ) (PPTerm.pCM hnφ) hSR'
+
+/-- Assumption-list monotonicity for certificates, by structural recursion so it
+    stays computable (the `induction` tactic would emit `PPTerm.rec`, which the
+    code generator rejects for `Type`-valued targets). -/
+def PPTerm.pMono : {Δ Δ' : List Formula} -> (∀ x, x ∈ Δ -> x ∈ Δ') ->
+    {φ : Formula} -> PPTerm env Γ Δ φ -> PPTerm env Γ Δ' φ
+  | _, _, hsub, _, .hyp hmem => PPTerm.hyp (hsub _ hmem)
+  | _, _, hsub, _, .impIntro hwt t =>
+      PPTerm.impIntro hwt (PPTerm.pMono (fun x hx => by
+        rcases List.mem_cons.1 hx with h | h
+        · exact h ▸ List.mem_cons_self
+        · exact List.mem_cons_of_mem _ (hsub _ h)) t)
+  | _, _, hsub, _, .mp hwt t u => PPTerm.mp hwt (PPTerm.pMono hsub t) (PPTerm.pMono hsub u)
+  | _, _, _, _, .axK h1 h2 => PPTerm.axK h1 h2
+  | _, _, _, _, .axS h1 h2 h3 => PPTerm.axS h1 h2 h3
+  | _, _, _, _, .axCP h1 h2 => PPTerm.axCP h1 h2
+  | _, _, _, _, .axAndL h1 h2 => PPTerm.axAndL h1 h2
+  | _, _, _, _, .axAndR h1 h2 => PPTerm.axAndR h1 h2
+  | _, _, _, _, .axAndI h1 h2 => PPTerm.axAndI h1 h2
+  | _, _, _, _, .axOrL h1 h2 => PPTerm.axOrL h1 h2
+  | _, _, _, _, .axOrR h1 h2 => PPTerm.axOrR h1 h2
+  | _, _, _, _, .axOrE h1 h2 h3 => PPTerm.axOrE h1 h2 h3
+  | _, _, _, _, .axIffI h1 h2 => PPTerm.axIffI h1 h2
+  | _, _, _, _, .axIffL h1 h2 => PPTerm.axIffL h1 h2
+  | _, _, _, _, .axIffR h1 h2 => PPTerm.axIffR h1 h2
+
+/-- Proof-by-cases certificate: if `χ` follows from `φ` and from `¬φ`, it holds. -/
+def PPTerm.pByCases {φ χ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hχ : (liftFormula? env Γ χ).isSome = true)
+    (h1 : PPTerm env Γ (φ :: Δ) χ) (h2 : PPTerm env Γ (Formula.not φ :: Δ) χ) :
+    PPTerm env Γ Δ χ := by
+  have hnφ := wtNot hφ
+  have hnχ := wtNot hχ
+  have h1' : PPTerm env Γ (φ :: Formula.not χ :: Δ) χ :=
+    PPTerm.pMono (by
+      intro x hx
+      rcases List.mem_cons.1 hx with h | h
+      · exact h ▸ List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)) h1
+  have hnχhyp : PPTerm env Γ (φ :: Formula.not χ :: Δ) (Formula.not χ) :=
+    PPTerm.hyp (by simp)
+  have hnφctx : PPTerm env Γ (Formula.not χ :: Δ) (Formula.not φ) :=
+    PPTerm.pRaa hφ hχ h1' hnχhyp
+  have h2' : PPTerm env Γ (Formula.not φ :: Formula.not χ :: Δ) χ :=
+    PPTerm.pMono (by
+      intro x hx
+      rcases List.mem_cons.1 hx with h | h
+      · exact h ▸ List.mem_cons_self
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)) h2
+  have hB' : PPTerm env Γ (Formula.not χ :: Δ) (Formula.imp (Formula.not φ) χ) :=
+    PPTerm.impIntro hnφ h2'
+  have hχctx : PPTerm env Γ (Formula.not χ :: Δ) χ := PPTerm.mp hnφ hB' hnφctx
+  exact PPTerm.mp (wtImp hnχ hχ) (PPTerm.pCM hχ) (PPTerm.impIntro hnχ hχctx)
+
+/-- Inject a proved succedent member into the right-nested disjunction.  The
+    branch is chosen by `DecidableEq Formula` (a `dite`), not by eliminating the
+    `∈`-proof — an `Or` may not be cased into `Type`. -/
+def PPTerm.pRightOr_mem {A : List Formula} : (φ : Formula) -> (Θ : List Formula) -> {ψ : Formula} ->
+    ψ ∈ φ :: Θ -> PPTerm env Γ A ψ -> LiftsAllF env Γ (φ :: Θ) ->
+    PPTerm env Γ A (rightOr φ Θ)
+  | _, [], _, hmem, hψ, _ => List.mem_singleton.1 hmem ▸ hψ
+  | φ, χ :: Θ', ψ, hmem, hψ, hall =>
+      if hφeq : ψ = φ then
+        PPTerm.pOrInl hall.head
+          (liftFormula?_rightOr_isSome χ Θ' hall.tail.head hall.tail.tail) (hφeq ▸ hψ)
+      else
+        PPTerm.pOrInr hall.head
+          (liftFormula?_rightOr_isSome χ Θ' hall.tail.head hall.tail.tail)
+          (PPTerm.pRightOr_mem χ Θ' ((List.mem_cons.1 hmem).resolve_left hφeq) hψ hall.tail)
+
+/-- Commutativity of `∨` for certificates. -/
+def PPTerm.pOrComm {a b : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true)
+    (h : PPTerm env Γ Δ (Formula.or a b)) : PPTerm env Γ Δ (Formula.or b a) :=
+  PPTerm.pOrElim ha hb (wtOr hb ha) h (PPTerm.axOrR hb ha) (PPTerm.axOrL hb ha)
+
+/-- Left reassociation certificate: `a ∨ (b ∨ c) ⊢ (a ∨ b) ∨ c`. -/
+def PPTerm.pOrAssocL {a b c : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (hc : (liftFormula? env Γ c).isSome = true)
+    (h : PPTerm env Γ Δ (Formula.or a (Formula.or b c))) :
+    PPTerm env Γ Δ (Formula.or (Formula.or a b) c) := by
+  have hab := wtOr ha hb
+  have hbc := wtOr hb hc
+  have hT := wtOr hab hc
+  have iaT : PPTerm env Γ Δ (Formula.imp a (Formula.or (Formula.or a b) c)) :=
+    PPTerm.pImpTrans ha hab hT (PPTerm.axOrL ha hb) (PPTerm.axOrL hab hc)
+  have ibT : PPTerm env Γ Δ (Formula.imp b (Formula.or (Formula.or a b) c)) :=
+    PPTerm.pImpTrans hb hab hT (PPTerm.axOrR ha hb) (PPTerm.axOrL hab hc)
+  have icT : PPTerm env Γ Δ (Formula.imp c (Formula.or (Formula.or a b) c)) :=
+    PPTerm.axOrR hab hc
+  have ibcT : PPTerm env Γ Δ (Formula.imp (Formula.or b c) (Formula.or (Formula.or a b) c)) :=
+    PPTerm.mp (wtImp hc hT)
+      (PPTerm.mp (wtImp hb hT) (PPTerm.axOrE hb hc hT) ibT) icT
+  exact PPTerm.pOrElim ha hbc hT h iaT ibcT
+
+/-- Cut an `∧` hypothesis to its two components (certificate). -/
+def PPTerm.pAndLcut {A : List Formula} {T φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (h : PPTerm env Γ (φ :: ψ :: A) T) :
+    PPTerm env Γ (Formula.and φ ψ :: A) T := by
+  have h1 : PPTerm env Γ (ψ :: A) (Formula.imp φ T) := PPTerm.impIntro hφ h
+  have h2 : PPTerm env Γ A (Formula.imp ψ (Formula.imp φ T)) := PPTerm.impIntro hψ h1
+  have h2w : PPTerm env Γ (Formula.and φ ψ :: A) (Formula.imp ψ (Formula.imp φ T)) :=
+    PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) h2
+  have hand : PPTerm env Γ (Formula.and φ ψ :: A) (Formula.and φ ψ) := PPTerm.hyp (by simp)
+  have hφp : PPTerm env Γ (Formula.and φ ψ :: A) φ :=
+    PPTerm.mp (wtAnd hφ hψ) (PPTerm.axAndL hφ hψ) hand
+  have hψp : PPTerm env Γ (Formula.and φ ψ :: A) ψ :=
+    PPTerm.mp (wtAnd hφ hψ) (PPTerm.axAndR hφ hψ) hand
+  exact PPTerm.mp hφ (PPTerm.mp hψ h2w hψp) hφp
+
+/-- Cut the two case-branches of an `∨` hypothesis into a common goal (certificate). -/
+def PPTerm.pOrLcut {A : List Formula} {T φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hT : (liftFormula? env Γ T).isSome = true)
+    (h1 : PPTerm env Γ (φ :: A) T) (h2 : PPTerm env Γ (ψ :: A) T) :
+    PPTerm env Γ (Formula.or φ ψ :: A) T := by
+  have hl : PPTerm env Γ (Formula.or φ ψ :: A) (Formula.imp φ T) :=
+    PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hφ h1)
+  have hr : PPTerm env Γ (Formula.or φ ψ :: A) (Formula.imp ψ T) :=
+    PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hψ h2)
+  have hor : PPTerm env Γ (Formula.or φ ψ :: A) (Formula.or φ ψ) := PPTerm.hyp (by simp)
+  exact PPTerm.pOrElim hφ hψ hT hor hl hr
+
+/-- Cut an `iff` hypothesis to its two directional implications (certificate). -/
+def PPTerm.pIffLcut {A : List Formula} {T φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (h : PPTerm env Γ (Formula.imp φ ψ :: Formula.imp ψ φ :: A) T) :
+    PPTerm env Γ (Formula.iff φ ψ :: A) T := by
+  have hfwd := wtImp hφ hψ
+  have hrev := wtImp hψ hφ
+  have h1 : PPTerm env Γ (Formula.imp ψ φ :: A)
+      (Formula.imp (Formula.imp φ ψ) T) := PPTerm.impIntro hfwd h
+  have h2 : PPTerm env Γ A
+      (Formula.imp (Formula.imp ψ φ) (Formula.imp (Formula.imp φ ψ) T)) :=
+    PPTerm.impIntro hrev h1
+  have h2w := PPTerm.pMono (env := env) (Γ := Γ)
+    (Δ := A) (Δ' := Formula.iff φ ψ :: A)
+    (fun x hx => List.mem_cons_of_mem _ hx) h2
+  have hiff : PPTerm env Γ (Formula.iff φ ψ :: A) (Formula.iff φ ψ) :=
+    PPTerm.hyp (by simp)
+  have hfwdp : PPTerm env Γ (Formula.iff φ ψ :: A) (Formula.imp φ ψ) :=
+    PPTerm.mp (wtIff hφ hψ) (PPTerm.axIffL hφ hψ) hiff
+  have hrevp : PPTerm env Γ (Formula.iff φ ψ :: A) (Formula.imp ψ φ) :=
+    PPTerm.mp (wtIff hφ hψ) (PPTerm.axIffR hφ hψ) hiff
+  exact PPTerm.mp hfwd (PPTerm.mp hrev h2w hrevp) hfwdp
+
+/-! ## The reified compile target and the witness-based refuted branch
+
+    `ReifiedDenote` is the `Type`-valued analogue of `denote`.  The crucial design
+    point (see `proof_search.md`): the refuted branch (empty succedent) is *not* a
+    "prove-any-query" function — that representation makes `negR` instantiate its
+    premise at both `φ` and `¬φ`, compounding to an exponential certificate.  It
+    is instead an **explicit contradiction witness** `Contradiction`, from which
+    `negR` reads off `pRaa` directly (each cert used once, `negR` linear) and any
+    query is `explode`d in `O(1)` — and the witness formula is always an
+    antecedent-subformula, so it stays inside `SearchClosure(G)`. -/
+
+/-- An explicit contradiction in context `A`: a witness formula and certificates
+    of both it and its negation.  This is the `Type`-valued meaning of the
+    ⊥-free refuted branch. -/
+structure Contradiction (env : Env) (Γ : Ctx) (A : List Formula) : Type where
+  witness : Formula
+  wwt : (liftFormula? env Γ witness).isSome = true
+  pos : PPTerm env Γ A witness
+  neg : PPTerm env Γ A (Formula.not witness)
+
+/-- Explode a contradiction to any well-typed query, in `O(1)` over the witness. -/
+def Contradiction.explode {A : List Formula} (c : Contradiction env Γ A)
+    {χ : Formula} (hχ : (liftFormula? env Γ χ).isSome = true) : PPTerm env Γ A χ :=
+  PPTerm.mp c.wwt (PPTerm.mp (wtNot c.wwt) (PPTerm.pEF c.wwt hχ) c.neg) c.pos
+
+/-- Reified denotation: a certificate for a nonempty succedent, an explicit
+    contradiction for the refuted (empty) branch. -/
+def ReifiedDenote (env : Env) (Γ : Ctx) : FSequent -> Type
+  | ⟨A, []⟩ => Contradiction env Γ A
+  | ⟨A, φ :: Θ⟩ => PPTerm env Γ A (rightOr φ Θ)
+
+/-- Compile a search trace to a reified certificate.  Mirrors `analyticSound`
+    rule-for-rule, but produces certificate data and uses the contradiction
+    witness for the refuted branch. -/
+def compile {env : Env} {Γ : Ctx} : {S : FSequent} -> FTrace env Γ S -> ReifiedDenote env Γ S
+  | _, .id (S := S) (φ := φ) hA hS hall =>
+      match S, hS, hall with
+      | s0 :: S', hS, hall => PPTerm.pRightOr_mem s0 S' hS (PPTerm.hyp hA) hall
+  | _, .negR (Θ := Θ) (φ := φ) hφ hΘ t =>
+      match Θ, hΘ with
+      | [], _ => let c := compile t; PPTerm.pRaa hφ c.wwt c.pos c.neg
+      | χ0 :: Θ', hΘ =>
+          let ih := compile t
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          PPTerm.pByCases hφ (wtOr (wtNot hφ) hR)
+            (PPTerm.pOrInr (wtNot hφ) hR ih)
+            (PPTerm.pOrInl (wtNot hφ) hR (PPTerm.hyp (by simp)))
+  | _, .negL (Θ := Θ) (φ := φ) hφ hΘ t =>
+      match Θ, hΘ with
+      | [], _ =>
+          let ih := compile t
+          ⟨φ, hφ, PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih, PPTerm.hyp (by simp)⟩
+      | χ0 :: Θ', hΘ =>
+          let ih := compile t
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          let ihw := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih
+          let hl := PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hR) (PPTerm.hyp (by simp))
+          PPTerm.pOrElim hφ hR hR ihw hl (PPTerm.pImpId hR)
+  | _, .impR (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t =>
+      match Θ, hΘ with
+      | [], _ => let ihp := compile t; PPTerm.impIntro hφ ihp
+      | χ0 :: Θ', hΘ =>
+          let ihp := compile t
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          PPTerm.pByCases hφ (wtOr (wtImp hφ hψ) hR)
+            (let hl := PPTerm.impIntro hψ
+                (PPTerm.pOrInl (wtImp hφ hψ) hR (PPTerm.pImpK hφ hψ (PPTerm.hyp (by simp))))
+             let hr := PPTerm.axOrR (wtImp hφ hψ) hR
+             PPTerm.pOrElim hψ hR (wtOr (wtImp hφ hψ) hR) ihp hl hr)
+            (PPTerm.pOrInl (wtImp hφ hψ) hR
+              (PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hψ) (PPTerm.hyp (by simp))))
+  | _, .impL (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t u =>
+      match Θ, hΘ with
+      | [], _ =>
+          let ih1 := compile t
+          let cu := compile u
+          let dφ := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih1
+          let dψ := PPTerm.mp hφ (PPTerm.hyp (by simp)) dφ
+          let posρ := PPTerm.mp hψ
+            (PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hψ cu.pos)) dψ
+          let negρ := PPTerm.mp hψ
+            (PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hψ cu.neg)) dψ
+          ⟨cu.witness, cu.wwt, posρ, negρ⟩
+      | χ0 :: Θ', hΘ =>
+          let ih1 := compile t
+          let ih2 := compile u
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          let ih1w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih1
+          let hl := PPTerm.impIntro hφ
+            (let hψp := PPTerm.mp hφ (PPTerm.hyp (by simp)) (PPTerm.hyp (by simp))
+             let h2 := PPTerm.pMono
+               (fun x hx => List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hx))
+               (PPTerm.impIntro hψ ih2)
+             PPTerm.mp hψ h2 hψp)
+          PPTerm.pOrElim hφ hR hR ih1w hl (PPTerm.pImpId hR)
+  | _, .andR (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t u =>
+      match Θ, hΘ with
+      | [], _ =>
+          let ih1p := compile t
+          let ih2p := compile u
+          PPTerm.mp hψ (PPTerm.mp hφ (PPTerm.axAndI hφ hψ) ih1p) ih2p
+      | χ0 :: Θ', hΘ =>
+          let ih1p := compile t
+          let ih2p := compile u
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          let hgoalwt := wtOr (wtAnd hφ hψ) hR
+          let hlouter := PPTerm.impIntro hφ
+            (let ih2w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih2p
+             let hlin := PPTerm.impIntro hψ
+               (let hand := PPTerm.mp hψ
+                   (PPTerm.mp hφ (PPTerm.axAndI hφ hψ) (PPTerm.hyp (by simp))) (PPTerm.hyp (by simp))
+                PPTerm.pOrInl (wtAnd hφ hψ) hR hand)
+             let hrin := PPTerm.axOrR (wtAnd hφ hψ) hR
+             PPTerm.pOrElim hψ hR hgoalwt ih2w hlin hrin)
+          let hrouter := PPTerm.axOrR (wtAnd hφ hψ) hR
+          PPTerm.pOrElim hφ hR hgoalwt ih1p hlouter hrouter
+  | _, .andL (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ t =>
+      match Θ with
+      | [] =>
+          let c := compile t
+          ⟨c.witness, c.wwt, PPTerm.pAndLcut hφ hψ c.pos, PPTerm.pAndLcut hφ hψ c.neg⟩
+      | _ :: _ => let ih := compile t; PPTerm.pAndLcut hφ hψ ih
+  | _, .orR (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t =>
+      match Θ, hΘ with
+      | [], _ => (compile t : PPTerm env Γ _ (Formula.or φ ψ))
+      | χ0 :: Θ', hΘ =>
+          let ihp := compile t
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          PPTerm.pOrAssocL hφ hψ hR ihp
+  | _, .orL (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t u =>
+      match Θ, hΘ with
+      | [], _ =>
+          let c1 := compile t
+          let c2 := compile u
+          ⟨c1.witness, c1.wwt,
+           PPTerm.pOrLcut hφ hψ c1.wwt c1.pos (c2.explode c1.wwt),
+           PPTerm.pOrLcut hφ hψ (wtNot c1.wwt) c1.neg (c2.explode (wtNot c1.wwt))⟩
+      | χ0 :: Θ', hΘ =>
+          let ih1 := compile t
+          let ih2 := compile u
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          PPTerm.pOrLcut hφ hψ hR ih1 ih2
+  | _, .iffR (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ hΘ t u =>
+      match Θ, hΘ with
+      | [], _ =>
+          let ih1p := compile t
+          let ih2p := compile u
+          PPTerm.mp (wtImp hψ hφ)
+            (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) ih1p) ih2p
+      | χ0 :: Θ', hΘ =>
+          let ih1p := compile t
+          let ih2p := compile u
+          let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+          let hgoalwt := wtOr (wtIff hφ hψ) hR
+          let hlouter := PPTerm.impIntro (wtImp hφ hψ)
+            (let ih2w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih2p
+             let hlin := PPTerm.impIntro (wtImp hψ hφ)
+               (let hiffp := PPTerm.mp (wtImp hψ hφ)
+                   (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) (PPTerm.hyp (by simp)))
+                   (PPTerm.hyp (by simp))
+                PPTerm.pOrInl (wtIff hφ hψ) hR hiffp)
+             let hrin := PPTerm.axOrR (wtIff hφ hψ) hR
+             PPTerm.pOrElim (wtImp hψ hφ) hR hgoalwt ih2w hlin hrin)
+          let hrouter := PPTerm.axOrR (wtIff hφ hψ) hR
+          PPTerm.pOrElim (wtImp hφ hψ) hR hgoalwt ih1p hlouter hrouter
+  | _, .iffL (Θ := Θ) (φ := φ) (ψ := ψ) hφ hψ t =>
+      match Θ with
+      | [] =>
+          let c := compile t
+          ⟨c.witness, c.wwt, PPTerm.pIffLcut hφ hψ c.pos, PPTerm.pIffLcut hφ hψ c.neg⟩
+      | _ :: _ => let ih := compile t; PPTerm.pIffLcut hφ hψ ih
+
+/-- The reified compiler is sound: a singleton-succedent trace compiles to a
+    `PPTerm` certificate that erases to genuine M3 `Proves` evidence.  This is the
+    certificate-carrying analogue of `analyticSoundSingle`. -/
+theorem compileSoundSingle {A : List Formula} {φ : Formula}
+    (t : FTrace env Γ ⟨A, [φ]⟩) : Proves env Γ A φ :=
+  ProvesProp.toProves (PPTerm.toProvesProp (compile t : PPTerm env Γ A φ))
+
 end Focused
 end ContextualHOL

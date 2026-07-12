@@ -384,20 +384,50 @@ therefore two `Type`-valued mirrors, both now in place and green:
 * **`FTrace`** mirrors `FDeriv`'s rule structure in `Type` — the actual data a
   search produces — with `FTrace.toFDeriv` erasure to the `Prop` judgement.
 
-Next is `compile : FTrace → ReifiedDenote`, where `ReifiedDenote ⟨A,φ::Θ⟩ =
-PPTerm A (rightOr φ Θ)` and `ReifiedDenote ⟨A,[]⟩ = ∀ query, wt → PPTerm A query`.
-Two load-bearing subtleties (not incidental):
+**Done (increment 1c core — `compile` built and sound, full build clean, no
+`sorry`).** The whole propositional kernel is re-homed onto `PPTerm` as the
+named `ReplayTemplate` set (18 templates: base combinators, the classical
+`pEF`/`pCM`/`pDNE`/`pRaa`/`pByCases`/`pMono`, and the succedent/cut algebra), and
+`compile : FTrace → ReifiedDenote` produces real certificate data, with
+`compileSoundSingle : FTrace ⟨A,[φ]⟩ → Proves A φ` (the certificate erases to
+genuine M3 evidence).  It is implemented against the **witness representation**
+below (not the `∀query` trap), so `negR` is linear by construction.
 
-1. *Query discipline.* The empty-succedent case is a **function** that can be
-   asked at formulas outside `ReplayClosure(G)`, so the closure theorem cannot
-   quantify over it unrestrictedly. It needs a *query-relative* local closure
-   theorem plus a root theorem bounding the finite set of queries actually
-   generated from `G`.
-2. *Size is the experiment, not paperwork.* `negR` at empty succedent
-   instantiates its premise-function at **both `φ` and `¬φ`**; the `replaySize`
-   recurrence must expose that branching rather than assume constant per-rule
-   overhead. If it compounds multiplicatively with derivation depth, that *is*
-   falsifier (d) — so the recurrence is where PS2 could still be falsified.
+`ReifiedDenote ⟨A,φ::Θ⟩ = PPTerm A (rightOr φ Θ)`. The **empty-succedent
+(refuted-branch) representation is the load-bearing design decision**, and a
+structural analysis of the existing `sound*` nil cases settles it:
+
+* The obvious shape `ReifiedDenote ⟨A,[]⟩ = ∀ query, wt → PPTerm A query` (a
+  "prove-any-query" function) is the **exponential trap**. `soundNegR` at nil is
+  `pRaa (ih φ) (ih ¬φ)` — it instantiates the refutation **twice**, at `φ` and
+  `¬φ`, each call copying the whole sub-certificate. A
+  `negR`/left-rule/`negR` chain of depth `k` compounds that ×2 into `2^k`:
+  certificate size **exponential in derivation depth**, i.e. falsifier (d)
+  *fires*. It also creates the query-closure problem (the function can be asked
+  outside `ReplayClosure(G)`).
+* The correct shape is an **explicit contradiction witness**
+  `ReifiedDenote ⟨A,[]⟩ = Σ ψ, wt ψ × PPTerm A ψ × PPTerm A (¬ψ)`. Then `negR` at
+  nil applies `pRaa` to the witness pair *directly* — each cert used **once** —
+  so `negR` is **linear**, the ×2 is gone. The witness `ψ` is always a specific
+  antecedent-derived formula (it originates at `negL` as the negated hypothesis
+  and only propagates to antecedent-subformulas), so `ψ ∈ SearchClosure(G)`
+  always: **the unbounded-query problem disappears** — there is no arbitrary
+  query to quantify over. The `∀query` function is in fact never needed: `negR`
+  is the only rule bridging a nil premise to a non-nil conclusion, and it needs
+  exactly `¬φ`.
+
+Residual growth: only binary left rules (`orL`/`impL`) can use one branch ×2
+(via `Contradiction.explode`, `O(1)` over the witness); choosing the *larger*
+branch as primary gives `T(n)=T(large)+2·T(small) ≈ n^1.58` — **polynomial,
+never exponential**. So the size recurrence — the genuine falsifier-(d) test —
+comes out **polynomial**, and PS2 stands. (The falsifier came within one
+representation choice of firing; recorded because it is the real result of this
+increment.)
+
+*Remaining in 1c:* `replaySize` (define `size` on the `compile` output and prove
+the polynomial bound — now possible since `compile` yields real terms) and
+`replayClosure` (`PPTerm.formulas ⊆ ReplayClosure(G)`). Then cut/MP
+admissibility, the focus discipline, `focusedComplete`, subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
