@@ -1899,6 +1899,50 @@ theorem dedup_length_le {alpha : Type} [DecidableEq alpha] (xs : List alpha) :
       split <;> simp_all
       omega
 
+/-- `dedup` preserves membership, in both directions. -/
+theorem mem_dedup {alpha : Type} [DecidableEq alpha] :
+    (xs : List alpha) -> (a : alpha) -> (a ∈ dedup xs ↔ a ∈ xs)
+  | [], a => by simp [dedup]
+  | x :: xs, a => by
+      simp only [dedup]
+      have ih := mem_dedup xs
+      split
+      · rename_i hx
+        rw [List.mem_cons]
+        constructor
+        · intro ha; exact Or.inr ((ih a).1 ha)
+        · rintro (rfl | ha)
+          · exact hx
+          · exact (ih a).2 ha
+      · rw [List.mem_cons, List.mem_cons]
+        constructor
+        · rintro (rfl | ha)
+          · exact Or.inl rfl
+          · exact Or.inr ((ih a).1 ha)
+        · rintro (rfl | ha)
+          · exact Or.inl rfl
+          · exact Or.inr ((ih a).2 ha)
+
+/-- Mapping cannot increase the number of *distinct* elements: `f` may merge
+    distinct inputs but never splits them.  Hence `dedup` of the image is no
+    longer than `dedup` of the source. -/
+theorem dedup_map_length_le {alpha beta : Type} [DecidableEq alpha] [DecidableEq beta]
+    (f : alpha -> beta) : (xs : List alpha) ->
+    (dedup (xs.map f)).length <= (dedup xs).length
+  | [] => by simp [dedup]
+  | x :: xs => by
+      simp only [List.map, dedup]
+      have ih := dedup_map_length_le f xs
+      by_cases hx : x ∈ dedup xs
+      · rw [if_pos hx]
+        have hfx : f x ∈ dedup (xs.map f) :=
+          (mem_dedup (xs.map f) (f x)).2 (List.mem_map.2 ⟨x, (mem_dedup xs x).1 hx, rfl⟩)
+        rw [if_pos hfx]; exact ih
+      · rw [if_neg hx]
+        by_cases hfx : f x ∈ dedup (xs.map f)
+        · rw [if_pos hfx, List.length_cons]; omega
+        · rw [if_neg hfx, List.length_cons, List.length_cons]; omega
+
 /-- pMono introduces no new distinct relative replay shapes. -/
 theorem PPTerm.shapeCost_pMono {env : Env} {G : Ctx} {D D2 : List Formula}
     (hsub : (x : Formula) -> List.Mem x D -> List.Mem x D2)
@@ -1925,6 +1969,18 @@ theorem PPTerm.shapeCost_pRightOr_mem_le {env : Env} {G : Ctx}
 def PPTerm.replayCost {env : Env} {Γ : Ctx} {Δ : List Formula} {φ : Formula}
     (t : PPTerm env Γ Δ φ) : Nat :=
   (dedup t.nodeKeys).length
+
+/-- The advertised metric is dominated by the root-relative shape metric: within a
+    single certificate every node key is `renderReplayShape D` of its shape, so
+    rendering can only *merge* distinct shapes, never split them.  Hence any bound
+    on `shapeCost` (which the context-transport lemmas establish — `pMono` leaves
+    it exactly fixed, `pRightOr_mem` grows it only additively) transfers to
+    `replayCost`. -/
+theorem PPTerm.replayCost_le_shapeCost {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ : Formula} (t : PPTerm env Γ Δ φ) : t.replayCost <= t.shapeCost := by
+  unfold PPTerm.replayCost PPTerm.shapeCost
+  rw [PPTerm.nodeKeys_eq_renderShapes]
+  exact dedup_map_length_le (renderReplayShape Δ) t.nodeShapes
 
 end Focused
 end ContextualHOL

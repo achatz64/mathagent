@@ -496,8 +496,27 @@ exactly. `size_pRightOr_mem_le` and
 not duplicate its input and adds at most `2 * (tail.length + 1)` nodes/shapes.
 The focused module builds with these theorems and no `sorry`/`admit`.
 
-*Remaining in 1c:* the compiler-wide theorem is still open. The next obligation
-is a deduplicated recurrence for the complete `compile` output: each compiler
+*Bridge to the advertised metric (landed).* All transport bounds are stated on
+`shapeCost` (distinct *root-relative* shapes), but the advertised cost is
+`replayCost` (distinct *rendered* keys). `PPTerm.replayCost_le_shapeCost` closes
+that gap: within one certificate `nodeKeys = nodeShapes.map (renderReplayShape D)`
+(a single root context `D`), so rendering can only merge distinct shapes, never
+split them — hence `replayCost ≤ shapeCost` (via `dedup_map_length_le` +
+`mem_dedup`). So any `shapeCost` bound transfers to `replayCost`; `shapeCost` is
+in fact the better model — it is `pMono`-invariant, where `replayCost` (rendered)
+is not.
+
+*Remaining in 1c — the actual doubling crux.* The context-transport lemmas are
+necessary infrastructure but do **not** by themselves discharge falsifier (d);
+the 2^d source is unchanged, and it is the empty-succedent `orL`/`impL` compile
+arms, not `pMono`/`pRightOr_mem`. Concretely `orL` embeds `c2.explode` **twice**
+(`c2.explode c1.wwt` and `c2.explode (wtNot c1.wwt)`), doubling `size`. That
+collapses in `shapeCost` **only because** `explode` is pure `mp` (no `impIntro`),
+so it embeds `c2.pos`/`c2.neg` at the *same* root-relative context both times ⇒
+identical `nodeShapes` ⇒ `dedup` merges them. This collapse is *true but not yet
+proved*: it needs (i) a lemma that `nodeShapes (explode c χ)` is `c`'s shapes plus
+`O(1)` admin, and (ii) a `dedup` lemma that identical sub-shape-lists collapse.
+Then the deduplicated recurrence for the complete `compile` output: each compiler
 rule must add only a bounded family of relative shapes beyond the union of its
 premise families. This must cover the contradiction witness branches and every
 named replay template, then combine with a search-side trace-size bound. Only
