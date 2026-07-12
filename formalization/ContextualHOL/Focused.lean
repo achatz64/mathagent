@@ -2434,6 +2434,333 @@ theorem impL_empty_shapeCost_le_const
     simp only [impLcutAdmin, List.length_cons, List.length_nil]
   omega
 
+/-! ### Step 2(a), continued: the single-child (coefficient-one) arms
+
+    Every compile arm other than the two double-embedding ones (`orL`/`impL` empty)
+    uses each recursive `compile` child *once* (a contradiction's `pos`/`neg` counted
+    jointly).  So each such arm satisfies a coefficient-one recurrence
+    `shapeCost(arm) ≤ Kᵢ + Σ shapeCost(children)`, proved by the same membership-routing
+    + joint-dedup technique: every relative shape lands in a fixed admin family or in an
+    injective-`push` copy of a child's shape family.  These are the per-combinator bounds
+    the global weighted-cost induction composes. -/
+
+/-- General leaf bound: a certificate's distinct-shape count never exceeds its node
+    count.  Used to charge the fixed axiom/`hyp` leaves of a combinator skeleton. -/
+theorem PPTerm.shapeCost_le_size {env : Env} {G : Ctx} {D : List Formula}
+    {f : Formula} (t : PPTerm env G D f) : t.shapeCost ≤ t.size := by
+  unfold PPTerm.shapeCost
+  rw [← PPTerm.nodeShapes_length_eq_size]
+  exact dedup_length_le _
+
+/-- The child-free admin shapes of `pAndLcut`. -/
+def pAndLcutAdmin (φ ψ T : Formula) : List ReplayShape :=
+  [([], T), ([], φ.imp T), ([], ψ.imp (φ.imp T)), ([ψ], φ.imp T),
+   ([], ψ), ([], (φ.and ψ).imp ψ), ([], φ.and ψ),
+   ([], φ), ([], (φ.and ψ).imp φ)]
+
+/-- **`pAndLcut` coefficient-one bound.**  The single hypothesis `h` is embedded once,
+    under the injective double `push [φ,ψ]`, so its shapes are counted once. -/
+theorem PPTerm.shapeCost_pAndLcut_le {env : Env} {Γ : Ctx} {A : List Formula}
+    {T φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (h : PPTerm env Γ (φ :: ψ :: A) T) :
+    (PPTerm.pAndLcut hφ hψ h).shapeCost ≤ (pAndLcutAdmin φ ψ T).length + h.shapeCost := by
+  have hsub : (PPTerm.pAndLcut hφ hψ h).nodeShapes ⊆
+      pAndLcutAdmin φ ψ T ++ (h.nodeShapes.map (pushReplayShape φ)).map (pushReplayShape ψ) := by
+    simp only [PPTerm.pAndLcut, PPTerm.nodeShapes, PPTerm.nodeShapes_pMono, pAndLcutAdmin,
+      List.map_cons, pushReplayShape, List.nil_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hA := dedup_append_length_le (pAndLcutAdmin φ ψ T)
+    ((h.nodeShapes.map (pushReplayShape φ)).map (pushReplayShape ψ))
+  have hadmin := dedup_length_le (pAndLcutAdmin φ ψ T)
+  have hchild : (dedup ((h.nodeShapes.map (pushReplayShape φ)).map (pushReplayShape ψ))).length
+      = (dedup h.nodeShapes).length := by
+    rw [dedup_map_length_of_injective (pushReplayShape ψ) (pushReplayShape_injective ψ),
+        dedup_map_length_of_injective (pushReplayShape φ) (pushReplayShape_injective φ)]
+  omega
+
+/-- The child-free admin shapes of `pIffLcut`. -/
+def pIffLcutAdmin (φ ψ T : Formula) : List ReplayShape :=
+  [([], T), ([], (φ.imp ψ).imp T), ([], (ψ.imp φ).imp ((φ.imp ψ).imp T)),
+   ([ψ.imp φ], (φ.imp ψ).imp T), ([], ψ.imp φ), ([], (φ.iff ψ).imp (ψ.imp φ)),
+   ([], φ.iff ψ), ([], φ.imp ψ), ([], (φ.iff ψ).imp (φ.imp ψ))]
+
+/-- **`pIffLcut` coefficient-one bound.**  The single hypothesis `h` is embedded once,
+    under the injective double `push [φ→ψ, ψ→φ]`, so its shapes are counted once. -/
+theorem PPTerm.shapeCost_pIffLcut_le {env : Env} {Γ : Ctx} {A : List Formula}
+    {T φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (h : PPTerm env Γ (Formula.imp φ ψ :: Formula.imp ψ φ :: A) T) :
+    (PPTerm.pIffLcut hφ hψ h).shapeCost ≤ (pIffLcutAdmin φ ψ T).length + h.shapeCost := by
+  have hsub : (PPTerm.pIffLcut hφ hψ h).nodeShapes ⊆
+      pIffLcutAdmin φ ψ T
+        ++ (h.nodeShapes.map (pushReplayShape (φ.imp ψ))).map (pushReplayShape (ψ.imp φ)) := by
+    simp only [PPTerm.pIffLcut, PPTerm.nodeShapes, PPTerm.nodeShapes_pMono, pIffLcutAdmin,
+      List.map_cons, pushReplayShape, List.nil_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hA := dedup_append_length_le (pIffLcutAdmin φ ψ T)
+    ((h.nodeShapes.map (pushReplayShape (φ.imp ψ))).map (pushReplayShape (ψ.imp φ)))
+  have hadmin := dedup_length_le (pIffLcutAdmin φ ψ T)
+  have hchild : (dedup ((h.nodeShapes.map (pushReplayShape (φ.imp ψ))).map
+        (pushReplayShape (ψ.imp φ)))).length = (dedup h.nodeShapes).length := by
+    rw [dedup_map_length_of_injective (pushReplayShape (ψ.imp φ))
+          (pushReplayShape_injective (ψ.imp φ)),
+        dedup_map_length_of_injective (pushReplayShape (φ.imp ψ))
+          (pushReplayShape_injective (φ.imp ψ))]
+  omega
+
+/-- **`pOrLcut` coefficient-one bound.**  Reuses the existing `pOrLcut_nodeShapes_subset`
+    routing: the two hypotheses land under injective single `push`es (`φ` and `ψ`), each
+    counted once. -/
+theorem PPTerm.shapeCost_pOrLcut_le {env : Env} {Γ : Ctx} {A : List Formula}
+    {T φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (hT : (liftFormula? env Γ T).isSome = true)
+    (h1 : PPTerm env Γ (φ :: A) T) (h2 : PPTerm env Γ (ψ :: A) T) :
+    (PPTerm.pOrLcut hφ hψ hT h1 h2).shapeCost
+      ≤ (orLcutAdmin φ ψ T).length + h1.shapeCost + h2.shapeCost := by
+  have hsub := pOrLcut_nodeShapes_subset hφ hψ hT h1 h2
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hAB := dedup_append_length_le
+    (orLcutAdmin φ ψ T ++ h1.nodeShapes.map (pushReplayShape φ))
+    (h2.nodeShapes.map (pushReplayShape ψ))
+  have hA := dedup_append_length_le (orLcutAdmin φ ψ T) (h1.nodeShapes.map (pushReplayShape φ))
+  have hadmin := dedup_length_le (orLcutAdmin φ ψ T)
+  have hc1 := dedup_map_length_of_injective (pushReplayShape φ) (pushReplayShape_injective φ)
+    h1.nodeShapes
+  have hc2 := dedup_map_length_of_injective (pushReplayShape ψ) (pushReplayShape_injective ψ)
+    h2.nodeShapes
+  omega
+
+/-- The child-free admin shapes of `pOrElim` (all three hypotheses are direct `mp`
+    arguments, so no `push`). -/
+def pOrElimAdmin (φ ψ χ : Formula) : List ReplayShape :=
+  [([], χ), ([], (φ.or ψ).imp χ), ([], (ψ.imp χ).imp ((φ.or ψ).imp χ)),
+   ([], (φ.imp χ).imp ((ψ.imp χ).imp ((φ.or ψ).imp χ)))]
+
+/-- **`pOrElim` coefficient-one bound.**  Each of the three hypotheses is counted once
+    (unpushed). -/
+theorem PPTerm.shapeCost_pOrElim_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ ψ χ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (hχ : (liftFormula? env Γ χ).isSome = true)
+    (hor : PPTerm env Γ Δ (Formula.or φ ψ)) (hl : PPTerm env Γ Δ (Formula.imp φ χ))
+    (hr : PPTerm env Γ Δ (Formula.imp ψ χ)) :
+    (PPTerm.pOrElim hφ hψ hχ hor hl hr).shapeCost
+      ≤ (pOrElimAdmin φ ψ χ).length + hor.shapeCost + hl.shapeCost + hr.shapeCost := by
+  have hsub : (PPTerm.pOrElim hφ hψ hχ hor hl hr).nodeShapes ⊆
+      pOrElimAdmin φ ψ χ ++ hor.nodeShapes ++ hl.nodeShapes ++ hr.nodeShapes := by
+    simp only [PPTerm.pOrElim, PPTerm.nodeShapes, pOrElimAdmin]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have h1 := dedup_append_length_le
+    (pOrElimAdmin φ ψ χ ++ hor.nodeShapes ++ hl.nodeShapes) hr.nodeShapes
+  have h2 := dedup_append_length_le (pOrElimAdmin φ ψ χ ++ hor.nodeShapes) hl.nodeShapes
+  have h3 := dedup_append_length_le (pOrElimAdmin φ ψ χ) hor.nodeShapes
+  have hadmin := dedup_length_le (pOrElimAdmin φ ψ χ)
+  omega
+
+/-- The child-free admin shapes of `pOrInl`. -/
+def pOrInlAdmin (φ ψ : Formula) : List ReplayShape :=
+  [([], φ.or ψ), ([], φ.imp (φ.or ψ))]
+
+/-- **`pOrInl` coefficient-one bound.** -/
+theorem PPTerm.shapeCost_pOrInl_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (h : PPTerm env Γ Δ φ) :
+    (PPTerm.pOrInl hφ hψ h).shapeCost ≤ (pOrInlAdmin φ ψ).length + h.shapeCost := by
+  have hsub : (PPTerm.pOrInl hφ hψ h).nodeShapes ⊆ pOrInlAdmin φ ψ ++ h.nodeShapes := by
+    simp only [PPTerm.pOrInl, PPTerm.nodeShapes, pOrInlAdmin]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have h1 := dedup_append_length_le (pOrInlAdmin φ ψ) h.nodeShapes
+  have hadmin := dedup_length_le (pOrInlAdmin φ ψ)
+  omega
+
+/-- The child-free admin shapes of `pOrInr`. -/
+def pOrInrAdmin (φ ψ : Formula) : List ReplayShape :=
+  [([], φ.or ψ), ([], ψ.imp (φ.or ψ))]
+
+/-- **`pOrInr` coefficient-one bound.** -/
+theorem PPTerm.shapeCost_pOrInr_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true) (h : PPTerm env Γ Δ ψ) :
+    (PPTerm.pOrInr hφ hψ h).shapeCost ≤ (pOrInrAdmin φ ψ).length + h.shapeCost := by
+  have hsub : (PPTerm.pOrInr hφ hψ h).nodeShapes ⊆ pOrInrAdmin φ ψ ++ h.nodeShapes := by
+    simp only [PPTerm.pOrInr, PPTerm.nodeShapes, pOrInrAdmin]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have h1 := dedup_append_length_le (pOrInrAdmin φ ψ) h.nodeShapes
+  have hadmin := dedup_length_le (pOrInrAdmin φ ψ)
+  omega
+
+/-- The child-free admin shapes of `pImpK`. -/
+def pImpKAdmin (a b : Formula) : List ReplayShape :=
+  [([], a.imp b), ([], b.imp (a.imp b))]
+
+/-- **`pImpK` coefficient-one bound.** -/
+theorem PPTerm.shapeCost_pImpK_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {a b : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (h : PPTerm env Γ Δ b) :
+    (PPTerm.pImpK ha hb h).shapeCost ≤ (pImpKAdmin a b).length + h.shapeCost := by
+  have hsub : (PPTerm.pImpK ha hb h).nodeShapes ⊆ pImpKAdmin a b ++ h.nodeShapes := by
+    simp only [PPTerm.pImpK, PPTerm.nodeShapes, pImpKAdmin]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons] at ha ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have h1 := dedup_append_length_le (pImpKAdmin a b) h.nodeShapes
+  have hadmin := dedup_length_le (pImpKAdmin a b)
+  omega
+
+/-- The child-free admin shapes of `pImpTrans` (both hypotheses are direct `mp`
+    arguments, so no `push`). -/
+def pImpTransAdmin (a b c : Formula) : List ReplayShape :=
+  [([], a.imp c), ([], (a.imp b).imp (a.imp c)),
+   ([], (a.imp (b.imp c)).imp ((a.imp b).imp (a.imp c))),
+   ([], a.imp (b.imp c)), ([], (b.imp c).imp (a.imp (b.imp c)))]
+
+/-- **`pImpTrans` coefficient-one bound.** -/
+theorem PPTerm.shapeCost_pImpTrans_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {a b c : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (hc : (liftFormula? env Γ c).isSome = true)
+    (hab : PPTerm env Γ Δ (Formula.imp a b)) (hbc : PPTerm env Γ Δ (Formula.imp b c)) :
+    (PPTerm.pImpTrans ha hb hc hab hbc).shapeCost
+      ≤ (pImpTransAdmin a b c).length + hab.shapeCost + hbc.shapeCost := by
+  have hsub : (PPTerm.pImpTrans ha hb hc hab hbc).nodeShapes ⊆
+      pImpTransAdmin a b c ++ hab.nodeShapes ++ hbc.nodeShapes := by
+    simp only [PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.nodeShapes, pImpTransAdmin]
+    intro x hx
+    simp only [List.mem_append, List.mem_cons] at hx ⊢
+    grind
+  simp only [PPTerm.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have h1 := dedup_append_length_le (pImpTransAdmin a b c ++ hab.nodeShapes) hbc.nodeShapes
+  have h2 := dedup_append_length_le (pImpTransAdmin a b c) hab.nodeShapes
+  have hadmin := dedup_length_le (pImpTransAdmin a b c)
+  omega
+
+/-- Leaf axioms have distinct-shape count one; used to charge the closed cert pieces of
+    a combinator skeleton via `omega`. -/
+theorem PPTerm.shapeCost_le_size' {env : Env} {G : Ctx} {D : List Formula}
+    {f : Formula} (t : PPTerm env G D f) (n : Nat) (h : t.size ≤ n) : t.shapeCost ≤ n :=
+  Nat.le_trans (PPTerm.shapeCost_le_size t) h
+
+/-- **`pOrAssocL` coefficient-one bound.**  A single `pOrElim` whose two implication
+    hypotheses (`iaT`, `ibcT`) are closed certificates; only the disjunction hypothesis
+    `h` carries a compiled subtree. -/
+theorem PPTerm.shapeCost_pOrAssocL_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {a b c : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) (hc : (liftFormula? env Γ c).isSome = true)
+    (h : PPTerm env Γ Δ (Formula.or a (Formula.or b c))) :
+    (PPTerm.pOrAssocL ha hb hc h).shapeCost ≤ 24 + h.shapeCost := by
+  unfold PPTerm.pOrAssocL
+  refine Nat.le_trans (PPTerm.shapeCost_pOrElim_le _ _ _ _ _ _) ?_
+  have hia := PPTerm.shapeCost_pImpTrans_le ha (wtOr ha hb) (wtOr (wtOr ha hb) hc)
+    (PPTerm.axOrL (Δ := Δ) ha hb) (PPTerm.axOrL (Δ := Δ) (wtOr ha hb) hc)
+  have hib := PPTerm.shapeCost_pImpTrans_le hb (wtOr ha hb) (wtOr (wtOr ha hb) hc)
+    (PPTerm.axOrR (Δ := Δ) ha hb) (PPTerm.axOrL (Δ := Δ) (wtOr ha hb) hc)
+  have hmp := PPTerm.shapeCost_mp_le (wtImp hc (wtOr (wtOr ha hb) hc))
+    (PPTerm.mp (wtImp hb (wtOr (wtOr ha hb) hc)) (PPTerm.axOrE (Δ := Δ) hb hc (wtOr (wtOr ha hb) hc))
+      (PPTerm.pImpTrans hb (wtOr ha hb) (wtOr (wtOr ha hb) hc)
+        (PPTerm.axOrR (Δ := Δ) ha hb) (PPTerm.axOrL (Δ := Δ) (wtOr ha hb) hc)))
+    (PPTerm.axOrR (Δ := Δ) (wtOr ha hb) hc)
+  have hmp2 := PPTerm.shapeCost_mp_le (wtImp hb (wtOr (wtOr ha hb) hc))
+    (PPTerm.axOrE (Δ := Δ) hb hc (wtOr (wtOr ha hb) hc))
+    (PPTerm.pImpTrans hb (wtOr ha hb) (wtOr (wtOr ha hb) hc)
+      (PPTerm.axOrR (Δ := Δ) ha hb) (PPTerm.axOrL (Δ := Δ) (wtOr ha hb) hc))
+  have hoe := PPTerm.shapeCost_le_size' (PPTerm.axOrE (Δ := Δ) hb hc (wtOr (wtOr ha hb) hc)) 1 (by simp [PPTerm.size])
+  have hor1 := PPTerm.shapeCost_le_size' (PPTerm.axOrL (Δ := Δ) ha hb) 1 (by simp [PPTerm.size])
+  have hor2 := PPTerm.shapeCost_le_size' (PPTerm.axOrL (Δ := Δ) (wtOr ha hb) hc) 1 (by simp [PPTerm.size])
+  have hor3 := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := Δ) ha hb) 1 (by simp [PPTerm.size])
+  have hor4 := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := Δ) (wtOr ha hb) hc) 1 (by simp [PPTerm.size])
+  simp only [pImpTransAdmin, pOrElimAdmin, List.length_cons, List.length_nil] at *
+  omega
+
+/-- **`pRaa` coefficient-one bound.**  Reductio: the two hypotheses `hp`, `hn` appear once
+    each (both inside the single `impIntro φ` that forms `⊢ φ → ¬φ`), the rest being the
+    closed `pCM`/`pDNE`/`pEF` skeleton. -/
+theorem PPTerm.shapeCost_pRaa_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hp : PPTerm env Γ (φ :: Δ) ψ) (hn : PPTerm env Γ (φ :: Δ) (Formula.not ψ)) :
+    (PPTerm.pRaa hφ hψ hp hn).shapeCost ≤ 100 + hp.shapeCost + hn.shapeCost := by
+  simp only [PPTerm.pRaa]
+  refine Nat.le_trans (PPTerm.shapeCost_mp_le _ _ _) ?_
+  have hcm := PPTerm.shapeCost_le_size' (PPTerm.pCM (Δ := Δ) (wtNot hφ)) 30
+    (by simp [PPTerm.pCM, PPTerm.pEF, PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.pImpId, PPTerm.size])
+  have htrans := PPTerm.shapeCost_pImpTrans_le (wtNot (wtNot hφ)) hφ (wtNot hφ)
+    (PPTerm.pDNE (Δ := Δ) hφ)
+    (PPTerm.impIntro hφ (PPTerm.mp hψ (PPTerm.mp (wtNot hψ) (PPTerm.pEF hψ (wtNot hφ)) hn) hp))
+  have hdne := PPTerm.shapeCost_le_size' (PPTerm.pDNE (Δ := Δ) hφ) 40
+    (by simp [PPTerm.pDNE, PPTerm.pCM, PPTerm.pEF, PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.pImpId,
+      PPTerm.size])
+  have himp := PPTerm.shapeCost_impIntro_le hφ
+    (PPTerm.mp hψ (PPTerm.mp (wtNot hψ) (PPTerm.pEF hψ (wtNot hφ)) hn) hp)
+  have hself1 := PPTerm.shapeCost_mp_le hψ
+    (PPTerm.mp (wtNot hψ) (PPTerm.pEF hψ (wtNot hφ)) hn) hp
+  have hself2 := PPTerm.shapeCost_mp_le (wtNot hψ) (PPTerm.pEF hψ (wtNot hφ)) hn
+  have hef := PPTerm.shapeCost_le_size' (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)) 10
+    (by simp [PPTerm.pEF, PPTerm.pImpK, PPTerm.size])
+  have hb : (pImpTransAdmin (Formula.not (Formula.not φ)) φ (Formula.not φ)).length = 5 := rfl
+  rw [hb] at htrans
+  omega
+
+/-- **`pByCases` coefficient-one bound.**  Case split: the two hypotheses `h1`, `h2`
+    (each weakened once by `pMono`) appear once each — `h1` inside the reductio `pRaa`
+    forming `¬χ ⊢ ¬φ`, `h2` inside the `¬φ → χ` implication — with a closed
+    `pCM`/`pRaa` skeleton around them. -/
+theorem PPTerm.shapeCost_pByCases_le {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ χ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hχ : (liftFormula? env Γ χ).isSome = true)
+    (h1 : PPTerm env Γ (φ :: Δ) χ) (h2 : PPTerm env Γ (Formula.not φ :: Δ) χ) :
+    (PPTerm.pByCases hφ hχ h1 h2).shapeCost ≤ 200 + h1.shapeCost + h2.shapeCost := by
+  simp only [PPTerm.pByCases]
+  refine Nat.le_trans (PPTerm.shapeCost_mp_le _ _ _) ?_
+  have hcm := PPTerm.shapeCost_le_size' (PPTerm.pCM (Δ := Δ) hχ) 30
+    (by simp [PPTerm.pCM, PPTerm.pEF, PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.pImpId, PPTerm.size])
+  have lam1 : ∀ x, x ∈ φ :: Δ → x ∈ φ :: Formula.not χ :: Δ := by
+    intro x hx
+    rcases List.mem_cons.1 hx with h | h
+    · exact h ▸ List.mem_cons_self
+    · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+  have lam2 : ∀ x, x ∈ Formula.not φ :: Δ → x ∈ Formula.not φ :: Formula.not χ :: Δ := by
+    intro x hx
+    rcases List.mem_cons.1 hx with h | h
+    · exact h ▸ List.mem_cons_self
+    · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+  have hii := PPTerm.shapeCost_impIntro_le (wtNot hχ)
+    (PPTerm.mp (wtNot hφ) (PPTerm.impIntro (wtNot hφ) (PPTerm.pMono lam2 h2))
+      (PPTerm.pRaa hφ hχ (PPTerm.pMono lam1 h1)
+        (PPTerm.hyp (Δ := φ :: Formula.not χ :: Δ) (List.mem_cons_of_mem _ List.mem_cons_self))))
+  have hctx := PPTerm.shapeCost_mp_le (wtNot hφ) (PPTerm.impIntro (wtNot hφ) (PPTerm.pMono lam2 h2))
+    (PPTerm.pRaa hφ hχ (PPTerm.pMono lam1 h1)
+      (PPTerm.hyp (Δ := φ :: Formula.not χ :: Δ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+  have hB := PPTerm.shapeCost_impIntro_le (wtNot hφ) (PPTerm.pMono lam2 h2)
+  have hraa := PPTerm.shapeCost_pRaa_le hφ hχ (PPTerm.pMono lam1 h1)
+    (PPTerm.hyp (Δ := φ :: Formula.not χ :: Δ) (List.mem_cons_of_mem _ List.mem_cons_self))
+  have hhyp := PPTerm.shapeCost_le_size'
+    (PPTerm.hyp (env := env) (Γ := Γ) (Δ := φ :: Formula.not χ :: Δ) (φ := Formula.not χ)
+      (List.mem_cons_of_mem _ List.mem_cons_self)) 1 (by simp [PPTerm.size])
+  simp only [PPTerm.shapeCost_pMono] at *
+  omega
+
 /-! ### Step 2(a): the weighted trace cost the global bound must use
 
     An ordinary node-counting trace size with a *fixed* constant `K` cannot bound
