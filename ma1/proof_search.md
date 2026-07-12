@@ -336,8 +336,8 @@ whose freshness obligations over the assumption list make `pMono` — required b
 every left rule — false in general (the PS1 structural finding on assumption
 weakening).  This is exactly the `ProvesProp` named in the theorem list below.
 
-**Done (increment 1b — `focusedSound` proven, full build clean, no `sorry`):**
-the classical negation kernel and the soundness direction of the calculus.
+**Done (increment 1b — `analyticSound` proven, full build clean, no `sorry`):**
+the classical negation kernel and soundness of the analytic LK substrate.
 
 * *Classical kernel.*  Everything classical is derived purely from `axCP`
   `(¬ψ→¬φ)→(φ→ψ)` plus the deduction theorem (`impIntro`), with **no `⊥` and no
@@ -349,19 +349,24 @@ the classical negation kernel and the soundness direction of the calculus.
   not search subformulas, such as `¬(¬p→p)`. They are deterministic
   administrative content in compile-back and are never offered as search
   choices or inserted into search-state keys.
-* *Calculus + soundness.*  `FDeriv`, the two-sided focused LK system (rules
-  `id`, `negR`, `negL`, `impR`, `impL`, `andR`, `andL`, `orR`, `orL`; principal
-  formula at the head of its side; `negR`/`negL` are the only classical rules),
-  and `focusedSound : FDeriv G -> denote G` proven by induction, one soundness
-  lemma per rule.  Each rule handles the ⊥-free empty-succedent case explicitly:
+* *Calculus + soundness.* `FDeriv` is the unfocused two-sided analytic LK
+  substrate, not yet the focused calculus. Its rules are `id`, `negR`, `negL`,
+  `impR`, `impL`, `andR`, `andL`, `orR`, `orL`, `iffR`, and `iffL`,
+  with the principal formula at the head of its side. Primitive `iff` expands
+  only to its two directional implications and replays through `axIffI/L/R`.
+  `analyticSound : FDeriv G -> denote G` is proven by induction, one soundness
+  lemma per rule; `analyticSoundSingle` then gives the concrete one-goal bridge
+  `FDeriv <Delta,[phi]> -> Proves Delta phi`. Each rule handles the ⊥-free
+  empty-succedent case explicitly:
   `negL`/`impL`/`orL`/`andL` genuinely produce/consume the empty succedent
   (refuted branch) with no falsity constant, discharging it via `pEF`/`pRaa`.
   The right rules consume the succedent-disjunction algebra (`pRightOr_mem`,
   `pOrComm`, `pOrAssocL`) and the classical shifts consume `pByCases`.
 
-In progress (increment 1c): **cut/MP admissibility** — the strict gate, since
-completeness inducts over `Proves` reconstructing `mp` — then the K/S/`axCP`
-focused-derivation direction (`focusedComplete`) and subformula-boundedness.
+In progress (increment 1c): **cut/MP admissibility** for the analytic substrate
+— the strict gate, since completeness inducts over `Proves` reconstructing
+`mp` — followed by the actual focus discipline, the K/S/`axCP`
+focused-derivation direction (`focusedComplete`), and subformula-boundedness.
 
 **Methods.**
 
@@ -384,6 +389,8 @@ focused-derivation direction (`focusedComplete`) and subformula-boundedness.
 **Theorems.**
 
 ```text
+analyticSound:   FDeriv G -> denote G
+analyticSoundSingle: FDeriv <Delta,[phi]> -> Proves Delta phi
 focusedSound:    Focused G -> Proves G
 focusedComplete: ProvesProp G <-> Focused G
 cutAdmissible:   focused MP/cut is admissible in the multi-conclusion system
@@ -400,7 +407,9 @@ equivalence that is checkable against M3, and avoids a separate semantic
 completeness result.
 
 `SearchClosure(G)` is the finite signed-subformula closure of the goal and
-assumptions. It bounds formulas that may occur in focused states and actions;
+assumptions, extended by the two directional implications of every primitive
+`iff` subformula. It bounds formulas that may occur in focused states and
+actions;
 the empty succedent is permitted as an internal refutation state, not reified
 as a new M3 formula. This is the closure used by memoization, the subformula
 theorem, and `finiteStateProp`.

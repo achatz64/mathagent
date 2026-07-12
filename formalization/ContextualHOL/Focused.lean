@@ -1,7 +1,7 @@
 import ContextualHOL.ProvesLift
 
 /-!
-# PS2 — analytic propositional search: the two-sided focused calculus
+# PS2 — analytic propositional search: the two-sided LK substrate
 
 CoreSearch0's propositional search calculus.  The search shape is deliberately
 **multi-conclusion** (`Δ ⊢ Θ`, `Θ : List Formula`), because primitive classical
@@ -10,13 +10,13 @@ CoreSearch0's propositional search calculus.  The search shape is deliberately
 We do NOT add a falsity constant to M3.  Instead the succedent is interpreted
 into M3's single-conclusion `Proves` by right-nested disjunction, and the empty
 succedent is given the ⊥-free meaning "the antecedent is absurd" (proves every
-well-typed formula).  Whether the completeness direction is ever *forced* to
-introduce an empty succedent is a pre-registered PS2 falsifier, tracked here and
-never resolved by smuggling in `⊥`.
+well-typed formula). Empty succedents are permitted internal refutation states;
+the PS2 falsifier is reifying one as a new formula inside M3.
 
 This module (increment 1) fixes the representation and proves the soundness
-direction `focusedSound : FDeriv → Proves`.  Cut/MP admissibility, the K/S/CP
-completeness direction, focus discipline, and subformula-boundedness follow.
+direction `analyticSound : FDeriv → denote`. `FDeriv` is the unfocused analytic
+LK substrate; cut/MP admissibility, the K/S/CP completeness direction, the
+actual focus discipline, and subformula-boundedness follow.
 -/
 
 namespace ContextualHOL
@@ -264,6 +264,11 @@ theorem wtNot {a : Formula} (ha : (liftFormula? env Γ a).isSome = true) :
     (liftFormula? env Γ (Formula.not a)).isSome = true := by
   rw [liftFormula?_not_isSome]; exact ha
 
+theorem wtIff {a b : Formula} (ha : (liftFormula? env Γ a).isSome = true)
+    (hb : (liftFormula? env Γ b).isSome = true) :
+    (liftFormula? env Γ (Formula.iff a b)).isSome = true := by
+  simp [liftFormula?_iff_isSome, ha, hb]
+
 /-! ## Implicational combinators over the Hilbert base -/
 
 /-- Weakening a proof into an implication: `⊢ b` gives `⊢ a → b`. -/
@@ -458,7 +463,7 @@ theorem pOrAssocL {a b c : Formula} (ha : (liftFormula? env Γ a).isSome = true)
 
 /-! ## The two-sided sequent and its ⊥-free denotation -/
 
-/-- A two-sided focused search sequent `ante ⊢ succ`. -/
+/-- A two-sided analytic search sequent `ante ⊢ succ`. -/
 structure FSequent where
   ante : List Formula
   succ : List Formula
@@ -472,12 +477,13 @@ def denote (env : Env) (Γ : Ctx) : FSequent -> Prop
   | ⟨ante, []⟩ => ∀ φ, (liftFormula? env Γ φ).isSome = true -> ProvesProp env Γ ante φ
   | ⟨ante, φ :: Θ⟩ => ProvesProp env Γ ante (rightOr φ Θ)
 
-/-! ## The two-sided focused LK calculus
+/-! ## The two-sided analytic LK substrate
 
-    A multi-conclusion sequent calculus over `FSequent`.  Each rule keeps the
-    principal formula at the head of its side; the classical `¬` shifts `negR`/
+    This is an unfocused multi-conclusion sequent calculus over `FSequent`.
+    Each rule keeps the principal formula at the head of its side; the classical
+    `¬` shifts `negR`/
     `negL` are the only genuinely non-analytic rules and compile (via
-    `focusedSound`) to the `axCP`-derived kernel.  Well-typedness of principal
+    `analyticSound`) to the `axCP`-derived kernel.  Well-typedness of principal
     subformulas and of the residual succedent is carried as side conditions so
     that soundness can reconstruct the `ProvesProp` witnesses. -/
 
@@ -513,12 +519,22 @@ inductive FDeriv (env : Env) (Γ : Ctx) : FSequent -> Prop where
       (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
       LiftsAllF env Γ Θ -> FDeriv env Γ ⟨φ :: A, Θ⟩ -> FDeriv env Γ ⟨ψ :: A, Θ⟩ ->
       FDeriv env Γ ⟨Formula.or φ ψ :: A, Θ⟩
+  | iffR {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      LiftsAllF env Γ Θ ->
+      FDeriv env Γ ⟨A, Formula.imp φ ψ :: Θ⟩ ->
+      FDeriv env Γ ⟨A, Formula.imp ψ φ :: Θ⟩ ->
+      FDeriv env Γ ⟨A, Formula.iff φ ψ :: Θ⟩
+  | iffL {A Θ : List Formula} {φ ψ : Formula} :
+      (liftFormula? env Γ φ).isSome = true -> (liftFormula? env Γ ψ).isSome = true ->
+      FDeriv env Γ ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: A, Θ⟩ ->
+      FDeriv env Γ ⟨Formula.iff φ ψ :: A, Θ⟩
 
 /-! ## Rule-wise soundness
 
     Each lemma reconstructs the conclusion's denotation from the premises', using
     only the classical kernel and the succedent algebra.  They are assembled into
-    `focusedSound` by a direct induction. -/
+    `analyticSound` by a direct induction. -/
 
 theorem soundId {A S : List Formula} {φ : Formula}
     (hA : φ ∈ A) (hS : φ ∈ S) (hall : LiftsAllF env Γ S) : denote env Γ ⟨A, S⟩ := by
@@ -735,10 +751,91 @@ theorem soundAndR {A Θ : List Formula} {φ ψ : Formula}
         ProvesProp.axOrR (wtAnd hφ hψ) hR
       exact pOrElim hφ hR hgoalwt ih1p hlouter hrouter
 
-/-- **Soundness of the focused calculus** (M3-internal): every `FDeriv` derivation
+/-- Cut an iff hypothesis back to its two directional implications. -/
+theorem pIffLcut {A : List Formula} {T φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (h : ProvesProp env Γ
+      (Formula.imp φ ψ :: Formula.imp ψ φ :: A) T) :
+    ProvesProp env Γ (Formula.iff φ ψ :: A) T := by
+  have hfwd := wtImp hφ hψ
+  have hrev := wtImp hψ hφ
+  have h1 : ProvesProp env Γ (Formula.imp ψ φ :: A)
+      (Formula.imp (Formula.imp φ ψ) T) := ProvesProp.impIntro hfwd h
+  have h2 : ProvesProp env Γ A
+      (Formula.imp (Formula.imp ψ φ) (Formula.imp (Formula.imp φ ψ) T)) :=
+    ProvesProp.impIntro hrev h1
+  have h2w := pMono (env := env) (Γ := Γ)
+    (Δ := A) (Δ' := Formula.iff φ ψ :: A)
+    (fun x hx => List.mem_cons_of_mem _ hx) h2
+  have hiff : ProvesProp env Γ (Formula.iff φ ψ :: A) (Formula.iff φ ψ) :=
+    ProvesProp.hyp (by simp)
+  have hfwdp : ProvesProp env Γ (Formula.iff φ ψ :: A) (Formula.imp φ ψ) :=
+    ProvesProp.mp (wtIff hφ hψ) (ProvesProp.axIffL hφ hψ) hiff
+  have hrevp : ProvesProp env Γ (Formula.iff φ ψ :: A) (Formula.imp ψ φ) :=
+    ProvesProp.mp (wtIff hφ hψ) (ProvesProp.axIffR hφ hψ) hiff
+  exact ProvesProp.mp hfwd (ProvesProp.mp hrev h2w hrevp) hfwdp
+
+theorem soundIffL {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih : denote env Γ
+      ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: A, Θ⟩) :
+    denote env Γ ⟨Formula.iff φ ψ :: A, Θ⟩ := by
+  cases Θ with
+  | nil => intro χ hχ; exact pIffLcut hφ hψ (ih χ hχ)
+  | cons χ0 Θ' =>
+      show ProvesProp env Γ (Formula.iff φ ψ :: A) (rightOr χ0 Θ')
+      exact pIffLcut hφ hψ ih
+
+theorem soundIffR {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ)
+    (ih1 : denote env Γ ⟨A, Formula.imp φ ψ :: Θ⟩)
+    (ih2 : denote env Γ ⟨A, Formula.imp ψ φ :: Θ⟩) :
+    denote env Γ ⟨A, Formula.iff φ ψ :: Θ⟩ := by
+  let fwd := Formula.imp φ ψ
+  let rev := Formula.imp ψ φ
+  have hfwd : (liftFormula? env Γ fwd).isSome = true := wtImp hφ hψ
+  have hrev : (liftFormula? env Γ rev).isSome = true := wtImp hψ hφ
+  have ih1p : ProvesProp env Γ A (rightOr fwd Θ) := ih1
+  have ih2p : ProvesProp env Γ A (rightOr rev Θ) := ih2
+  show ProvesProp env Γ A (rightOr (Formula.iff φ ψ) Θ)
+  cases Θ with
+  | nil =>
+      exact ProvesProp.mp hrev
+        (ProvesProp.mp hfwd (ProvesProp.axIffI hφ hψ) ih1p) ih2p
+  | cons χ0 Θ' =>
+      have hR : (liftFormula? env Γ (rightOr χ0 Θ')).isSome = true :=
+        liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      have hgoalwt := wtOr (wtIff hφ hψ) hR
+      have hlouter : ProvesProp env Γ A
+          (Formula.imp fwd (Formula.or (Formula.iff φ ψ) (rightOr χ0 Θ'))) := by
+        apply ProvesProp.impIntro hfwd
+        have ih2w : ProvesProp env Γ (fwd :: A) (Formula.or rev (rightOr χ0 Θ')) :=
+          pMono (fun x hx => List.mem_cons_of_mem _ hx) ih2p
+        have hlin : ProvesProp env Γ (fwd :: A)
+            (Formula.imp rev (Formula.or (Formula.iff φ ψ) (rightOr χ0 Θ'))) := by
+          apply ProvesProp.impIntro hrev
+          have hfwdh : ProvesProp env Γ (rev :: fwd :: A) fwd := ProvesProp.hyp (by simp)
+          have hrevh : ProvesProp env Γ (rev :: fwd :: A) rev := ProvesProp.hyp (by simp)
+          have hiffp : ProvesProp env Γ (rev :: fwd :: A) (Formula.iff φ ψ) :=
+            ProvesProp.mp hrev
+              (ProvesProp.mp hfwd (ProvesProp.axIffI hφ hψ) hfwdh) hrevh
+          exact pOrInl (wtIff hφ hψ) hR hiffp
+        have hrin : ProvesProp env Γ (fwd :: A)
+            (Formula.imp (rightOr χ0 Θ')
+              (Formula.or (Formula.iff φ ψ) (rightOr χ0 Θ'))) :=
+          ProvesProp.axOrR (wtIff hφ hψ) hR
+        exact pOrElim hrev hR hgoalwt ih2w hlin hrin
+      have hrouter : ProvesProp env Γ A
+          (Formula.imp (rightOr χ0 Θ')
+            (Formula.or (Formula.iff φ ψ) (rightOr χ0 Θ'))) :=
+        ProvesProp.axOrR (wtIff hφ hψ) hR
+      exact pOrElim hfwd hR hgoalwt ih1p hlouter hrouter
+
+/-- **Soundness of the analytic LK substrate** (M3-internal): every `FDeriv` derivation
     denotes a `ProvesProp` derivation, i.e. compiles back to M3's own K/S/axCP
     provability with the succedent read as a right-nested disjunction. -/
-theorem focusedSound {S : FSequent} (h : FDeriv env Γ S) : denote env Γ S := by
+theorem analyticSound {S : FSequent} (h : FDeriv env Γ S) : denote env Γ S := by
   induction h with
   | id hA hS hall => exact soundId hA hS hall
   | negR hφ hΘ _ ih => exact soundNegR hφ hΘ ih
@@ -749,6 +846,26 @@ theorem focusedSound {S : FSequent} (h : FDeriv env Γ S) : denote env Γ S := b
   | andL hφ hψ _ ih => exact soundAndL hφ hψ ih
   | orR hφ hψ hΘ _ ih => exact soundOrR hφ hψ hΘ ih
   | orL hφ hψ hΘ _ _ ih1 ih2 => exact soundOrL hφ hψ hΘ ih1 ih2
+  | iffR hφ hψ hΘ _ _ ih1 ih2 => exact soundIffR hφ hψ hΘ ih1 ih2
+  | iffL hφ hψ _ ih => exact soundIffL hφ hψ ih
+
+/-- The concrete M3/Core replay boundary for an ordinary single-goal sequent. -/
+theorem analyticSoundSingle {A : List Formula} {φ : Formula}
+    (h : FDeriv env Γ ⟨A, [φ]⟩) : Proves env Γ A φ :=
+  ProvesProp.toProves (analyticSound h)
+
+/-- Regression: primitive iff replay closes an ordinary single-goal theorem. -/
+theorem analyticIffRefl {φ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) :
+    Proves env Γ [] (Formula.iff φ φ) := by
+  apply analyticSoundSingle
+  apply FDeriv.iffR hφ hφ LiftsAllF.nil
+  · apply FDeriv.impR hφ hφ LiftsAllF.nil
+    exact FDeriv.id (env := env) (Γ := Γ) (A := [φ]) (S := [φ]) (φ := φ)
+      (by simp) (by simp) (LiftsAllF.cons hφ LiftsAllF.nil)
+  · apply FDeriv.impR hφ hφ LiftsAllF.nil
+    exact FDeriv.id (env := env) (Γ := Γ) (A := [φ]) (S := [φ]) (φ := φ)
+      (by simp) (by simp) (LiftsAllF.cons hφ LiftsAllF.nil)
 
 end Focused
 end ContextualHOL
