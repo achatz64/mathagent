@@ -1539,8 +1539,10 @@ theorem compileSoundSingle {A : List Formula} {φ : Formula}
     hypotheses by `mp`. -/
 
 /-- Assumption-discharged conclusion: the deduction-theorem normal form of
-    `Δ ⊢ φ`, folding each assumption into an implication (most-recently-added
-    assumption outermost, matching iterated `impIntro`). -/
+    `Δ ⊢ φ`, folding each assumption into an implication.  Matching iterated
+    `impIntro` (which peels the list *head* first), the head — the
+    most-recently-added assumption — ends up *innermost*: e.g.
+    `dischargeKey [a, b] φ = b → (a → φ)`. -/
 def dischargeKey : List Formula -> Formula -> Formula
   | [], φ => φ
   | a :: as, φ => dischargeKey as (Formula.imp a φ)
@@ -1591,6 +1593,66 @@ def PPTerm.instantiate {env : Env} {Γ : Ctx} : (Δ : List Formula) -> {φ : For
       PPTerm.mp hwt.head
         (inner.weaken (fun _ hx => List.mem_cons_of_mem _ hx))
         (PPTerm.hyp List.mem_cons_self)
+
+/-! ## Antecedent well-typedness invariant — every node key is dischargeable
+
+    `discharge`/`instantiate` need `LiftsAllF Γ Δ` at the node's context `Δ`.  A
+    bare `PPTerm` does not carry a *global* antecedent invariant, so to certify
+    that `replayCost (compile t)` counts genuinely reusable keys — not just keys
+    for which someone manually supplied typing evidence — we must show that a
+    well-typed *root* context forces every node's context to be well typed.
+
+    This is purely structural: the only context-growing constructor, `impIntro`,
+    already carries the `isSome` witness for the formula it adds (line 194), so a
+    node's context is always the root context extended by certified formulas.
+    `PPTerm.ctxsWT` propagates `LiftsAllF` from the root to every node; because it
+    quantifies over *all* `PPTerm` values it applies verbatim to certificates
+    built through `pMono`/`pRightOr_mem` — no need to unfold those combinators,
+    only to know the resulting node's context lifts.  `compileCtxsWT` then hands
+    the search layer the invariant for actual traces, given the (search-supplied,
+    trivial at the empty top goal) root antecedent typing `LiftsAllF Γ A`. -/
+
+/-- Every node context in the certificate is `LiftsAllF`-well-typed.  Leaves
+    assert it for their own context; `impIntro`/`mp` additionally require it of
+    their children. -/
+def PPTerm.CtxsWT {env : Env} {Γ : Ctx} : {Δ : List Formula} -> {φ : Formula} ->
+    PPTerm env Γ Δ φ -> Prop
+  | Δ, _, .hyp _ => LiftsAllF env Γ Δ
+  | Δ, _, .impIntro _ t => LiftsAllF env Γ Δ ∧ t.CtxsWT
+  | Δ, _, .mp _ t u => LiftsAllF env Γ Δ ∧ t.CtxsWT ∧ u.CtxsWT
+  | Δ, _, .axK _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axS _ _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axCP _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axAndL _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axAndR _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axAndI _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axOrL _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axOrR _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axOrE _ _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axIffI _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axIffL _ _ => LiftsAllF env Γ Δ
+  | Δ, _, .axIffR _ _ => LiftsAllF env Γ Δ
+
+/-- A well-typed root context propagates to every node.  Structural on the term:
+    `impIntro` extends the context by a formula whose `isSome` witness the
+    constructor already carries, so `LiftsAllF.cons` re-establishes the invariant
+    for the child; `mp` reuses the same context for both children. -/
+theorem PPTerm.ctxsWT {env : Env} {Γ : Ctx} : {Δ : List Formula} -> {φ : Formula} ->
+    (t : PPTerm env Γ Δ φ) -> LiftsAllF env Γ Δ -> t.CtxsWT := by
+  intro Δ φ t
+  induction t with
+  | impIntro hwt t ih => intro h; exact ⟨h, ih (LiftsAllF.cons hwt h)⟩
+  | mp hwt t u iht ihu => intro h; exact ⟨h, iht h, ihu h⟩
+  | _ => intro h; exact h
+
+/-- The invariant for actual compiled search traces: a well-typed root antecedent
+    list makes every node context of `compile t` well typed — hence every node key
+    is genuinely dischargeable (and instantiable).  At the top-level goal `A = []`
+    the hypothesis is `LiftsAllF.nil`. -/
+theorem compileCtxsWT {A : List Formula} {φ : Formula}
+    (t : FTrace env Γ ⟨A, [φ]⟩) (hA : LiftsAllF env Γ A) :
+    (compile t : PPTerm env Γ A φ).CtxsWT :=
+  PPTerm.ctxsWT _ hA
 
 /-! ## Replay cost under sharing (the context-discharged memoized model)
 

@@ -462,6 +462,28 @@ still depend on the fixed contextual variables in `Γ`. This **reduces the size
 falsifier (d) to the closure falsifier (c)**: `replayCost` is polynomially bounded
 **iff** the set of distinct discharged keys is finite/poly-bounded.
 
+*Antecedent well-typedness invariant (landed).* `discharge`/`instantiate` need
+`LiftsAllF Γ Δ` at each node's context, and a bare `PPTerm` carries no *global*
+antecedent invariant — so counting `replayCost (compile t)` as reusable keys
+required proving that a well-typed *root* context forces every node's context to
+be well typed. `PPTerm.CtxsWT` (the per-node `LiftsAllF` predicate) plus
+`PPTerm.ctxsWT : LiftsAllF Γ Δ → t.CtxsWT` do this by structure: the only
+context-growing constructor, `impIntro`, already carries the `isSome` witness for
+the formula it adds, so `LiftsAllF.cons` re-establishes the invariant at each
+child. Because `ctxsWT` is universally quantified over `PPTerm` values it applies
+verbatim to certificates built through `pMono`/`pRightOr_mem` (no unfolding of
+those combinators — only their result contexts need to lift). `compileCtxsWT`
+hands this to the search layer for actual traces, given the root antecedent typing
+`LiftsAllF Γ A` (trivial `LiftsAllF.nil` at the empty top goal). So every node key
+of a compiled trace is now *provably* dischargeable/instantiable, not merely
+dischargeable under manually supplied typing evidence. (Doc correction from the
+audit: `dischargeKey [a,b] φ = b → (a → φ)` — the list head, i.e. the
+most-recently-added assumption, ends up *innermost*, not outermost.) These
+operations certify **reusability of a key**; they are *not yet* a memo table or a
+shared Core-emission graph, so `replayCost` remains a well-specified **target**
+cost model, an *achieved* replay cost only once a memoizing replayer is defined
+against `discharge`/`instantiate`.
+
 *Remaining in 1c:* `replayClosure` — bound the distinct discharged keys of
 `compile tr`. **The tempting reduction "keys ≤ trace nodes × const" is NOT yet
 justified and is explicitly not claimed** (audit): `pMono` copies a whole child
