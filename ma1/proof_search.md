@@ -534,26 +534,55 @@ doubling `size`. The mathematical content of why this does **not** double
    `push ψ`-transported in *both* halves), the doubling is charged once. This is the
    rigorous statement of "the double `explode` collapses in `shapeCost`."
 
-*Remaining in 1c — the per-arm plumbing (mechanical).* What is left is instantiating
-`collapse4` against each concrete `compile` arm: prove the membership
-`∀ s ∈ (compile arm).nodeShapes, s ∈ A ++ X1 ++ … ++ X4` with `A` the (child-free,
-`O(1)`) admin family. The exact `nodeShapes` normal forms are known — e.g.
-`(c.explode hχ).nodeShapes` simp-normalises (via `Contradiction.explode`,
-`PPTerm.nodeShapes`) to `([],χ) :: ([],c.witness→χ) :: (pEF.nodeShapes ++ c.neg.nodeShapes) ++ c.pos.nodeShapes`,
-and `(pOrLcut …).nodeShapes` to its 7 admin singletons interleaved with
-`h1.nodeShapes.map (push φ)` and `h2.nodeShapes.map (push ψ)` — so the subset is a
-`simp only [pOrLcut, pOrElim, Contradiction.explode, nodeShapes, nodeShapes_pMono,
-List.map_cons, List.map_append]` normalisation followed by `List.cons_subset` /
-`List.append_subset` bookkeeping. Then assemble the per-rule `shapeCost` recurrence
-over all `compile` cases (each adds only a bounded local family beyond the deduped
-union of its premise families), giving `shapeCost (compile tr) ≤ K · trSize` — cost
-**linear in the FTrace size**, even though `size` is `2^d`. That refutes falsifier
-(d). The closed polynomial in the *search* then combines this with the step-5
-trace-size / analytic-closure bound. Afterward define the actual memoizing replayer
-against `discharge`/`instantiate`; until then `replayCost` remains a checked target
-metric, not an achieved Core-emission cost. Then proceed to `replayClosure`,
-cut-admissibility (of `FDeriv`, not the vacuous MP-admissibility of `ProvesProp`),
-the focus discipline, `focusedComplete`, and subformula-boundedness.
+*Step 2(a) — the `orL` arm instantiated concretely (landed and checked).* The
+`collapse4` core is now instantiated against the real `compile` output for the
+representative hardest arm — the empty-succedent `orL` node with the double
+`explode`. Landed in `Focused.lean`, all `grind`/`omega`-closed, `sorry`-free,
+`lake build` 18/18:
+
+* `Contradiction.shapeCost c := (dedup (c.pos.nodeShapes ++ c.neg.nodeShapes)).length`
+  — the **joint** distinct-shape count (pos and neg deduped *together*). Joint dedup
+  is essential: it is what makes the shared, identically-`push ψ`-transported second
+  premise `c2` count once across both certificates.
+* `pOrLcut_nodeShapes_subset` / `explode_nodeShapes_subset` — each combinator's shapes
+  land in a fixed child-free admin family (`orLcutAdmin`, 7 shapes; `explodeAdmin`,
+  `2 + |pEF| = 11` shapes) plus `push`-transported copies of the premise families.
+  Both proved by `simp only [… nodeShapes …]; intro a ha; simp only [mem lemmas]; grind`.
+* `orL_empty_shapeCost_le` — the payoff: a **coefficient-one** recurrence. Routing the
+  membership `pos.nodeShapes ++ neg.nodeShapes ⊆ ADMIN ++ (c1.pos++c1.neg).push φ ++
+  (c2.pos++c2.neg).push ψ` (one `grind`), then `dedup_length_le_of_subset`,
+  `dedup_append_length_le`, and `dedup_map_length_of_injective` (injective `push`
+  preserves the count) give
+  `shapeCost(result) ≤ ADMIN.length + shapeCost c1 + shapeCost c2`.
+* `orL_empty_shapeCost_le_const` — numeral form `≤ 36 + shapeCost c1 + shapeCost c2`
+  (`ADMIN.length = 7+11+7+11 = 36`). The additive term is a **fixed constant**
+  independent of the (possibly `2^d`) subtree sizes: the concrete refutation of
+  falsifier (d) *for this arm*. Coefficient one — not two — because the shared `c2`
+  is embedded in both certificates under the **same** injective `push ψ`, so its shape
+  *set* is charged once. (Bounding `c.pos.shapeCost + c.neg.shapeCost` separately would
+  reintroduce the `2×`; the joint measure is what avoids it.)
+
+*Remaining in 1c — the other arms + the global recurrence (mechanical).* The pattern is
+now fully de-risked and reusable: `impL` empty (the other double-`explode` arm),
+`negL`/`andL` empty (`X3=X4=[]` degenerate collapses), and the nonempty-succedent
+arms (single `PPTerm`, use `shapeCost_impIntro_le`/`shapeCost_mp_le`/`shapeCost_pMono`
+directly). Each yields `shapeCost(compile node) ≤ Kᵢ + Σ premise shapeCosts` with a
+per-arm constant `Kᵢ`; taking `K = maxᵢ Kᵢ` and inducting on the trace gives
+`shapeCost(compile tr) ≤ K · trSize`.
+
+*Sharpened exit condition (per Codex audit, 2026-07-12).* `collapse4` + the per-arm
+recurrence establish a bound **linear in the FTrace/trace-DAG size**, i.e. *the compiler
+adds no second exponential on top of its trace*. This is narrower than — and must not be
+conflated with — a polynomial in the original search problem: `trSize` itself can be
+exponential. So falsifier (d) is refuted **relative to the trace**; the residual open
+gate is whether analytic search admits a polynomially bounded **memoized trace DAG**
+(the search-side finite-state bound + an actual memoizing replayer). State 2(a)'s result
+as: *"compiler replay has a linear distinct-shape bound in the search trace/DAG size."*
+Afterward define the actual memoizing replayer against `discharge`/`instantiate`; until
+then `replayCost` remains a checked target metric, not an achieved Core-emission cost.
+Then proceed to `replayClosure`, cut-admissibility (of `FDeriv`, not the vacuous
+MP-admissibility of `ProvesProp`), the focus discipline, `focusedComplete`, and
+subformula-boundedness.
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`

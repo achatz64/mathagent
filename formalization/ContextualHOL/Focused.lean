@@ -2194,5 +2194,142 @@ theorem PPTerm.replayCost_le_shapeCost {env : Env} {Γ : Ctx} {Δ : List Formula
   rw [PPTerm.nodeKeys_eq_renderShapes]
   exact dedup_map_length_le (renderReplayShape Δ) t.nodeShapes
 
+/-! ### Step 2(a): the empty-succedent `orL` anti-doubling bound, concretely
+
+    The collapse core (`collapse4`) says duplicated shape families are charged once.
+    Here we *instantiate* it against the real compiler output for the empty-succedent
+    `orL` arm — the arm whose double `explode` doubles `PPTerm.size` (the `2^d`
+    falsifier (d)).  The payoff is a **coefficient-one** recurrence
+    `shapeCost(result) ≤ 36 + shapeCost c1 + shapeCost c2`: the joint distinct-shape
+    count adds only a fixed constant per node, so `shapeCost` is linear in the search
+    trace even though `size` is exponential in it.  The mechanism is that the shared
+    second premise `c2` is embedded in *both* certificates under the **same** injective
+    `pushReplayShape ψ` transport, so its shapes form one set counted once. -/
+
+/-- The 7 child-free admin shapes contributed by `pOrLcut` itself. -/
+def orLcutAdmin (φ ψ T : Formula) : List ReplayShape :=
+  [([], T), ([], (φ.or ψ).imp T), ([], (ψ.imp T).imp ((φ.or ψ).imp T)),
+   ([], (φ.imp T).imp ((ψ.imp T).imp ((φ.or ψ).imp T))), ([], φ.imp T),
+   ([], ψ.imp T), ([], φ.or ψ)]
+
+/-- Every relative shape of a `pOrLcut` node lands in its fixed admin family or in a
+    `push`-transported copy of one of the two premise families. -/
+theorem pOrLcut_nodeShapes_subset {env : Env} {Γ : Ctx} {A : List Formula} {T φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hT : (liftFormula? env Γ T).isSome = true)
+    (h1 : PPTerm env Γ (φ :: A) T) (h2 : PPTerm env Γ (ψ :: A) T) :
+    (PPTerm.pOrLcut hφ hψ hT h1 h2).nodeShapes ⊆
+      orLcutAdmin φ ψ T ++ h1.nodeShapes.map (pushReplayShape φ)
+        ++ h2.nodeShapes.map (pushReplayShape ψ) := by
+  simp only [PPTerm.pOrLcut, PPTerm.pOrElim, PPTerm.nodeShapes, PPTerm.nodeShapes_pMono,
+    orLcutAdmin]
+  intro a ha
+  simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+  grind
+
+/-- The child-free admin shapes of `Contradiction.explode` at query `χ`. -/
+def explodeAdmin {env : Env} {Γ : Ctx} {A : List Formula}
+    (c : Contradiction env Γ A) {χ : Formula} (hχ : (liftFormula? env Γ χ).isSome = true) :
+    List ReplayShape :=
+  ([], χ) :: ([], c.witness.imp χ) :: (PPTerm.pEF (Δ := A) c.wwt hχ).nodeShapes
+
+/-- Every relative shape of an `explode` node lands in its fixed admin family or in the
+    contradiction's own `pos`/`neg` families (no `push`, same context). -/
+theorem explode_nodeShapes_subset {env : Env} {Γ : Ctx} {A : List Formula}
+    (c : Contradiction env Γ A) {χ : Formula} (hχ : (liftFormula? env Γ χ).isSome = true) :
+    (c.explode hχ).nodeShapes ⊆
+      explodeAdmin c hχ ++ c.neg.nodeShapes ++ c.pos.nodeShapes := by
+  simp only [Contradiction.explode, PPTerm.nodeShapes, explodeAdmin]
+  intro a ha
+  simp only [List.mem_append, List.mem_cons] at ha ⊢
+  grind
+
+/-- The honest joint distinct-shape count of a contradiction: the number of distinct
+    relative replay shapes across *both* certificates deduped together.  Deduping
+    `pos` and `neg` jointly is what lets the shared, identically-transported second
+    premise be counted once (not once per certificate). -/
+def Contradiction.shapeCost {env : Env} {Γ : Ctx} {A : List Formula}
+    (c : Contradiction env Γ A) : Nat :=
+  (dedup (c.pos.nodeShapes ++ c.neg.nodeShapes)).length
+
+/-- **Empty-succedent `orL` anti-doubling bound.**  The compiled contradiction's joint
+    distinct-shape count is bounded by a fixed local admin family plus the joint shape
+    counts of the two premises, **each with coefficient one** — the double `explode` of
+    the second premise `c2` does not double its shape contribution. -/
+theorem orL_empty_shapeCost_le
+    {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (c1 : Contradiction env Γ (φ :: A)) (c2 : Contradiction env Γ (ψ :: A)) :
+    Contradiction.shapeCost
+      (⟨c1.witness, c1.wwt,
+        PPTerm.pOrLcut hφ hψ c1.wwt c1.pos (c2.explode c1.wwt),
+        PPTerm.pOrLcut hφ hψ (wtNot c1.wwt) c1.neg (c2.explode (wtNot c1.wwt))⟩ :
+        Contradiction env Γ (Formula.or φ ψ :: A))
+      ≤ (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+          ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+          ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ)).length
+        + c1.shapeCost + c2.shapeCost := by
+  -- Membership routing: every shape of both certificates lands in admin, C1, or C2.
+  have hsub : (PPTerm.pOrLcut hφ hψ c1.wwt c1.pos (c2.explode c1.wwt)).nodeShapes
+        ++ (PPTerm.pOrLcut hφ hψ (wtNot c1.wwt) c1.neg (c2.explode (wtNot c1.wwt))).nodeShapes
+      ⊆ (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+          ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+          ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ))
+        ++ (c1.pos.nodeShapes ++ c1.neg.nodeShapes).map (pushReplayShape φ)
+        ++ (c2.pos.nodeShapes ++ c2.neg.nodeShapes).map (pushReplayShape ψ) := by
+    simp only [PPTerm.pOrLcut, PPTerm.pOrElim, Contradiction.explode, PPTerm.nodeShapes,
+      PPTerm.nodeShapes_pMono, orLcutAdmin, explodeAdmin, List.map_cons, List.map_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  -- Length collapse: joint dedup + injective push preserves each premise's count.
+  simp only [Contradiction.shapeCost]
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hAB := dedup_append_length_le
+    (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+      ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+      ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ)
+      ++ (c1.pos.nodeShapes ++ c1.neg.nodeShapes).map (pushReplayShape φ))
+    ((c2.pos.nodeShapes ++ c2.neg.nodeShapes).map (pushReplayShape ψ))
+  have hA := dedup_append_length_le
+    (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+      ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+      ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ))
+    ((c1.pos.nodeShapes ++ c1.neg.nodeShapes).map (pushReplayShape φ))
+  have hbadmin := dedup_length_le
+    (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+      ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+      ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ))
+  have hc1 : (dedup ((c1.pos.nodeShapes ++ c1.neg.nodeShapes).map (pushReplayShape φ))).length
+      = (dedup (c1.pos.nodeShapes ++ c1.neg.nodeShapes)).length :=
+    dedup_map_length_of_injective (pushReplayShape φ) (pushReplayShape_injective φ) _
+  have hc2 : (dedup ((c2.pos.nodeShapes ++ c2.neg.nodeShapes).map (pushReplayShape ψ))).length
+      = (dedup (c2.pos.nodeShapes ++ c2.neg.nodeShapes)).length :=
+    dedup_map_length_of_injective (pushReplayShape ψ) (pushReplayShape_injective ψ) _
+  omega
+
+/-- Numeral form: the empty-succedent `orL` arm adds at most the fixed constant `36`
+    distinct shapes on top of its two premises' joint shape counts.  This is the
+    concrete refutation of the "exponential replay cost" falsifier (d) for this arm:
+    the additive term is a constant independent of the (possibly exponential) subtree
+    sizes. -/
+theorem orL_empty_shapeCost_le_const
+    {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (c1 : Contradiction env Γ (φ :: A)) (c2 : Contradiction env Γ (ψ :: A)) :
+    Contradiction.shapeCost
+      (⟨c1.witness, c1.wwt,
+        PPTerm.pOrLcut hφ hψ c1.wwt c1.pos (c2.explode c1.wwt),
+        PPTerm.pOrLcut hφ hψ (wtNot c1.wwt) c1.neg (c2.explode (wtNot c1.wwt))⟩ :
+        Contradiction env Γ (Formula.or φ ψ :: A))
+      ≤ 36 + c1.shapeCost + c2.shapeCost := by
+  have h := orL_empty_shapeCost_le hφ hψ c1 c2
+  have hlen : (orLcutAdmin φ ψ c1.witness ++ (explodeAdmin c2 c1.wwt).map (pushReplayShape ψ)
+      ++ orLcutAdmin φ ψ (Formula.not c1.witness)
+      ++ (explodeAdmin c2 (wtNot c1.wwt)).map (pushReplayShape ψ)).length = 36 := by
+    simp only [orLcutAdmin, explodeAdmin, PPTerm.pEF, PPTerm.pImpK, PPTerm.nodeShapes,
+      List.length_append, List.length_map, List.length_cons, List.length_nil]
+  omega
+
 end Focused
 end ContextualHOL
