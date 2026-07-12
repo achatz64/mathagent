@@ -609,18 +609,21 @@ bound `ReifiedDenote.shapeCost (compile tr) ≤ K · tr.weightedCost` — **not*
 against a plain node count.
 
 *Sharpened exit condition (per Codex audit, 2026-07-12).* `collapse4` + the per-arm
-recurrences establish a bound **linear in the `FTrace` (tree) size** — `FTrace` is
-currently a *tree*, so `trSize` is a tree-node count and the recurrence shows linearity
-in *tree-trace* size only. This is **distinct from** linearity in a *trace-DAG* size:
-claiming the latter requires PS2 to first introduce an actual DAG representation +
-memoization theorem (a separate, not-yet-built artifact). Do not merge "FTrace size" and
-"trace-DAG size" in the prose. Either bound is in turn narrower than — and must not be
-conflated with — a polynomial in the original search problem: `trSize` itself can be
-exponential in the search problem. So the honest reading of 2(a) is: *the compiler adds
-no second exponential on top of its (tree) trace.* Falsifier (d) is refuted **relative to
-the tree trace**; the residual open gate is whether analytic search admits a polynomially
-bounded **memoized trace DAG** (the search-side finite-state bound + a DAG trace
-representation + an actual memoizing replayer). Afterward define the actual memoizing replayer against `discharge`/`instantiate`; until
+recurrences establish a bound **linear in the weighted `FTrace` (tree) cost**
+(`FTrace.weightedCost`) — **not** in a plain tree-node count, which is exactly what the
+`id`/`pRightOr_mem` counterexample disproves (a one-node `id` leaf compiles to a
+width-`|S|` certificate). `FTrace` is currently a *tree*, so `weightedCost` is a weighted
+tree measure and the recurrence shows linearity in *weighted tree-trace* cost only. This
+is **distinct from** linearity in a *trace-DAG* size: claiming the latter requires PS2 to
+first introduce an actual DAG representation + memoization theorem (a separate,
+not-yet-built artifact). Do not merge "weighted FTrace cost" and "trace-DAG size" in the
+prose. Either bound is in turn narrower than — and must not be conflated with — a
+polynomial in the original search problem: `weightedCost tr` itself can be exponential in
+the search problem. So the honest reading of 2(a) is: *the compiler adds no second
+exponential on top of its (weighted) tree trace.* Falsifier (d) is refuted **relative to
+the weighted tree trace**; the residual open gate is whether analytic search admits a
+polynomially bounded **memoized trace DAG** (the search-side finite-state bound + a DAG
+trace representation + an actual memoizing replayer). Afterward define the actual memoizing replayer against `discharge`/`instantiate`; until
 then `replayCost` remains a checked target metric, not an achieved Core-emission cost.
 Then proceed to `replayClosure`, cut-admissibility (of `FDeriv`, not the vacuous
 MP-admissibility of `ProvesProp`), the focus discipline, `focusedComplete`, and
