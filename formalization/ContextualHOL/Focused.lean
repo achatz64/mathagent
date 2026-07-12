@@ -2434,5 +2434,53 @@ theorem impL_empty_shapeCost_le_const
     simp only [impLcutAdmin, List.length_cons, List.length_nil]
   omega
 
+/-! ### Step 2(a): the weighted trace cost the global bound must use
+
+    An ordinary node-counting trace size with a *fixed* constant `K` cannot bound
+    `ReifiedDenote.shapeCost (compile tr)`: an `FTrace.id` is **one** trace node
+    regardless of its succedent length, yet `compile` replays it through
+    `pRightOr_mem`, whose certificate size grows linearly with the succedent tail
+    (`PPTerm.shapeCost_pRightOr_mem_le`).  So a one-node identity trace can compile to
+    an arbitrarily wide certificate.  The correct global statement therefore weighs each
+    `id` leaf by its succedent width:
+
+      `ReifiedDenote.shapeCost (compile tr) ≤ K · tr.weightedCost`.
+
+    This does not weaken the two anti-doubling results — it still says the compiler adds
+    no *second* exponential — but it is what makes the global claim true. -/
+
+/-- Weighted trace cost: internal rule nodes cost one; an `id` leaf costs its succedent
+    width (the only list-traversing replay operation in `compile` is the `pRightOr_mem`
+    at `id`). -/
+def FTrace.weightedCost {env : Env} {Γ : Ctx} :
+    {S : FSequent} -> FTrace env Γ S -> Nat
+  | _, .id (S := S) _ _ _ => S.length
+  | _, .negR _ _ t => 1 + t.weightedCost
+  | _, .negL _ _ t => 1 + t.weightedCost
+  | _, .impR _ _ _ t => 1 + t.weightedCost
+  | _, .impL _ _ _ t u => 1 + t.weightedCost + u.weightedCost
+  | _, .andR _ _ _ t u => 1 + t.weightedCost + u.weightedCost
+  | _, .andL _ _ t => 1 + t.weightedCost
+  | _, .orR _ _ _ t => 1 + t.weightedCost
+  | _, .orL _ _ _ t u => 1 + t.weightedCost + u.weightedCost
+  | _, .iffR _ _ _ t u => 1 + t.weightedCost + u.weightedCost
+  | _, .iffL _ _ t => 1 + t.weightedCost
+
+/-- **The `id`-leaf bound.**  The compiled certificate of a one-node identity trace has
+    distinct-shape count at most `3 ·` its weighted cost — i.e. the succedent-width
+    growth of `pRightOr_mem` is exactly absorbed by charging the succedent width in the
+    weight.  This is the base case a fixed-`K` node count cannot satisfy. -/
+theorem id_shapeCost_le_weighted {env : Env} {Γ : Ctx}
+    {A : List Formula} {head : Formula} {tail : List Formula} {φ : Formula}
+    (hA : φ ∈ A) (hS : φ ∈ head :: tail) (hall : LiftsAllF env Γ (head :: tail)) :
+    ReifiedDenote.shapeCost (compile (FTrace.id hA hS hall))
+      ≤ 3 * (FTrace.id hA hS hall).weightedCost := by
+  show (PPTerm.pRightOr_mem head tail hS (PPTerm.hyp hA) hall).shapeCost
+    ≤ 3 * (head :: tail).length
+  have h := PPTerm.shapeCost_pRightOr_mem_le head tail hS (PPTerm.hyp hA) hall
+  simp only [PPTerm.nodeShapes, List.length_cons, List.length_nil] at h
+  simp only [List.length_cons]
+  omega
+
 end Focused
 end ContextualHOL

@@ -578,17 +578,35 @@ Same recipe, second double-embedding arm, all `grind`/`omega`-closed, `sorry`-fr
   the `ψ`/`φ.imp ψ` overlap listed in both = 8). Coefficient one on both premises.
 * `ReifiedDenote.shapeCost` — **the single distinct-shape measure**, dispatching on the
   succedent (`⟨_,[]⟩ ↦ Contradiction.shapeCost`, `⟨_,_::_⟩ ↦ PPTerm.shapeCost`). This is
-  the one statement the eventual compiler induction `shapeCost (compile tr) ≤ K · trSize`
-  will be phrased against, covering both the refuted (empty) and derived (nonempty)
-  branches uniformly — per the audit's recommendation.
+  the one statement the eventual compiler bound will be phrased against, covering both
+  the refuted (empty) and derived (nonempty) branches uniformly — per the audit.
 
-*Remaining in 1c — the other arms + the global recurrence (mechanical).* The pattern is
-now fully de-risked and reusable for the rest: `negL`/`andL` empty (`X3=X4=[]` degenerate
-collapses), and the nonempty-succedent arms (single `PPTerm`, use
-`shapeCost_impIntro_le`/`shapeCost_mp_le`/`shapeCost_pMono` directly). Each yields
+*Step 2(a), continued — the weight the global bound must use (landed and checked).*
+**A fixed constant `K` against a node-counting trace size is FALSE** (Codex audit of the
+impL commit, 2026-07-12, verified here): an `FTrace.id` is *one* trace node regardless of
+its succedent length, but `compile` replays it through `pRightOr_mem`, whose certificate
+grows linearly with the succedent tail (`PPTerm.shapeCost_pRightOr_mem_le`:
+`shapeCost ≤ t.nodeShapes.length + 2·(tail.length+1)`). So a one-node identity trace
+compiles to an arbitrarily wide certificate — no `K · (node count)` bound can hold.
+Landed the fix:
+
+* `FTrace.weightedCost` — internal rule nodes cost 1; an **`id` leaf costs its succedent
+  width** `S.length` (the only list-traversing replay op in `compile` is `pRightOr_mem`
+  at `id`; every other combinator — `pMono` (shape-preserving), `pByCases`, `pOrElim`,
+  `pAndLcut`, `pEF`, … — adds `O(1)` nodes).
+* `id_shapeCost_le_weighted` — the base case a fixed `K` cannot satisfy, now proved:
+  `ReifiedDenote.shapeCost (compile (id …)) ≤ 3 · (id …).weightedCost`. The `pRightOr_mem`
+  width growth is exactly absorbed by the succedent-width charge (`1 + 2·|S| ≤ 3·|S|`).
+
+*Remaining in 1c — the internal-arm recurrences + the weighted global induction.* The
+pattern is de-risked for the rest: `negL`/`andL` empty (`X3=X4=[]` degenerate collapses),
+and the nonempty-succedent arms (single `PPTerm`, use `shapeCost_impIntro_le`/
+`shapeCost_mp_le`/`shapeCost_pMono` directly). Each **internal** arm yields
 `ReifiedDenote.shapeCost (compile node) ≤ Kᵢ + Σ premise shapeCosts` with a per-arm
-constant `Kᵢ`; taking `K = maxᵢ Kᵢ` and inducting on the trace gives
-`ReifiedDenote.shapeCost (compile tr) ≤ K · trSize`.
+constant `Kᵢ`, and `weightedCost (node) = 1 + Σ premise weightedCosts`. With the `id` base
+case charged by width, induction with `K = max(3, maxᵢ Kᵢ)` gives the **weighted** global
+bound `ReifiedDenote.shapeCost (compile tr) ≤ K · tr.weightedCost` — **not** `K · trSize`
+against a plain node count.
 
 *Sharpened exit condition (per Codex audit, 2026-07-12).* `collapse4` + the per-arm
 recurrences establish a bound **linear in the `FTrace` (tree) size** — `FTrace` is
