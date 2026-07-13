@@ -738,6 +738,30 @@ reduction still holds, but its right-hand side is not to be expected (poly ⟹
 `P = NP`); the honest, provable reading is "`replayCost` is *finite*, bounded by
 `|ReplayClosure(G)|`."
 
+*Finite-state branch — steps 1–2 landed and checked (2026-07-13,
+`ContextualHOL/FiniteState.lean`).* Per the audit, finiteness must be proved for the
+**focused analytic state** (`FSequent`), not the `FDeriv` trace language, in the order:
+(1) state/key + transitions; (2) closure into signed `Sub(G)`; (3) the `≤ 4^{|Sub(G)|}`
+count; (4) memoized BFS + termination. Steps 1–2 are now proved, `sorry`-free:
+
+* **Signed subformula closure** `Formula.searchClosure`: immediate subformulas *plus*, for
+  each `iff φ ψ`, the two implications `imp φ ψ`/`imp ψ φ` that the `iff` rules expose (added
+  as elements, so the recursion stays structural on `φ`,`ψ` — `imp φ ψ` is not a subterm of
+  `iff φ ψ` and has equal size, so neither structural nor size recursion could recurse
+  *through* it). Key lemma `Formula.mem_searchClosure_trans`: the closure is downward closed
+  (`b ∈ a.searchClosure → a.searchClosure ⊇ b.searchClosure`) — the two `iff`-implication
+  subcases are discharged directly, the constructor-child cases by IH.
+* **Transitions** `FStep : FSequent → FSequent → Prop`: the 15 backward analytic rules as
+  premise-generation (principal at the head of its side; reordering to any position is
+  deferred to state normalization). `SearchClosed C` / `FSequent.InClosure C S`.
+* **Closure preservation (step 2)** `FStep.inClosure`: every `FStep` maps an in-closure
+  state to an in-closure state — search never leaves `Sub(G)`. This is the analyticity
+  fact the `4^{|Sub(G)|}` count rests on (a normalized state = a pair of sub-**sets** of a
+  finite `C`). Next slice: the finite count (`finiteStateProp`) then memoized BFS +
+  termination. (`FiniteState.lean` is built via the explicit `lake build
+  ContextualHOL.FiniteState` target, like `Focused.lean` — neither is in the default
+  `lake build` module set.)
+
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
 plumbing) — "all certificates use the 15 primitive `PPTerm` constructors" is
