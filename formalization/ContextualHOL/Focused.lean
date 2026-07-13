@@ -2761,6 +2761,481 @@ theorem PPTerm.shapeCost_pByCases_le {env : Env} {Γ : Ctx} {Δ : List Formula}
   simp only [PPTerm.shapeCost_pMono] at *
   omega
 
+/-! ### Step 2(a), continued: the joint empty-succedent arms
+
+    The compile arms whose *result* succedent is empty produce a `Contradiction`
+    scored by the **joint** `Contradiction.shapeCost = dedup(pos ++ neg)`.  For the
+    arms that embed both the child's `pos` and `neg` (or a single child's `pos`/`neg`
+    together), the bound must be **joint** — `≤ Kᵢ + Contradiction.shapeCost child`,
+    never the sum `sc(pos) + sc(neg)` (up to `2×`, which would reintroduce the
+    `2^depth` blow-up since empty-succedent arms chain).  `orL`/`impL` empty are
+    above; here are the remaining four (`negR`, `negL`, `andL`, `iffL`). -/
+
+/-- **Joint `hself` bound for `pRaa`.**  The single node `⊢ ¬φ` that `pRaa` forms in
+    context `φ :: Δ` embeds *both* premises `hp`, `hn` (via `mp hψ (mp _ (pEF) hn) hp`).
+    Its distinct-shape count is charged against a fixed 11-shape admin family plus the
+    **joint** deduped count of `hp` and `hn` — the anti-doubling heart of the `negR`
+    empty arm. -/
+theorem PPTerm.shapeCost_pRaa_hself_joint {env : Env} {Γ : Ctx} {Δ : List Formula}
+    {φ ψ : Formula} (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hp : PPTerm env Γ (φ :: Δ) ψ) (hn : PPTerm env Γ (φ :: Δ) (Formula.not ψ)) :
+    (PPTerm.mp hψ (PPTerm.mp (wtNot hψ) (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)) hn) hp).shapeCost
+      ≤ 11 + (dedup (hp.nodeShapes ++ hn.nodeShapes)).length := by
+  simp only [PPTerm.shapeCost, PPTerm.nodeShapes]
+  have hsub : (([], Formula.not φ) ::
+        (([], Formula.imp ψ (Formula.not φ)) ::
+          ((PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)).nodeShapes ++ hn.nodeShapes) ++ hp.nodeShapes))
+      ⊆ (([], Formula.not φ) :: ([], Formula.imp ψ (Formula.not φ)) ::
+          (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)).nodeShapes)
+        ++ (hp.nodeShapes ++ hn.nodeShapes) := by
+    intro a ha
+    simp only [List.mem_append, List.mem_cons] at ha ⊢
+    grind
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hA := dedup_append_length_le
+    (([], Formula.not φ) :: ([], Formula.imp ψ (Formula.not φ)) ::
+      (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)).nodeShapes)
+    (hp.nodeShapes ++ hn.nodeShapes)
+  have hadmin := dedup_length_le
+    (([], Formula.not φ) :: ([], Formula.imp ψ (Formula.not φ)) ::
+      (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)).nodeShapes)
+  have hlen : (([], Formula.not φ) :: ([], Formula.imp ψ (Formula.not φ)) ::
+      (PPTerm.pEF (Δ := φ :: Δ) hψ (wtNot hφ)).nodeShapes).length = 11 := by
+    simp only [List.length_cons, PPTerm.nodeShapes_length_eq_size]
+    simp [PPTerm.pEF, PPTerm.pImpK, PPTerm.size]
+  omega
+
+/-- **`negR` empty arm — the joint `pRaa` bound.**  The refuted child `c` on `φ :: A`
+    is turned into a single `⊢ ¬φ` certificate by `pRaa c.pos c.neg`; its distinct-shape
+    count is at most a fixed constant plus the child's **joint** `Contradiction.shapeCost`,
+    **not** `sc(c.pos) + sc(c.neg)`.  This coefficient-one joint bound is what keeps the
+    empty-succedent chain linear (it was the one genuine subtlety of the global induction). -/
+theorem negR_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (c : Contradiction env Γ (φ :: A)) :
+    (PPTerm.pRaa hφ c.wwt c.pos c.neg).shapeCost ≤ 100 + Contradiction.shapeCost c := by
+  simp only [PPTerm.pRaa, Contradiction.shapeCost]
+  refine Nat.le_trans (PPTerm.shapeCost_mp_le _ _ _) ?_
+  have hcm := PPTerm.shapeCost_le_size' (PPTerm.pCM (Δ := A) (wtNot hφ)) 30
+    (by simp [PPTerm.pCM, PPTerm.pEF, PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.pImpId, PPTerm.size])
+  have htrans := PPTerm.shapeCost_pImpTrans_le (wtNot (wtNot hφ)) hφ (wtNot hφ)
+    (PPTerm.pDNE (Δ := A) hφ)
+    (PPTerm.impIntro hφ
+      (PPTerm.mp c.wwt (PPTerm.mp (wtNot c.wwt) (PPTerm.pEF c.wwt (wtNot hφ)) c.neg) c.pos))
+  have hdne := PPTerm.shapeCost_le_size' (PPTerm.pDNE (Δ := A) hφ) 40
+    (by simp [PPTerm.pDNE, PPTerm.pCM, PPTerm.pEF, PPTerm.pImpTrans, PPTerm.pImpK, PPTerm.pImpId,
+      PPTerm.size])
+  have himp := PPTerm.shapeCost_impIntro_le hφ
+    (PPTerm.mp c.wwt (PPTerm.mp (wtNot c.wwt) (PPTerm.pEF c.wwt (wtNot hφ)) c.neg) c.pos)
+  have hself := PPTerm.shapeCost_pRaa_hself_joint hφ c.wwt c.pos c.neg
+  have hb : (pImpTransAdmin (Formula.not (Formula.not φ)) φ (Formula.not φ)).length = 5 := rfl
+  rw [hb] at htrans
+  omega
+
+/-- **`negL` empty arm.**  The refuted-below child `ih : ⊢ φ` becomes the `pos` half of a
+    contradiction whose `neg` half is the bare hypothesis `¬φ`; its joint shape count is
+    at most `1 + ih.shapeCost`. -/
+theorem negL_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (ih : PPTerm env Γ A φ) :
+    Contradiction.shapeCost
+      (⟨φ, hφ, PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.not φ) hx) ih,
+        PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self⟩ :
+        Contradiction env Γ (Formula.not φ :: A))
+      ≤ 1 + ih.shapeCost := by
+  simp only [Contradiction.shapeCost, PPTerm.shapeCost, PPTerm.nodeShapes,
+    PPTerm.nodeShapes_pMono]
+  have h1 := dedup_append_length_le ih.nodeShapes ([([], Formula.not φ)] : List ReplayShape)
+  have h2 : (dedup ([([], Formula.not φ)] : List ReplayShape)).length ≤ 1 := dedup_length_le _
+  omega
+
+/-- **`andL` empty arm.**  Both certificates `pAndLcut c.pos` / `pAndLcut c.neg` share the
+    same double-`push [φ,ψ]` embedding, so the joint deduped child count `c.shapeCost` is
+    charged once; the arm adds at most the fixed constant `18`. -/
+theorem andL_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (c : Contradiction env Γ (φ :: ψ :: A)) :
+    Contradiction.shapeCost
+      (⟨c.witness, c.wwt, PPTerm.pAndLcut hφ hψ c.pos, PPTerm.pAndLcut hφ hψ c.neg⟩ :
+        Contradiction env Γ (Formula.and φ ψ :: A))
+      ≤ 18 + Contradiction.shapeCost c := by
+  simp only [Contradiction.shapeCost]
+  have hsub : (PPTerm.pAndLcut hφ hψ c.pos).nodeShapes ++ (PPTerm.pAndLcut hφ hψ c.neg).nodeShapes
+      ⊆ (pAndLcutAdmin φ ψ c.witness ++ pAndLcutAdmin φ ψ (Formula.not c.witness))
+        ++ ((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape φ)).map
+            (pushReplayShape ψ) := by
+    simp only [PPTerm.pAndLcut, PPTerm.nodeShapes, PPTerm.nodeShapes_pMono, pAndLcutAdmin,
+      List.map_cons, List.map_append, pushReplayShape, List.nil_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hA := dedup_append_length_le
+    (pAndLcutAdmin φ ψ c.witness ++ pAndLcutAdmin φ ψ (Formula.not c.witness))
+    (((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape φ)).map (pushReplayShape ψ))
+  have hadmin := dedup_length_le
+    (pAndLcutAdmin φ ψ c.witness ++ pAndLcutAdmin φ ψ (Formula.not c.witness))
+  have hchild : (dedup (((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape φ)).map
+        (pushReplayShape ψ))).length = (dedup (c.pos.nodeShapes ++ c.neg.nodeShapes)).length := by
+    rw [dedup_map_length_of_injective (pushReplayShape ψ) (pushReplayShape_injective ψ),
+        dedup_map_length_of_injective (pushReplayShape φ) (pushReplayShape_injective φ)]
+  have hlen : (pAndLcutAdmin φ ψ c.witness ++ pAndLcutAdmin φ ψ (Formula.not c.witness)).length
+      = 18 := by
+    simp only [pAndLcutAdmin, List.length_append, List.length_cons, List.length_nil]
+  omega
+
+/-- **`iffL` empty arm.**  As `andL`, but the shared embedding is the double-`push
+    [φ→ψ, ψ→φ]`; the arm adds at most the fixed constant `18`. -/
+theorem iffL_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (c : Contradiction env Γ (Formula.imp φ ψ :: Formula.imp ψ φ :: A)) :
+    Contradiction.shapeCost
+      (⟨c.witness, c.wwt, PPTerm.pIffLcut hφ hψ c.pos, PPTerm.pIffLcut hφ hψ c.neg⟩ :
+        Contradiction env Γ (Formula.iff φ ψ :: A))
+      ≤ 18 + Contradiction.shapeCost c := by
+  simp only [Contradiction.shapeCost]
+  have hsub : (PPTerm.pIffLcut hφ hψ c.pos).nodeShapes ++ (PPTerm.pIffLcut hφ hψ c.neg).nodeShapes
+      ⊆ (pIffLcutAdmin φ ψ c.witness ++ pIffLcutAdmin φ ψ (Formula.not c.witness))
+        ++ ((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape (φ.imp ψ))).map
+            (pushReplayShape (ψ.imp φ)) := by
+    simp only [PPTerm.pIffLcut, PPTerm.nodeShapes, PPTerm.nodeShapes_pMono, pIffLcutAdmin,
+      List.map_cons, List.map_append, pushReplayShape, List.nil_append]
+    intro a ha
+    simp only [List.mem_append, List.mem_cons, List.mem_map] at ha ⊢
+    grind
+  have hstep := dedup_length_le_of_subset _ _ hsub
+  have hA := dedup_append_length_le
+    (pIffLcutAdmin φ ψ c.witness ++ pIffLcutAdmin φ ψ (Formula.not c.witness))
+    (((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape (φ.imp ψ))).map
+      (pushReplayShape (ψ.imp φ)))
+  have hadmin := dedup_length_le
+    (pIffLcutAdmin φ ψ c.witness ++ pIffLcutAdmin φ ψ (Formula.not c.witness))
+  have hchild : (dedup (((c.pos.nodeShapes ++ c.neg.nodeShapes).map (pushReplayShape (φ.imp ψ))).map
+        (pushReplayShape (ψ.imp φ)))).length
+      = (dedup (c.pos.nodeShapes ++ c.neg.nodeShapes)).length := by
+    rw [dedup_map_length_of_injective (pushReplayShape (ψ.imp φ))
+          (pushReplayShape_injective (ψ.imp φ)),
+        dedup_map_length_of_injective (pushReplayShape (φ.imp ψ))
+          (pushReplayShape_injective (φ.imp ψ))]
+  have hlen : (pIffLcutAdmin φ ψ c.witness ++ pIffLcutAdmin φ ψ (Formula.not c.witness)).length
+      = 18 := by
+    simp only [pIffLcutAdmin, List.length_append, List.length_cons, List.length_nil]
+  omega
+
+/-! ### Step 2(a), continued: the nonempty-succedent arms and the two-premise `mp` arms
+
+    The remaining `compile` arms produce a single `PPTerm` (nonempty succedent) built by
+    composing the per-combinator skeletons around one or two recursive certificates.  Each
+    satisfies a coefficient-one recurrence `sc(arm) ≤ Kᵢ + Σ ihⱼ.shapeCost`, proved by
+    chaining the combinator bounds and charging the closed skeleton pieces by
+    `shapeCost ≤ size`.  These are the last inputs the global weighted-cost induction needs. -/
+
+/-- **`andR` empty arm** — `∧`-introduction of two derived premises. -/
+theorem andR_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih1p : PPTerm env Γ A φ) (ih2p : PPTerm env Γ A ψ) :
+    (PPTerm.mp hψ (PPTerm.mp hφ (PPTerm.axAndI hφ hψ) ih1p) ih2p).shapeCost
+      ≤ 3 + ih1p.shapeCost + ih2p.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_mp_le _ _ _) ?_
+  have hinner := PPTerm.shapeCost_mp_le hφ (PPTerm.axAndI hφ hψ) ih1p
+  have hax := PPTerm.shapeCost_le_size' (PPTerm.axAndI (Δ := A) hφ hψ) 1 (by simp [PPTerm.size])
+  omega
+
+/-- **`iffR` empty arm** — `↔`-introduction of the two directions. -/
+theorem iffR_empty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih1p : PPTerm env Γ A (Formula.imp φ ψ)) (ih2p : PPTerm env Γ A (Formula.imp ψ φ)) :
+    (PPTerm.mp (wtImp hψ hφ) (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) ih1p) ih2p).shapeCost
+      ≤ 3 + ih1p.shapeCost + ih2p.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_mp_le _ _ _) ?_
+  have hinner := PPTerm.shapeCost_mp_le (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) ih1p
+  have hax := PPTerm.shapeCost_le_size' (PPTerm.axIffI (Δ := A) hφ hψ) 1 (by simp [PPTerm.size])
+  omega
+
+/-- **`negR` nonempty arm** — a case split `pByCases` whose two branches inject the derived
+    premise `ih` (right) and the hypothesis `¬φ` (left) into the disjunction. -/
+theorem negR_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true) (ih : PPTerm env Γ (φ :: A) χR) :
+    (PPTerm.pByCases hφ (wtOr (wtNot hφ) hR)
+      (PPTerm.pOrInr (wtNot hφ) hR ih)
+      (PPTerm.pOrInl (wtNot hφ) hR
+        (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self))).shapeCost
+      ≤ 205 + ih.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pByCases_le _ _ _ _) ?_
+  have h1 := PPTerm.shapeCost_pOrInr_le (wtNot hφ) hR ih
+  have h2 := PPTerm.shapeCost_pOrInl_le (wtNot hφ) hR
+    (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self)
+  have h3 := PPTerm.shapeCost_le_size'
+    (PPTerm.hyp (env := env) (Γ := Γ) (Δ := Formula.not φ :: A) (φ := Formula.not φ)
+      List.mem_cons_self) 1 (by simp [PPTerm.size])
+  simp only [pOrInrAdmin, pOrInlAdmin, List.length_cons, List.length_nil] at h1 h2
+  omega
+
+/-- **`negL` nonempty arm** — a `pOrElim` on `φ ∨ χR`: the `φ` branch is the ex-falso
+    `¬φ → φ → χR` applied to the hypothesis, the `χR` branch is the identity. -/
+theorem negL_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true) (ih : PPTerm env Γ A (Formula.or φ χR)) :
+    (PPTerm.pOrElim hφ hR hR
+      (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.not φ) hx) ih)
+      (PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hR)
+        (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self))
+      (PPTerm.pImpId hR)).shapeCost ≤ 30 + ih.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pOrElim_le _ _ _ _ _ _) ?_
+  have hpm := PPTerm.shapeCost_pMono (fun _x hx => List.mem_cons_of_mem (Formula.not φ) hx) ih
+  have hl := PPTerm.shapeCost_le_size'
+    (PPTerm.mp (wtNot hφ) (PPTerm.pEF (Δ := Formula.not φ :: A) hφ hR)
+      (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self)) 12
+    (by simp [PPTerm.pEF, PPTerm.pImpK, PPTerm.size])
+  have hr := PPTerm.shapeCost_le_size' (PPTerm.pImpId (Δ := Formula.not φ :: A) hR) 10
+    (by simp [PPTerm.pImpId, PPTerm.size])
+  simp only [pOrElimAdmin, List.length_cons, List.length_nil] at *
+  omega
+
+/-- **`impL` nonempty arm** — a `pOrElim` on `φ ∨ χR`: the `φ` branch applies the derived
+    `⊢ ψ → χR` (weakened `ih2`) after discharging `φ → ψ` from the hypotheses, the `χR`
+    branch is the identity. -/
+theorem impL_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true)
+    (ih1 : PPTerm env Γ A (Formula.or φ χR)) (ih2 : PPTerm env Γ (ψ :: A) χR) :
+    (PPTerm.pOrElim hφ hR hR
+      (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1)
+      (PPTerm.impIntro hφ
+        (PPTerm.mp hψ
+          (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ
+              (List.mem_cons_of_mem (Formula.imp φ ψ) hx)) (PPTerm.impIntro hψ ih2))
+          (PPTerm.mp hφ
+            (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := Formula.imp φ ψ)
+              (List.mem_cons_of_mem _ List.mem_cons_self))
+            (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := φ) List.mem_cons_self))))
+      (PPTerm.pImpId hR)).shapeCost ≤ 30 + ih1.shapeCost + ih2.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pOrElim_le _ _ _ _ _ _) ?_
+  have hih1w := PPTerm.shapeCost_pMono
+    (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih1
+  have hhr := PPTerm.shapeCost_le_size' (PPTerm.pImpId (Δ := Formula.imp φ ψ :: A) hR) 10
+    (by simp [PPTerm.pImpId, PPTerm.size])
+  have hhl := PPTerm.shapeCost_impIntro_le hφ
+    (PPTerm.mp hψ
+      (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ
+          (List.mem_cons_of_mem (Formula.imp φ ψ) hx)) (PPTerm.impIntro hψ ih2))
+      (PPTerm.mp hφ
+        (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := Formula.imp φ ψ)
+          (List.mem_cons_of_mem _ List.mem_cons_self))
+        (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := φ) List.mem_cons_self)))
+  have hinner := PPTerm.shapeCost_mp_le hψ
+    (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ
+        (List.mem_cons_of_mem (Formula.imp φ ψ) hx)) (PPTerm.impIntro hψ ih2))
+    (PPTerm.mp hφ
+      (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := Formula.imp φ ψ)
+        (List.mem_cons_of_mem _ List.mem_cons_self))
+      (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := φ) List.mem_cons_self))
+  have hh2 := PPTerm.shapeCost_pMono
+    (fun _x hx => List.mem_cons_of_mem φ (List.mem_cons_of_mem (Formula.imp φ ψ) hx))
+    (PPTerm.impIntro hψ ih2)
+  have hii2 := PPTerm.shapeCost_impIntro_le hψ ih2
+  have hhψp := PPTerm.shapeCost_le_size'
+    (PPTerm.mp hφ
+      (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := Formula.imp φ ψ)
+        (List.mem_cons_of_mem _ List.mem_cons_self))
+      (PPTerm.hyp (Δ := φ :: Formula.imp φ ψ :: A) (φ := φ) List.mem_cons_self)) 3
+    (by simp [PPTerm.size])
+  simp only [pOrElimAdmin, List.length_cons, List.length_nil] at *
+  omega
+
+/-- **`impR` nonempty arm** — a `pByCases`: the `φ` branch elininates `ψ ∨ χR`, packing
+    `φ → ψ` (from `pImpK` on the hypothesis) into the goal disjunction; the `¬φ` branch
+    uses ex-falso. -/
+theorem impR_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true)
+    (ihp : PPTerm env Γ (φ :: A) (Formula.or ψ χR)) :
+    (PPTerm.pByCases hφ (wtOr (wtImp hφ hψ) hR)
+      (PPTerm.pOrElim hψ hR (wtOr (wtImp hφ hψ) hR) ihp
+        (PPTerm.impIntro hψ
+          (PPTerm.pOrInl (wtImp hφ hψ) hR
+            (PPTerm.pImpK hφ hψ
+              (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))))
+        (PPTerm.axOrR (Δ := φ :: A) (wtImp hφ hψ) hR))
+      (PPTerm.pOrInl (wtImp hφ hψ) hR
+        (PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hψ)
+          (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ)
+            List.mem_cons_self)))).shapeCost ≤ 250 + ihp.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pByCases_le _ _ _ _) ?_
+  have hh1 := PPTerm.shapeCost_pOrElim_le hψ hR (wtOr (wtImp hφ hψ) hR) ihp
+    (PPTerm.impIntro hψ
+      (PPTerm.pOrInl (wtImp hφ hψ) hR
+        (PPTerm.pImpK hφ hψ (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))))
+    (PPTerm.axOrR (Δ := φ :: A) (wtImp hφ hψ) hR)
+  have hhl := PPTerm.shapeCost_impIntro_le hψ
+    (PPTerm.pOrInl (wtImp hφ hψ) hR
+      (PPTerm.pImpK hφ hψ (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self)))
+  have hpi := PPTerm.shapeCost_pOrInl_le (wtImp hφ hψ) hR
+    (PPTerm.pImpK hφ hψ (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))
+  have hpk := PPTerm.shapeCost_le_size'
+    (PPTerm.pImpK (Δ := ψ :: φ :: A) hφ hψ
+      (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self)) 3
+    (by simp [PPTerm.pImpK, PPTerm.size])
+  have hor := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := φ :: A) (wtImp hφ hψ) hR) 1
+    (by simp [PPTerm.size])
+  have hh2 := PPTerm.shapeCost_pOrInl_le (wtImp hφ hψ) hR
+    (PPTerm.mp (wtNot hφ) (PPTerm.pEF (Δ := Formula.not φ :: A) hφ hψ)
+      (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self))
+  have hmp := PPTerm.shapeCost_le_size'
+    (PPTerm.mp (wtNot hφ) (PPTerm.pEF (Δ := Formula.not φ :: A) hφ hψ)
+      (PPTerm.hyp (Δ := Formula.not φ :: A) (φ := Formula.not φ) List.mem_cons_self)) 12
+    (by simp [PPTerm.pEF, PPTerm.pImpK, PPTerm.size])
+  simp only [pOrElimAdmin, pOrInlAdmin, List.length_cons, List.length_nil] at *
+  omega
+
+/-- **`andR` nonempty arm** — nested `pOrElim`s over `φ ∨ χR` and `ψ ∨ χR`; the innermost
+    `φ,ψ` branch packs `φ ∧ ψ` (from `axAndI` on the hypotheses) into the goal disjunction. -/
+theorem andR_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true)
+    (ih1p : PPTerm env Γ A (Formula.or φ χR)) (ih2p : PPTerm env Γ A (Formula.or ψ χR)) :
+    (PPTerm.pOrElim hφ hR (wtOr (wtAnd hφ hψ) hR) ih1p
+      (PPTerm.impIntro hφ
+        (PPTerm.pOrElim hψ hR (wtOr (wtAnd hφ hψ) hR)
+          (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ hx) ih2p)
+          (PPTerm.impIntro hψ
+            (PPTerm.pOrInl (wtAnd hφ hψ) hR
+              (PPTerm.mp hψ
+                (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+                  (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+                    (List.mem_cons_of_mem ψ List.mem_cons_self)))
+                (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))))
+          (PPTerm.axOrR (Δ := φ :: A) (wtAnd hφ hψ) hR)))
+      (PPTerm.axOrR (Δ := A) (wtAnd hφ hψ) hR)).shapeCost
+      ≤ 30 + ih1p.shapeCost + ih2p.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pOrElim_le _ _ _ _ _ _) ?_
+  have hlouter := PPTerm.shapeCost_impIntro_le hφ
+    (PPTerm.pOrElim hψ hR (wtOr (wtAnd hφ hψ) hR)
+      (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ hx) ih2p)
+      (PPTerm.impIntro hψ
+        (PPTerm.pOrInl (wtAnd hφ hψ) hR
+          (PPTerm.mp hψ
+            (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+              (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+                (List.mem_cons_of_mem ψ List.mem_cons_self)))
+            (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))))
+      (PPTerm.axOrR (Δ := φ :: A) (wtAnd hφ hψ) hR))
+  have hinner := PPTerm.shapeCost_pOrElim_le hψ hR (wtOr (wtAnd hφ hψ) hR)
+    (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem φ hx) ih2p)
+    (PPTerm.impIntro hψ
+      (PPTerm.pOrInl (wtAnd hφ hψ) hR
+        (PPTerm.mp hψ
+          (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+            (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+              (List.mem_cons_of_mem ψ List.mem_cons_self)))
+          (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))))
+    (PPTerm.axOrR (Δ := φ :: A) (wtAnd hφ hψ) hR)
+  have hih2w := PPTerm.shapeCost_pMono (fun _x hx => List.mem_cons_of_mem φ hx) ih2p
+  have hlin := PPTerm.shapeCost_impIntro_le hψ
+    (PPTerm.pOrInl (wtAnd hφ hψ) hR
+      (PPTerm.mp hψ
+        (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+          (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+            (List.mem_cons_of_mem ψ List.mem_cons_self)))
+        (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self)))
+  have hpoi := PPTerm.shapeCost_pOrInl_le (wtAnd hφ hψ) hR
+    (PPTerm.mp hψ
+      (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+        (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+          (List.mem_cons_of_mem ψ List.mem_cons_self)))
+      (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self))
+  have hhand := PPTerm.shapeCost_le_size'
+    (PPTerm.mp hψ
+      (PPTerm.mp hφ (PPTerm.axAndI hφ hψ)
+        (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := φ)
+          (List.mem_cons_of_mem ψ List.mem_cons_self)))
+      (PPTerm.hyp (Δ := ψ :: φ :: A) (φ := ψ) List.mem_cons_self)) 5
+    (by simp [PPTerm.size])
+  have hrouter := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := A) (wtAnd hφ hψ) hR) 1
+    (by simp [PPTerm.size])
+  have hrin := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := φ :: A) (wtAnd hφ hψ) hR) 1
+    (by simp [PPTerm.size])
+  simp only [pOrElimAdmin, pOrInlAdmin, List.length_cons, List.length_nil] at *
+  omega
+
+/-- **`iffR` nonempty arm** — as `andR` nonempty, but the innermost branch packs `φ ↔ ψ`
+    (from `axIffI` on the two implication hypotheses) into the goal disjunction. -/
+theorem iffR_nonempty_shapeCost_le {env : Env} {Γ : Ctx} {A : List Formula} {φ ψ χR : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hR : (liftFormula? env Γ χR).isSome = true)
+    (ih1p : PPTerm env Γ A (Formula.or (Formula.imp φ ψ) χR))
+    (ih2p : PPTerm env Γ A (Formula.or (Formula.imp ψ φ) χR)) :
+    (PPTerm.pOrElim (wtImp hφ hψ) hR (wtOr (wtIff hφ hψ) hR) ih1p
+      (PPTerm.impIntro (wtImp hφ hψ)
+        (PPTerm.pOrElim (wtImp hψ hφ) hR (wtOr (wtIff hφ hψ) hR)
+          (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih2p)
+          (PPTerm.impIntro (wtImp hψ hφ)
+            (PPTerm.pOrInl (wtIff hφ hψ) hR
+              (PPTerm.mp (wtImp hψ hφ)
+                (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+                  (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+                    (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+                (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+                  (φ := Formula.imp ψ φ) List.mem_cons_self))))
+          (PPTerm.axOrR (Δ := Formula.imp φ ψ :: A) (wtIff hφ hψ) hR)))
+      (PPTerm.axOrR (Δ := A) (wtIff hφ hψ) hR)).shapeCost
+      ≤ 30 + ih1p.shapeCost + ih2p.shapeCost := by
+  refine Nat.le_trans (PPTerm.shapeCost_pOrElim_le _ _ _ _ _ _) ?_
+  have hlouter := PPTerm.shapeCost_impIntro_le (wtImp hφ hψ)
+    (PPTerm.pOrElim (wtImp hψ hφ) hR (wtOr (wtIff hφ hψ) hR)
+      (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih2p)
+      (PPTerm.impIntro (wtImp hψ hφ)
+        (PPTerm.pOrInl (wtIff hφ hψ) hR
+          (PPTerm.mp (wtImp hψ hφ)
+            (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+              (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+                (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+            (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+              (φ := Formula.imp ψ φ) List.mem_cons_self))))
+      (PPTerm.axOrR (Δ := Formula.imp φ ψ :: A) (wtIff hφ hψ) hR))
+  have hinner := PPTerm.shapeCost_pOrElim_le (wtImp hψ hφ) hR (wtOr (wtIff hφ hψ) hR)
+    (PPTerm.pMono (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih2p)
+    (PPTerm.impIntro (wtImp hψ hφ)
+      (PPTerm.pOrInl (wtIff hφ hψ) hR
+        (PPTerm.mp (wtImp hψ hφ)
+          (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+            (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+              (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+          (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+            (φ := Formula.imp ψ φ) List.mem_cons_self))))
+    (PPTerm.axOrR (Δ := Formula.imp φ ψ :: A) (wtIff hφ hψ) hR)
+  have hih2w := PPTerm.shapeCost_pMono
+    (fun _x hx => List.mem_cons_of_mem (Formula.imp φ ψ) hx) ih2p
+  have hlin := PPTerm.shapeCost_impIntro_le (wtImp hψ hφ)
+    (PPTerm.pOrInl (wtIff hφ hψ) hR
+      (PPTerm.mp (wtImp hψ hφ)
+        (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+          (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+            (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+        (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+          (φ := Formula.imp ψ φ) List.mem_cons_self)))
+  have hpoi := PPTerm.shapeCost_pOrInl_le (wtIff hφ hψ) hR
+    (PPTerm.mp (wtImp hψ hφ)
+      (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+        (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+          (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+      (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+        (φ := Formula.imp ψ φ) List.mem_cons_self))
+  have hhiffp := PPTerm.shapeCost_le_size'
+    (PPTerm.mp (wtImp hψ hφ)
+      (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ)
+        (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+          (φ := Formula.imp φ ψ) (List.mem_cons_of_mem _ List.mem_cons_self)))
+      (PPTerm.hyp (Δ := Formula.imp ψ φ :: Formula.imp φ ψ :: A)
+        (φ := Formula.imp ψ φ) List.mem_cons_self)) 5
+    (by simp [PPTerm.size])
+  have hrouter := PPTerm.shapeCost_le_size' (PPTerm.axOrR (Δ := A) (wtIff hφ hψ) hR) 1
+    (by simp [PPTerm.size])
+  have hrin := PPTerm.shapeCost_le_size'
+    (PPTerm.axOrR (Δ := Formula.imp φ ψ :: A) (wtIff hφ hψ) hR) 1 (by simp [PPTerm.size])
+  simp only [pOrElimAdmin, pOrInlAdmin, List.length_cons, List.length_nil] at *
+  omega
+
 /-! ### Step 2(a): the weighted trace cost the global bound must use
 
     An ordinary node-counting trace size with a *fixed* constant `K` cannot bound
@@ -2808,6 +3283,134 @@ theorem id_shapeCost_le_weighted {env : Env} {Γ : Ctx}
   simp only [PPTerm.nodeShapes, List.length_cons, List.length_nil] at h
   simp only [List.length_cons]
   omega
+
+/-! ### Step 2(a): the global weighted-cost bound — the compiler adds no *further*
+    exponential over the weighted trace
+
+    The theorem below closes step 2(a): the distinct-shape count of the compiled
+    certificate is **linear in the weighted trace cost**, `≤ 250 · weightedCost`.  Since
+    `weightedCost` charges each `id` leaf its succedent width and every internal rule node
+    a constant `1`, this says the compiler's replay-shape footprint is at most a constant
+    multiple of the (weighted) search trace — no second exponential is introduced.  The
+    proof is one structural induction dispatching each `compile` arm to its per-arm
+    coefficient-one bound (above), with the refuted (empty-succedent) arms scored by the
+    **joint** `Contradiction.shapeCost` so the empty-succedent chain stays linear (the
+    `negR`/`orL`/`impL`/`andL`/`iffL` anti-doubling results). -/
+
+/-- **The global weighted-cost bound.**  Every compiled certificate has distinct-shape
+    count at most `250 ·` the weighted trace cost. -/
+theorem shapeCost_compile_le_weighted {env : Env} {Γ : Ctx} :
+    ∀ {S : FSequent} (tr : FTrace env Γ S),
+      ReifiedDenote.shapeCost (compile tr) ≤ 250 * tr.weightedCost := by
+  intro S tr
+  induction tr with
+  | @id A S φ hA hS hall =>
+      cases S with
+      | nil => exact absurd hS (List.not_mem_nil)
+      | cons head tail =>
+          exact Nat.le_trans (id_shapeCost_le_weighted hA hS hall) (by omega)
+  | @negR A Θ φ hφ hΘ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (negR_empty_shapeCost_le hφ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (negR_nonempty_shapeCost_le hφ _ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+  | @negL A Θ φ hφ hΘ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (negL_empty_shapeCost_le hφ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (negL_nonempty_shapeCost_le hφ _ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+  | @impR A Θ φ ψ hφ hψ hΘ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (PPTerm.shapeCost_impIntro_le hφ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (impR_nonempty_shapeCost_le hφ hψ _ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+  | @impL A Θ φ ψ hφ hψ hΘ t u iht ihu =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (impL_empty_shapeCost_le_const hφ hψ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left ihu _) iht) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (impL_nonempty_shapeCost_le hφ hψ _ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+  | @andR A Θ φ ψ hφ hψ hΘ t u iht ihu =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (andR_empty_shapeCost_le hφ hψ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (andR_nonempty_shapeCost_le hφ hψ _ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+  | @andL A Θ φ ψ hφ hψ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (andL_empty_shapeCost_le hφ hψ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          refine Nat.le_trans (PPTerm.shapeCost_pAndLcut_le hφ hψ (compile t)) ?_
+          simp only [pAndLcutAdmin, List.length_cons, List.length_nil]
+          exact Nat.le_trans (Nat.add_le_add_left ih _) (by omega)
+  | @orR A Θ φ ψ hφ hψ hΘ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans ih (by omega)
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (PPTerm.shapeCost_pOrAssocL_le hφ hψ _ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+  | @orL A Θ φ ψ hφ hψ hΘ t u iht ihu =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (orL_empty_shapeCost_le_const hφ hψ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          refine Nat.le_trans (PPTerm.shapeCost_pOrLcut_le hφ hψ _ (compile t) (compile u)) ?_
+          simp only [orLcutAdmin, List.length_cons, List.length_nil]
+          exact Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega)
+  | @iffR A Θ φ ψ hφ hψ hΘ t u iht ihu =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (iffR_empty_shapeCost_le hφ hψ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (iffR_nonempty_shapeCost_le hφ hψ _ (compile t) (compile u))
+            (Nat.le_trans (Nat.add_le_add (Nat.add_le_add_left iht _) ihu) (by omega))
+  | @iffL A Θ φ ψ hφ hψ t ih =>
+      cases Θ with
+      | nil =>
+          simp only [compile, FTrace.weightedCost]
+          exact Nat.le_trans (iffL_empty_shapeCost_le hφ hψ (compile t))
+            (Nat.le_trans (Nat.add_le_add_left ih _) (by omega))
+      | cons χ0 Θ' =>
+          simp only [compile, FTrace.weightedCost]
+          refine Nat.le_trans (PPTerm.shapeCost_pIffLcut_le hφ hψ (compile t)) ?_
+          simp only [pIffLcutAdmin, List.length_cons, List.length_nil]
+          exact Nat.le_trans (Nat.add_le_add_left ih _) (by omega)
 
 end Focused
 end ContextualHOL

@@ -613,43 +613,48 @@ over the combinator's own sub-combinators, charging each closed piece (`pCM`, `p
 `pMono`/`pRightOr_mem` bounds, **all** combinators in `compile` are covered. Every lemma is
 `sorry`-free and the module builds.
 
-*Remaining in 1c — the arm recurrences + the weighted global induction, and the one real
-subtlety (`negR`-empty joint bound).* Most arms are now short compositions: a nonempty-
-succedent arm, or an empty-succedent arm whose children are **distinct** certificates
-(`andR`/`iffR`-empty), is a fixed combinator expression over the recursive `compile`
-children and yields `ReifiedDenote.shapeCost (compile node) ≤ Kᵢ + Σ premise shapeCosts`
-directly from the sum-form combinator bounds + `omega`. **But the sum-form is not enough for
-every empty-succedent arm.** The induction's measure on a refuted (empty-succedent) child is
-the **joint** `Contradiction.shapeCost c = dedup(c.pos ++ c.neg)` (this joint dedup is what
-defeats the `orL`/`impL`-empty *double-embedding* falsifier). Any arm that consumes **both**
-`c.pos` and `c.neg` of a child contradiction therefore needs a **joint** bound `≤ Kᵢ +
-Contradiction.shapeCost c`, not the sum `sc(c.pos) + sc(c.neg)` — which can be `2×` the joint
-and, since these empty-succedent arms chain, would reintroduce a `2^depth` blow-up (falsifier
-(d)) if used with coefficient 2. Concretely:
+*Step 2(a) COMPLETE — the arm recurrences + the weighted global induction (landed and
+checked, 2026-07-13).* The global bound `shapeCost_compile_le_weighted :
+ReifiedDenote.shapeCost (compile tr) ≤ 250 · tr.weightedCost` is **proved** (one structural
+induction over `FTrace`, `sorry`-free, module builds). Every `compile` arm is dispatched to
+its per-arm coefficient-one bound + `omega`. What made it not purely mechanical: the
+induction's measure on a refuted (empty-succedent) child is the **joint**
+`Contradiction.shapeCost c = dedup(c.pos ++ c.neg)` (this joint dedup is what defeats the
+`orL`/`impL`-empty *double-embedding* falsifier). An arm consuming **both** `c.pos` and
+`c.neg` of a child contradiction therefore needs a **joint** bound `≤ Kᵢ +
+Contradiction.shapeCost c`, never the sum `sc(c.pos)+sc(c.neg)` — which can be `2×` the joint
+and, since empty-succedent arms chain, would reintroduce a `2^depth` blow-up (falsifier (d)).
+The joint empty-succedent lemmas now proved:
 
-* `andL`/`iffL`-empty (result is itself a contradiction `⟨pAndLcut c.pos, pAndLcut c.neg⟩`):
-  a bespoke **joint** lemma, routing `c.pos`/`c.neg` jointly through the cut's *small* admin
-  (`pAndLcutAdmin`/`pIffLcutAdmin`, both already defined) under the injective double `push` —
-  the exact `orL`-empty pattern. Straightforward.
-* `negR`-empty (`pRaa hφ c.wwt c.pos c.neg`, result a single `PPTerm`): the one real
-  subtlety. The **sum**-form `shapeCost_pRaa_le` (`≤ 100 + sc(c.pos) + sc(c.neg)`) gives
-  coefficient 2 against the joint IH and must **not** be used here. A **joint** `pRaa` bound
-  `sc(pRaa c.pos c.neg) ≤ C + dedup(c.pos ++ c.neg)` is needed. It follows because `pRaa`
-  embeds `c.pos` and `c.neg` **together** inside the single `impIntro φ` forming `⊢ φ → ¬φ`
-  (via `hself = mp hψ (mp _ (pEF) hn) hp`): route `hself.nodeShapes ⊆ closed_small ++
-  hp.nodeShapes ++ hn.nodeShapes` (where `closed_small` = two `mp`-targets + `pEF`'s 9 fixed
-  shapes — enumerable), then the enclosing `pCM`/`pDNE`/`pImpTrans` wrapper is charged by the
-  ordinary **sum** composition (its two branches are genuinely distinct, so no doubling). So
-  the joint-ness is confined to one small subset lemma about `hself`; everything above it is
-  sum-composition.
-* `negL`-empty (`⟨φ, pMono ih, hyp⟩`): only one PPTerm child (`ih`), `neg = hyp` is a leaf —
-  coefficient one already, no joint needed.
+* `orL`/`impL`-empty (pre-existing): `orL_empty_shapeCost_le_const` (`≤ 36 + c1 + c2`),
+  `impL_empty_shapeCost_le_const` (`≤ 8 + cu + ih1`).
+* `andL`/`iffL`-empty (`⟨pAndLcut c.pos, pAndLcut c.neg⟩` etc.): `andL_empty_shapeCost_le` /
+  `iffL_empty_shapeCost_le` (`≤ 18 + Contradiction.shapeCost c`), routing `c.pos`/`c.neg`
+  jointly through the cut's *small* admin (`pAndLcutAdmin`/`pIffLcutAdmin`) under the
+  injective double `push` — the exact `orL`-empty pattern.
+* `negR`-empty (`pRaa hφ c.wwt c.pos c.neg`, result a single `PPTerm`) — the one real
+  subtlety, resolved: `negR_empty_shapeCost_le` (`≤ 100 + Contradiction.shapeCost c`). The
+  **sum**-form `shapeCost_pRaa_le` (coefficient 2) is **not** used. The joint-ness is
+  confined to one small subset lemma `PPTerm.shapeCost_pRaa_hself_joint`: `pRaa` embeds
+  `c.pos` and `c.neg` **together** inside the single `impIntro φ` forming `⊢ φ → ¬φ` (via
+  `hself = mp hψ (mp _ (pEF) hn) hp`), whose `nodeShapes ⊆ closed_small ++ (hp ++ hn)`
+  (`closed_small` = two `mp`-targets + `pEF`'s 9 fixed shapes, length 11); the enclosing
+  `pCM`/`pDNE`/`pImpTrans` wrapper is then charged by ordinary **sum** composition.
+* `negL`-empty (`⟨φ, pMono ih, hyp⟩`): one PPTerm child, `neg = hyp` a leaf —
+  `negL_empty_shapeCost_le` (`≤ 1 + ih.shapeCost`), coefficient one already.
 
-With those joint lemmas in place, `weightedCost (node) = 1 + Σ premise weightedCosts` and
-the `id` base case charged by width give the **weighted** global bound
-`ReifiedDenote.shapeCost (compile tr) ≤ K · tr.weightedCost` (`K = max(3, maxᵢ Kᵢ)`) — **not**
-`K · trSize` against a plain node count — by induction dispatching `compile`'s per-rule
-`match Θ` and `ReifiedDenote.shapeCost`'s empty/nonempty-succedent split.
+The nonempty-succedent + distinct-children (`andR`/`iffR`-empty) arms are fixed combinator
+expressions charged by the sum-form combinator bounds: `negR`/`negL`/`impR`/`impL`/`andR`/
+`iffR` nonempty (`pByCases`/`pOrElim` compositions, constants 30–250), `andL`/`orL`/`iffL`/
+`orR` nonempty via the single `pAndLcut`/`pOrLcut`/`pIffLcut`/`pOrAssocL` bounds, `orR`-empty
+the identity, `andR`/`iffR`-empty the `mp∘mp` intro. `weightedCost (node) = 1 + Σ premise
+weightedCosts` and the `id` base case charged by succedent width close the induction (each
+arm's `Kᵢ ≤ 250`; the `id` leaf `≤ 3·width`). One Lean plumbing note worth keeping: the child
+IH is `ReifiedDenote.shapeCost (compile t) ≤ …` while each arm lemma's RHS is
+`PPTerm`/`Contradiction.shapeCost (compile t)` — **defeq but not syntactic** (the succedent
+index `rightOr φ (χ0::Θ')` vs `or φ χR`), so `omega` cannot bridge them directly. Feed the IH
+through `Nat.add_le_add_left ih _` / `Nat.add_le_add …` (defeq handled at the proof-term
+level) and leave `omega` only the pure arithmetic `Kᵢ + 250·Σw ≤ 250·(1 + Σw)`.
 
 *Sharpened exit condition (per Codex audit, 2026-07-12).* `collapse4` + the per-arm
 recurrences establish a bound **linear in the weighted `FTrace` (tree) cost**
