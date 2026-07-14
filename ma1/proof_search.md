@@ -826,7 +826,8 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     (`KProvable` is a property of the canonical key — two weakenings, one per inclusion). Both
     are full 10-case inductions mirroring `KStep.respects_setEq`.
   * **Completeness bridge = PROVED reduction to cut** (2026-07-14, `FiniteState.lean`,
-    sorry-free) — `FDeriv.toKProvable (hcut : KCut) : FDeriv env Γ S → KProvable S`, a full
+    sorry-free; cut itself now discharged — see the `kCut` bullet below, so the bridge is
+    unconditional via `FDeriv.toKProvable'`) — `FDeriv.toKProvable (hcut : KCut) : FDeriv env Γ S → KProvable S`, a full
     11-case induction (`FSequent.Lifts` **not** needed — the set-key rule fires on membership
     alone). Each rule fires its `KStep` twin on the conclusion; the premise is the `FDeriv`
     premise with `sremove principal` applied to the principal's side (identical when the
@@ -841,12 +842,24 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     `KCut` (the def), `dropAnte`/`dropSucc` (cut instances via `weaken`), the component-≠-compound
     occurs-checks (`ne_not`/`ne_and_l`/… via `sizeOf`; `ne_impL_iff`/`ne_impR_iff` via
     `noConfusion`), and `sremove_cons_self`/`sremove_cons_of_ne`.
-  * *Remaining #1 — `KCut` (the sole open completeness obligation, "first gate").* Cut-admissibility
-    for `KProvable`: the standard (cut-formula complexity × derivation height) argument. Does
-    **not** close under single-connective induction (a rule's principal can itself be a cut
-    component), so it is isolated as its own theorem, not inlined. Once `KCut` is proved,
-    `FDeriv → KProvable` is unconditional.
-  * *Remaining #2 — canonical-key evaluator.* `KStep` is a relation on list-valued `FSequent`s
+  * **`KCut` PROVED (`kCut`) — completeness bridge now UNCONDITIONAL** (2026-07-14,
+    `FiniteState.lean`, sorry-free) — proved *not* by cut-permutation but by **propositional
+    adequacy**. The set-key calculus decomposes only the five connectives (`atom`/`papp`/`all`/
+    `ex` opaque), so its adequate semantics is two-valued propositional: a valuation `v : Formula
+    → Bool` extended homomorphically by `eval`; validity `Valid S := ∀ v, (∀f∈A, eval v f) →
+    ∃f∈Θ, eval v f`. Chain: `KProvable.psound : KProvable S → Valid S` (10-rule induction) +
+    `KProvable.pcomplete : Valid S → KProvable S` + trivial semantic cut ⟹ `kCut : KCut`.
+    `pcomplete` is well-founded recursion on the connective-complexity measure `cx`/`seqCx`
+    (`cx (iff φ ψ) = cx φ + cx ψ + cx φ + cx ψ + 3` so `iffL`/`iffR` still decrease), which
+    strictly drops under every rule (`KStep.seqCx_lt`, via `listCx_sremove_add`); each rule is
+    invertible (`KStep.valid_premises`) so `Valid` transfers to the smaller premises; the base
+    case (no compound, `exists_compound_or_all_base`) forces an identity axiom via the
+    countermodel `v x := memb x A`. `FDeriv.toKProvable'` = `FDeriv.toKProvable kCut` is the
+    unconditional bridge. `#print axioms kCut` / `FDeriv.toKProvable'` = `[propext, Quot.sound]`
+    only — no `Classical.choice`, no `sorryAx`. (The earlier "standard complexity × height
+    cut-permutation" plan was abandoned in favor of this shorter semantic route; the calculus
+    being purely propositional made adequacy the right tool.)
+  * *Remaining (sole gate) — canonical-key evaluator.* `KStep` is a relation on list-valued `FSequent`s
     well-defined *modulo* `SetEq`, not yet literally a graph over canonical `normKey`s — the
     executable finite hypergraph still needs a relation/evaluator at the `normKey` level. Then
     memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by the finite bound) is the

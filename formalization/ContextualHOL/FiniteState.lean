@@ -1511,32 +1511,573 @@ theorem KProvable.sound {env : Env} {Γ : Ctx} :
           exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
             (soundIffL hφ hψ (hden _ (by simp)))
 
+/-! ### `KCut` is a *theorem*: cut-admissibility via propositional completeness
+
+    The set-key calculus decomposes only the five propositional connectives; atoms, `papp`,
+    `all`, `ex` are opaque.  So its adequate semantics is two-valued propositional: a valuation
+    `v : Formula → Bool` on the opaque formulas, extended homomorphically by `eval`.  `KProvable`
+    is *sound* (`psound`) and *complete* (`pcomplete`) for this semantics, and cut is a triviality
+    on the semantic side — giving `KCut` outright, with no height-indexed cut-permutation
+    argument.  Completeness is by well-founded recursion on a connective-complexity measure `cx`
+    that strictly decreases under every (invertible) rule; the base case (no compound present)
+    forces an identity axiom via the countermodel `v f := decide (f ∈ A)`. -/
+
+/-- Homomorphic Boolean evaluation of a formula under a valuation on the *opaque* atoms
+    (`atom`/`papp`/`all`/`ex`).  `iff` is decomposed exactly as the two implications, matching the
+    `iffL`/`iffR` rules. -/
+def eval (v : Formula → Bool) : Formula → Bool
+  | Formula.and φ ψ => eval v φ && eval v ψ
+  | Formula.or φ ψ => eval v φ || eval v ψ
+  | Formula.imp φ ψ => (!eval v φ) || eval v ψ
+  | Formula.iff φ ψ => ((!eval v φ) || eval v ψ) && ((!eval v ψ) || eval v φ)
+  | Formula.not φ => !eval v φ
+  | f => v f
+
+@[simp] theorem eval_and (v) (φ ψ : Formula) :
+    eval v (Formula.and φ ψ) = (eval v φ && eval v ψ) := rfl
+@[simp] theorem eval_or (v) (φ ψ : Formula) :
+    eval v (Formula.or φ ψ) = (eval v φ || eval v ψ) := rfl
+@[simp] theorem eval_imp (v) (φ ψ : Formula) :
+    eval v (Formula.imp φ ψ) = ((!eval v φ) || eval v ψ) := rfl
+@[simp] theorem eval_not (v) (φ : Formula) :
+    eval v (Formula.not φ) = !eval v φ := rfl
+
+/-- `iff` evaluates as the conjunction of its two implications. -/
+theorem eval_iff (v) (φ ψ : Formula) :
+    eval v (Formula.iff φ ψ) = (eval v (Formula.imp φ ψ) && eval v (Formula.imp ψ φ)) := rfl
+
+/-- Semantic validity of a key: under every valuation making all antecedents true, some
+    succedent is true. -/
+def Valid (S : FSequent) : Prop :=
+  ∀ v : Formula → Bool,
+    (∀ f ∈ S.ante, eval v f = true) → ∃ f ∈ S.succ, eval v f = true
+
+/-- Connective complexity: strictly greater than the total complexity of a rule's added
+    components.  `iff` counts as its two implications plus one, so `iffL`/`iffR` strictly
+    decrease. -/
+def cx : Formula → Nat
+  | Formula.and φ ψ => cx φ + cx ψ + 1
+  | Formula.or φ ψ => cx φ + cx ψ + 1
+  | Formula.imp φ ψ => cx φ + cx ψ + 1
+  | Formula.iff φ ψ => cx φ + cx ψ + cx φ + cx ψ + 3
+  | Formula.not φ => cx φ + 1
+  | _ => 0
+
+@[simp] theorem cx_and (φ ψ : Formula) : cx (Formula.and φ ψ) = cx φ + cx ψ + 1 := rfl
+@[simp] theorem cx_or (φ ψ : Formula) : cx (Formula.or φ ψ) = cx φ + cx ψ + 1 := rfl
+@[simp] theorem cx_imp (φ ψ : Formula) : cx (Formula.imp φ ψ) = cx φ + cx ψ + 1 := rfl
+@[simp] theorem cx_iff (φ ψ : Formula) :
+    cx (Formula.iff φ ψ) = cx φ + cx ψ + cx φ + cx ψ + 3 := rfl
+@[simp] theorem cx_not (φ : Formula) : cx (Formula.not φ) = cx φ + 1 := rfl
+
+/-- Total complexity of a list (with multiplicity). -/
+def listCx : List Formula → Nat
+  | [] => 0
+  | a :: l => cx a + listCx l
+
+@[simp] theorem listCx_nil : listCx [] = 0 := rfl
+@[simp] theorem listCx_cons (a : Formula) (l : List Formula) :
+    listCx (a :: l) = cx a + listCx l := rfl
+
+/-- Total complexity of a key. -/
+def seqCx (S : FSequent) : Nat := listCx S.ante + listCx S.succ
+
+/-- Everything surviving `sremove` was already there, hence true whenever all of `l` is. -/
+private theorem eval_sremove_of_all {v : Formula → Bool} {p : Formula} {l : List Formula}
+    (h : ∀ f ∈ l, eval v f = true) : ∀ f ∈ sremove p l, eval v f = true :=
+  fun f hf => h f (mem_sremove.1 hf).1
+
+/-- **Propositional soundness.**  Every `KProvable` key is `Valid`: each analytic rule is sound
+    under the homomorphic `eval`. -/
+theorem KProvable.psound {S : FSequent} (h : KProvable S) : Valid S := by
+  induction h with
+  | @ax A Θ f hA hΘ => intro v hante; exact ⟨f, hΘ, hante _ hA⟩
+  | @rule S ps hstep hpr ih =>
+      cases hstep with
+      | @andL A Θ φ ψ hmem =>
+          intro v hante
+          have hp : eval v (Formula.and φ ψ) = true := hante _ hmem
+          rw [eval_and, Bool.and_eq_true] at hp
+          exact ih ⟨φ :: ψ :: sremove (Formula.and φ ψ) A, Θ⟩ (by simp) v
+            (fun f hf => by
+              rcases List.mem_cons.1 hf with rfl | hf
+              · exact hp.1
+              rcases List.mem_cons.1 hf with rfl | hf
+              · exact hp.2
+              · exact hante _ (mem_sremove.1 hf).1)
+      | @andR A Θ φ ψ hmem =>
+          intro v hante
+          obtain ⟨f, hf, hev⟩ :=
+            ih ⟨A, φ :: sremove (Formula.and φ ψ) Θ⟩ (by simp) v hante
+          rcases List.mem_cons.1 hf with hfe | hf
+          · rw [hfe] at hev
+            obtain ⟨g, hg, hgev⟩ :=
+              ih ⟨A, ψ :: sremove (Formula.and φ ψ) Θ⟩ (by simp) v hante
+            rcases List.mem_cons.1 hg with hge | hg
+            · rw [hge] at hgev
+              exact ⟨Formula.and φ ψ, hmem, by rw [eval_and, hev, hgev, Bool.and_self]⟩
+            · exact ⟨g, (mem_sremove.1 hg).1, hgev⟩
+          · exact ⟨f, (mem_sremove.1 hf).1, hev⟩
+      | @orR A Θ φ ψ hmem =>
+          intro v hante
+          obtain ⟨f, hf, hev⟩ :=
+            ih ⟨A, φ :: ψ :: sremove (Formula.or φ ψ) Θ⟩ (by simp) v hante
+          rcases List.mem_cons.1 hf with hfe | hf
+          · rw [hfe] at hev
+            exact ⟨Formula.or φ ψ, hmem, by rw [eval_or, hev, Bool.true_or]⟩
+          rcases List.mem_cons.1 hf with hfe | hf
+          · rw [hfe] at hev
+            exact ⟨Formula.or φ ψ, hmem, by rw [eval_or, hev, Bool.or_true]⟩
+          · exact ⟨f, (mem_sremove.1 hf).1, hev⟩
+      | @orL A Θ φ ψ hmem =>
+          intro v hante
+          have hor : eval v (Formula.or φ ψ) = true := hante _ hmem
+          rw [eval_or] at hor
+          have hsrem := eval_sremove_of_all (v := v) (p := Formula.or φ ψ) hante
+          cases hφ : eval v φ with
+          | true =>
+              exact ih ⟨φ :: sremove (Formula.or φ ψ) A, Θ⟩ (by simp) v
+                (fun g hg => by
+                  rcases List.mem_cons.1 hg with rfl | hg
+                  · exact hφ
+                  · exact hsrem _ hg)
+          | false =>
+              rw [hφ, Bool.false_or] at hor
+              exact ih ⟨ψ :: sremove (Formula.or φ ψ) A, Θ⟩ (by simp) v
+                (fun g hg => by
+                  rcases List.mem_cons.1 hg with rfl | hg
+                  · exact hor
+                  · exact hsrem _ hg)
+      | @impR A Θ φ ψ hmem =>
+          intro v hante
+          cases hφ : eval v φ with
+          | false => exact ⟨Formula.imp φ ψ, hmem, by rw [eval_imp, hφ, Bool.not_false, Bool.true_or]⟩
+          | true =>
+              obtain ⟨f, hf, hev⟩ :=
+                ih ⟨φ :: A, ψ :: sremove (Formula.imp φ ψ) Θ⟩ (by simp) v
+                  (fun g hg => by
+                    rcases List.mem_cons.1 hg with rfl | hg
+                    · exact hφ
+                    · exact hante _ hg)
+              rcases List.mem_cons.1 hf with hfe | hf
+              · rw [hfe] at hev
+                exact ⟨Formula.imp φ ψ, hmem, by rw [eval_imp, hev]; exact Bool.or_true _⟩
+              · exact ⟨f, (mem_sremove.1 hf).1, hev⟩
+      | @impL A Θ φ ψ hmem =>
+          intro v hante
+          have hsrem := eval_sremove_of_all (v := v) (p := Formula.imp φ ψ) hante
+          obtain ⟨f, hf, hev⟩ :=
+            ih ⟨sremove (Formula.imp φ ψ) A, φ :: Θ⟩ (by simp) v hsrem
+          rcases List.mem_cons.1 hf with hfe | hf
+          · rw [hfe] at hev
+            have himp : eval v (Formula.imp φ ψ) = true := hante _ hmem
+            rw [eval_imp, hev] at himp
+            simp only [Bool.not_true, Bool.false_or] at himp
+            exact ih ⟨ψ :: sremove (Formula.imp φ ψ) A, Θ⟩ (by simp) v
+              (fun x hx => by
+                rcases List.mem_cons.1 hx with rfl | hx
+                · exact himp
+                · exact hsrem _ hx)
+          · exact ⟨f, hf, hev⟩
+      | @negR A Θ φ hmem =>
+          intro v hante
+          cases hφ : eval v φ with
+          | false => exact ⟨Formula.not φ, hmem, by rw [eval_not, hφ, Bool.not_false]⟩
+          | true =>
+              obtain ⟨f, hf, hev⟩ :=
+                ih ⟨φ :: A, sremove (Formula.not φ) Θ⟩ (by simp) v
+                  (fun g hg => by
+                    rcases List.mem_cons.1 hg with rfl | hg
+                    · exact hφ
+                    · exact hante _ hg)
+              exact ⟨f, (mem_sremove.1 hf).1, hev⟩
+      | @negL A Θ φ hmem =>
+          intro v hante
+          have hnot : eval v (Formula.not φ) = true := hante _ hmem
+          rw [eval_not] at hnot
+          have hsrem := eval_sremove_of_all (v := v) (p := Formula.not φ) hante
+          obtain ⟨f, hf, hev⟩ :=
+            ih ⟨sremove (Formula.not φ) A, φ :: Θ⟩ (by simp) v hsrem
+          rcases List.mem_cons.1 hf with hfe | hf
+          · rw [hfe] at hev; rw [hev] at hnot; exact absurd hnot (by decide)
+          · exact ⟨f, hf, hev⟩
+      | @iffR A Θ φ ψ hmem =>
+          intro v hante
+          obtain ⟨f, hf, hev⟩ :=
+            ih ⟨A, Formula.imp φ ψ :: sremove (Formula.iff φ ψ) Θ⟩ (by simp) v hante
+          rcases List.mem_cons.1 hf with rfl | hf
+          · obtain ⟨g, hg, hgev⟩ :=
+              ih ⟨A, Formula.imp ψ φ :: sremove (Formula.iff φ ψ) Θ⟩ (by simp) v hante
+            rcases List.mem_cons.1 hg with rfl | hg
+            · exact ⟨Formula.iff φ ψ, hmem, by rw [eval_iff, hev, hgev, Bool.and_self]⟩
+            · exact ⟨g, (mem_sremove.1 hg).1, hgev⟩
+          · exact ⟨f, (mem_sremove.1 hf).1, hev⟩
+      | @iffL A Θ φ ψ hmem =>
+          intro v hante
+          have hiff : eval v (Formula.iff φ ψ) = true := hante _ hmem
+          rw [eval_iff, Bool.and_eq_true] at hiff
+          exact ih ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: sremove (Formula.iff φ ψ) A, Θ⟩
+            (by simp) v
+            (fun g hg => by
+              rcases List.mem_cons.1 hg with rfl | hg
+              · exact hiff.1
+              rcases List.mem_cons.1 hg with rfl | hg
+              · exact hiff.2
+              · exact hante _ (mem_sremove.1 hg).1)
+
+/-- `sremove` never increases total complexity. -/
+private theorem listCx_sremove_le (p : Formula) :
+    ∀ (l : List Formula), listCx (sremove p l) ≤ listCx l := by
+  intro l
+  induction l with
+  | nil => simp [sremove]
+  | cons a l ih =>
+      by_cases hap : a = p
+      · subst hap; rw [sremove_cons_self, listCx_cons]; omega
+      · rw [sremove_cons_of_ne hap, listCx_cons, listCx_cons]; omega
+
+/-- Removing a present formula drops at least its own complexity. -/
+private theorem listCx_sremove_add {p : Formula} :
+    ∀ {l : List Formula}, p ∈ l → listCx (sremove p l) + cx p ≤ listCx l := by
+  intro l
+  induction l with
+  | nil => intro h; exact absurd h (by simp)
+  | cons a l ih =>
+      intro h
+      by_cases hap : a = p
+      · subst hap
+        rw [sremove_cons_self, listCx_cons]
+        have := listCx_sremove_le a l; omega
+      · rw [sremove_cons_of_ne hap, listCx_cons, listCx_cons]
+        rcases List.mem_cons.1 h with he | hpl
+        · exact absurd he.symm hap
+        · have := ih hpl; omega
+
+/-- **Every rule strictly decreases total complexity.**  The termination measure for the
+    completeness search: the added components always weigh strictly less than the (fully removed)
+    principal. -/
+private theorem KStep.seqCx_lt {S : FSequent} {ps : List FSequent}
+    (hstep : KStep S ps) : ∀ P ∈ ps, seqCx P < seqCx S := by
+  cases hstep with
+  | @andL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.and φ ψ) hmem
+      simp only [seqCx, listCx_cons, cx_and] at h ⊢; omega
+  | @andR A Θ φ ψ hmem =>
+      have h := listCx_sremove_add (p := Formula.and φ ψ) hmem
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl <;>
+        (simp only [seqCx, listCx_cons, cx_and] at h ⊢; omega)
+  | @orR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.or φ ψ) hmem
+      simp only [seqCx, listCx_cons, cx_or] at h ⊢; omega
+  | @orL A Θ φ ψ hmem =>
+      have h := listCx_sremove_add (p := Formula.or φ ψ) hmem
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl <;>
+        (simp only [seqCx, listCx_cons, cx_or] at h ⊢; omega)
+  | @impR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.imp φ ψ) hmem
+      simp only [seqCx, listCx_cons, cx_imp] at h ⊢; omega
+  | @impL A Θ φ ψ hmem =>
+      have h := listCx_sremove_add (p := Formula.imp φ ψ) hmem
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl <;>
+        (simp only [seqCx, listCx_cons, cx_imp] at h ⊢; omega)
+  | @negR A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.not φ) hmem
+      simp only [seqCx, listCx_cons, cx_not] at h ⊢; omega
+  | @negL A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.not φ) hmem
+      simp only [seqCx, listCx_cons, cx_not] at h ⊢; omega
+  | @iffR A Θ φ ψ hmem =>
+      have h := listCx_sremove_add (p := Formula.iff φ ψ) hmem
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl <;>
+        (simp only [seqCx, listCx_cons, cx_iff, cx_imp] at h ⊢; omega)
+  | @iffL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have h := listCx_sremove_add (p := Formula.iff φ ψ) hmem
+      simp only [seqCx, listCx_cons, cx_iff, cx_imp] at h ⊢; omega
+
+/-- **Propositional invertibility.**  Each analytic rule is invertible under `eval`: validity of
+    the conclusion transfers to every premise.  This is what lets completeness push `Valid` down
+    to the (smaller) premises of a fired rule. -/
+theorem KStep.valid_premises {S : FSequent} {ps : List FSequent}
+    (hstep : KStep S ps) (hS : Valid S) : ∀ P ∈ ps, Valid P := by
+  cases hstep with
+  | @andL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hpre
+      have hφ : eval v φ = true := hpre _ (List.Mem.head _)
+      have hψ : eval v ψ = true := hpre _ (List.Mem.tail _ (List.Mem.head _))
+      apply hS v; intro f hf
+      by_cases hfe : f = Formula.and φ ψ
+      · rw [hfe, eval_and, hφ, hψ, Bool.and_self]
+      · exact hpre _ (List.Mem.tail _ (List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩)))
+  | @andR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · intro v hA
+        obtain ⟨f, hf, hev⟩ := hS v hA
+        by_cases hfe : f = Formula.and φ ψ
+        · subst hfe; rw [eval_and, Bool.and_eq_true] at hev
+          exact ⟨φ, List.Mem.head _, hev.1⟩
+        · exact ⟨f, List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩), hev⟩
+      · intro v hA
+        obtain ⟨f, hf, hev⟩ := hS v hA
+        by_cases hfe : f = Formula.and φ ψ
+        · subst hfe; rw [eval_and, Bool.and_eq_true] at hev
+          exact ⟨ψ, List.Mem.head _, hev.2⟩
+        · exact ⟨f, List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩), hev⟩
+  | @orR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hA
+      obtain ⟨f, hf, hev⟩ := hS v hA
+      by_cases hfe : f = Formula.or φ ψ
+      · subst hfe; rw [eval_or, Bool.or_eq_true] at hev
+        rcases hev with h1 | h2
+        · exact ⟨φ, List.Mem.head _, h1⟩
+        · exact ⟨ψ, List.Mem.tail _ (List.Mem.head _), h2⟩
+      · exact ⟨f, List.Mem.tail _ (List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩)), hev⟩
+  | @orL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · intro v hpre
+        have hφ : eval v φ = true := hpre _ (List.Mem.head _)
+        apply hS v; intro f hf
+        by_cases hfe : f = Formula.or φ ψ
+        · rw [hfe, eval_or, hφ, Bool.true_or]
+        · exact hpre _ (List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩))
+      · intro v hpre
+        have hψ : eval v ψ = true := hpre _ (List.Mem.head _)
+        apply hS v; intro f hf
+        by_cases hfe : f = Formula.or φ ψ
+        · rw [hfe, eval_or, hψ, Bool.or_true]
+        · exact hpre _ (List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩))
+  | @impR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hpre
+      have hφ : eval v φ = true := hpre _ (List.Mem.head _)
+      have hA : ∀ f ∈ A, eval v f = true := fun f hf => hpre _ (List.Mem.tail _ hf)
+      obtain ⟨f, hf, hev⟩ := hS v hA
+      by_cases hfe : f = Formula.imp φ ψ
+      · subst hfe; rw [eval_imp, hφ] at hev
+        simp only [Bool.not_true, Bool.false_or] at hev
+        exact ⟨ψ, List.Mem.head _, hev⟩
+      · exact ⟨f, List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩), hev⟩
+  | @impL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · intro v hpre
+        cases himp : eval v (Formula.imp φ ψ) with
+        | false =>
+            rw [eval_imp] at himp
+            have hφ : eval v φ = true := by
+              cases h : eval v φ with
+              | true => rfl
+              | false => rw [h, Bool.not_false, Bool.true_or] at himp; exact absurd himp (by decide)
+            exact ⟨φ, List.Mem.head _, hφ⟩
+        | true =>
+            have hA : ∀ f ∈ A, eval v f = true := by
+              intro f hf
+              by_cases hfe : f = Formula.imp φ ψ
+              · rw [hfe]; exact himp
+              · exact hpre _ (mem_sremove.2 ⟨hf, hfe⟩)
+            obtain ⟨f, hf, hev⟩ := hS v hA
+            exact ⟨f, List.Mem.tail _ hf, hev⟩
+      · intro v hpre
+        have hψ : eval v ψ = true := hpre _ (List.Mem.head _)
+        have hsrem : ∀ f ∈ sremove (Formula.imp φ ψ) A, eval v f = true :=
+          fun f hf => hpre _ (List.Mem.tail _ hf)
+        have hA : ∀ f ∈ A, eval v f = true := by
+          intro f hf
+          by_cases hfe : f = Formula.imp φ ψ
+          · rw [hfe, eval_imp, hψ]; exact Bool.or_true _
+          · exact hsrem _ (mem_sremove.2 ⟨hf, hfe⟩)
+        exact hS v hA
+  | @negR A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hpre
+      have hφ : eval v φ = true := hpre _ (List.Mem.head _)
+      have hA : ∀ f ∈ A, eval v f = true := fun f hf => hpre _ (List.Mem.tail _ hf)
+      obtain ⟨f, hf, hev⟩ := hS v hA
+      refine ⟨f, mem_sremove.2 ⟨hf, ?_⟩, hev⟩
+      intro hfe; rw [hfe, eval_not, hφ] at hev; exact absurd hev (by decide)
+  | @negL A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hpre
+      cases hφ : eval v φ with
+      | true => exact ⟨φ, List.Mem.head _, hφ⟩
+      | false =>
+          have hnot : eval v (Formula.not φ) = true := by rw [eval_not, hφ, Bool.not_false]
+          have hA : ∀ f ∈ A, eval v f = true := by
+            intro f hf
+            by_cases hfe : f = Formula.not φ
+            · rw [hfe]; exact hnot
+            · exact hpre _ (mem_sremove.2 ⟨hf, hfe⟩)
+          obtain ⟨f, hf, hev⟩ := hS v hA
+          exact ⟨f, List.Mem.tail _ hf, hev⟩
+  | @iffR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · intro v hA
+        obtain ⟨f, hf, hev⟩ := hS v hA
+        by_cases hfe : f = Formula.iff φ ψ
+        · subst hfe; rw [eval_iff, Bool.and_eq_true] at hev
+          exact ⟨Formula.imp φ ψ, List.Mem.head _, hev.1⟩
+        · exact ⟨f, List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩), hev⟩
+      · intro v hA
+        obtain ⟨f, hf, hev⟩ := hS v hA
+        by_cases hfe : f = Formula.iff φ ψ
+        · subst hfe; rw [eval_iff, Bool.and_eq_true] at hev
+          exact ⟨Formula.imp ψ φ, List.Mem.head _, hev.2⟩
+        · exact ⟨f, List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩), hev⟩
+  | @iffL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      intro v hpre
+      have h1 : eval v (Formula.imp φ ψ) = true := hpre _ (List.Mem.head _)
+      have h2 : eval v (Formula.imp ψ φ) = true := hpre _ (List.Mem.tail _ (List.Mem.head _))
+      apply hS v; intro f hf
+      by_cases hfe : f = Formula.iff φ ψ
+      · rw [hfe, eval_iff, h1, h2, Bool.and_self]
+      · exact hpre _ (List.Mem.tail _ (List.Mem.tail _ (mem_sremove.2 ⟨hf, hfe⟩)))
+
+/-- Boolean test for the five decomposable connectives (everything else is opaque). -/
+def isCompound : Formula → Bool
+  | Formula.and _ _ => true
+  | Formula.or _ _ => true
+  | Formula.imp _ _ => true
+  | Formula.iff _ _ => true
+  | Formula.not _ => true
+  | _ => false
+
+/-- On an opaque formula, `eval` is just the valuation. -/
+private theorem eval_base {v : Formula → Bool} {f : Formula} (h : isCompound f = false) :
+    eval v f = v f := by
+  cases f <;> first | rfl | simp [isCompound] at h
+
+/-- A list either contains a decomposable formula or is entirely opaque. -/
+private theorem exists_compound_or_all_base (l : List Formula) :
+    (∃ f ∈ l, isCompound f = true) ∨ (∀ f ∈ l, isCompound f = false) := by
+  induction l with
+  | nil => right; intro f hf; exact absurd hf (by simp)
+  | cons a l ih =>
+      cases ha : isCompound a with
+      | true => left; exact ⟨a, List.Mem.head _, ha⟩
+      | false =>
+          rcases ih with ⟨f, hf, hcf⟩ | hall
+          · left; exact ⟨f, List.Mem.tail _ hf, hcf⟩
+          · right; intro f hf
+            rcases List.mem_cons.1 hf with rfl | hf
+            · exact ha
+            · exact hall f hf
+
+/-- Some left rule fires on a decomposable antecedent formula. -/
+private theorem compound_ante_step {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ A) : ∃ ps, KStep ⟨A, Θ⟩ ps := by
+  cases f with
+  | and φ ψ => exact ⟨_, KStep.andL hf⟩
+  | or φ ψ => exact ⟨_, KStep.orL hf⟩
+  | imp φ ψ => exact ⟨_, KStep.impL hf⟩
+  | iff φ ψ => exact ⟨_, KStep.iffL hf⟩
+  | not φ => exact ⟨_, KStep.negL hf⟩
+  | atom _ _ _ => simp [isCompound] at hc
+  | papp _ _ => simp [isCompound] at hc
+  | all _ _ _ => simp [isCompound] at hc
+  | ex _ _ _ => simp [isCompound] at hc
+
+/-- Some right rule fires on a decomposable succedent formula. -/
+private theorem compound_succ_step {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ Θ) : ∃ ps, KStep ⟨A, Θ⟩ ps := by
+  cases f with
+  | and φ ψ => exact ⟨_, KStep.andR hf⟩
+  | or φ ψ => exact ⟨_, KStep.orR hf⟩
+  | imp φ ψ => exact ⟨_, KStep.impR hf⟩
+  | iff φ ψ => exact ⟨_, KStep.iffR hf⟩
+  | not φ => exact ⟨_, KStep.negR hf⟩
+  | atom _ _ _ => simp [isCompound] at hc
+  | papp _ _ => simp [isCompound] at hc
+  | all _ _ _ => simp [isCompound] at hc
+  | ex _ _ _ => simp [isCompound] at hc
+
+/-- **Propositional completeness.**  Every `Valid` key is `KProvable`, by well-founded recursion
+    on total complexity `seqCx`: if a connective is present, fire its (complexity-decreasing,
+    invertible) rule and recurse on the premises; otherwise the countermodel `v x := decide (x ∈
+    A)` forces an identity axiom. -/
+theorem KProvable.pcomplete (S : FSequent) (hV : Valid S) : KProvable S := by
+  rcases exists_compound_or_all_base S.ante with ⟨f, hf, hcf⟩ | hAbase
+  · obtain ⟨ps, hstep⟩ := compound_ante_step (A := S.ante) (Θ := S.succ) hcf hf
+    exact KProvable.rule hstep
+      (fun P hP => KProvable.pcomplete P (hstep.valid_premises hV P hP))
+  · rcases exists_compound_or_all_base S.succ with ⟨f, hf, hcf⟩ | hΘbase
+    · obtain ⟨ps, hstep⟩ := compound_succ_step (A := S.ante) (Θ := S.succ) hcf hf
+      exact KProvable.rule hstep
+        (fun P hP => KProvable.pcomplete P (hstep.valid_premises hV P hP))
+    · obtain ⟨g, hgΘ, hgev⟩ :=
+        hV (fun x => memb x S.ante)
+          (fun f hf => by rw [eval_base (hAbase f hf)]; exact (memb_iff f S.ante).mpr hf)
+      have hgA : g ∈ S.ante := by
+        rw [eval_base (hΘbase g hgΘ)] at hgev; exact (memb_iff g S.ante).mp hgev
+      exact KProvable.ax hgA hgΘ
+  termination_by seqCx S
+  decreasing_by
+    all_goals exact hstep.seqCx_lt _ hP
+
+/-- **`KCut` is a theorem.**  Cut is trivial on the semantic side (`Valid`), so it holds for
+    `KProvable` by soundness (`psound`) + completeness (`pcomplete`). -/
+theorem kCut : KCut := by
+  intro A Θ g h1 h2
+  apply KProvable.pcomplete
+  intro v hA
+  by_cases hg : eval v g = true
+  · exact h2.psound v
+      (fun f hf => by
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hg
+        · exact hA f hf)
+  · obtain ⟨f, hf, hev⟩ := h1.psound v hA
+    rcases List.mem_cons.1 hf with rfl | hf
+    · exact absurd hev hg
+    · exact ⟨f, hf, hev⟩
+
+/-- **The completeness bridge, unconditionally.**  `KCut` being a theorem, every `FDeriv`
+    derivation maps to a `KProvable` certificate of the same key with no side hypothesis. -/
+theorem FDeriv.toKProvable' {env : Env} {Γ : Ctx} {S : FSequent}
+    (d : FDeriv env Γ S) : KProvable S :=
+  FDeriv.toKProvable kCut d
+
 /-! ### TODO — what remains for the memoized search algorithm
 
     With `FSequent.Lifts` + `KStep.preserves_lifts` (typed guard re-attached) and
     `KProvable.sound` (set-key soundness into `denote`, for lifting roots) in hand, the *sound*
-    direction of correspondence is done.  The completeness-direction infrastructure is also in
-    place: `KProvable.weaken` (monotone under enlarging either side) and
-    `KProvable.respects_setEq` (a property of the canonical key).  The completeness bridge itself
-    is now a *proved reduction*: `FDeriv.toKProvable (hcut : KCut)` derives `FDeriv → KProvable`
-    outright (no `FSequent.Lifts` needed — the set-key rule fires on membership).  Two things
-    remain before the hypergraph is a *certified* memoized proof-search:
+    direction of correspondence is done.  The completeness bridge is now **unconditional**:
+    `FDeriv.toKProvable'` derives `FDeriv → KProvable` with no side hypothesis (no `FSequent.Lifts`
+    needed — the set-key rule fires on membership), because `KCut` is a *theorem* (`kCut`).  One
+    thing remains before the hypergraph is a *certified* memoized proof-search:
 
-    **`KCut` — cut-admissibility for `KProvable` (the sole open completeness obligation).**
-    `FDeriv.toKProvable` fires each `KStep` twin on the conclusion; the resulting premise is the
-    `FDeriv` premise with `sremove principal` applied to the principal's side (identical when the
-    principal is not duplicated, a genuine drop when a surplus copy survives).  The reduction
-    discharges *every* such drop with one `KCut` via `dropAnte`/`dropSucc`.  Note this is **not**
-    the naive "drop `g` when its components are present *on the same side*": for `negL`/`impL` a
-    component lands on the *opposite* side (`not φ` on the left needs `φ` on the right; `imp φ ψ`
-    on the left splits `φ` right / `ψ` left), and the cut handles that uniformly by moving the
-    principal across sides.  `KCut` is the standard (cut-formula complexity × derivation height)
-    admissibility theorem; it does **not** follow from a single-connective induction (a rule's
-    principal can itself be a cut component), which is why it is isolated as its own gate rather
-    than inlined.  This is the **normalized-hyperderivation ↔ real-derivation** correspondence
-    gated on cut, *not* a raw one-step equivalence (provably false — see the counterexample).
+    **`KCut` is proved (`kCut`), via propositional adequacy — no cut-permutation argument.**
+    The set-key calculus decomposes only the five propositional connectives (`atom`/`papp`/`all`/
+    `ex` are opaque), so its adequate semantics is two-valued propositional: a valuation
+    `v : Formula → Bool`, extended homomorphically by `eval`.  `KProvable` is **sound** (`psound`)
+    and **complete** (`pcomplete`) for this `Valid` semantics; cut is then a triviality on the
+    semantic side.  Completeness is by well-founded recursion on the connective-complexity measure
+    `cx`/`seqCx`, which strictly decreases under every rule (`KStep.seqCx_lt`); each rule is
+    invertible (`KStep.valid_premises`) so `Valid` transfers to the smaller premises, and the
+    base case (no compound present) forces an identity axiom via the countermodel `v x := memb x
+    A`.  `kCut` (and hence `FDeriv.toKProvable'`) depends only on `propext`/`Quot.sound` — no
+    `Classical.choice`, no `sorryAx`.  The bridge itself still fires each `KStep` twin on the
+    conclusion and discharges the `sremove`-residual drop with one cut via `dropAnte`/`dropSucc`
+    (including `negL`/`impL`, whose components land on the *opposite* side — the cut moves the
+    principal across sides for free).  This is the **normalized-hyperderivation ↔ real-derivation**
+    correspondence, *not* a raw one-step equivalence (provably false — see the counterexample).
 
-    **Canonical-key evaluator.**  `KStep` is a relation on list-valued `FSequent`s that is
+    **Canonical-key evaluator (the sole remaining gate).**  `KStep` is a relation on list-valued
+    `FSequent`s that is
     well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose
     vertices are canonical `normKey`s.  The executable finite hypergraph still needs a
     relation/evaluator stated at the canonical-key level, over which the memoized AND/OR
