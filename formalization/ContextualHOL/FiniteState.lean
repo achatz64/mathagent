@@ -906,24 +906,143 @@ theorem KStep.respects_setEq {S S' : FSequent} (h : SetEq S S')
         ⟨fun f => mem_cons_congr (mem_cons_congr (mem_sremove_congr hA f)), fun f => hΘ f⟩,
         trivial⟩
 
+/-! ### The typed invariant, re-attached to the set-key rule (gate 3, before soundness)
+
+    `KStep`/`KProvable` are untyped: they never mention `liftFormula?` or `LiftsAllF`, so on
+    their own a `KProvable` certificate has no guarantee that its formulas are meaningful in the
+    fixed contextual environment `(env, Γ)`.  Per the audit's sequencing refinement, that guard
+    must be re-attached *before* the `KProvable → ProvesProp` soundness proof — otherwise the
+    untyped induction would carry no typedness hypothesis to feed `ProvesProp`'s side
+    conditions.
+
+    The invariant is exactly the one `FTrace` threads through its `liftFormula?` / `LiftsAllF`
+    premises: **every formula on both sides lifts** (`FSequent.Lifts`).  The key metatheorem is
+    that the set-key rule *preserves* it (`KStep.preserves_lifts`): the mirror of
+    `KStep.inClosure`, but for typedness rather than analyticity.  Since the analytic rules only
+    ever replace a principal by pieces of it, the components lift whenever the principal does. -/
+
+/-- The typed invariant on a set-key: every formula on **both** sides lifts into the fixed
+    contextual environment.  This is the side condition `FTrace` carries as `liftFormula?`
+    (principals) and `LiftsAllF` (the passive succedent), collected into one predicate on the
+    whole sequent so it can be threaded along a `KProvable` derivation. -/
+def FSequent.Lifts (env : Env) (Γ : Ctx) (S : FSequent) : Prop :=
+  LiftsAllF env Γ S.ante ∧ LiftsAllF env Γ S.succ
+
+/-- `LiftsAllF` is monotone under `sremove` (deleting a formula keeps a lifting list
+    lifting). -/
+theorem LiftsAllF.sremove {env : Env} {Γ : Ctx} {p : Formula} {l : List Formula}
+    (h : LiftsAllF env Γ l) : LiftsAllF env Γ (sremove p l) :=
+  fun f hf => h f (mem_sremove.mp hf).1
+
+/-- Split a lifting `and` into its two lifting components. -/
+theorem lift_and_split {env : Env} {Γ : Ctx} {a b : Formula}
+    (h : (liftFormula? env Γ (Formula.and a b)).isSome = true) :
+    (liftFormula? env Γ a).isSome = true ∧ (liftFormula? env Γ b).isSome = true := by
+  rw [liftFormula?_and_isSome] at h; simpa only [Bool.and_eq_true] using h
+
+/-- Split a lifting `or` into its two lifting components. -/
+theorem lift_or_split {env : Env} {Γ : Ctx} {a b : Formula}
+    (h : (liftFormula? env Γ (Formula.or a b)).isSome = true) :
+    (liftFormula? env Γ a).isSome = true ∧ (liftFormula? env Γ b).isSome = true := by
+  rw [liftFormula?_or_isSome] at h; simpa only [Bool.and_eq_true] using h
+
+/-- Split a lifting `imp` into its two lifting components. -/
+theorem lift_imp_split {env : Env} {Γ : Ctx} {a b : Formula}
+    (h : (liftFormula? env Γ (Formula.imp a b)).isSome = true) :
+    (liftFormula? env Γ a).isSome = true ∧ (liftFormula? env Γ b).isSome = true := by
+  rw [liftFormula?_imp_isSome] at h; simpa only [Bool.and_eq_true] using h
+
+/-- Split a lifting `iff` into its two lifting components. -/
+theorem lift_iff_split {env : Env} {Γ : Ctx} {a b : Formula}
+    (h : (liftFormula? env Γ (Formula.iff a b)).isSome = true) :
+    (liftFormula? env Γ a).isSome = true ∧ (liftFormula? env Γ b).isSome = true := by
+  rw [liftFormula?_iff_isSome] at h; simpa only [Bool.and_eq_true] using h
+
+/-- Recover the lifting of `a` from a lifting `not a`. -/
+theorem lift_not_split {env : Env} {Γ : Ctx} {a : Formula}
+    (h : (liftFormula? env Γ (Formula.not a)).isSome = true) :
+    (liftFormula? env Γ a).isSome = true := by
+  rw [liftFormula?_not_isSome] at h; exact h
+
+/-- **The set-key rule preserves the typed invariant (gate-3 typedness lemma).**  If `S` lifts
+    and `KStep S ps` fires a hyperedge, then every premise in `ps` lifts.  The typed mirror of
+    `KStep.inClosure`: the two-premise `iffR`/`iffL` cases rebuild `imp` components with `wtImp`
+    from the split `iff`; every retained side stays lifting by `LiftsAllF.sremove`. -/
+theorem KStep.preserves_lifts {env : Env} {Γ : Ctx} {S : FSequent} {ps : List FSequent}
+    (hstep : KStep S ps) (hS : S.Lifts env Γ) : ∀ P ∈ ps, P.Lifts env Γ := by
+  obtain ⟨hA, hΘ⟩ := hS
+  cases hstep with
+  | @andL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      obtain ⟨hφ, hψ⟩ := lift_and_split (hA _ hmem)
+      exact ⟨LiftsAllF.cons hφ (LiftsAllF.cons hψ hA.sremove), hΘ⟩
+  | @andR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      obtain ⟨hφ, hψ⟩ := lift_and_split (hΘ _ hmem)
+      rcases hP with rfl | rfl
+      · exact ⟨hA, LiftsAllF.cons hφ hΘ.sremove⟩
+      · exact ⟨hA, LiftsAllF.cons hψ hΘ.sremove⟩
+  | @orR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      obtain ⟨hφ, hψ⟩ := lift_or_split (hΘ _ hmem)
+      exact ⟨hA, LiftsAllF.cons hφ (LiftsAllF.cons hψ hΘ.sremove)⟩
+  | @orL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      obtain ⟨hφ, hψ⟩ := lift_or_split (hA _ hmem)
+      rcases hP with rfl | rfl
+      · exact ⟨LiftsAllF.cons hφ hA.sremove, hΘ⟩
+      · exact ⟨LiftsAllF.cons hψ hA.sremove, hΘ⟩
+  | @impR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      obtain ⟨hφ, hψ⟩ := lift_imp_split (hΘ _ hmem)
+      exact ⟨LiftsAllF.cons hφ hA, LiftsAllF.cons hψ hΘ.sremove⟩
+  | @impL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      obtain ⟨hφ, hψ⟩ := lift_imp_split (hA _ hmem)
+      rcases hP with rfl | rfl
+      · exact ⟨hA.sremove, LiftsAllF.cons hφ hΘ⟩
+      · exact ⟨LiftsAllF.cons hψ hA.sremove, hΘ⟩
+  | @negR A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hφ := lift_not_split (hΘ _ hmem)
+      exact ⟨LiftsAllF.cons hφ hA, hΘ.sremove⟩
+  | @negL A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hφ := lift_not_split (hA _ hmem)
+      exact ⟨hA.sremove, LiftsAllF.cons hφ hΘ⟩
+  | @iffR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      obtain ⟨hφ, hψ⟩ := lift_iff_split (hΘ _ hmem)
+      rcases hP with rfl | rfl
+      · exact ⟨hA, LiftsAllF.cons (wtImp hφ hψ) hΘ.sremove⟩
+      · exact ⟨hA, LiftsAllF.cons (wtImp hψ hφ) hΘ.sremove⟩
+  | @iffL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      obtain ⟨hφ, hψ⟩ := lift_iff_split (hA _ hmem)
+      exact ⟨LiftsAllF.cons (wtImp hφ hψ) (LiftsAllF.cons (wtImp hψ hφ) hA.sremove), hΘ⟩
+
 /-! ### TODO — what remains for the memoized search algorithm
 
-    The set-key hypergraph is now a well-defined, in-closure, finite object.  Two things remain
-    before it is a *certified* memoized proof-search:
+    With `FSequent.Lifts` and `KStep.preserves_lifts` in hand, the typed guard is re-attached:
+    a `KProvable` derivation from a lifting root stays lifting at every node, so its formulas
+    are all meaningful in `(env, Γ)`.  Two things remain before the hypergraph is a *certified*
+    memoized proof-search:
 
-    **Correspondence (gate 1 + gate 2 metatheory).**  Relate `KProvable` to the typed
-    `FTrace`/`ProvesProp` derivations of `Focused.lean`.  Because the set-level rule bakes in
-    contraction (and exchange), this must be a **normalized-hyperderivation ↔ real-derivation**
-    theorem proved with explicit contraction/exchange admissibility — *not* a raw one-step
-    equivalence (which is provably false, see the counterexample above).  Soundness
-    (`KProvable → derivable`) needs weakening/contraction admissible on the real calculus;
-    completeness (`derivable → KProvable`) needs the analytic rules to be invertible up to the
-    set-key.
+    **Correspondence (gate 1 + gate 2 metatheory).**  Relate `KProvable` (under `FSequent.Lifts`)
+    to the typed `FTrace`/`ProvesProp` derivations of `Focused.lean`.  Because the set-level rule
+    bakes in contraction (and exchange), this must be a **normalized-hyperderivation ↔
+    real-derivation** theorem proved with explicit contraction/exchange admissibility — *not* a
+    raw one-step equivalence (which is provably false, see the counterexample above).  Per the
+    audit's sequencing: prove soundness (`KProvable → ProvesProp`, needs weakening/contraction/
+    exchange admissible) *first*, now that the typed invariant is available; then the harder
+    completeness direction (`derivable → KProvable`, needs the analytic rules invertible up to
+    the set-key).
 
-    **The typed bridge (gate 3).**  `KStep` drops `FTrace`'s `liftFormula?` / `LiftsAllF` side
-    conditions.  Either every typed `FTrace` step must be shown to induce a `KStep`, or the
-    search relation must re-attach those guards, so that a `KProvable` certificate is a real
-    focused derivation.
+    **Canonical-key evaluator.**  `KStep` is a relation on list-valued `FSequent`s that is
+    well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose
+    vertices are canonical `normKey`s.  The executable finite hypergraph still needs a
+    relation/evaluator stated at the canonical-key level, over which the memoized AND/OR
+    evaluation runs.
 
     Once both land, the memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by
     the finite bound) is the decision procedure. -/

@@ -796,12 +796,24 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     `SetEq`-equal hyperedges (pointwise `SetEqAll`). This is the *full* quotient (reordering
     **and** duplicate multiplicity) that the one-step `FStepArb` quotient could not reach —
     the real fix.
-  * *Remaining (recorded as TODO in the module):* **correspondence** `KProvable ↔`
-    `FTrace`/`ProvesProp` derivability, proved with explicit contraction/exchange
+  * **Typed bridge re-attached** (2026-07-14, per the audit's sequencing refinement: reattach
+    the typed invariant *before* proving soundness, else the untyped `KProvable` induction has
+    no guarantee its formulas are meaningful in the fixed `(env, Γ)`). `FSequent.Lifts env Γ S`
+    = `LiftsAllF` on **both** sides (exactly the guard `FTrace` threads through
+    `liftFormula?`/`LiftsAllF`), and `KStep.preserves_lifts` — the typed mirror of
+    `KStep.inClosure` — shows the set-key rule preserves it (components lift whenever the
+    principal does; `iffR`/`iffL` rebuild the `imp` pieces with `wtImp`; retained sides stay
+    lifting by `LiftsAllF.sremove`). So a `KProvable` derivation from a lifting root stays
+    lifting at every node.
+  * *Remaining (recorded as TODO in the module):* **soundness first** (now that the typed
+    invariant is available) — `KProvable → ProvesProp` via weakening/contraction/exchange
     admissibility (a normalized-hyperderivation ↔ real-derivation theorem, *not* a raw
-    one-step equivalence), and the **typed bridge** re-attaching `FTrace`'s
-    `liftFormula?`/`LiftsAllF` guards. Then memoized AND/OR evaluation over the `≤ 4^{|C|}`
-    keys (terminating by the finite bound) is the decision procedure.
+    one-step equivalence); **then completeness** (`derivable → KProvable`, analytic rules
+    invertible up to the set-key). Also a **canonical-key evaluator**: `KStep` is a relation on
+    list-valued `FSequent`s well-defined *modulo* `SetEq`, not yet literally a graph over
+    canonical `normKey`s — the executable finite hypergraph still needs a relation/evaluator at
+    the `normKey` level. Then memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating
+    by the finite bound) is the decision procedure.
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 
