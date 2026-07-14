@@ -1013,6 +1013,240 @@ theorem KProvable.respects_setEq {S S' : FSequent} (h : SetEq S S')
   obtain ⟨A', Θ'⟩ := S'
   exact hp.weaken (fun x hx => (h.1 x).mp hx) (fun x hx => (h.2 x).mp hx)
 
+/-! ### The completeness bridge, reduced to cut-admissibility (the first gate)
+
+    `FDeriv env Γ S → KProvable S`: the real list-based analytic calculus (principal at the
+    *head*) is simulated by the set-key hypergraph (principal chosen by *membership*, deleted by
+    set-level `sremove`).  Firing the matching `KStep` on an `FDeriv` conclusion reproduces the
+    rule exactly, but its premise applies `sremove principal` to the principal's side — literally
+    the `FDeriv` premise when the principal is not duplicated, but requiring the principal to be
+    *dropped* when a surplus copy survives in the passive context.  Dropping such a copy, whose
+    analytic components are already present, is one **cut**.
+
+    The whole residual is discharged by the single lemma `KCut` below, via the two structural
+    reducts `dropAnte`/`dropSucc` — *including* `negL`/`impL`, whose components land on the
+    opposite side, since the cut moves the principal across sides for free.  This turns the
+    diagnosis "completeness reduces to cut-admissibility" into a *proved reduction* (green,
+    `sorry`-free): the only obligation left for `FDeriv → KProvable` is `KCut` itself, the
+    standard cut-admissibility gate.  (No `FSequent.Lifts` hypothesis is needed for this
+    direction: the set-key rule fires on membership alone.) -/
+
+/-- **Cut-admissibility for the set-key calculus** — the outstanding gate.  A formula `g`
+    provable on the right of a key and usable on its left may be removed.  Stated with the cut
+    formula at the head of the relevant side; `weaken` moves it there from anywhere. -/
+def KCut : Prop :=
+  ∀ (A Θ : List Formula) (g : Formula),
+    KProvable ⟨A, g :: Θ⟩ → KProvable ⟨g :: A, Θ⟩ → KProvable ⟨A, Θ⟩
+
+/-- A component is never equal to a compound it sits strictly inside (size decreases). -/
+private theorem child_ne {a b : Formula} (h : sizeOf a < sizeOf b) : a ≠ b :=
+  fun e => absurd (e ▸ h) (Nat.lt_irrefl _)
+
+private theorem ne_not (φ : Formula) : φ ≠ Formula.not φ :=
+  child_ne (by simp only [Formula.not.sizeOf_spec]; omega)
+private theorem ne_and_l (φ ψ : Formula) : φ ≠ Formula.and φ ψ :=
+  child_ne (by simp only [Formula.and.sizeOf_spec]; omega)
+private theorem ne_and_r (φ ψ : Formula) : ψ ≠ Formula.and φ ψ :=
+  child_ne (by simp only [Formula.and.sizeOf_spec]; omega)
+private theorem ne_or_l (φ ψ : Formula) : φ ≠ Formula.or φ ψ :=
+  child_ne (by simp only [Formula.or.sizeOf_spec]; omega)
+private theorem ne_or_r (φ ψ : Formula) : ψ ≠ Formula.or φ ψ :=
+  child_ne (by simp only [Formula.or.sizeOf_spec]; omega)
+private theorem ne_imp_l (φ ψ : Formula) : φ ≠ Formula.imp φ ψ :=
+  child_ne (by simp only [Formula.imp.sizeOf_spec]; omega)
+private theorem ne_imp_r (φ ψ : Formula) : ψ ≠ Formula.imp φ ψ :=
+  child_ne (by simp only [Formula.imp.sizeOf_spec]; omega)
+private theorem ne_impL_iff (φ ψ : Formula) : Formula.imp φ ψ ≠ Formula.iff φ ψ :=
+  fun h => Formula.noConfusion h
+private theorem ne_impR_iff (φ ψ : Formula) : Formula.imp ψ φ ≠ Formula.iff φ ψ :=
+  fun h => Formula.noConfusion h
+
+/-- Set-level removal drops a head that *is* the removed formula. -/
+private theorem sremove_cons_self (p : Formula) (l : List Formula) :
+    sremove p (p :: l) = sremove p l := by
+  simp [sremove]
+
+/-- Set-level removal keeps a head that differs from the removed formula. -/
+private theorem sremove_cons_of_ne {a p : Formula} (h : a ≠ p) (l : List Formula) :
+    sremove p (a :: l) = a :: sremove p l := by
+  simp only [sremove, List.filter_cons]
+  rw [if_pos]
+  simpa using h
+
+/-- **Left drop by cut.**  Remove an antecedent formula `g` from a provable key, given `g` is
+    re-derivable on the right of the residual (`hg`).  The reinstated-left premise is `hB`
+    weakened (every element of `B` is `g` or already in `sremove g B`). -/
+theorem KProvable.dropAnte (hcut : KCut) {B Θ : List Formula} {g : Formula}
+    (hB : KProvable ⟨B, Θ⟩) (hg : KProvable ⟨sremove g B, g :: Θ⟩) :
+    KProvable ⟨sremove g B, Θ⟩ :=
+  hcut (sremove g B) Θ g hg
+    (hB.weaken
+      (fun x hx => by
+        by_cases hxg : x = g
+        · rw [hxg]; exact List.Mem.head _
+        · exact List.Mem.tail _ (mem_sremove.2 ⟨hx, hxg⟩))
+      (fun _ hx => hx))
+
+/-- **Right drop by cut.**  Dual of `dropAnte`: remove a succedent formula `g`, given `g` is
+    refutable on the left of the residual (`hg`). -/
+theorem KProvable.dropSucc (hcut : KCut) {A Θ : List Formula} {g : Formula}
+    (hΘ : KProvable ⟨A, Θ⟩) (hg : KProvable ⟨g :: A, sremove g Θ⟩) :
+    KProvable ⟨A, sremove g Θ⟩ :=
+  hcut A (sremove g Θ) g
+    (hΘ.weaken (fun _ hx => hx)
+      (fun x hx => by
+        by_cases hxg : x = g
+        · rw [hxg]; exact List.Mem.head _
+        · exact List.Mem.tail _ (mem_sremove.2 ⟨hx, hxg⟩)))
+    hg
+
+/-- **The completeness bridge, modulo cut.**  Every `FDeriv` derivation maps to a `KProvable`
+    certificate of the same key, given cut-admissibility `KCut`.  Each rule fires its `KStep`
+    twin on the conclusion; the resulting premise is the `FDeriv` premise with `sremove
+    principal` applied to the principal's side, which `dropAnte`/`dropSucc` (one cut each,
+    re-deriving the dropped principal from its now-present components via the *dual* one-step
+    rule + identity) reconcile with the induction hypothesis.  This is a *proved* reduction of
+    `FDeriv → KProvable` to `KCut` — the sole remaining completeness obligation. -/
+theorem FDeriv.toKProvable (hcut : KCut) {env : Env} {Γ : Ctx} :
+    ∀ {S : FSequent}, FDeriv env Γ S → KProvable S := by
+  intro S d
+  induction d with
+  | @id A S φ hA hS _ => exact KProvable.ax hA hS
+  | @negR A Θ φ _ _ _ ih =>
+      refine KProvable.rule (KStep.negR (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self]
+      refine KProvable.dropSucc hcut ih ?_
+      refine KProvable.rule (KStep.negL (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+      exact KProvable.ax
+        (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_not φ⟩) (List.Mem.head _)
+  | @negL A Θ φ _ _ _ ih =>
+      refine KProvable.rule (KStep.negL (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self]
+      refine KProvable.dropAnte hcut ih ?_
+      refine KProvable.rule (KStep.negR (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+      exact KProvable.ax
+        (List.Mem.head _) (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_not φ⟩)
+  | @impR A Θ φ ψ _ _ _ _ ih =>
+      refine KProvable.rule (KStep.impR (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self, ← sremove_cons_of_ne (ne_imp_r φ ψ) Θ]
+      refine KProvable.dropSucc hcut ih ?_
+      refine KProvable.rule (KStep.impL (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_cons, List.not_mem_nil, or_false] at hQ
+      rcases hQ with rfl | rfl
+      · exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_imp_l φ ψ⟩) (List.Mem.head _)
+      · exact KProvable.ax
+          (List.Mem.head _) (mem_sremove.2 ⟨List.Mem.head _, ne_imp_r φ ψ⟩)
+  | @impL A Θ φ ψ _ _ _ _ _ ih1 ih2 =>
+      refine KProvable.rule (KStep.impL (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · rw [sremove_cons_self]
+        refine KProvable.dropAnte hcut ih1 ?_
+        refine KProvable.rule (KStep.impR (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax (List.Mem.head _)
+          (List.Mem.tail _ (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_imp_l φ ψ⟩))
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_imp_r φ ψ) A]
+        refine KProvable.dropAnte hcut ih2 ?_
+        refine KProvable.rule (KStep.impR (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax
+          (List.Mem.tail _ (mem_sremove.2 ⟨List.Mem.head _, ne_imp_r φ ψ⟩)) (List.Mem.head _)
+  | @andR A Θ φ ψ _ _ _ _ _ ih1 ih2 =>
+      refine KProvable.rule (KStep.andR (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_and_l φ ψ) Θ]
+        refine KProvable.dropSucc hcut ih1 ?_
+        refine KProvable.rule (KStep.andL (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax (List.Mem.head _)
+          (mem_sremove.2 ⟨List.Mem.head _, ne_and_l φ ψ⟩)
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_and_r φ ψ) Θ]
+        refine KProvable.dropSucc hcut ih2 ?_
+        refine KProvable.rule (KStep.andL (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax (List.Mem.tail _ (List.Mem.head _))
+          (mem_sremove.2 ⟨List.Mem.head _, ne_and_r φ ψ⟩)
+  | @andL A Θ φ ψ _ _ _ ih =>
+      refine KProvable.rule (KStep.andL (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self, ← sremove_cons_of_ne (ne_and_r φ ψ) A,
+        ← sremove_cons_of_ne (ne_and_l φ ψ) (ψ :: A)]
+      refine KProvable.dropAnte hcut ih ?_
+      refine KProvable.rule (KStep.andR (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_cons, List.not_mem_nil, or_false] at hQ
+      rcases hQ with rfl | rfl
+      · exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.head _, ne_and_l φ ψ⟩) (List.Mem.head _)
+      · exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_and_r φ ψ⟩) (List.Mem.head _)
+  | @orR A Θ φ ψ _ _ _ _ ih =>
+      refine KProvable.rule (KStep.orR (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self, ← sremove_cons_of_ne (ne_or_r φ ψ) Θ,
+        ← sremove_cons_of_ne (ne_or_l φ ψ) (ψ :: Θ)]
+      refine KProvable.dropSucc hcut ih ?_
+      refine KProvable.rule (KStep.orL (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_cons, List.not_mem_nil, or_false] at hQ
+      rcases hQ with rfl | rfl
+      · exact KProvable.ax (List.Mem.head _)
+          (mem_sremove.2 ⟨List.Mem.head _, ne_or_l φ ψ⟩)
+      · exact KProvable.ax (List.Mem.head _)
+          (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_or_r φ ψ⟩)
+  | @orL A Θ φ ψ _ _ _ _ _ ih1 ih2 =>
+      refine KProvable.rule (KStep.orL (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_or_l φ ψ) A]
+        refine KProvable.dropAnte hcut ih1 ?_
+        refine KProvable.rule (KStep.orR (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.head _, ne_or_l φ ψ⟩) (List.Mem.head _)
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_or_r φ ψ) A]
+        refine KProvable.dropAnte hcut ih2 ?_
+        refine KProvable.rule (KStep.orR (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.head _, ne_or_r φ ψ⟩)
+          (List.Mem.tail _ (List.Mem.head _))
+  | @iffR A Θ φ ψ _ _ _ _ _ ih1 ih2 =>
+      refine KProvable.rule (KStep.iffR (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      rcases hP with rfl | rfl
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_impL_iff φ ψ) Θ]
+        refine KProvable.dropSucc hcut ih1 ?_
+        refine KProvable.rule (KStep.iffL (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax (List.Mem.head _)
+          (mem_sremove.2 ⟨List.Mem.head _, ne_impL_iff φ ψ⟩)
+      · rw [sremove_cons_self, ← sremove_cons_of_ne (ne_impR_iff φ ψ) Θ]
+        refine KProvable.dropSucc hcut ih2 ?_
+        refine KProvable.rule (KStep.iffL (List.Mem.head _)) ?_
+        intro Q hQ; simp only [List.mem_singleton] at hQ; subst hQ
+        exact KProvable.ax (List.Mem.tail _ (List.Mem.head _))
+          (mem_sremove.2 ⟨List.Mem.head _, ne_impR_iff φ ψ⟩)
+  | @iffL A Θ φ ψ _ _ _ ih =>
+      refine KProvable.rule (KStep.iffL (List.Mem.head _)) ?_
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      rw [sremove_cons_self, ← sremove_cons_of_ne (ne_impR_iff φ ψ) A,
+        ← sremove_cons_of_ne (ne_impL_iff φ ψ) (Formula.imp ψ φ :: A)]
+      refine KProvable.dropAnte hcut ih ?_
+      refine KProvable.rule (KStep.iffR (List.Mem.head _)) ?_
+      intro Q hQ; simp only [List.mem_cons, List.not_mem_nil, or_false] at hQ
+      rcases hQ with rfl | rfl
+      · exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.head _, ne_impL_iff φ ψ⟩) (List.Mem.head _)
+      · exact KProvable.ax
+          (mem_sremove.2 ⟨List.Mem.tail _ (List.Mem.head _), ne_impR_iff φ ψ⟩) (List.Mem.head _)
+
 /-! ### The typed invariant, re-attached to the set-key rule (gate 3, before soundness)
 
     `KStep`/`KProvable` are untyped: they never mention `liftFormula?` or `LiftsAllF`, so on
@@ -1283,27 +1517,24 @@ theorem KProvable.sound {env : Env} {Γ : Ctx} :
     `KProvable.sound` (set-key soundness into `denote`, for lifting roots) in hand, the *sound*
     direction of correspondence is done.  The completeness-direction infrastructure is also in
     place: `KProvable.weaken` (monotone under enlarging either side) and
-    `KProvable.respects_setEq` (a property of the canonical key).  Two things remain before the
-    hypergraph is a *certified* memoized proof-search:
+    `KProvable.respects_setEq` (a property of the canonical key).  The completeness bridge itself
+    is now a *proved reduction*: `FDeriv.toKProvable (hcut : KCut)` derives `FDeriv → KProvable`
+    outright (no `FSequent.Lifts` needed — the set-key rule fires on membership).  Two things
+    remain before the hypergraph is a *certified* memoized proof-search:
 
-    **Completeness (the harder direction) = cut-admissibility for `KProvable`.**  The target is
-    `FDeriv`-derivable `→ KProvable` (under `FSequent.Lifts`): a real analytic (list-based,
-    principal-at-head) derivation must be matched by a set-key hyperderivation.  Threading the
-    induction through `weaken`/`respects_setEq`, *every* `FDeriv` rule maps one-to-one onto its
-    `KStep` rule **except** when the principal is duplicated in the residual: `FDeriv` keeps the
-    surplus copy, `KStep`'s `sremove` deletes it.  So the whole gap is the single obligation
-
-        drop an antecedent `g` all of whose components are already present.
-
-    That obligation is exactly **cut/contraction-admissibility**: e.g. for `g = and φ ψ` with
-    `φ,ψ ∈ B`, one wants `KProvable ⟨B, Θ⟩ → KProvable ⟨sremove (and φ ψ) B, Θ⟩` (`φ,ψ` re-prove
-    `g` on the right via `andR` into an axiom, then cut `g` from the left).  It does **not** close
-    under its own single-connective induction — when a rule's principal is itself a component
-    `φ`/`ψ`, the component is consumed and `g` must be re-derived through several levels, i.e. the
-    proof needs the standard (cut-formula complexity × derivation height) admissibility argument,
-    not a one-connective lemma.  This confirms the earlier framing: a
-    **normalized-hyperderivation ↔ real-derivation** correspondence gated on cut-admissibility,
-    *not* a raw one-step equivalence (which is provably false, see the counterexample above).
+    **`KCut` — cut-admissibility for `KProvable` (the sole open completeness obligation).**
+    `FDeriv.toKProvable` fires each `KStep` twin on the conclusion; the resulting premise is the
+    `FDeriv` premise with `sremove principal` applied to the principal's side (identical when the
+    principal is not duplicated, a genuine drop when a surplus copy survives).  The reduction
+    discharges *every* such drop with one `KCut` via `dropAnte`/`dropSucc`.  Note this is **not**
+    the naive "drop `g` when its components are present *on the same side*": for `negL`/`impL` a
+    component lands on the *opposite* side (`not φ` on the left needs `φ` on the right; `imp φ ψ`
+    on the left splits `φ` right / `ψ` left), and the cut handles that uniformly by moving the
+    principal across sides.  `KCut` is the standard (cut-formula complexity × derivation height)
+    admissibility theorem; it does **not** follow from a single-connective induction (a rule's
+    principal can itself be a cut component), which is why it is isolated as its own gate rather
+    than inlined.  This is the **normalized-hyperderivation ↔ real-derivation** correspondence
+    gated on cut, *not* a raw one-step equivalence (provably false — see the counterexample).
 
     **Canonical-key evaluator.**  `KStep` is a relation on list-valued `FSequent`s that is
     well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose
@@ -1311,8 +1542,11 @@ theorem KProvable.sound {env : Env} {Γ : Ctx} :
     relation/evaluator stated at the canonical-key level, over which the memoized AND/OR
     evaluation runs.
 
-    Once both land, the memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by
-    the finite bound) is the decision procedure. -/
+    Once both land, the memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by the
+    finite bound) is the decision procedure.  (Separately, and downstream of this whole
+    `FDeriv ↔ KProvable` layer, PS2 still needs the genuine focused-completeness result
+    `ProvesProp → FDeriv` — that the analytic calculus is complete for the Hilbert kernel — which
+    is not part of this file's set-key correspondence.) -/
 
 end Focused
 end ContextualHOL

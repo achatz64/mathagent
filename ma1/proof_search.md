@@ -825,22 +825,35 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     since components are shared and `sremove` is monotone) and `KProvable.respects_setEq`
     (`KProvable` is a property of the canonical key — two weakenings, one per inclusion). Both
     are full 10-case inductions mirroring `KStep.respects_setEq`.
-  * *Remaining — completeness = cut-admissibility.* Target: `FDeriv`-derivable `→ KProvable`
-    (under `S.Lifts`). Threading the induction through `weaken`/`respects_setEq`, **every**
-    `FDeriv` rule maps one-to-one onto its `KStep` rule *except* when the principal is duplicated
-    in the residual (`FDeriv` keeps the surplus copy, `KStep`'s `sremove` deletes it). The entire
-    gap is the single obligation **drop an antecedent `g` all of whose components are already
-    present** — exactly **cut/contraction-admissibility** (`φ,ψ ∈ B → KProvable ⟨B,Θ⟩ →
-    KProvable ⟨sremove (and φ ψ) B, Θ⟩`, the components re-prove `g` on the right via `andR` into
-    an axiom then cut it from the left). It does **not** close under a single-connective
-    induction — when a rule's principal is itself a component `φ`/`ψ`, the component is consumed
-    and `g` must be re-derived through several levels, so the proof needs the standard
-    (cut-formula complexity × height) admissibility argument. This is the "first gate."  Also a
-    **canonical-key evaluator**: `KStep` is a relation on list-valued `FSequent`s well-defined
-    *modulo* `SetEq`, not yet literally a graph over canonical `normKey`s — the executable finite
-    hypergraph still needs a relation/evaluator at the `normKey` level. Then memoized AND/OR
-    evaluation over the `≤ 4^{|C|}` keys (terminating by the finite bound) is the decision
-    procedure.
+  * **Completeness bridge = PROVED reduction to cut** (2026-07-14, `FiniteState.lean`,
+    sorry-free) — `FDeriv.toKProvable (hcut : KCut) : FDeriv env Γ S → KProvable S`, a full
+    11-case induction (`FSequent.Lifts` **not** needed — the set-key rule fires on membership
+    alone). Each rule fires its `KStep` twin on the conclusion; the premise is the `FDeriv`
+    premise with `sremove principal` applied to the principal's side (identical when the
+    principal is not duplicated, a genuine drop when a surplus copy survives). Every drop is
+    discharged by the single lemma `KCut` via `KProvable.dropAnte`/`dropSucc` (one cut each: the
+    dropped principal is re-derived from its now-present components by the *dual* one-step rule
+    into an identity). **Correction to the earlier diagnosis:** it is *not* "drop `g` when its
+    components are present on the same side" — for `negL`/`impL` a component lands on the
+    *opposite* side (`not φ`-left needs `φ`-right; `imp φ ψ`-left splits `φ`-right / `ψ`-left);
+    the cut moves the principal across sides uniformly, which is why those cases needed a genuine
+    structural argument rather than same-side re-derivation. Supporting lemmas landed:
+    `KCut` (the def), `dropAnte`/`dropSucc` (cut instances via `weaken`), the component-≠-compound
+    occurs-checks (`ne_not`/`ne_and_l`/… via `sizeOf`; `ne_impL_iff`/`ne_impR_iff` via
+    `noConfusion`), and `sremove_cons_self`/`sremove_cons_of_ne`.
+  * *Remaining #1 — `KCut` (the sole open completeness obligation, "first gate").* Cut-admissibility
+    for `KProvable`: the standard (cut-formula complexity × derivation height) argument. Does
+    **not** close under single-connective induction (a rule's principal can itself be a cut
+    component), so it is isolated as its own theorem, not inlined. Once `KCut` is proved,
+    `FDeriv → KProvable` is unconditional.
+  * *Remaining #2 — canonical-key evaluator.* `KStep` is a relation on list-valued `FSequent`s
+    well-defined *modulo* `SetEq`, not yet literally a graph over canonical `normKey`s — the
+    executable finite hypergraph still needs a relation/evaluator at the `normKey` level. Then
+    memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by the finite bound) is the
+    decision procedure.
+  * *Downstream (separate, not part of this set-key layer):* PS2 still needs genuine
+    focused-completeness `ProvesProp → FDeriv` (the analytic calculus is complete for the Hilbert
+    kernel).
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 
