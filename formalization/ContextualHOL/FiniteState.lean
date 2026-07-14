@@ -1021,22 +1021,168 @@ theorem KStep.preserves_lifts {env : Env} {Γ : Ctx} {S : FSequent} {ps : List F
       obtain ⟨hφ, hψ⟩ := lift_iff_split (hA _ hmem)
       exact ⟨LiftsAllF.cons (wtImp hφ hψ) (LiftsAllF.cons (wtImp hψ hφ) hA.sremove), hΘ⟩
 
+/-! ### Set-key soundness into `denote` (for lifting roots)
+
+    The soundness target is `KProvable S → S.Lifts env Γ → denote env Γ S` — **not**
+    `KProvable → ProvesProp`: an empty succedent denotes "the assumptions are absurd, so prove
+    any well-typed formula" (`denote ⟨A, []⟩ = ∀ φ, liftFormula? φ → ProvesProp A φ`), which has
+    no single `ProvesProp` conclusion.  The `S.Lifts` hypothesis is kept in the statement: this
+    is correspondence *for lifting roots*, a deliberate strengthening of raw `FTrace` (which does
+    not globally require every antecedent formula to lift).
+
+    The proof reuses `Focused.lean`'s head-form rule-soundness lemmas (`soundAndL`, `soundNegR`,
+    …) after transporting the set-key conclusion `⟨A, Θ⟩` (principal *anywhere*) to head form
+    `⟨p :: sremove p A, Θ⟩`.  That transport is where structural admissibility lives: the
+    **antecedent** side is free (`denote` uses the antecedent only through `ProvesProp`, which is
+    membership-based, so `pMono` gives weakening + exchange + contraction on the left); the
+    **succedent** side needs a genuine `rightOr` structural lemma — introduction is
+    `pRightOr_mem`, and the matching **elimination** (`rightOr_elim`) is proved here by induction
+    on the succedent, using `pOrElim` and left-weakening. -/
+
+/-- Pulling a member to the front and deduplicating it leaves the underlying set unchanged. -/
+theorem mem_cons_sremove_iff {p : Formula} {l : List Formula} (hp : p ∈ l) (x : Formula) :
+    (x ∈ p :: sremove p l) ↔ x ∈ l := by
+  simp only [List.mem_cons, mem_sremove]
+  constructor
+  · rintro (rfl | ⟨hx, _⟩)
+    · exact hp
+    · exact hx
+  · intro hx
+    by_cases hxp : x = p
+    · exact Or.inl hxp
+    · exact Or.inr ⟨hx, hxp⟩
+
+/-- **Elimination of a right-nested disjunction** (the dual of `pRightOr_mem`).  If the whole
+    `rightOr φ Θ` is provable and every disjunct `ψ ∈ φ :: Θ` proves the goal `T` when added to
+    the context, then `T` is provable.  Proved by induction on `Θ` via binary `pOrElim`, pushing
+    each case through left-weakening (`pMono`).  This is the succedent-side structural
+    admissibility the set-key rule needs. -/
+theorem rightOr_elim {env : Env} {Γ : Ctx} {A : List Formula} {T : Formula}
+    (hT : (liftFormula? env Γ T).isSome = true) :
+    ∀ (φ : Formula) (Θ : List Formula), LiftsAllF env Γ (φ :: Θ) ->
+      ProvesProp env Γ A (rightOr φ Θ) ->
+      (∀ ψ, ψ ∈ φ :: Θ -> ProvesProp env Γ (ψ :: A) T) ->
+      ProvesProp env Γ A T
+  | φ, [], hall, hor, hcase => by
+      have hφ := hall.head
+      exact ProvesProp.mp hφ (ProvesProp.impIntro hφ (hcase φ (by simp))) hor
+  | φ, χ :: Θ', hall, hor, hcase => by
+      have hφ := hall.head
+      have hrest : (liftFormula? env Γ (rightOr χ Θ')).isSome = true :=
+        liftFormula?_rightOr_isSome χ Θ' hall.tail.head hall.tail.tail
+      refine pOrElim hφ hrest hT hor (ProvesProp.impIntro hφ (hcase φ (by simp))) ?_
+      refine ProvesProp.impIntro hrest ?_
+      refine rightOr_elim hT χ Θ' hall.tail (ProvesProp.hyp (by simp)) ?_
+      intro ψ hψ
+      refine pMono ?_ (hcase ψ (List.mem_cons_of_mem _ hψ))
+      intro x hx
+      rcases List.mem_cons.1 hx with h | h
+      · exact h ▸ (by simp)
+      · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h)
+
+/-- Transport `denote` across a set-equal **antecedent** — free, since `denote` touches the
+    antecedent only through `ProvesProp`, which is monotone under `pMono`. -/
+theorem denote_ante_transport {env : Env} {Γ : Ctx} {A A' Θ : List Formula}
+    (hA : ∀ x, x ∈ A ↔ x ∈ A') (h : denote env Γ ⟨A, Θ⟩) : denote env Γ ⟨A', Θ⟩ := by
+  cases Θ with
+  | nil => intro φ hφ; exact pMono (fun x hx => (hA x).mp hx) (h φ hφ)
+  | cons χ Θ' => exact pMono (fun x hx => (hA x).mp hx) h
+
+/-- Transport `denote` across a set-equal **succedent** — the real structural step, discharged
+    with `rightOr_elim` (eliminate the source disjunction) + `pRightOr_mem` (reintroduce each
+    disjunct into the target).  Needs both succedents lifting. -/
+theorem denote_succ_transport {env : Env} {Γ : Ctx} {A Θ Θ' : List Formula}
+    (hΘ : ∀ x, x ∈ Θ ↔ x ∈ Θ') (hl : LiftsAllF env Γ Θ) (hl' : LiftsAllF env Γ Θ')
+    (h : denote env Γ ⟨A, Θ⟩) : denote env Γ ⟨A, Θ'⟩ := by
+  cases Θ with
+  | nil =>
+      cases Θ' with
+      | nil => exact h
+      | cons χ' Θ'0 => exact absurd ((hΘ χ').2 (by simp)) (by simp)
+  | cons χ Θ0 =>
+      cases Θ' with
+      | nil => exact absurd ((hΘ χ).1 (by simp)) (by simp)
+      | cons χ' Θ'0 =>
+          have hT : (liftFormula? env Γ (rightOr χ' Θ'0)).isSome = true :=
+            liftFormula?_rightOr_isSome χ' Θ'0 hl'.head hl'.tail
+          refine rightOr_elim hT χ Θ0 hl h ?_
+          intro ψ hψ
+          exact pRightOr_mem χ' Θ'0 ((hΘ ψ).1 hψ) (ProvesProp.hyp (by simp)) hl'
+
+/-- **Set-key soundness (for lifting roots).**  A `KProvable` certificate whose root lifts in
+    `(env, Γ)` denotes: identity keys go through `soundId`; each hyperrule reduces to the
+    head-form rule-soundness lemma of `Focused.lean` after transporting the (anywhere-)principal
+    to the head with `denote_ante_transport` / `denote_succ_transport`, its premises supplied by
+    the induction hypothesis under `KStep.preserves_lifts`. -/
+theorem KProvable.sound {env : Env} {Γ : Ctx} :
+    ∀ {S : FSequent}, KProvable S -> S.Lifts env Γ -> denote env Γ S := by
+  intro S h
+  induction h with
+  | @ax A Θ f hA hΘ => intro hS; exact soundId hA hΘ hS.2
+  | @rule S ps hstep hpr ih =>
+      intro hS
+      have hden : ∀ P, P ∈ ps -> denote env Γ P :=
+        fun P hP => ih P hP (KStep.preserves_lifts hstep hS P hP)
+      cases hstep with
+      | @andL A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_and_split (hS.1 _ hmem)
+          exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
+            (soundAndL hφ hψ (hden _ (by simp)))
+      | @andR A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_and_split (hS.2 _ hmem)
+          exact denote_succ_transport (fun x => mem_cons_sremove_iff hmem x)
+            (LiftsAllF.cons (hS.2 _ hmem) hS.2.sremove) hS.2
+            (soundAndR hφ hψ hS.2.sremove (hden _ (by simp)) (hden _ (by simp)))
+      | @orR A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_or_split (hS.2 _ hmem)
+          exact denote_succ_transport (fun x => mem_cons_sremove_iff hmem x)
+            (LiftsAllF.cons (hS.2 _ hmem) hS.2.sremove) hS.2
+            (soundOrR hφ hψ hS.2.sremove (hden _ (by simp)))
+      | @orL A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_or_split (hS.1 _ hmem)
+          exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
+            (soundOrL hφ hψ hS.2 (hden _ (by simp)) (hden _ (by simp)))
+      | @impR A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_imp_split (hS.2 _ hmem)
+          exact denote_succ_transport (fun x => mem_cons_sremove_iff hmem x)
+            (LiftsAllF.cons (hS.2 _ hmem) hS.2.sremove) hS.2
+            (soundImpR hφ hψ hS.2.sremove (hden _ (by simp)))
+      | @impL A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_imp_split (hS.1 _ hmem)
+          exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
+            (soundImpL hφ hψ hS.2 (hden _ (by simp)) (hden _ (by simp)))
+      | @negR A Θ φ hmem =>
+          have hφ := lift_not_split (hS.2 _ hmem)
+          exact denote_succ_transport (fun x => mem_cons_sremove_iff hmem x)
+            (LiftsAllF.cons (hS.2 _ hmem) hS.2.sremove) hS.2
+            (soundNegR hφ hS.2.sremove (hden _ (by simp)))
+      | @negL A Θ φ hmem =>
+          have hφ := lift_not_split (hS.1 _ hmem)
+          exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
+            (soundNegL hφ hS.2 (hden _ (by simp)))
+      | @iffR A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_iff_split (hS.2 _ hmem)
+          exact denote_succ_transport (fun x => mem_cons_sremove_iff hmem x)
+            (LiftsAllF.cons (hS.2 _ hmem) hS.2.sremove) hS.2
+            (soundIffR hφ hψ hS.2.sremove (hden _ (by simp)) (hden _ (by simp)))
+      | @iffL A Θ φ ψ hmem =>
+          obtain ⟨hφ, hψ⟩ := lift_iff_split (hS.1 _ hmem)
+          exact denote_ante_transport (fun x => mem_cons_sremove_iff hmem x)
+            (soundIffL hφ hψ (hden _ (by simp)))
+
 /-! ### TODO — what remains for the memoized search algorithm
 
-    With `FSequent.Lifts` and `KStep.preserves_lifts` in hand, the typed guard is re-attached:
-    a `KProvable` derivation from a lifting root stays lifting at every node, so its formulas
-    are all meaningful in `(env, Γ)`.  Two things remain before the hypergraph is a *certified*
-    memoized proof-search:
+    With `FSequent.Lifts` + `KStep.preserves_lifts` (typed guard re-attached) and
+    `KProvable.sound` (set-key soundness into `denote`, for lifting roots) in hand, the *sound*
+    direction of correspondence is done.  Two things remain before the hypergraph is a
+    *certified* memoized proof-search:
 
-    **Correspondence (gate 1 + gate 2 metatheory).**  Relate `KProvable` (under `FSequent.Lifts`)
-    to the typed `FTrace`/`ProvesProp` derivations of `Focused.lean`.  Because the set-level rule
-    bakes in contraction (and exchange), this must be a **normalized-hyperderivation ↔
-    real-derivation** theorem proved with explicit contraction/exchange admissibility — *not* a
-    raw one-step equivalence (which is provably false, see the counterexample above).  Per the
-    audit's sequencing: prove soundness (`KProvable → ProvesProp`, needs weakening/contraction/
-    exchange admissible) *first*, now that the typed invariant is available; then the harder
-    completeness direction (`derivable → KProvable`, needs the analytic rules invertible up to
-    the set-key).
+    **Completeness (the harder direction).**  `denote`/`FTrace`-derivable `→ KProvable` (under
+    `FSequent.Lifts`): the analytic rules must be shown invertible up to the set-key, so that any
+    real derivation is matched by a hyperderivation.  Because the set-level rule bakes in
+    contraction (and exchange), this stays a **normalized-hyperderivation ↔ real-derivation**
+    correspondence, *not* a raw one-step equivalence (which is provably false, see the
+    counterexample above).
 
     **Canonical-key evaluator.**  `KStep` is a relation on list-valued `FSequent`s that is
     well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose

@@ -805,11 +805,24 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     principal does; `iffR`/`iffL` rebuild the `imp` pieces with `wtImp`; retained sides stay
     lifting by `LiftsAllF.sremove`). So a `KProvable` derivation from a lifting root stays
     lifting at every node.
-  * *Remaining (recorded as TODO in the module):* **soundness first** (now that the typed
-    invariant is available) — `KProvable → ProvesProp` via weakening/contraction/exchange
-    admissibility (a normalized-hyperderivation ↔ real-derivation theorem, *not* a raw
-    one-step equivalence); **then completeness** (`derivable → KProvable`, analytic rules
-    invertible up to the set-key). Also a **canonical-key evaluator**: `KStep` is a relation on
+  * **Set-key soundness (for lifting roots)** — `KProvable.sound : KProvable S → S.Lifts env Γ →
+    denote env Γ S` (2026-07-14, `FiniteState.lean`, sorry-free). The target is `denote`, **not**
+    `KProvable → ProvesProp`: an empty succedent denotes "assumptions absurd, prove any
+    well-typed formula," so it has no single `ProvesProp` conclusion. It is correspondence **for
+    lifting roots** — the `S.Lifts` hypothesis is a deliberate strengthening (raw `FTrace` does
+    not globally require every antecedent formula to lift), so the statement retains it rather
+    than claim an unrestricted `KProvable ↔ FTrace`. Proved via structural admissibility: the
+    antecedent side is free (`denote_ante_transport`, since `ProvesProp`/`pMono` is
+    membership-based — exchange+contraction+weakening on the left are immediate); the succedent
+    side is the real work — a `rightOr` **elimination** lemma (`rightOr_elim`, dual to the
+    existing `pRightOr_mem` introduction, by induction on the succedent via `pOrElim`) drives
+    `denote_succ_transport`. The induction over `KProvable` then reuses the head-form rule
+    lemmas (`soundAndL`, `soundNegR`, …) on the `sremove`-form, transporting the
+    anywhere-principal conclusion `⟨A, Θ⟩` to head form via `mem_cons_sremove_iff`.
+  * *Remaining:* **completeness** (`denote`/`FTrace`-derivable `→ KProvable` under `S.Lifts`,
+    analytic rules invertible up to the set-key — still a normalized-hyperderivation ↔
+    real-derivation correspondence, not a one-step equivalence). Also a **canonical-key
+    evaluator**: `KStep` is a relation on
     list-valued `FSequent`s well-defined *modulo* `SetEq`, not yet literally a graph over
     canonical `normKey`s — the executable finite hypergraph still needs a relation/evaluator at
     the `normKey` level. Then memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating
