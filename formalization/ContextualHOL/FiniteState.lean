@@ -3,22 +3,27 @@ import ContextualHOL.Focused
 /-!
 # PS2 — finite-state search: the signed subformula closure and rule closure
 
-This module begins the *finite-state / termination* branch of PS2.  Per the audit,
-finiteness must be established for the **focused, analytic** state representation (the
-two-sided `FSequent` of `Focused.lean`), not for the unfocused `FDeriv` trace language.
+This module builds the *finite-state / termination* branch of PS2.  Per the audit,
+finiteness is established for the **analytic** state representation (the two-sided
+`FSequent` of `Focused.lean`, intended to underlie the later focused calculus), not for the
+unfocused `FDeriv` trace language.  `FSequent` still stores *lists*, so the finite bound is
+stated over a **normalized set-key** (`normKey`), not over raw sequents.
 
 The backbone is the **signed subformula closure** `Formula.searchClosure`: the smallest
 formula set containing `φ` and closed under taking immediate subformulas *and*, for each
 `iff φ ψ`, the two implications `imp φ ψ`, `imp ψ φ` that the `iff` rules introduce.  Every
 backward analytic rule replaces a principal formula by formulas drawn from its closure, so
 a sequent whose formulas all lie in a closed set `C` steps only to sequents with the same
-property (`FStep.inClosure`).  Since a normalized state is a pair of **sub-sets** of `C`,
-this is the `≤ 4^{|C|}` finiteness argument's first half (closure); the counting half
-(`finiteStateProp`) follows in a later slice.
+property (`FStep.inClosure`).  A normalized state is a pair of **sub-sets** of `C`, of which
+there are `≤ 4^{|C|}` (`finiteStateProp`); the normalized key is canonical (`normKey_congr`)
+and — on in-closure states — faithful (`mem_normKey_ante_iff`), so the reachable normalized
+search space is genuinely finite (`reachable_key_faithful_finite`).
 
-Ordering of the branch (per audit): (1) state/key + transitions [`FStep`, here]; (2)
-closure [`FStep.inClosure`, here]; (3) the `≤ 4^{|C|}` finite bound; (4) memoized BFS +
-termination.
+Ordering of the branch (per audit): (1) state + transitions [`FStep`]; (2) closure
+[`FStep.inClosure`]; (3) normalized key + the `≤ 4^{|C|}` finite bound [`normKey`,
+`finiteStateProp`] — this slice; (4) memoized BFS + termination, which additionally needs a
+bridge re-attaching `FTrace`'s `liftFormula?` / `LiftsAllF` guards to `FStep` (see the TODO
+at the end).
 -/
 
 namespace ContextualHOL
@@ -160,16 +165,51 @@ theorem Formula.iff_child_impR (φ ψ : Formula) :
     Formula.imp ψ φ ∈ (Formula.iff φ ψ).searchClosure := by
   simp [Formula.searchClosure]
 
+/-! ### A self-contained powerset (for the `2^|C|` / `4^|C|` count)
+
+    Batteries' `List.sublists` is off-limits (core Lean 4 only), so we roll our own
+    order-preserving powerset `powerList` and prove the two facts step 3 needs of it:
+    it has `2^|l|` elements, and every `filter` of `l` is one of them. -/
+
+/-- All order-preserving sub-lists of `l` (a hand-rolled powerset). -/
+def powerList : {α : Type} → List α → List (List α)
+  | _, [] => [[]]
+  | _, a :: l => powerList l ++ (powerList l).map (a :: ·)
+
+/-- The powerset has `2^|l|` elements. -/
+theorem length_powerList {α : Type} (l : List α) :
+    (powerList l).length = 2 ^ l.length := by
+  induction l with
+  | nil => simp [powerList]
+  | cons a l ih =>
+      simp only [powerList, List.length_append, List.length_map, ih, List.length_cons,
+        Nat.pow_succ]
+      omega
+
+/-- Every `filter` of `l` is a sub-list, hence a member of the powerset. -/
+theorem filter_mem_powerList {α : Type} (p : α → Bool) (l : List α) :
+    l.filter p ∈ powerList l := by
+  induction l with
+  | nil => simp [powerList]
+  | cons a l ih =>
+      simp only [powerList, List.mem_append, List.mem_map, List.filter_cons]
+      by_cases h : p a
+      · exact Or.inr ⟨l.filter p, ih, by simp [h]⟩
+      · exact Or.inl (by simpa [h] using ih)
+
 namespace Focused
 
-/-! ## Focused search states and their backward transitions
+/-! ## Analytic search states and their backward transitions
 
-    A search *state* is an `FSequent`.  A backward analytic rule turns a conclusion into
-    one or two premises; `FStep S S'` holds when `S'` is a premise of some rule whose
-    principal formula sits at the head of the appropriate side (the analytic calculus keeps
-    the principal at the head — reordering to any position is handled by state
-    normalization, a later slice).  This is the transition relation whose reachable set the
-    finiteness bound counts. -/
+    A search *state* is an `FSequent` (the analytic substrate meant to underlie the later
+    focused calculus).  A backward analytic rule turns a conclusion into one or two premises;
+    `FStep S S'` holds when `S'` is a premise of some rule whose principal formula sits at the
+    head of the appropriate side (the principal is kept at the head — reordering to any
+    position is handled by state normalization, a later slice).  `FStep` is an *untyped
+    over-approximation* of `FTrace`: it deliberately omits the `liftFormula?` / `LiftsAllF`
+    side conditions, which keeps the closure/counting argument clean but must be bridged
+    before `FStep` becomes the BFS relation (see the TODO at the end of the file).  This is
+    the transition relation whose reachable set the finiteness bound counts. -/
 
 /-- One backward analytic transition: `S` steps to premise `S'`. -/
 inductive FStep : FSequent -> FSequent -> Prop where
@@ -336,6 +376,190 @@ theorem FStep.inClosure {C : List Formula} (hC : SearchClosed C)
       · rcases List.mem_cons.1 hf with rfl | hf
         · exact hC.child hiff (Formula.iff_child_impR _ _)
         · exact hante _ (List.mem_cons_of_mem _ hf)
+
+/-! ## Step 3 — the normalized key and the `≤ 4^{|C|}` finite bound
+
+    `FStep.inClosure` says the *lists* stay inside `C`, but a raw `FSequent` still carries
+    ordering and duplicate formulas, so the states themselves are not yet a finite set.  The
+    counting argument is about **sets**: a normalized state is a pair of subsets of `C`, of
+    which there are `2^{|C|} · 2^{|C|} = 4^{|C|}`.
+
+    We make that precise with a canonical **normalized key** `normKey C S`: filter `C` by
+    membership in each side of `S`.  This collapses ordering and duplicates (two states with
+    the same ante/succ *sets* get identical keys — `normKey_congr`), always lands in the
+    powerset of `C` (`normKey_mem_allKeys`), and — for in-closure states — loses no
+    information (`mem_normKey_ante_iff`).  The reachable, in-closure normalized states
+    therefore inject into a master list of `≤ 4^{|C|}` keys (`finiteStateProp`). -/
+
+/-- Boolean membership test built from `DecidableEq Formula` alone (core's `Decidable (· ∈ ·)`
+    for lists needs `LawfulBEq`, which `Formula` does not derive). -/
+def memb (f : Formula) (l : List Formula) : Bool :=
+  l.any (fun g => decide (f = g))
+
+/-- `memb` decides list membership. -/
+theorem memb_iff (f : Formula) (l : List Formula) : memb f l = true ↔ f ∈ l := by
+  simp only [memb, List.any_eq_true, decide_eq_true_eq]
+  exact ⟨fun ⟨g, hg, h⟩ => h ▸ hg, fun h => ⟨f, h, rfl⟩⟩
+
+/-- Two `Bool`s are equal when they agree as propositions. -/
+theorem bool_eq_of_iff {a b : Bool} (h : a = true ↔ b = true) : a = b := by
+  cases a <;> cases b <;> simp_all
+
+/-- The canonical **normalized key** of a state relative to a closure `C`: each side is
+    `C` filtered by membership, which discards ordering and duplicates.  States that agree
+    on their ante/succ *sets* (as subsets of `C`) get the same key. -/
+def normKey (C : List Formula) (S : FSequent) : List Formula × List Formula :=
+  (C.filter (memb · S.ante), C.filter (memb · S.succ))
+
+/-- The key is canonical: it depends only on the ante/succ **sets**, not on order or
+    multiplicity.  (This is what makes it a genuine set-quotient rather than a relabelled
+    `FSequent`.) -/
+theorem normKey_congr (C : List Formula) {S S' : FSequent}
+    (ha : ∀ f, f ∈ S.ante ↔ f ∈ S'.ante) (hs : ∀ f, f ∈ S.succ ↔ f ∈ S'.succ) :
+    normKey C S = normKey C S' := by
+  simp only [normKey]
+  congr 1
+  · exact List.filter_congr fun f _ =>
+      bool_eq_of_iff (by rw [memb_iff, memb_iff]; exact ha f)
+  · exact List.filter_congr fun f _ =>
+      bool_eq_of_iff (by rw [memb_iff, memb_iff]; exact hs f)
+
+/-! ### The master list of keys and the `4^{|C|}` count -/
+
+/-- All possible normalized keys over `C`: a pair of powerset elements. -/
+def allKeys (C : List Formula) : List (List Formula × List Formula) :=
+  (powerList C).flatMap (fun a => (powerList C).map (fun s => (a, s)))
+
+/-- A `flatMap` whose inner lists all have length `|t|` has length `|l| · |t|`. -/
+theorem length_flatMap_const {α β γ : Type} (l : List α) (t : List γ) (g : α → γ → β) :
+    (l.flatMap (fun a => t.map (g a))).length = l.length * t.length := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+      simp only [List.flatMap_cons, List.length_append, List.length_map, ih, List.length_cons,
+        Nat.add_mul, Nat.one_mul]
+      omega
+
+/-- The master list has exactly `2^{|C|} · 2^{|C|}` keys. -/
+theorem length_allKeys (C : List Formula) :
+    (allKeys C).length = 2 ^ C.length * 2 ^ C.length := by
+  rw [allKeys, length_flatMap_const, length_powerList]
+
+/-- `2^n · 2^n = 4^n` (self-contained; no Mathlib `ring`/`Nat.mul_pow`). -/
+theorem two_pow_mul_two_pow (n : Nat) : 2 ^ n * 2 ^ n = 4 ^ n := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+      rw [Nat.pow_succ, Nat.pow_succ]
+      calc 2 ^ n * 2 * (2 ^ n * 2)
+          = 2 ^ n * 2 ^ n * (2 * 2) := by ac_rfl
+        _ = 4 ^ n * 4 := by rw [ih]
+
+/-- Any pair of powerset elements is a key. -/
+theorem mem_allKeys {C : List Formula} {a s : List Formula}
+    (ha : a ∈ powerList C) (hs : s ∈ powerList C) : (a, s) ∈ allKeys C := by
+  simp only [allKeys, List.mem_flatMap, List.mem_map]
+  exact ⟨a, ha, s, hs, rfl⟩
+
+/-- Every normalized key lands in the master list — unconditionally, since each side is a
+    `filter` of `C`. -/
+theorem normKey_mem_allKeys (C : List Formula) (S : FSequent) :
+    normKey C S ∈ allKeys C :=
+  mem_allKeys (filter_mem_powerList _ C) (filter_mem_powerList _ C)
+
+/-- **Fidelity (antecedent).**  For an in-closure state the normalized key loses nothing:
+    its antecedent side has exactly the antecedent formulas.  Hence distinct in-closure
+    set-states get distinct keys — the key is a faithful injection on the search domain. -/
+theorem mem_normKey_ante_iff {C : List Formula} {S : FSequent}
+    (hS : S.InClosure C) (f : Formula) : f ∈ (normKey C S).1 ↔ f ∈ S.ante := by
+  simp only [normKey, List.mem_filter, memb_iff]
+  exact ⟨fun h => h.2, fun h => ⟨hS.1 f h, h⟩⟩
+
+/-- **Fidelity (succedent).** -/
+theorem mem_normKey_succ_iff {C : List Formula} {S : FSequent}
+    (hS : S.InClosure C) (f : Formula) : f ∈ (normKey C S).2 ↔ f ∈ S.succ := by
+  simp only [normKey, List.mem_filter, memb_iff]
+  exact ⟨fun h => h.2, fun h => ⟨hS.2 f h, h⟩⟩
+
+/-- **`finiteStateProp` — the finite bound.**  There is a master list of `≤ 4^{|C|}`
+    normalized keys that contains the key of *every* state over `C`.  Together with
+    `FStep.inClosure` (search stays in `C`) and the fidelity lemmas (the key faithfully
+    represents an in-closure state), this is the finiteness of the normalized search space:
+    at most `4^{|C|}` distinct reachable states. -/
+theorem finiteStateProp (C : List Formula) :
+    ∃ master : List (List Formula × List Formula),
+      master.length ≤ 4 ^ C.length ∧
+      ∀ S : FSequent, normKey C S ∈ master := by
+  refine ⟨allKeys C, Nat.le_of_eq ?_, fun S => normKey_mem_allKeys C S⟩
+  rw [length_allKeys, two_pow_mul_two_pow]
+
+/-! ### Reachability: the reachable search space stays finite -/
+
+/-- Reflexive–transitive closure of `FStep` (self-contained; no Mathlib `ReflTransGen`). -/
+inductive FStepStar : FSequent -> FSequent -> Prop where
+  | refl (S : FSequent) : FStepStar S S
+  | step {S T U : FSequent} : FStep S T -> FStepStar T U -> FStepStar S U
+
+/-- Reachability preserves in-closure: from an in-closure start, every reachable state is
+    still in `C`.  (Iterates `FStep.inClosure`.) -/
+theorem FStepStar.inClosure {C : List Formula} (hC : SearchClosed C) {S S' : FSequent}
+    (h : FStepStar S S') : S.InClosure C -> S'.InClosure C := by
+  induction h with
+  | refl S => exact id
+  | step hst _ ih => exact fun hS => ih (FStep.inClosure hC hst hS)
+
+/-- **Capstone.**  From an in-closure start `S₀`, every `FStep*`-reachable state `S` has a
+    key inside the `≤ 4^{|C|}` master list, and that key faithfully represents `S` (loses no
+    ante/succ formula).  So the reachable normalized search space is finite. -/
+theorem reachable_key_faithful_finite {C : List Formula} (hC : SearchClosed C)
+    {S₀ S : FSequent} (h0 : S₀.InClosure C) (h : FStepStar S₀ S) :
+    normKey C S ∈ allKeys C ∧
+    (∀ f, f ∈ (normKey C S).1 ↔ f ∈ S.ante) ∧
+    (∀ f, f ∈ (normKey C S).2 ↔ f ∈ S.succ) :=
+  have hS : S.InClosure C := FStepStar.inClosure hC h h0
+  ⟨normKey_mem_allKeys C S, fun f => mem_normKey_ante_iff hS f,
+    fun f => mem_normKey_succ_iff hS f⟩
+
+/-! ### The closure of a search goal
+
+    Assembling `C` for an actual goal `G`: the union of the signed subformula closures of
+    `G`'s formulas.  It is search-closed and contains `G`, so `finiteStateProp` applies to
+    the search started from `⟨[], G⟩`. -/
+
+/-- The signed subformula closure of a whole goal (list of formulas). -/
+def goalClosure (G : List Formula) : List Formula :=
+  G.flatMap Formula.searchClosure
+
+/-- The goal closure is search-closed (uses closure transitivity). -/
+theorem searchClosed_goalClosure (G : List Formula) : SearchClosed (goalClosure G) := by
+  intro f hf g hg
+  simp only [goalClosure, List.mem_flatMap] at hf ⊢
+  obtain ⟨h, hhG, hfh⟩ := hf
+  exact ⟨h, hhG, Formula.mem_searchClosure_trans h f g hfh hg⟩
+
+/-- The initial sequent `⟨[], G⟩` lies inside the goal closure. -/
+theorem initial_inClosure (G : List Formula) :
+    (⟨[], G⟩ : FSequent).InClosure (goalClosure G) := by
+  refine ⟨fun f hf => absurd hf List.not_mem_nil, fun f hf => ?_⟩
+  simp only [goalClosure, List.mem_flatMap]
+  exact ⟨f, hf, f.self_mem_searchClosure⟩
+
+/-- **Goal-level finiteness.**  Every state reachable from `⟨[], G⟩` has a faithful key in a
+    master list of `≤ 4^{|goalClosure G|}` keys: the search space for goal `G` is finite. -/
+theorem finiteStateProp_goal (G : List Formula) {S : FSequent}
+    (h : FStepStar ⟨[], G⟩ S) :
+    normKey (goalClosure G) S ∈ allKeys (goalClosure G) ∧
+    (∀ f, f ∈ (normKey (goalClosure G) S).1 ↔ f ∈ S.ante) ∧
+    (∀ f, f ∈ (normKey (goalClosure G) S).2 ↔ f ∈ S.succ) :=
+  reachable_key_faithful_finite (searchClosed_goalClosure G) (initial_inClosure G) h
+
+/-! ### TODO (step 4 — memoized BFS + termination)
+
+    `FStep` here is an *untyped over-approximation*: it drops `FTrace`'s `liftFormula?` /
+    `LiftsAllF` side conditions.  That is exactly what makes the closure/counting argument
+    clean, but before `FStep` becomes the BFS transition relation there must be a **bridge**:
+    either every typed `FTrace` step is an `FStep` (so this finite bound covers real search),
+    or the BFS relation must re-attach those guards.  Deferred to the BFS slice. -/
 
 end Focused
 end ContextualHOL

@@ -738,11 +738,12 @@ reduction still holds, but its right-hand side is not to be expected (poly ⟹
 `P = NP`); the honest, provable reading is "`replayCost` is *finite*, bounded by
 `|ReplayClosure(G)|`."
 
-*Finite-state branch — steps 1–2 landed and checked (2026-07-13,
-`ContextualHOL/FiniteState.lean`).* Per the audit, finiteness must be proved for the
-**focused analytic state** (`FSequent`), not the `FDeriv` trace language, in the order:
-(1) state/key + transitions; (2) closure into signed `Sub(G)`; (3) the `≤ 4^{|Sub(G)|}`
-count; (4) memoized BFS + termination. Steps 1–2 are now proved, `sorry`-free:
+*Finite-state branch — steps 1–3 landed and checked (2026-07-14,
+`ContextualHOL/FiniteState.lean`).* Per the audit, finiteness is proved for the **analytic
+state** (`FSequent`, intended to underlie the later focused calculus), not the `FDeriv`
+trace language, in the order: (1) state + transitions; (2) closure into signed `Sub(G)`;
+(3) normalized set-key + the `≤ 4^{|Sub(G)|}` count; (4) memoized BFS + termination. Steps
+1–3 are now proved, `sorry`-free:
 
 * **Signed subformula closure** `Formula.searchClosure`: immediate subformulas *plus*, for
   each `iff φ ψ`, the two implications `imp φ ψ`/`imp ψ φ` that the `iff` rules expose (added
@@ -756,9 +757,26 @@ count; (4) memoized BFS + termination. Steps 1–2 are now proved, `sorry`-free:
   deferred to state normalization). `SearchClosed C` / `FSequent.InClosure C S`.
 * **Closure preservation (step 2)** `FStep.inClosure`: every `FStep` maps an in-closure
   state to an in-closure state — search never leaves `Sub(G)`. This is the analyticity
-  fact the `4^{|Sub(G)|}` count rests on (a normalized state = a pair of sub-**sets** of a
-  finite `C`). Next slice: the finite count (`finiteStateProp`) then memoized BFS +
-  termination. (`FiniteState.lean` is built via the explicit `lake build
+  fact the `4^{|Sub(G)|}` count rests on. Because `FSequent` still stores lists (ordering +
+  duplicates), the count is *not* over raw sequents but over a normalized key (step 3).
+* **Normalized key + finite bound (step 3)** `normKey C S = (C.filter (∈ ante), C.filter
+  (∈ succ))`: `C` filtered by each side, collapsing order and duplicates to a **pair of
+  sub-sets of `C`**. It is canonical (`normKey_congr`: depends only on the ante/succ sets)
+  and, on in-closure states, faithful (`mem_normKey_ante_iff`: loses no formula). A
+  self-contained powerset `powerList` (`length_powerList = 2^{|C|}`, `filter_mem_powerList`;
+  no Batteries `List.sublists`) gives the master list `allKeys C` of `2^{|C|}·2^{|C|} =
+  4^{|C|}` keys, and `finiteStateProp` proves every `normKey C S` lands in it. `FStepStar`
+  (reflexive–transitive closure) + `FStepStar.inClosure` lift this to reachability
+  (`reachable_key_faithful_finite`), and `goalClosure G` / `searchClosed_goalClosure` /
+  `initial_inClosure` assemble `C` for a goal (`finiteStateProp_goal`). Membership uses a
+  `DecidableEq`-only Bool test `memb` (core's list `Decidable (·∈·)` needs `LawfulBEq`,
+  which `Formula` doesn't derive); `4^n = 2^n·2^n` and the two-arg powerset count are
+  hand-proved (no Mathlib `ring`/`mul_pow`).
+* **Next (step 4)** memoized BFS over the keys + termination. First needs a **bridge**:
+  `FStep` is an untyped over-approximation that drops `FTrace`'s `liftFormula?` / `LiftsAllF`
+  guards — before it is the BFS relation, either every typed step must be shown to be an
+  `FStep`, or the BFS relation must re-attach those guards. (Recorded as a TODO in
+  `FiniteState.lean`.) (`FiniteState.lean` is built via the explicit `lake build
   ContextualHOL.FiniteState` target, like `Focused.lean` — neither is in the default
   `lake build` module set.)
 
