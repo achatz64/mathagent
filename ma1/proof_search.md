@@ -738,7 +738,7 @@ reduction still holds, but its right-hand side is not to be expected (poly ⟹
 `P = NP`); the honest, provable reading is "`replayCost` is *finite*, bounded by
 `|ReplayClosure(G)|`."
 
-*Finite-state branch — steps 1–3 landed and checked (2026-07-14,
+*Finite-state branch — steps 1–3 + step-4 set-key hypergraph landed and checked (2026-07-14,
 `ContextualHOL/FiniteState.lean`).* Per the audit, finiteness is proved for the **analytic
 state** (`FSequent`, intended to underlie the later focused calculus), not the `FDeriv`
 trace language, in the order: (1) state + transitions; (2) closure into signed `Sub(G)`;
@@ -772,26 +772,36 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
   `DecidableEq`-only Bool test `memb` (core's list `Decidable (·∈·)` needs `LawfulBEq`,
   which `Formula` doesn't derive); `4^n = 2^n·2^n` and the two-arg powerset count are
   hand-proved (no Mathlib `ring`/`mul_pow`).
-* **Step 4 (in progress) — three ordered gates**, per the audit. A finite normalized-state
-  *envelope* (step 3) is not yet a memoized search *algorithm*; that needs:
-  * **Gate 1 — key-transition coherence (foundation landed).** `normKey` erases order but
-    `FStep` fires only at the list head, so equal keys could expose different moves. Added
-    `FStepArb` (permute a side, then step at the head → any member principal), with
-    `FStep.toArb`, source-permutation invariance `FStepArb.of_seqPerm` (the coherence `FStep`
-    lacked), and `FStepArb.inClosure`. Plus `normKey` as the quotient by same-sets:
-    `SetEq` (+refl/symm/trans), `normKey_eq_of_setEq` (⟸ unconditional) and
-    `setEq_of_normKey_eq` (⟹ on in-closure states, from fidelity). *Remaining:* lift
-    coherence from permutation to the full `SetEq` quotient (duplicate multiplicity, via a
-    dedup normal form) and prove the key-level relation simulates `FStepArb` both ways.
-  * **Gate 2 — hyperedge structure.** Two-premise rules (`andR`,`orL`,`impL`,`iffR`) must be
-    kept as AND/OR hyperedges: a key is provable iff it is an axiom or *some* rule reduces it
-    to premises *all* provable. The search object is a proof-search hypergraph over the
-    `≤ 4^{|C|}` keys (a plain graph BFS is insufficient); memoized AND/OR evaluation
-    terminates by the finite bound.
-  * **Gate 3 — the typed bridge.** `FStep`/`FStepArb` are untyped over-approximations of
-    `FTrace` (they drop the `liftFormula?` / `LiftsAllF` guards); before the key-level search
-    certifies real derivations, every typed `FTrace` step must be shown to be an `FStepArb`
-    (or the search relation must re-attach the guards).
+* **Step 4 (in progress) — the normalized AND/OR hypergraph on set-keys.** A finite
+  normalized-state *envelope* (step 3) is not yet a memoized search *algorithm*. The audit's
+  original framing was "coherence gate then hyperedge gate then typed bridge," and a first
+  `FStepArb` (permute a side then step at the head → any member principal;
+  `FStep.toArb`/`FStepArb.of_seqPerm`/`FStepArb.inClosure`) landed as a reordering-coherence
+  foundation. **But a two-way one-step simulation of `FStepArb` by a deduplicated key relation
+  is provably false**: deduplication *changes* the operational rule — contraction is baked into
+  the set level, not a missing lemma. (Counterexample: an antecedent with two copies of
+  `and p q`; raw `FStepArb` applies `andL` to one copy leaving `{and p q, p, q}`, the dedup
+  representative has one copy and yields `{p, q}` — different keys.) So step 4 defines the rule
+  **directly on set-keys** (2026-07-14, `FiniteState.lean`, sorry-free):
+  * `sremove` (set-level deletion of a formula) + `mem_sremove`.
+  * `KStep : FSequent → List FSequent → Prop` — 10 backward rules; principal chosen *anywhere*
+    in a side (membership, not head), deleted at set level, components added; the four
+    two-premise rules (`andR`,`orL`,`impL`,`iffR`) emit a **two-element premise list = one
+    AND/OR hyperedge** (retained, not flattened to `S → S'` edges).
+  * `KProvable : FSequent → Prop` — AND/OR reachability: identity axiom, or *some* rule reduces
+    to a hyperedge whose premises are *all* provable (`∀ P ∈ ps, KProvable P`).
+  * `KStep.inClosure` — every hyperedge premise stays in the closure `C` (gate-2 analyticity;
+    mirror of `FStep.inClosure`), so reachable keys are the same `≤ 4^{|C|}` finite set.
+  * `KStep.respects_setEq` — the rule is **well-defined on sets**: `SetEq`-equal keys fire
+    `SetEq`-equal hyperedges (pointwise `SetEqAll`). This is the *full* quotient (reordering
+    **and** duplicate multiplicity) that the one-step `FStepArb` quotient could not reach —
+    the real fix.
+  * *Remaining (recorded as TODO in the module):* **correspondence** `KProvable ↔`
+    `FTrace`/`ProvesProp` derivability, proved with explicit contraction/exchange
+    admissibility (a normalized-hyperderivation ↔ real-derivation theorem, *not* a raw
+    one-step equivalence), and the **typed bridge** re-attaching `FTrace`'s
+    `liftFormula?`/`LiftsAllF` guards. Then memoized AND/OR evaluation over the `≤ 4^{|C|}`
+    keys (terminating by the finite bound) is the decision procedure.
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 

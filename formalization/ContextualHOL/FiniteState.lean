@@ -634,24 +634,299 @@ theorem FStepArb.inClosure {C : List Formula} (hC : SearchClosed C) {S S' : FSeq
   obtain ⟨T, hp, hst⟩ := h
   exact FStep.inClosure hC hst (hp.inClosure hS)
 
-/-! ### TODO — the remaining step-4 gates (in order)
+/-! ## Step 4 — the normalized AND/OR hypergraph on set-keys
 
-    **Gate 1 (partly here).**  Key-transition coherence.  `FStepArb` + the `SetEq`/`normKey`
-    quotient give coherence up to *reordering*.  Remaining: lift it to the full `SetEq`
-    quotient (duplicate multiplicity, e.g. via a dedup normal form) so the transition is a
-    genuine relation on `normKey`s, and prove the key-level relation faithfully simulates
-    `FStepArb` in both directions.
+    A two-way *one-step* simulation of `FStepArb` by a deduplicated key relation is
+    **impossible**, because deduplication changes the operational rule — contraction is baked
+    into the set level, it is not a missing coherence lemma.  (Counterexample: let the
+    antecedent hold two copies of `and p q`.  Raw `FStepArb` applies `andL` to one copy and
+    leaves the other, giving the set `{and p q, p, q}`; the deduplicated representative has a
+    single copy and yields `{p, q}` — different keys.  The same happens on the succedent.)
 
-    **Gate 2.**  Hyperedge structure.  Two-premise rules (`andR`,`orL`,`impL`,`iffR`) must be
-    kept as AND/OR hyperedges: a key is provable iff it is an axiom, or *some* rule reduces
-    it to premises *all* provable.  The search object is a proof-search hypergraph over the
-    `≤ 4^{|C|}` keys, not a plain graph; memoized AND/OR evaluation over it terminates by the
-    finite bound.
+    So the search rule is defined **directly on set-keys**: pick a principal *anywhere* in a
+    side (membership, not head — `FStepArb`'s reordering is subsumed), delete it at set level
+    (`sremove`), add its rule components, and — crucially — keep *all* premises of a
+    two-premise rule (`andR`,`orL`,`impL`,`iffR`) together as **one hyperedge** (a premise
+    *list*).  `KProvable` is then the AND/OR reachability over this hypergraph: a key is
+    provable iff it is an identity axiom, or *some* rule reduces it to premises that are *all*
+    provable.
 
-    **Gate 3.**  The typed bridge.  `FStep`/`FStepArb` are untyped over-approximations of
-    `FTrace`: they drop the `liftFormula?` / `LiftsAllF` side conditions.  Before the
-    key-level search certifies real derivations, either every typed `FTrace` step must be
-    shown to be an `FStepArb`, or the search relation must re-attach those guards. -/
+    This makes the rule a genuine relation on sets: it respects `SetEq` (`KStep.respects_setEq`
+    — permutation *and* duplicate multiplicity, the full quotient `FStepArb` could not reach),
+    it keeps the search inside the closure (`KStep.inClosure`), and — via `normKey` — the
+    reachable keys are the same `≤ 4^{|C|}` finite set.  What remains is the typed bridge and
+    the correspondence with `FTrace`/`ProvesProp` derivations via contraction/exchange
+    admissibility (recorded as a TODO): a *normalized-hyperderivation* ↔ real-derivation
+    theorem, not a raw one-step equality. -/
+
+/-- Set-level removal of a formula: drop *every* occurrence of `p` (uses `DecidableEq Formula`
+    directly, so no `LawfulBEq` is needed). -/
+def sremove (p : Formula) (l : List Formula) : List Formula :=
+  l.filter (fun g => decide (g ≠ p))
+
+/-- Membership in `sremove`: everything of `l` except `p`. -/
+theorem mem_sremove {p f : Formula} {l : List Formula} :
+    f ∈ sremove p l ↔ f ∈ l ∧ f ≠ p := by
+  simp only [sremove, List.mem_filter, decide_eq_true_eq]
+
+/-- **The set-key hyperrule.**  `KStep S ps` holds when some backward analytic rule fires on a
+    principal formula occurring *anywhere* in a side of `S`, producing the premise list `ps`
+    (its **hyperedge**): the principal is deleted at set level and its components added.
+    Two-premise rules (`andR`,`orL`,`impL`,`iffR`) produce a two-element `ps` — an AND-node —
+    so the hypergraph structure is retained rather than flattened to `S → S'` edges. -/
+inductive KStep : FSequent -> List FSequent -> Prop where
+  | andL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.and φ ψ ∈ A) :
+      KStep ⟨A, Θ⟩ [⟨φ :: ψ :: sremove (Formula.and φ ψ) A, Θ⟩]
+  | andR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.and φ ψ ∈ Θ) :
+      KStep ⟨A, Θ⟩ [⟨A, φ :: sremove (Formula.and φ ψ) Θ⟩, ⟨A, ψ :: sremove (Formula.and φ ψ) Θ⟩]
+  | orR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.or φ ψ ∈ Θ) :
+      KStep ⟨A, Θ⟩ [⟨A, φ :: ψ :: sremove (Formula.or φ ψ) Θ⟩]
+  | orL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.or φ ψ ∈ A) :
+      KStep ⟨A, Θ⟩ [⟨φ :: sremove (Formula.or φ ψ) A, Θ⟩, ⟨ψ :: sremove (Formula.or φ ψ) A, Θ⟩]
+  | impR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.imp φ ψ ∈ Θ) :
+      KStep ⟨A, Θ⟩ [⟨φ :: A, ψ :: sremove (Formula.imp φ ψ) Θ⟩]
+  | impL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.imp φ ψ ∈ A) :
+      KStep ⟨A, Θ⟩ [⟨sremove (Formula.imp φ ψ) A, φ :: Θ⟩, ⟨ψ :: sremove (Formula.imp φ ψ) A, Θ⟩]
+  | negR {A Θ : List Formula} {φ : Formula} (h : Formula.not φ ∈ Θ) :
+      KStep ⟨A, Θ⟩ [⟨φ :: A, sremove (Formula.not φ) Θ⟩]
+  | negL {A Θ : List Formula} {φ : Formula} (h : Formula.not φ ∈ A) :
+      KStep ⟨A, Θ⟩ [⟨sremove (Formula.not φ) A, φ :: Θ⟩]
+  | iffR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.iff φ ψ ∈ Θ) :
+      KStep ⟨A, Θ⟩ [⟨A, Formula.imp φ ψ :: sremove (Formula.iff φ ψ) Θ⟩,
+                    ⟨A, Formula.imp ψ φ :: sremove (Formula.iff φ ψ) Θ⟩]
+  | iffL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.iff φ ψ ∈ A) :
+      KStep ⟨A, Θ⟩ [⟨Formula.imp φ ψ :: Formula.imp ψ φ :: sremove (Formula.iff φ ψ) A, Θ⟩]
+
+/-- **AND/OR provability over the hypergraph.**  A key is provable if it is an identity axiom
+    (some formula on both sides), or some rule reduces it to a hyperedge whose premises are
+    *all* provable.  (`∀ P ∈ ps, KProvable P` is the AND over a hyperedge; the choice of rule
+    is the OR.) -/
+inductive KProvable : FSequent -> Prop where
+  | ax {A Θ : List Formula} {f : Formula} (hA : f ∈ A) (hΘ : f ∈ Θ) : KProvable ⟨A, Θ⟩
+  | rule {S : FSequent} {ps : List FSequent}
+      (hstep : KStep S ps) (hpr : ∀ P ∈ ps, KProvable P) : KProvable S
+
+/-- **Analyticity of the hypergraph (gate 2's closure lemma).**  Every premise of every
+    hyperedge fired from an in-closure key is itself in-closure: the set-key search never
+    leaves the signed subformula closure `C`.  (The mirror of `FStep.inClosure` for the
+    hyperrule.) -/
+theorem KStep.inClosure {C : List Formula} (hC : SearchClosed C) {S : FSequent}
+    {ps : List FSequent} (hstep : KStep S ps) (hS : S.InClosure C) :
+    ∀ P ∈ ps, P.InClosure C := by
+  obtain ⟨hante, hsucc⟩ := hS
+  cases hstep with
+  | @andL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hand : Formula.and φ ψ ∈ C := hante _ hmem
+      refine ⟨fun f hf => ?_, hsucc⟩
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hand (Formula.and_child_left _ _)
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hand (Formula.and_child_right _ _)
+      · exact hante _ (mem_sremove.mp hf).1
+  | @andR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      have hand : Formula.and φ ψ ∈ C := hsucc _ hmem
+      rcases hP with rfl | rfl
+      · refine ⟨hante, fun f hf => ?_⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hand (Formula.and_child_left _ _)
+        · exact hsucc _ (mem_sremove.mp hf).1
+      · refine ⟨hante, fun f hf => ?_⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hand (Formula.and_child_right _ _)
+        · exact hsucc _ (mem_sremove.mp hf).1
+  | @orR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hor : Formula.or φ ψ ∈ C := hsucc _ hmem
+      refine ⟨hante, fun f hf => ?_⟩
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hor (Formula.or_child_left _ _)
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hor (Formula.or_child_right _ _)
+      · exact hsucc _ (mem_sremove.mp hf).1
+  | @orL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      have hor : Formula.or φ ψ ∈ C := hante _ hmem
+      rcases hP with rfl | rfl
+      · refine ⟨fun f hf => ?_, hsucc⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hor (Formula.or_child_left _ _)
+        · exact hante _ (mem_sremove.mp hf).1
+      · refine ⟨fun f hf => ?_, hsucc⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hor (Formula.or_child_right _ _)
+        · exact hante _ (mem_sremove.mp hf).1
+  | @impR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have himp : Formula.imp φ ψ ∈ C := hsucc _ hmem
+      refine ⟨fun f hf => ?_, fun f hf => ?_⟩
+      · rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child himp (Formula.imp_child_left _ _)
+        · exact hante _ hf
+      · rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child himp (Formula.imp_child_right _ _)
+        · exact hsucc _ (mem_sremove.mp hf).1
+  | @impL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      have himp : Formula.imp φ ψ ∈ C := hante _ hmem
+      rcases hP with rfl | rfl
+      · refine ⟨fun f hf => ?_, fun f hf => ?_⟩
+        · exact hante _ (mem_sremove.mp hf).1
+        · rcases List.mem_cons.1 hf with rfl | hf
+          · exact hC.child himp (Formula.imp_child_left _ _)
+          · exact hsucc _ hf
+      · refine ⟨fun f hf => ?_, hsucc⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child himp (Formula.imp_child_right _ _)
+        · exact hante _ (mem_sremove.mp hf).1
+  | @negR A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hnot : Formula.not φ ∈ C := hsucc _ hmem
+      refine ⟨fun f hf => ?_, fun f hf => ?_⟩
+      · rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hnot (Formula.not_child_mem _)
+        · exact hante _ hf
+      · exact hsucc _ (mem_sremove.mp hf).1
+  | @negL A Θ φ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hnot : Formula.not φ ∈ C := hante _ hmem
+      refine ⟨fun f hf => ?_, fun f hf => ?_⟩
+      · exact hante _ (mem_sremove.mp hf).1
+      · rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hnot (Formula.not_child_mem _)
+        · exact hsucc _ hf
+  | @iffR A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP
+      have hiff : Formula.iff φ ψ ∈ C := hsucc _ hmem
+      rcases hP with rfl | rfl
+      · refine ⟨hante, fun f hf => ?_⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hiff (Formula.iff_child_impL _ _)
+        · exact hsucc _ (mem_sremove.mp hf).1
+      · refine ⟨hante, fun f hf => ?_⟩
+        rcases List.mem_cons.1 hf with rfl | hf
+        · exact hC.child hiff (Formula.iff_child_impR _ _)
+        · exact hsucc _ (mem_sremove.mp hf).1
+  | @iffL A Θ φ ψ hmem =>
+      intro P hP; simp only [List.mem_singleton] at hP; subst hP
+      have hiff : Formula.iff φ ψ ∈ C := hante _ hmem
+      refine ⟨fun f hf => ?_, hsucc⟩
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hiff (Formula.iff_child_impL _ _)
+      rcases List.mem_cons.1 hf with rfl | hf
+      · exact hC.child hiff (Formula.iff_child_impR _ _)
+      · exact hante _ (mem_sremove.mp hf).1
+
+/-! ### The hyperrule is well-defined on set-keys (the real gate-1 fix)
+
+    `FStepArb` gave coherence only up to *reordering*; the set-level rule gives coherence up to
+    the *full* `SetEq` (reordering **and** duplicate multiplicity), because it selects the
+    principal by membership and deletes it at set level.  `KStep.respects_setEq` proves it:
+    `SetEq`-equal keys expose `SetEq`-equal hyperedges. -/
+
+/-- Congruence of `∈` through a `cons`. -/
+theorem mem_cons_congr {a f : Formula} {l l' : List Formula}
+    (h : f ∈ l ↔ f ∈ l') : (f ∈ a :: l) ↔ (f ∈ a :: l') := by
+  simp only [List.mem_cons, h]
+
+/-- Congruence of `∈` through `sremove` (same sets ⟹ same `sremove` sets). -/
+theorem mem_sremove_congr {p : Formula} {A A' : List Formula}
+    (hA : ∀ g, g ∈ A ↔ g ∈ A') (f : Formula) :
+    f ∈ sremove p A ↔ f ∈ sremove p A' := by
+  simp only [mem_sremove, hA f]
+
+/-- Pointwise `SetEq` of two premise lists (self-contained; avoids a `List.Forall₂`
+    dependency). -/
+def SetEqAll : List FSequent -> List FSequent -> Prop
+  | [], [] => True
+  | P :: ps, P' :: ps' => SetEq P P' ∧ SetEqAll ps ps'
+  | _, _ => False
+
+/-- **The hyperrule respects `SetEq` (full quotient coherence).**  If `S` and `S'` have the
+    same ante/succ *sets* and `S` fires a hyperedge `ps`, then `S'` fires a corresponding
+    hyperedge `ps'` with each premise `SetEq` to `ps`'s.  So `KStep` descends to a relation on
+    set-keys — the well-definedness that a one-step `FStepArb` quotient could not have. -/
+theorem KStep.respects_setEq {S S' : FSequent} (h : SetEq S S')
+    {ps : List FSequent} (hstep : KStep S ps) :
+    ∃ ps', KStep S' ps' ∧ SetEqAll ps ps' := by
+  cases hstep with
+  | @andL A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨φ :: ψ :: sremove (Formula.and φ ψ) A', Θ'⟩], KStep.andL ((hA _).mp hmem),
+        ⟨fun f => mem_cons_congr (mem_cons_congr (mem_sremove_congr hA f)), fun f => hΘ f⟩,
+        trivial⟩
+  | @andR A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨A', φ :: sremove (Formula.and φ ψ) Θ'⟩, ⟨A', ψ :: sremove (Formula.and φ ψ) Θ'⟩],
+        KStep.andR ((hΘ _).mp hmem),
+        ⟨fun f => hA f, fun f => mem_cons_congr (mem_sremove_congr hΘ f)⟩,
+        ⟨fun f => hA f, fun f => mem_cons_congr (mem_sremove_congr hΘ f)⟩, trivial⟩
+  | @orR A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨A', φ :: ψ :: sremove (Formula.or φ ψ) Θ'⟩], KStep.orR ((hΘ _).mp hmem),
+        ⟨fun f => hA f, fun f => mem_cons_congr (mem_cons_congr (mem_sremove_congr hΘ f))⟩,
+        trivial⟩
+  | @orL A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨φ :: sremove (Formula.or φ ψ) A', Θ'⟩, ⟨ψ :: sremove (Formula.or φ ψ) A', Θ'⟩],
+        KStep.orL ((hA _).mp hmem),
+        ⟨fun f => mem_cons_congr (mem_sremove_congr hA f), fun f => hΘ f⟩,
+        ⟨fun f => mem_cons_congr (mem_sremove_congr hA f), fun f => hΘ f⟩, trivial⟩
+  | @impR A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨φ :: A', ψ :: sremove (Formula.imp φ ψ) Θ'⟩], KStep.impR ((hΘ _).mp hmem),
+        ⟨fun f => mem_cons_congr (hA f), fun f => mem_cons_congr (mem_sremove_congr hΘ f)⟩,
+        trivial⟩
+  | @impL A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨sremove (Formula.imp φ ψ) A', φ :: Θ'⟩, ⟨ψ :: sremove (Formula.imp φ ψ) A', Θ'⟩],
+        KStep.impL ((hA _).mp hmem),
+        ⟨fun f => mem_sremove_congr hA f, fun f => mem_cons_congr (hΘ f)⟩,
+        ⟨fun f => mem_cons_congr (mem_sremove_congr hA f), fun f => hΘ f⟩, trivial⟩
+  | @negR A Θ φ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨φ :: A', sremove (Formula.not φ) Θ'⟩], KStep.negR ((hΘ _).mp hmem),
+        ⟨fun f => mem_cons_congr (hA f), fun f => mem_sremove_congr hΘ f⟩, trivial⟩
+  | @negL A Θ φ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨sremove (Formula.not φ) A', φ :: Θ'⟩], KStep.negL ((hA _).mp hmem),
+        ⟨fun f => mem_sremove_congr hA f, fun f => mem_cons_congr (hΘ f)⟩, trivial⟩
+  | @iffR A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨A', Formula.imp φ ψ :: sremove (Formula.iff φ ψ) Θ'⟩,
+              ⟨A', Formula.imp ψ φ :: sremove (Formula.iff φ ψ) Θ'⟩],
+        KStep.iffR ((hΘ _).mp hmem),
+        ⟨fun f => hA f, fun f => mem_cons_congr (mem_sremove_congr hΘ f)⟩,
+        ⟨fun f => hA f, fun f => mem_cons_congr (mem_sremove_congr hΘ f)⟩, trivial⟩
+  | @iffL A Θ φ ψ hmem =>
+      obtain ⟨A', Θ'⟩ := S'; obtain ⟨hA, hΘ⟩ := h
+      exact ⟨[⟨Formula.imp φ ψ :: Formula.imp ψ φ :: sremove (Formula.iff φ ψ) A', Θ'⟩],
+        KStep.iffL ((hA _).mp hmem),
+        ⟨fun f => mem_cons_congr (mem_cons_congr (mem_sremove_congr hA f)), fun f => hΘ f⟩,
+        trivial⟩
+
+/-! ### TODO — what remains for the memoized search algorithm
+
+    The set-key hypergraph is now a well-defined, in-closure, finite object.  Two things remain
+    before it is a *certified* memoized proof-search:
+
+    **Correspondence (gate 1 + gate 2 metatheory).**  Relate `KProvable` to the typed
+    `FTrace`/`ProvesProp` derivations of `Focused.lean`.  Because the set-level rule bakes in
+    contraction (and exchange), this must be a **normalized-hyperderivation ↔ real-derivation**
+    theorem proved with explicit contraction/exchange admissibility — *not* a raw one-step
+    equivalence (which is provably false, see the counterexample above).  Soundness
+    (`KProvable → derivable`) needs weakening/contraction admissible on the real calculus;
+    completeness (`derivable → KProvable`) needs the analytic rules to be invertible up to the
+    set-key.
+
+    **The typed bridge (gate 3).**  `KStep` drops `FTrace`'s `liftFormula?` / `LiftsAllF` side
+    conditions.  Either every typed `FTrace` step must be shown to induce a `KStep`, or the
+    search relation must re-attach those guards, so that a `KProvable` certificate is a real
+    focused derivation.
+
+    Once both land, the memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by
+    the finite bound) is the decision procedure. -/
 
 end Focused
 end ContextualHOL
