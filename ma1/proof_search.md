@@ -859,14 +859,25 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     only — no `Classical.choice`, no `sorryAx`. (The earlier "standard complexity × height
     cut-permutation" plan was abandoned in favor of this shorter semantic route; the calculus
     being purely propositional made adequacy the right tool.)
-  * *Remaining (sole gate) — canonical-key evaluator.* `KStep` is a relation on list-valued `FSequent`s
-    well-defined *modulo* `SetEq`, not yet literally a graph over canonical `normKey`s — the
-    executable finite hypergraph still needs a relation/evaluator at the `normKey` level. Then
-    memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by the finite bound) is the
-    decision procedure.
+  * *Proof-producing canonical-key evaluator — DONE (`KProvable.decide`).* The evaluator is
+    `Decidable (KProvable S)`: `isTrue d` returns an actual set-key derivation `d`
+    (`KProvable.rule`/`KProvable.ax`), `isFalse` a genuine refutation — a *certificate*, not a
+    Boolean (the audit's refinement: `KProvable`/`pcomplete`/`kCut` live in `Prop`, so a `Bool`
+    would discard the derivation). Same recursion as `pcomplete`, terminating on `seqCx`; the
+    `isFalse` branches reuse `psound`/`valid_premises`/`pcomplete`. It **computes** (verified via
+    `#eval decide`: `p→p`, `p⊢p`, `p∨¬p`, modus ponens all `true`; bare `p`, `p→q` `false`) and
+    `#print axioms` = `[propext, Quot.sound]`. `KProvable.normKey_congr` certifies the decision
+    depends only on the canonical key `normKey C S` (equal in-closure keys are inter-provable),
+    so this *is* the canonical-key evaluator, state space the `≤ 4^{|C|}` members of `allKeys C`.
+    Type/Prop plumbing: `firstCompound` (PSum classifier) and the two `compound_*_step`
+    (Subtype-valued) supply the Type-level witnesses the `Decidable` build needs; the base case
+    finds an axiom with `List.find?`. Boundary retained (audit): a positive `KProvable S` becomes
+    an object-logic proof only through `KProvable.sound`, which still needs `S.Lifts env Γ`.
   * *Downstream (separate, not part of this set-key layer):* PS2 still needs genuine
     focused-completeness `ProvesProp → FDeriv` (the analytic calculus is complete for the Hilbert
-    kernel).
+    kernel). A genuinely *memoized* executable BFS with a runtime `normKey`-keyed table (vs. this
+    seqCx-recursive certificate producer) is an optional efficiency refinement, not a
+    soundness/completeness gate.
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 

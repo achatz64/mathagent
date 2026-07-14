@@ -1977,9 +1977,11 @@ private theorem exists_compound_or_all_base (l : List Formula) :
             · exact ha
             · exact hall f hf
 
-/-- Some left rule fires on a decomposable antecedent formula. -/
-private theorem compound_ante_step {A Θ : List Formula} {f : Formula}
-    (hc : isCompound f = true) (hf : f ∈ A) : ∃ ps, KStep ⟨A, Θ⟩ ps := by
+/-- Some left rule fires on a decomposable antecedent formula.  Type-valued (returns the premise
+    list in a `Subtype`) so it can drive the `Decidable` evaluator; `obtain` still destructures it
+    in `Prop` goals (`pcomplete`). -/
+private def compound_ante_step {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ A) : {ps : List FSequent // KStep ⟨A, Θ⟩ ps} := by
   cases f with
   | and φ ψ => exact ⟨_, KStep.andL hf⟩
   | or φ ψ => exact ⟨_, KStep.orL hf⟩
@@ -1991,9 +1993,10 @@ private theorem compound_ante_step {A Θ : List Formula} {f : Formula}
   | all _ _ _ => simp [isCompound] at hc
   | ex _ _ _ => simp [isCompound] at hc
 
-/-- Some right rule fires on a decomposable succedent formula. -/
-private theorem compound_succ_step {A Θ : List Formula} {f : Formula}
-    (hc : isCompound f = true) (hf : f ∈ Θ) : ∃ ps, KStep ⟨A, Θ⟩ ps := by
+/-- Some right rule fires on a decomposable succedent formula (Type-valued, as
+    `compound_ante_step`). -/
+private def compound_succ_step {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ Θ) : {ps : List FSequent // KStep ⟨A, Θ⟩ ps} := by
   cases f with
   | and φ ψ => exact ⟨_, KStep.andR hf⟩
   | or φ ψ => exact ⟨_, KStep.orR hf⟩
@@ -2051,14 +2054,116 @@ theorem FDeriv.toKProvable' {env : Env} {Γ : Ctx} {S : FSequent}
     (d : FDeriv env Γ S) : KProvable S :=
   FDeriv.toKProvable kCut d
 
+/-! ### Proof-producing canonical-key evaluator (`Decidable (KProvable S)`)
+
+    Per the audit's refinement: the finite-search evaluator must **emit a certificate**, not a
+    Boolean — `KProvable`/`pcomplete`/`kCut` live in `Prop`, so a `Bool` decision would discard
+    the derivation.  We give the evaluator as a `Decidable (KProvable S)`: on success it returns
+    `isTrue d` with `d : KProvable S` an actual set-key derivation (built from `KProvable.rule`/
+    `KProvable.ax`); on failure `isFalse` with a genuine refutation.  It has the same shape as
+    `pcomplete` — fire a complexity-decreasing, invertible rule on any present connective and
+    recurse on its premises; at a fully-atomic key, succeed iff an identity axiom is available
+    (`find?`) and otherwise refute via the countermodel `v x := memb x A`.  Termination is on
+    `seqCx` (`KStep.seqCx_lt`); the `isFalse` branches reuse `psound`/`valid_premises`/`pcomplete`.
+    `KProvable.normKey_congr` then certifies the decision depends only on the canonical key
+    `normKey C S`, so this is genuinely a *canonical-key* evaluator whose state space is the
+    `≤ 4^{|C|}` members of `allKeys C`.
+
+    Boundary retained (per the audit): turning a positive result `KProvable S` into an
+    object-logic proof still goes through `KProvable.sound`, which needs the lifting-root
+    condition `S.Lifts env Γ`; the evaluator itself lives purely at the set-key layer. -/
+
+/-- Decide a bounded universal over a concrete premise list from a member-indexed decider.
+    (Core's `List.decidableBAll` wants a global `DecidablePred`; here each decider is a
+    complexity-decreasing recursive call.) -/
+private def decForallMem : (ps : List FSequent) →
+    (∀ P ∈ ps, Decidable (KProvable P)) → Decidable (∀ P ∈ ps, KProvable P)
+  | [], _ => isTrue (fun _ hP => absurd hP List.not_mem_nil)
+  | P :: ps, rec =>
+    match rec P List.mem_cons_self with
+    | isFalse h => isFalse (fun hall => h (hall P List.mem_cons_self))
+    | isTrue hP =>
+        match decForallMem ps (fun Q hQ => rec Q (List.mem_cons_of_mem P hQ)) with
+        | isFalse h => isFalse (fun hall => h (fun Q hQ => hall Q (List.mem_cons_of_mem P hQ)))
+        | isTrue hps => isTrue (fun Q hQ => by
+            rcases List.mem_cons.1 hQ with rfl | hQ
+            · exact hP
+            · exact hps Q hQ)
+
+/-- Constructively locate the first compound in a list, or witness that all its members are
+    atomic — a `Type`-valued (large-eliminable) classifier, so it can drive a `Decidable`
+    construction (the `Prop`-valued `exists_compound_or_all_base` cannot). -/
+private def firstCompound : (l : List Formula) →
+    PSum {f : Formula // f ∈ l ∧ isCompound f = true} (∀ f ∈ l, isCompound f = false)
+  | [] => PSum.inr (fun _ hf => absurd hf List.not_mem_nil)
+  | a :: l =>
+    if h : isCompound a = true then
+      PSum.inl ⟨a, List.mem_cons_self, h⟩
+    else
+      match firstCompound l with
+      | PSum.inl ⟨f, hf, hc⟩ => PSum.inl ⟨f, List.mem_cons_of_mem a hf, hc⟩
+      | PSum.inr hall => PSum.inr (fun f hf => by
+          rcases List.mem_cons.1 hf with rfl | hf
+          · exact eq_false_of_ne_true h
+          · exact hall f hf)
+
+/-- **Proof-producing canonical-key evaluator.**  Decides `KProvable S`, returning an actual
+    set-key derivation on success (`isTrue`) and a genuine refutation on failure (`isFalse`) —
+    not a Boolean.  Same recursion as `pcomplete`, terminating on `seqCx`. -/
+def KProvable.decide (S : FSequent) : Decidable (KProvable S) := by
+  cases firstCompound S.ante with
+  | inl fw =>
+      obtain ⟨f, hf, hcf⟩ := fw
+      obtain ⟨ps, hstep⟩ := compound_ante_step (A := S.ante) (Θ := S.succ) hcf hf
+      exact match decForallMem ps (fun P hP => KProvable.decide P) with
+        | isTrue h => isTrue (KProvable.rule hstep h)
+        | isFalse h => isFalse (fun hp =>
+            h (fun P hP => KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
+  | inr hAbase =>
+      cases firstCompound S.succ with
+      | inl fw =>
+          obtain ⟨f, hf, hcf⟩ := fw
+          obtain ⟨ps, hstep⟩ := compound_succ_step (A := S.ante) (Θ := S.succ) hcf hf
+          exact match decForallMem ps (fun P hP => KProvable.decide P) with
+            | isTrue h => isTrue (KProvable.rule hstep h)
+            | isFalse h => isFalse (fun hp =>
+                h (fun P hP => KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
+      | inr hΘbase =>
+          exact match hfd : S.succ.find? (fun g => memb g S.ante) with
+            | some g => by
+                have hmem := List.find?_some hfd
+                exact isTrue (KProvable.ax ((memb_iff g S.ante).1 hmem)
+                  (List.mem_of_find?_eq_some hfd))
+            | none => isFalse (fun hp => by
+                obtain ⟨g, hgΘ, hgev⟩ := hp.psound (fun x => memb x S.ante)
+                  (fun f hf => by rw [eval_base (hAbase f hf)]; exact (memb_iff f S.ante).mpr hf)
+                have hgmem : memb g S.ante = true := by
+                  rw [eval_base (hΘbase g hgΘ)] at hgev; exact hgev
+                exact (List.find?_eq_none.1 hfd g hgΘ) hgmem)
+  termination_by seqCx S
+  decreasing_by all_goals exact hstep.seqCx_lt _ hP
+
+/-- The evaluator as a typeclass instance: `KProvable S` is decidable. -/
+instance (S : FSequent) : Decidable (KProvable S) := KProvable.decide S
+
+/-- **The evaluator is a function of the canonical key.**  On in-closure states, `KProvable`
+    depends only on `normKey C S`: equal keys are inter-provable.  So `KProvable.decide` genuinely
+    evaluates the canonical key, and its state space is the `≤ 4^{|C|}` members of `allKeys C`. -/
+theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
+    (hS : S.InClosure C) (hS' : S'.InClosure C) (hk : normKey C S = normKey C S') :
+    KProvable S ↔ KProvable S' :=
+  ⟨fun hp => hp.respects_setEq (setEq_of_normKey_eq hS hS' hk),
+   fun hp => hp.respects_setEq (setEq_of_normKey_eq hS' hS hk.symm)⟩
+
 /-! ### TODO — what remains for the memoized search algorithm
 
     With `FSequent.Lifts` + `KStep.preserves_lifts` (typed guard re-attached) and
     `KProvable.sound` (set-key soundness into `denote`, for lifting roots) in hand, the *sound*
     direction of correspondence is done.  The completeness bridge is now **unconditional**:
     `FDeriv.toKProvable'` derives `FDeriv → KProvable` with no side hypothesis (no `FSequent.Lifts`
-    needed — the set-key rule fires on membership), because `KCut` is a *theorem* (`kCut`).  One
-    thing remains before the hypergraph is a *certified* memoized proof-search:
+    needed — the set-key rule fires on membership), because `KCut` is a *theorem* (`kCut`).  The
+    certified proof-search over the finite normalized state space is now realized as a
+    proof-producing decision procedure (`KProvable.decide`, below):
 
     **`KCut` is proved (`kCut`), via propositional adequacy — no cut-permutation argument.**
     The set-key calculus decomposes only the five propositional connectives (`atom`/`papp`/`all`/
@@ -2076,18 +2181,25 @@ theorem FDeriv.toKProvable' {env : Env} {Γ : Ctx} {S : FSequent}
     principal across sides for free).  This is the **normalized-hyperderivation ↔ real-derivation**
     correspondence, *not* a raw one-step equivalence (provably false — see the counterexample).
 
-    **Canonical-key evaluator (the sole remaining gate).**  `KStep` is a relation on list-valued
-    `FSequent`s that is
-    well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose
-    vertices are canonical `normKey`s.  The executable finite hypergraph still needs a
-    relation/evaluator stated at the canonical-key level, over which the memoized AND/OR
-    evaluation runs.
+    **Proof-producing canonical-key evaluator — DONE (`KProvable.decide`).**  The evaluator is
+    `Decidable (KProvable S)`: on success `isTrue d` returns an actual set-key derivation `d`
+    (from `KProvable.rule`/`KProvable.ax`), on failure `isFalse` a genuine refutation — a
+    *certificate*, not a Boolean (per the audit: `KProvable`/`pcomplete`/`kCut` are `Prop`, so a
+    `Bool` would discard the derivation).  Same recursion as `pcomplete`, terminating on `seqCx`;
+    `isTrue`/`isFalse` reuse `psound`/`valid_premises`/`pcomplete`.  It computes (verified:
+    `p→p`, `p⊢p`, `p∨¬p`, MP all `true`; bare `p`, `p→q` `false`) and depends only on
+    `propext`/`Quot.sound`.  `KProvable.normKey_congr` certifies the decision depends only on the
+    canonical key `normKey C S` (equal in-closure keys are inter-provable), so this *is* the
+    canonical-key evaluator, with state space the `≤ 4^{|C|}` members of `allKeys C`.  Boundary
+    (per the audit): a positive `KProvable S` becomes an object-logic proof only through
+    `KProvable.sound`, which still needs the lifting-root condition `S.Lifts env Γ`.
 
-    Once both land, the memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating by the
-    finite bound) is the decision procedure.  (Separately, and downstream of this whole
-    `FDeriv ↔ KProvable` layer, PS2 still needs the genuine focused-completeness result
-    `ProvesProp → FDeriv` — that the analytic calculus is complete for the Hilbert kernel — which
-    is not part of this file's set-key correspondence.) -/
+    (Separately, and downstream of this whole `FDeriv ↔ KProvable` layer, PS2 still needs the
+    genuine focused-completeness result `ProvesProp → FDeriv` — that the analytic calculus is
+    complete for the Hilbert kernel — which is not part of this file's set-key correspondence.
+    A genuinely *memoized* executable BFS with a runtime table keyed by `normKey` — as opposed to
+    this seqCx-recursive certificate producer — is an optional efficiency refinement, not a
+    soundness/completeness gate.) -/
 
 end Focused
 end ContextualHOL
