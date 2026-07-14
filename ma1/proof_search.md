@@ -772,13 +772,28 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
   `DecidableEq`-only Bool test `memb` (core's list `Decidable (·∈·)` needs `LawfulBEq`,
   which `Formula` doesn't derive); `4^n = 2^n·2^n` and the two-arg powerset count are
   hand-proved (no Mathlib `ring`/`mul_pow`).
-* **Next (step 4)** memoized BFS over the keys + termination. First needs a **bridge**:
-  `FStep` is an untyped over-approximation that drops `FTrace`'s `liftFormula?` / `LiftsAllF`
-  guards — before it is the BFS relation, either every typed step must be shown to be an
-  `FStep`, or the BFS relation must re-attach those guards. (Recorded as a TODO in
-  `FiniteState.lean`.) (`FiniteState.lean` is built via the explicit `lake build
-  ContextualHOL.FiniteState` target, like `Focused.lean` — neither is in the default
-  `lake build` module set.)
+* **Step 4 (in progress) — three ordered gates**, per the audit. A finite normalized-state
+  *envelope* (step 3) is not yet a memoized search *algorithm*; that needs:
+  * **Gate 1 — key-transition coherence (foundation landed).** `normKey` erases order but
+    `FStep` fires only at the list head, so equal keys could expose different moves. Added
+    `FStepArb` (permute a side, then step at the head → any member principal), with
+    `FStep.toArb`, source-permutation invariance `FStepArb.of_seqPerm` (the coherence `FStep`
+    lacked), and `FStepArb.inClosure`. Plus `normKey` as the quotient by same-sets:
+    `SetEq` (+refl/symm/trans), `normKey_eq_of_setEq` (⟸ unconditional) and
+    `setEq_of_normKey_eq` (⟹ on in-closure states, from fidelity). *Remaining:* lift
+    coherence from permutation to the full `SetEq` quotient (duplicate multiplicity, via a
+    dedup normal form) and prove the key-level relation simulates `FStepArb` both ways.
+  * **Gate 2 — hyperedge structure.** Two-premise rules (`andR`,`orL`,`impL`,`iffR`) must be
+    kept as AND/OR hyperedges: a key is provable iff it is an axiom or *some* rule reduces it
+    to premises *all* provable. The search object is a proof-search hypergraph over the
+    `≤ 4^{|C|}` keys (a plain graph BFS is insufficient); memoized AND/OR evaluation
+    terminates by the finite bound.
+  * **Gate 3 — the typed bridge.** `FStep`/`FStepArb` are untyped over-approximations of
+    `FTrace` (they drop the `liftFormula?` / `LiftsAllF` guards); before the key-level search
+    certifies real derivations, every typed `FTrace` step must be shown to be an `FStepArb`
+    (or the search relation must re-attach the guards).
+  (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
+  target, like `Focused.lean` — neither is in the default `lake build` module set.)
 
 For a *meaningful* fixed-family theorem (c), `compile` is structured from a
 finite named `ReplayTemplate` set (`pEF`,`pCM`,`pDNE`,`pRaa`,`pByCases`, `∨`/`∧`
@@ -817,7 +832,10 @@ cutAdmissible:   focused MP/cut is admissible in the multi-conclusion system
 subformula:      every formula in a Focused derivation of G is in SearchClosure(G)
 replayClosure:   every compiler-introduced formula is in ReplayClosure(G)
 replaySize:      compilation has an explicit size recurrence/bound
-finiteStateProp: quotienting propositional states by N0+N3 yields a finite set
+finiteStateProp: normalizing propositional states to a set-key (normKey, a pair of
+                 subsets of SearchClosure(G)) yields ≤ 4^{|SearchClosure(G)|} keys
+                 [PROVED, ContextualHOL/FiniteState.lean — over FSequent's normKey, the
+                 order/duplicate-insensitive set-key; supersedes the earlier N0+N3 framing]
 ```
 
 The completeness target is deliberately **internal**: `ProvesProp G` is M3's own

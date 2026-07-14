@@ -553,13 +553,105 @@ theorem finiteStateProp_goal (G : List Formula) {S : FSequent}
     (∀ f, f ∈ (normKey (goalClosure G) S).2 ↔ f ∈ S.succ) :=
   reachable_key_faithful_finite (searchClosed_goalClosure G) (initial_inClosure G) h
 
-/-! ### TODO (step 4 — memoized BFS + termination)
+/-! ## Step 4, gate 1 — order-insensitive (key-level) transitions
 
-    `FStep` here is an *untyped over-approximation*: it drops `FTrace`'s `liftFormula?` /
-    `LiftsAllF` side conditions.  That is exactly what makes the closure/counting argument
-    clean, but before `FStep` becomes the BFS transition relation there must be a **bridge**:
-    either every typed `FTrace` step is an `FStep` (so this finite bound covers real search),
-    or the BFS relation must re-attach those guards.  Deferred to the BFS slice. -/
+    `normKey` erases list order, but `FStep` only decomposes the *head* of a side, so two
+    list-states with the same key can expose different `FStep` moves.  To search over keys
+    we need an order-insensitive transition.  `FStepArb` reorders a side (a permutation)
+    before stepping at the head, so *any* member can be principal; it contains `FStep`
+    (`FStep.toArb`), is invariant under permuting the source (`FStepArb.of_seqPerm`), and
+    preserves the closure (`FStepArb.inClosure`).  Combined with `normKey` being exactly the
+    quotient by same-sets (`normKey_eq_of_setEq` / `setEq_of_normKey_eq`), this is the
+    coherence layer the key-level search rests on.
+
+    Still open (later gate-1/2 slices): the full quotient by `SetEq` (permutation handles
+    reordering but not duplicate multiplicity), and retaining two-premise rules
+    (`andR`,`orL`,`impL`,`iffR`) as **AND/OR hyperedges** rather than single `S → S'` edges,
+    so the key-level object is a proof-search hypergraph — a plain graph BFS is insufficient. -/
+
+/-- Two states have the same ante/succ **sets** — the equivalence `normKey` quotients by. -/
+def SetEq (S S' : FSequent) : Prop :=
+  (∀ f, f ∈ S.ante ↔ f ∈ S'.ante) ∧ (∀ f, f ∈ S.succ ↔ f ∈ S'.succ)
+
+theorem SetEq.refl (S : FSequent) : SetEq S S := ⟨fun _ => Iff.rfl, fun _ => Iff.rfl⟩
+
+theorem SetEq.symm {S S' : FSequent} (h : SetEq S S') : SetEq S' S :=
+  ⟨fun f => (h.1 f).symm, fun f => (h.2 f).symm⟩
+
+theorem SetEq.trans {S S' S'' : FSequent} (h : SetEq S S') (h' : SetEq S' S'') :
+    SetEq S S'' :=
+  ⟨fun f => (h.1 f).trans (h'.1 f), fun f => (h.2 f).trans (h'.2 f)⟩
+
+/-- `normKey` respects `SetEq`: same sets give the same key (unconditional). -/
+theorem normKey_eq_of_setEq {C : List Formula} {S S' : FSequent} (h : SetEq S S') :
+    normKey C S = normKey C S' :=
+  normKey_congr C h.1 h.2
+
+/-- `normKey` is complete for `SetEq` on in-closure states: equal keys ⟹ same sets. -/
+theorem setEq_of_normKey_eq {C : List Formula} {S S' : FSequent}
+    (hS : S.InClosure C) (hS' : S'.InClosure C) (h : normKey C S = normKey C S') :
+    SetEq S S' := by
+  refine ⟨fun f => ?_, fun f => ?_⟩
+  · rw [← mem_normKey_ante_iff hS f, ← mem_normKey_ante_iff hS' f, h]
+  · rw [← mem_normKey_succ_iff hS f, ← mem_normKey_succ_iff hS' f, h]
+
+/-- Two states equal up to reordering each side (a permutation of ante and of succ). -/
+def SeqPerm (S S' : FSequent) : Prop :=
+  List.Perm S.ante S'.ante ∧ List.Perm S.succ S'.succ
+
+theorem SeqPerm.refl (S : FSequent) : SeqPerm S S :=
+  ⟨List.Perm.refl _, List.Perm.refl _⟩
+
+/-- A permutation of the sides is in particular a `SetEq`. -/
+theorem SeqPerm.toSetEq {S S' : FSequent} (h : SeqPerm S S') : SetEq S S' :=
+  ⟨fun f => h.1.mem_iff (a := f), fun f => h.2.mem_iff (a := f)⟩
+
+theorem SeqPerm.inClosure {C : List Formula} {S T : FSequent}
+    (hp : SeqPerm S T) (hS : S.InClosure C) : T.InClosure C :=
+  ⟨fun f hf => hS.1 f (hp.1.mem_iff.mpr hf), fun f hf => hS.2 f (hp.2.mem_iff.mpr hf)⟩
+
+/-- **Order-insensitive transition.**  Reorder a side so the intended principal is at the
+    head, then take an `FStep`.  Any member of a side can thus be principal — matching the
+    key, which has no order. -/
+def FStepArb (S S' : FSequent) : Prop :=
+  ∃ T, SeqPerm S T ∧ FStep T S'
+
+/-- `FStep` is the special case with no reordering. -/
+theorem FStep.toArb {S S' : FSequent} (h : FStep S S') : FStepArb S S' :=
+  ⟨S, SeqPerm.refl S, h⟩
+
+/-- **Key-level coherence (up to reordering).**  `FStepArb` is invariant under permuting the
+    source, so permutation-equivalent representatives of a key expose the same `FStepArb`
+    successors — the property `FStep` alone lacked. -/
+theorem FStepArb.of_seqPerm {S S₂ S' : FSequent} (hp : SeqPerm S S₂) (h : FStepArb S₂ S') :
+    FStepArb S S' := by
+  obtain ⟨T, hpT, hst⟩ := h
+  exact ⟨T, ⟨hp.1.trans hpT.1, hp.2.trans hpT.2⟩, hst⟩
+
+/-- `FStepArb` preserves the closure (reorder, then `FStep.inClosure`). -/
+theorem FStepArb.inClosure {C : List Formula} (hC : SearchClosed C) {S S' : FSequent}
+    (h : FStepArb S S') (hS : S.InClosure C) : S'.InClosure C := by
+  obtain ⟨T, hp, hst⟩ := h
+  exact FStep.inClosure hC hst (hp.inClosure hS)
+
+/-! ### TODO — the remaining step-4 gates (in order)
+
+    **Gate 1 (partly here).**  Key-transition coherence.  `FStepArb` + the `SetEq`/`normKey`
+    quotient give coherence up to *reordering*.  Remaining: lift it to the full `SetEq`
+    quotient (duplicate multiplicity, e.g. via a dedup normal form) so the transition is a
+    genuine relation on `normKey`s, and prove the key-level relation faithfully simulates
+    `FStepArb` in both directions.
+
+    **Gate 2.**  Hyperedge structure.  Two-premise rules (`andR`,`orL`,`impL`,`iffR`) must be
+    kept as AND/OR hyperedges: a key is provable iff it is an axiom, or *some* rule reduces
+    it to premises *all* provable.  The search object is a proof-search hypergraph over the
+    `≤ 4^{|C|}` keys, not a plain graph; memoized AND/OR evaluation over it terminates by the
+    finite bound.
+
+    **Gate 3.**  The typed bridge.  `FStep`/`FStepArb` are untyped over-approximations of
+    `FTrace`: they drop the `liftFormula?` / `LiftsAllF` side conditions.  Before the
+    key-level search certifies real derivations, either every typed `FTrace` step must be
+    shown to be an `FStepArb`, or the search relation must re-attach those guards. -/
 
 end Focused
 end ContextualHOL
