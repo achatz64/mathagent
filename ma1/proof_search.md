@@ -819,14 +819,28 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     `denote_succ_transport`. The induction over `KProvable` then reuses the head-form rule
     lemmas (`soundAndL`, `soundNegR`, …) on the `sremove`-form, transporting the
     anywhere-principal conclusion `⟨A, Θ⟩` to head form via `mem_cons_sremove_iff`.
-  * *Remaining:* **completeness** (`denote`/`FTrace`-derivable `→ KProvable` under `S.Lifts`,
-    analytic rules invertible up to the set-key — still a normalized-hyperderivation ↔
-    real-derivation correspondence, not a one-step equivalence). Also a **canonical-key
-    evaluator**: `KStep` is a relation on
-    list-valued `FSequent`s well-defined *modulo* `SetEq`, not yet literally a graph over
-    canonical `normKey`s — the executable finite hypergraph still needs a relation/evaluator at
-    the `normKey` level. Then memoized AND/OR evaluation over the `≤ 4^{|C|}` keys (terminating
-    by the finite bound) is the decision procedure.
+  * **Completeness-direction infrastructure** (2026-07-14, `FiniteState.lean`, sorry-free) —
+    `KProvable.weaken` (monotone under enlarging *either* side setwise: axiom survives, every
+    rule re-fires on the enlarged key, each hyperedge premise's enlargement discharged by the IH
+    since components are shared and `sremove` is monotone) and `KProvable.respects_setEq`
+    (`KProvable` is a property of the canonical key — two weakenings, one per inclusion). Both
+    are full 10-case inductions mirroring `KStep.respects_setEq`.
+  * *Remaining — completeness = cut-admissibility.* Target: `FDeriv`-derivable `→ KProvable`
+    (under `S.Lifts`). Threading the induction through `weaken`/`respects_setEq`, **every**
+    `FDeriv` rule maps one-to-one onto its `KStep` rule *except* when the principal is duplicated
+    in the residual (`FDeriv` keeps the surplus copy, `KStep`'s `sremove` deletes it). The entire
+    gap is the single obligation **drop an antecedent `g` all of whose components are already
+    present** — exactly **cut/contraction-admissibility** (`φ,ψ ∈ B → KProvable ⟨B,Θ⟩ →
+    KProvable ⟨sremove (and φ ψ) B, Θ⟩`, the components re-prove `g` on the right via `andR` into
+    an axiom then cut it from the left). It does **not** close under a single-connective
+    induction — when a rule's principal is itself a component `φ`/`ψ`, the component is consumed
+    and `g` must be re-derived through several levels, so the proof needs the standard
+    (cut-formula complexity × height) admissibility argument. This is the "first gate."  Also a
+    **canonical-key evaluator**: `KStep` is a relation on list-valued `FSequent`s well-defined
+    *modulo* `SetEq`, not yet literally a graph over canonical `normKey`s — the executable finite
+    hypergraph still needs a relation/evaluator at the `normKey` level. Then memoized AND/OR
+    evaluation over the `≤ 4^{|C|}` keys (terminating by the finite bound) is the decision
+    procedure.
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 

@@ -906,6 +906,113 @@ theorem KStep.respects_setEq {S S' : FSequent} (h : SetEq S S')
         ⟨fun f => mem_cons_congr (mem_cons_congr (mem_sremove_congr hA f)), fun f => hΘ f⟩,
         trivial⟩
 
+/-! ### Monotonicity of `KProvable` (weakening + `SetEq`-invariance)
+
+    Two structural admissibilities the completeness simulation needs *regardless* of how the
+    contraction gate is discharged.  Both hold because the set-key rule picks its principal by
+    **membership**, deletes it by **set-level** `sremove`, and never touches the passive
+    context except to grow it: enlarging either side keeps every axiom firing and keeps every
+    rule's principal available, and `sremove` is monotone, so each hyperedge premise stays
+    reachable under enlargement.  (These go from *fewer* to *more* resources — the easy
+    direction; the hard, contraction direction is the separate gate below.) -/
+
+/-- Enlarging a list monotonically at a fixed head. -/
+private theorem cons_mono {a : Formula} {l l' : List Formula}
+    (h : ∀ x, x ∈ l → x ∈ l') : ∀ x, x ∈ a :: l → x ∈ a :: l' :=
+  fun x hx => List.mem_cons.2 ((List.mem_cons.1 hx).imp id (h x))
+
+/-- Set-level removal is monotone: enlarging the list enlarges its `sremove`. -/
+private theorem sremove_mono {p : Formula} {l l' : List Formula}
+    (h : ∀ x, x ∈ l → x ∈ l') : ∀ x, x ∈ sremove p l → x ∈ sremove p l' :=
+  fun x hx => mem_sremove.2 ⟨h x (mem_sremove.1 hx).1, (mem_sremove.1 hx).2⟩
+
+/-- **Weakening of `KProvable`.**  A provable key stays provable when *either* side is enlarged
+    (setwise).  Proof: induction on the derivation; the identity axiom survives (its witness is
+    still on both sides), and every rule re-fires on the enlarged key with the same principal —
+    each hyperedge premise's enlargement is discharged by the induction hypothesis, using that
+    the added components are shared and `sremove` is monotone. -/
+theorem KProvable.weaken {S : FSequent} (h : KProvable S) :
+    ∀ {A' Θ' : List Formula},
+      (∀ x, x ∈ S.ante → x ∈ A') → (∀ x, x ∈ S.succ → x ∈ Θ') → KProvable ⟨A', Θ'⟩ := by
+  induction h with
+  | @ax A Θ f hA hΘ =>
+      intro A' Θ' hAsub hΘsub
+      exact KProvable.ax (hAsub f hA) (hΘsub f hΘ)
+  | @rule S ps hstep hpr ih =>
+      intro A' Θ' hAsub hΘsub
+      cases hstep with
+      | @andL A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.andL (hAsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨φ :: ψ :: sremove (Formula.and φ ψ) A, Θ⟩ (by simp)
+            (cons_mono (cons_mono (sremove_mono hAsub))) hΘsub
+      | @andR A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.andR (hΘsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP'
+          rcases hP' with rfl | rfl
+          · exact ih ⟨A, φ :: sremove (Formula.and φ ψ) Θ⟩ (by simp) hAsub
+              (cons_mono (sremove_mono hΘsub))
+          · exact ih ⟨A, ψ :: sremove (Formula.and φ ψ) Θ⟩ (by simp) hAsub
+              (cons_mono (sremove_mono hΘsub))
+      | @orR A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.orR (hΘsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨A, φ :: ψ :: sremove (Formula.or φ ψ) Θ⟩ (by simp) hAsub
+            (cons_mono (cons_mono (sremove_mono hΘsub)))
+      | @orL A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.orL (hAsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP'
+          rcases hP' with rfl | rfl
+          · exact ih ⟨φ :: sremove (Formula.or φ ψ) A, Θ⟩ (by simp)
+              (cons_mono (sremove_mono hAsub)) hΘsub
+          · exact ih ⟨ψ :: sremove (Formula.or φ ψ) A, Θ⟩ (by simp)
+              (cons_mono (sremove_mono hAsub)) hΘsub
+      | @impR A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.impR (hΘsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨φ :: A, ψ :: sremove (Formula.imp φ ψ) Θ⟩ (by simp)
+            (cons_mono hAsub) (cons_mono (sremove_mono hΘsub))
+      | @impL A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.impL (hAsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP'
+          rcases hP' with rfl | rfl
+          · exact ih ⟨sremove (Formula.imp φ ψ) A, φ :: Θ⟩ (by simp)
+              (sremove_mono hAsub) (cons_mono hΘsub)
+          · exact ih ⟨ψ :: sremove (Formula.imp φ ψ) A, Θ⟩ (by simp)
+              (cons_mono (sremove_mono hAsub)) hΘsub
+      | @negR A Θ φ hmem =>
+          refine KProvable.rule (KStep.negR (hΘsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨φ :: A, sremove (Formula.not φ) Θ⟩ (by simp)
+            (cons_mono hAsub) (sremove_mono hΘsub)
+      | @negL A Θ φ hmem =>
+          refine KProvable.rule (KStep.negL (hAsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨sremove (Formula.not φ) A, φ :: Θ⟩ (by simp)
+            (sremove_mono hAsub) (cons_mono hΘsub)
+      | @iffR A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.iffR (hΘsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_cons, List.not_mem_nil, or_false] at hP'
+          rcases hP' with rfl | rfl
+          · exact ih ⟨A, Formula.imp φ ψ :: sremove (Formula.iff φ ψ) Θ⟩ (by simp) hAsub
+              (cons_mono (sremove_mono hΘsub))
+          · exact ih ⟨A, Formula.imp ψ φ :: sremove (Formula.iff φ ψ) Θ⟩ (by simp) hAsub
+              (cons_mono (sremove_mono hΘsub))
+      | @iffL A Θ φ ψ hmem =>
+          refine KProvable.rule (KStep.iffL (hAsub _ hmem)) ?_
+          intro P' hP'; simp only [List.mem_singleton] at hP'; subst hP'
+          exact ih ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: sremove (Formula.iff φ ψ) A, Θ⟩
+            (by simp) (cons_mono (cons_mono (sremove_mono hAsub))) hΘsub
+
+/-- **`KProvable` is a property of the set-key.**  It respects `SetEq` (same ante/succ sets),
+    so it genuinely descends to the canonical key — two applications of weakening, one per
+    inclusion.  (This is contraction *for genuine set-duplicates*; the harder contraction that
+    drops an analytically-redundant hypothesis is the gate below.) -/
+theorem KProvable.respects_setEq {S S' : FSequent} (h : SetEq S S')
+    (hp : KProvable S) : KProvable S' := by
+  obtain ⟨A', Θ'⟩ := S'
+  exact hp.weaken (fun x hx => (h.1 x).mp hx) (fun x hx => (h.2 x).mp hx)
+
 /-! ### The typed invariant, re-attached to the set-key rule (gate 3, before soundness)
 
     `KStep`/`KProvable` are untyped: they never mention `liftFormula?` or `LiftsAllF`, so on
@@ -1174,15 +1281,29 @@ theorem KProvable.sound {env : Env} {Γ : Ctx} :
 
     With `FSequent.Lifts` + `KStep.preserves_lifts` (typed guard re-attached) and
     `KProvable.sound` (set-key soundness into `denote`, for lifting roots) in hand, the *sound*
-    direction of correspondence is done.  Two things remain before the hypergraph is a
-    *certified* memoized proof-search:
+    direction of correspondence is done.  The completeness-direction infrastructure is also in
+    place: `KProvable.weaken` (monotone under enlarging either side) and
+    `KProvable.respects_setEq` (a property of the canonical key).  Two things remain before the
+    hypergraph is a *certified* memoized proof-search:
 
-    **Completeness (the harder direction).**  `denote`/`FTrace`-derivable `→ KProvable` (under
-    `FSequent.Lifts`): the analytic rules must be shown invertible up to the set-key, so that any
-    real derivation is matched by a hyperderivation.  Because the set-level rule bakes in
-    contraction (and exchange), this stays a **normalized-hyperderivation ↔ real-derivation**
-    correspondence, *not* a raw one-step equivalence (which is provably false, see the
-    counterexample above).
+    **Completeness (the harder direction) = cut-admissibility for `KProvable`.**  The target is
+    `FDeriv`-derivable `→ KProvable` (under `FSequent.Lifts`): a real analytic (list-based,
+    principal-at-head) derivation must be matched by a set-key hyperderivation.  Threading the
+    induction through `weaken`/`respects_setEq`, *every* `FDeriv` rule maps one-to-one onto its
+    `KStep` rule **except** when the principal is duplicated in the residual: `FDeriv` keeps the
+    surplus copy, `KStep`'s `sremove` deletes it.  So the whole gap is the single obligation
+
+        drop an antecedent `g` all of whose components are already present.
+
+    That obligation is exactly **cut/contraction-admissibility**: e.g. for `g = and φ ψ` with
+    `φ,ψ ∈ B`, one wants `KProvable ⟨B, Θ⟩ → KProvable ⟨sremove (and φ ψ) B, Θ⟩` (`φ,ψ` re-prove
+    `g` on the right via `andR` into an axiom, then cut `g` from the left).  It does **not** close
+    under its own single-connective induction — when a rule's principal is itself a component
+    `φ`/`ψ`, the component is consumed and `g` must be re-derived through several levels, i.e. the
+    proof needs the standard (cut-formula complexity × derivation height) admissibility argument,
+    not a one-connective lemma.  This confirms the earlier framing: a
+    **normalized-hyperderivation ↔ real-derivation** correspondence gated on cut-admissibility,
+    *not* a raw one-step equivalence (which is provably false, see the counterexample above).
 
     **Canonical-key evaluator.**  `KStep` is a relation on list-valued `FSequent`s that is
     well-defined *modulo* `SetEq` (`KStep.respects_setEq`) — not yet literally a graph whose
