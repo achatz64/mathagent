@@ -15,3 +15,5 @@ import ContextualHOL.SubstEvidenceBuilder
 import ContextualHOL.Search
 import ContextualHOL.ProgramC
 import ContextualHOL.CoreQuote
+import ContextualHOL.CoreFile
+import ContextualHOL.SetTheoryQuote

@@ -181,6 +181,49 @@ mutual
     | .existUniqueNeg X elt => .existUniqueNeg X elt
 end
 
+/-! A theory axiom is not necessarily a closed formula.  Core declarations
+may quantify at the declaration telescope over object variables and over
+predicate/function parameters (separation and replacement are the important
+examples).  These records preserve that telescope as contextual, Core-free
+data.  Parameter names are also entered in the enclosing `Signature`; the
+`parameters` field records which of those symbols are schematic rather than
+fixed vocabulary. -/
+
+inductive SchemaKind where
+  | type
+  | term : Ty -> SchemaKind
+  | function : List Ty -> Ty -> SchemaKind
+  | predicate : List Ty -> SchemaKind
+  deriving Repr, BEq, DecidableEq
+
+structure SchemaBinding where
+  name : Name
+  kind : SchemaKind
+  deriving Repr, BEq, DecidableEq
+
+abbrev SchemaCtx := List SchemaBinding
+
+structure TheorySchema where
+  name : Name
+  parameters : SchemaCtx := []
+  objects : Ctx := []
+  conclusion : FormulaShape
+  deriving Repr, BEq
+
+structure Theory where
+  /-- Compatibility compartment for genuinely closed, ground axioms. -/
+  ground : List FormulaShape := []
+  /-- Parameterized contextual theory rules. -/
+  schemas : List TheorySchema := []
+  deriving Repr, BEq
+
+/-- Inspectable application of a contextual theory schema.  The exact case
+keeps its schematic parameters and object telescope open.  Subsequent object
+specialization is performed by the ordinary `ctxSubst` derivation node, so it
+cannot disappear into an opaque axiom lookup. -/
+inductive SchemaInstance : TheorySchema -> Ctx -> FormulaShape -> Type where
+  | exact (s : TheorySchema) : SchemaInstance s s.objects s.conclusion
+
 inductive VarHasType : Ctx -> Name -> Ty -> Type where
   | here {g : Ctx} {x : Name} {A : Ty} :
       VarHasType ({ name := x, ty := A } :: g) x A
@@ -193,7 +236,7 @@ values, while `DerivRaw` conclusions are formula shapes whose accepted uses are
 certified by `FormulaEvidence`. -/
 
 mutual
-  inductive TermEvidence (sig : Signature) (axioms : List FormulaShape) :
+  inductive TermEvidence (sig : Signature) (axioms : Theory) :
       Ctx -> List FormulaShape -> TermShape -> Ty -> Type where
     | var {x A} : VarHasType g x A -> TermEvidence sig axioms g d (.var x) A
     | call {f args argTys result} :
@@ -215,7 +258,7 @@ mutual
         DerivRaw sig axioms g d (.existUniqueNeg X elt) ->
         TermEvidence sig axioms g d (.theNeg X elt) X
 
-  inductive TermsEvidence (sig : Signature) (axioms : List FormulaShape) :
+  inductive TermsEvidence (sig : Signature) (axioms : Theory) :
       Ctx -> List FormulaShape -> List TermShape -> List Ty -> Type where
     | nil : TermsEvidence sig axioms g d [] []
     | cons {t ts A As} :
@@ -223,7 +266,7 @@ mutual
         TermsEvidence sig axioms g d ts As ->
         TermsEvidence sig axioms g d (t :: ts) (A :: As)
 
-  inductive FormulaEvidence (sig : Signature) (axioms : List FormulaShape) :
+  inductive FormulaEvidence (sig : Signature) (axioms : Theory) :
       Ctx -> List FormulaShape -> FormulaShape -> Type where
     | pred {p args argTys} :
         (p, { inputs := argTys }) ∈ sig.predicates ->
@@ -266,11 +309,14 @@ mutual
         (elt, { inputs := [X, X] }) ∈ sig.predicates ->
         FormulaEvidence sig axioms g d (.existUniqueNeg X elt)
 
-  inductive DerivRaw (sig : Signature) (axioms : List FormulaShape) :
+  inductive DerivRaw (sig : Signature) (axioms : Theory) :
       Ctx -> List FormulaShape -> FormulaShape -> Type where
     | hyp {g d p} : FormulaEvidence sig axioms g d p -> p ∈ d ->
         DerivRaw sig axioms g d p
-    | theory {g d p} : FormulaEvidence sig axioms g d p -> p ∈ axioms ->
+    | ground {g d p} : FormulaEvidence sig axioms g d p -> p ∈ axioms.ground ->
+        DerivRaw sig axioms g d p
+    | schema {g d p s} : FormulaEvidence sig axioms g d p ->
+        s ∈ axioms.schemas -> SchemaInstance s g p ->
         DerivRaw sig axioms g d p
     | impIntro {g d p q} : FormulaEvidence sig axioms g d (.imp p q) ->
         DerivRaw sig axioms g (p :: d) q -> DerivRaw sig axioms g d (.imp p q)
@@ -368,12 +414,13 @@ end
 /-- Every derivation certifies that its conclusion is an accepted formula.
 For description conclusions this reconstructs the term evidence from the
 unique-existence subtree stored in the specification constructor. -/
-def DerivRaw.formulaEvidence {sig : Signature} {axioms : List FormulaShape}
+def DerivRaw.formulaEvidence {sig : Signature} {axioms : Theory}
     {g : Ctx} {d : List FormulaShape} {p : FormulaShape}
     (h : DerivRaw sig axioms g d p) : FormulaEvidence sig axioms g d p :=
   match h with
   | .hyp hp _ => hp
-  | .theory hp _ => hp
+  | .ground hp _ => hp
+  | .schema hp _ _ => hp
   | .impIntro hp _ => hp
   | .mp _ hq _ _ => hq
   | .axK hp hq => .imp hp (.imp hq hp)
@@ -399,11 +446,11 @@ def DerivRaw.formulaEvidence {sig : Signature} {axioms : List FormulaShape}
 
 structure Env where
   signature : Signature
-  axioms : List FormulaShape := []
+  theory : Theory := {}
 
-abbrev TermEvidenceFor (E : Env) := TermEvidence E.signature E.axioms
-abbrev FormulaEvidenceFor (E : Env) := FormulaEvidence E.signature E.axioms
-abbrev Deriv (E : Env) := DerivRaw E.signature E.axioms
+abbrev TermEvidenceFor (E : Env) := TermEvidence E.signature E.theory
+abbrev FormulaEvidenceFor (E : Env) := FormulaEvidence E.signature E.theory
+abbrev Deriv (E : Env) := DerivRaw E.signature E.theory
 
 abbrev Proves (E : Env) (g : Ctx) (d : List FormulaShape) (p : FormulaShape) : Prop :=
   Nonempty (Deriv E g d p)
@@ -423,8 +470,8 @@ def sig : Signature :=
 
 def body : FormulaShape := .pred bodyPred [.var w]
 def eu : FormulaShape := .existUniqueChar X elt w c body
-def axioms : List FormulaShape := [eu]
-def env : Env := { signature := sig, axioms := axioms }
+def axioms : Theory := { ground := [eu] }
+def env : Env := { signature := sig, theory := axioms }
 
 def bodyEvidence : FormulaEvidence sig axioms
     [{ name := w, ty := X }, { name := c, ty := X }] [] body := by
@@ -438,7 +485,7 @@ def euEvidence : FormulaEvidence sig axioms [] [] eu := by
   · exact bodyEvidence
 
 def uniqueDeriv : Deriv env [] [] eu :=
-  DerivRaw.theory euEvidence (by simp [env, axioms, eu])
+  DerivRaw.ground euEvidence (by simp [env, axioms, eu])
 
 /-- A description is accepted only because `uniqueDeriv` is stored here. -/
 def descriptionEvidence :

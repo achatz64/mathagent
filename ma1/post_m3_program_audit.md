@@ -48,10 +48,11 @@ The first implementation fixes the target types before quotation begins.
    `hasCharNeg`/`ExistUniqueNeg`/`theNeg`/`theNeg_spec` path from
    `definite_description.cor`.  Genuinely arbitrary `iota x. P(x)` is outside
    this foundation and is a later compiler/infrastructure obligation.
-5. `Deriv` mirrors every rule of the existing contextual calculus, adds a
-   generic theory-axiom rule, and adds only the two generic description
-   specification rules.  It contains neither raw Core evidence nor named
-   theorem shortcuts.
+5. `Deriv` mirrors every rule of the existing contextual calculus, separates
+   closed ground axioms from parameterized contextual `TheorySchema` rules,
+   and adds only the two generic description specification rules.  A schema
+   records its schematic telescope, object context, and contextual conclusion.
+   It contains neither raw Core evidence nor named theorem shortcuts.
 6. The existing proof-search development remains usable through explicit
    erasure/compatibility adapters while it is migrated.  The old inductive
    `Proves : Prop` is removed only after all consumers use `Nonempty Deriv`.
@@ -117,6 +118,42 @@ recursive term/formula shapes do not yet expose a constructive
 `DecidableEq`; it uses classical structural equality while assembling the
 dependent package. Replacing that equality instance is required before this
 same function can be run as a native quotation executable.
+
+## `set.cor` theory-schema/environment one-shot
+
+`formalization/ContextualHOL/SetTheoryQuote.lean` implements the next bounded
+one-shot.  It checks and recursively loads the real `ma1/set.cor` import graph,
+then refunctionalizes the canonical predicate/context encoding into a
+`ProgramC.Env`.  Native expressions occur only at the input boundary; the
+successful result contains only contextual types, terms, formulas, schema
+telescopes, and theory data.
+
+The refunctionalizer recognizes `Pred.term`, `Forall`, `Exist`, predicate and
+propositional connectives, `sub2`, `inst`, composition, projections, pairing,
+and `Cart.weakening`, with transparent named definitions unfolded one head
+step at a time.  It does not dispatch to prewritten formulas by theorem name
+and has no opaque formula fallback.
+
+The resulting vocabulary is the base type `Sets`, binary predicate `elem`, and
+nullary function `Inf`.  It translates all ten set axioms.  Source object
+parameters remain in each schema's `objects : Ctx`; separation records the
+unary schematic predicate `separation.phi`, and replacement records the binary
+schematic predicate `replacement.phi`.  `deriveTheory` reconstructs
+`FormulaEvidence` and an inspectable `DerivRaw.schema` tree for each translated
+open schema.  The executable `quote_set_theory` currently reports:
+
+```text
+quoted 10 set theory schemas
+constructed 10 contextual Deriv trees
+```
+
+This milestone is the declaration/environment translation, not yet quotation
+of arbitrary downstream applications of those schemas.  At use sites, object
+specialization remains visible through contextual substitution; implementing
+typed predicate/function-schema substitution for applications such as a
+particular use of separation or replacement is the next proof-quotation
+obligation.  No completeness claim for arbitrary dependent Core declaration
+telescopes is made here.
 
 ## Falsifiers
 

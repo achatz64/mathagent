@@ -345,8 +345,8 @@ def compilePlan (E : Env) (gamma : Ctx) (delta : List FormulaShape) :
       | .isFalse _ => throw (.missingHypothesis formula)
   | .theory formula => do
       let evidence <- buildFormulaEvidence E gamma delta formula
-      match Classical.propDecidable (List.Mem formula E.axioms) with
-      | .isTrue member => pure (Sigma.mk formula (.theory evidence member))
+      match Classical.propDecidable (List.Mem formula E.theory.ground) with
+      | .isTrue member => pure (Sigma.mk formula (.ground evidence member))
       | .isFalse _ => throw (.missingTheoryAxiom formula)
   | .mp premise conclusion function argument => do
       match <- compilePlan E gamma delta function with
@@ -431,7 +431,9 @@ def quoteCheckedDecl (nativeEnv : CoreChecker.Env)
   let parameters <- quoteParameters nativeEnv checked.params
   let quoted <- quoteProof nativeEnv parameters.locals checked.type body
   let axioms := quoted.plan.axioms
-  let E : Env := { signature := { functions := [], predicates := [] }, axioms }
+  let E : Env :=
+    { signature := { functions := [], predicates := [] },
+      theory := { ground := axioms } }
   match <- compilePlan E parameters.gamma parameters.delta quoted.plan with
   | Sigma.mk formula derivation =>
       if same : formula = quoted.formula then
