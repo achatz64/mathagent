@@ -14,3 +14,4 @@ import ContextualHOL.Evidence
 import ContextualHOL.SubstEvidenceBuilder
 import ContextualHOL.Search
 import ContextualHOL.ProgramC
+import ContextualHOL.CoreQuote

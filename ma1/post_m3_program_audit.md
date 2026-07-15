@@ -78,6 +78,46 @@ and proofs from `set_constructions.cor` be claimed as a correspondence test.
 Manually reproving analogous contextual statements tests expressiveness but
 does not establish correspondence with those Core proofs.
 
+## Core-to-Deriv one-shot status
+
+`formalization/ContextualHOL/CoreQuote.lean` now defines the first checked
+functional boundary:
+
+```text
+quoteCheckedDecl : CoreChecker.Env -> CoreChecker.Decl ->
+  Except QuoteError QuotedDeriv
+```
+
+`QuotedDeriv` contains the checked Core type and body together with `E`,
+`Gamma`, `Delta`, `phi`, and an actual value of `Deriv E Gamma Delta phi`.
+It is not a raw-Core certificate. Transparent Core definitions are normalized;
+proposition parameters enter `Gamma`, proof parameters enter `Delta`, opaque
+native axiom instances become generic contextual theory schemas, native proof
+application becomes `mp`, and native proof composition is expanded with the
+contextual `K` and `S` constructors.
+
+This one-shot intentionally fixes only the minimal propositional path. It
+classifies, rather than hides, the currently unimplemented cases:
+
+* object terms and arbitrary predicate application require the function and
+  predicate refunctionalization pass;
+* proof-producing object functions require a further contextual constructor;
+* Core `Forall`/`Exist` encodings require contextual-binder beta recognition;
+* `the`/`the_spec` and the negative description path require the dedicated
+  proof-dependent description beta pass. They may not pass through a generic
+  theory or raw-term shortcut.
+
+Consequently this is a checked Core-to-`Deriv` function, but not yet the total
+Core-to-`Deriv` theorem required by Program C. The next falsifiable milestone is
+to remove the four classified cases above, beginning with refunctionalization
+and description, while preserving the same result type.
+
+The present Lean function is `noncomputable` only because the mutually
+recursive term/formula shapes do not yet expose a constructive
+`DecidableEq`; it uses classical structural equality while assembling the
+dependent package. Replacing that equality instance is required before this
+same function can be run as a native quotation executable.
+
 ## Falsifiers
 
 Program C fails if any checker-accepted in-scope Core expression requires a raw

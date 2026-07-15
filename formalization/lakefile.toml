@@ -1,6 +1,10 @@
 name = "contextual_hol"
 defaultTargets = ["ContextualHOL"]
 
+[[require]]
+name = "core-checker"
+path = "../checker"
+
 [[lean_lib]]
 name = "ContextualHOL"
 

@@ -1,6 +1,13 @@
 {"version": "1.2.0",
  "packagesDir": ".lake/packages",
- "packages": [],
+ "packages":
+ [{"type": "path",
+   "scope": "",
+   "name": "«core-checker»",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "../checker",
+   "configFile": "lakefile.toml"}],
  "name": "contextual_hol",
  "lakeDir": ".lake",
  "fixedToolchain": false}

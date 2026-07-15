@@ -21,7 +21,7 @@ inductive Ty where
   | prod : Ty -> Ty -> Ty
   | arr : Ty -> Ty -> Ty
   | prop : Ty
-  deriving Repr, BEq, DecidableEq
+  deriving Repr, BEq, DecidableEq, Inhabited
 
 structure Binding where
   name : Name
@@ -53,12 +53,14 @@ mutual
     | var : Name -> TermShape
     | call : Name -> List TermShape -> TermShape
     | app : TermShape -> TermShape -> TermShape
+    | comp : TermShape -> TermShape -> TermShape
     | theChar : Ty -> Name -> Name -> Name -> FormulaShape -> TermShape
     | theNeg : Ty -> Name -> TermShape
-    deriving Repr, BEq
+    deriving Repr, BEq, Inhabited
 
   inductive FormulaShape where
     | pred : Name -> List TermShape -> FormulaShape
+    | holds : TermShape -> FormulaShape
     | and : FormulaShape -> FormulaShape -> FormulaShape
     | or : FormulaShape -> FormulaShape -> FormulaShape
     | imp : FormulaShape -> FormulaShape -> FormulaShape
@@ -71,7 +73,7 @@ mutual
     | existUniqueChar : Ty -> Name -> Name -> Name -> FormulaShape -> FormulaShape
     | hasCharNeg : Ty -> Name -> TermShape -> FormulaShape
     | existUniqueNeg : Ty -> Name -> FormulaShape
-    deriving Repr, BEq
+    deriving Repr, BEq, Inhabited
 end
 
 mutual
@@ -80,6 +82,7 @@ mutual
     | .var _ => true
     | .call _ args => avoidsTerms x args
     | .app f a => avoidsTerm x f && avoidsTerm x a
+    | .comp f g => avoidsTerm x f && avoidsTerm x g
     | .theChar _ _ w c body =>
         !(w == x) && !(c == x) && avoids x body
     | .theNeg _ _ => true
@@ -96,6 +99,7 @@ mutual
   def avoids (x : Name) (p : FormulaShape) : Bool :=
     match p with
     | .pred _ args => avoidsTerms x args
+    | .holds t => avoidsTerm x t
     | .and p q | .or p q | .imp p q | .iff p q => avoids x p && avoids x q
     | .not p => avoids x p
     | .all y _ p | .ex y _ p => !(y == x) && avoids x p
@@ -114,6 +118,7 @@ mutual
     | .var y => y == x
     | .call _ args => occursFreeTerms x args
     | .app f a => occursFreeTerm x f || occursFreeTerm x a
+    | .comp f g => occursFreeTerm x f || occursFreeTerm x g
     | .theChar _ _ w c body =>
         if x == w || x == c then false else occursFree x body
     | .theNeg _ _ => false
@@ -128,6 +133,7 @@ mutual
   def occursFree (x : Name) (p : FormulaShape) : Bool :=
     match p with
     | .pred _ args => occursFreeTerms x args
+    | .holds t => occursFreeTerm x t
     | .and p q | .or p q | .imp p q | .iff p q =>
         occursFree x p || occursFree x q
     | .not p => occursFree x p
@@ -147,6 +153,7 @@ mutual
     | .var y => if y == x then replacement else .var y
     | .call f args => .call f (args.map (substTerm x replacement))
     | .app f a => .app (substTerm x replacement f) (substTerm x replacement a)
+    | .comp f g => .comp (substTerm x replacement f) (substTerm x replacement g)
     | .theChar X elt w c body =>
         .theChar X elt w c
           (if x == w || x == c then body else substFormula x replacement body)
@@ -154,6 +161,7 @@ mutual
 
   def substFormula (x : Name) (replacement : TermShape) : FormulaShape -> FormulaShape
     | .pred p args => .pred p (args.map (substTerm x replacement))
+    | .holds t => .holds (substTerm x replacement t)
     | .and p q => .and (substFormula x replacement p) (substFormula x replacement q)
     | .or p q => .or (substFormula x replacement p) (substFormula x replacement q)
     | .imp p q => .imp (substFormula x replacement p) (substFormula x replacement q)
@@ -196,6 +204,10 @@ mutual
         TermEvidence sig axioms g d f (.arr A B) ->
         TermEvidence sig axioms g d a A ->
         TermEvidence sig axioms g d (.app f a) B
+    | comp {f h A B C} :
+        TermEvidence sig axioms g d f (.arr B C) ->
+        TermEvidence sig axioms g d h (.arr A B) ->
+        TermEvidence sig axioms g d (.comp f h) (.arr A C)
     | theChar {X elt w c body} :
         DerivRaw sig axioms g d (.existUniqueChar X elt w c body) ->
         TermEvidence sig axioms g d (.theChar X elt w c body) X
@@ -217,6 +229,9 @@ mutual
         (p, { inputs := argTys }) ∈ sig.predicates ->
         TermsEvidence sig axioms g d args argTys ->
         FormulaEvidence sig axioms g d (.pred p args)
+    | holds {t} :
+        TermEvidence sig axioms g d t .prop ->
+        FormulaEvidence sig axioms g d (.holds t)
     | and {p q} : FormulaEvidence sig axioms g d p ->
         FormulaEvidence sig axioms g d q -> FormulaEvidence sig axioms g d (.and p q)
     | or {p q} : FormulaEvidence sig axioms g d p ->
@@ -465,6 +480,7 @@ mutual
     | .call f [] => some (.const f)
     | .call _ (_ :: _) => none
     | .app _ _ => none
+    | .comp _ _ => none
     | .theChar _ _ _ _ _ => none
     | .theNeg _ _ => none
 
@@ -472,6 +488,7 @@ mutual
     | .pred p [a] => return .papp p (← eraseTerm? a)
     | .pred r [a, b] => return .atom r (← eraseTerm? a) (← eraseTerm? b)
     | .pred _ _ => none
+    | .holds _ => none
     | .and p q => return .and (← eraseFormula? p) (← eraseFormula? q)
     | .or p q => return .or (← eraseFormula? p) (← eraseFormula? q)
     | .imp p q => return .imp (← eraseFormula? p) (← eraseFormula? q)
