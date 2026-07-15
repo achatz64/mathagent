@@ -859,25 +859,32 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     only — no `Classical.choice`, no `sorryAx`. (The earlier "standard complexity × height
     cut-permutation" plan was abandoned in favor of this shorter semantic route; the calculus
     being purely propositional made adequacy the right tool.)
-  * *Proof-producing canonical-key evaluator — DONE (`KProvable.decide`).* The evaluator is
-    `Decidable (KProvable S)`: `isTrue d` returns an actual set-key derivation `d`
-    (`KProvable.rule`/`KProvable.ax`), `isFalse` a genuine refutation — a *certificate*, not a
-    Boolean (the audit's refinement: `KProvable`/`pcomplete`/`kCut` live in `Prop`, so a `Bool`
-    would discard the derivation). Same recursion as `pcomplete`, terminating on `seqCx`; the
-    `isFalse` branches reuse `psound`/`valid_premises`/`pcomplete`. It **computes** (verified via
-    `#eval decide`: `p→p`, `p⊢p`, `p∨¬p`, modus ponens all `true`; bare `p`, `p→q` `false`) and
-    `#print axioms` = `[propext, Quot.sound]`. `KProvable.normKey_congr` certifies the decision
-    depends only on the canonical key `normKey C S` (equal in-closure keys are inter-provable),
-    so this *is* the canonical-key evaluator, state space the `≤ 4^{|C|}` members of `allKeys C`.
-    Type/Prop plumbing: `firstCompound` (PSum classifier) and the two `compound_*_step`
-    (Subtype-valued) supply the Type-level witnesses the `Decidable` build needs; the base case
-    finds an axiom with `List.find?`. Boundary retained (audit): a positive `KProvable S` becomes
-    an object-logic proof only through `KProvable.sound`, which still needs `S.Lifts env Γ`.
+  * *Certified decidability — DONE (`KProvable.decide`).* `Decidable (KProvable S)`: `isTrue`
+    carries a real set-key derivation, `isFalse` a genuine refutation. Same recursion as
+    `pcomplete`, terminating on `seqCx`; `isFalse` reuses `psound`/`valid_premises`/`pcomplete`.
+    It **computes** and `#print axioms` = `[propext, Quot.sound]`. But `KProvable : Prop`, so the
+    positive `isTrue` witness is *erased at runtime* — a `Decidable` is a decision procedure, not
+    an emittable certificate (per the c92b7e3 audit's correction of the earlier over-claim). And
+    `normKey_congr` proves only that the *decision* is extensionally key-invariant; `decide` still
+    runs on raw `FSequent` lists, so the `4^{|C|}` bound is *semantic*, not the program's runtime
+    state.
+  * *Type-level certificate — DONE (`KTrace` / `KTrace.search`).* The audit's prescribed witness:
+    `KTrace S : Type` (mutual with `KTraceAll`) is the `Type`-valued mirror of `KProvable` — a
+    real, pattern-matchable proof tree that **survives to runtime**. `KTrace.search S :
+    KSearchResult S` returns `found (t : KTrace S)` (the actual certificate) or `absent
+    (¬ KProvable S)`. `KTrace.toKProvable` forgets it back to the `Prop`; `KTrace.size` computes
+    its node count (verified via `#eval (KTrace.search …).certSize?`: `p→p`↦2, `p⊢p`↦1, `p∨¬p`↦3,
+    MP↦3; bare `p`/`p→q`↦none). `KProvable.decide` is now a thin wrapper over `KTrace.search`, so
+    the derivation exists *first* as a `Type` object. Axioms `[propext, Quot.sound]`.
+  * *Still remaining (NOT claimed done):* (a) **certificate reification** `KTrace → FTrace/PPTerm/
+    Core` — `KTrace` omits the `liftFormula?`/`LiftsAllF` guards, so reifying it into a
+    lifting-aware `FTrace` or emittable Core term goes through the same `S.Lifts env Γ` root that
+    `KProvable.sound` needs (only skeleton extraction like `KTrace.size` exists so far); (b)
+    **actual canonical-state execution** — a `normKey`-keyed, memoized BFS (vs. this `seqCx`-
+    recursive producer on raw lists), which is the genuine canonical-state / efficiency step.
   * *Downstream (separate, not part of this set-key layer):* PS2 still needs genuine
     focused-completeness `ProvesProp → FDeriv` (the analytic calculus is complete for the Hilbert
-    kernel). A genuinely *memoized* executable BFS with a runtime `normKey`-keyed table (vs. this
-    seqCx-recursive certificate producer) is an optional efficiency refinement, not a
-    soundness/completeness gate.
+    kernel).
   (`FiniteState.lean` is built via the explicit `lake build ContextualHOL.FiniteState`
   target, like `Focused.lean` — neither is in the default `lake build` module set.)
 

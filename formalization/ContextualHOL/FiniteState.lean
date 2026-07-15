@@ -2107,34 +2107,109 @@ private def firstCompound : (l : List Formula) →
           · exact eq_false_of_ne_true h
           · exact hall f hf)
 
-/-- **Proof-producing canonical-key evaluator.**  Decides `KProvable S`, returning an actual
-    set-key derivation on success (`isTrue`) and a genuine refutation on failure (`isFalse`) —
-    not a Boolean.  Same recursion as `pcomplete`, terminating on `seqCx`. -/
-def KProvable.decide (S : FSequent) : Decidable (KProvable S) := by
+/-! ### Type-level certificate: `KTrace` (a pattern-matchable, computable proof object)
+
+    `KProvable` lives in `Prop`, so the positive witness inside a `Decidable`/`isTrue` result is
+    erased at runtime: it cannot be pattern-matched to build a `Type`-level `FTrace`/Core term.
+    Per the audit, a *certificate-producing* search needs a `Type`-valued witness.  `KTrace S :
+    Type` is exactly the `Type`-valued mirror of `KProvable`: a real proof-tree object you can
+    pattern-match, measure (`KTrace.size`), and later reify into an emittable certificate.
+    `KTrace.toKProvable` forgets it back into the `Prop` (so the decision procedure below is built
+    on top of it, not beside it). -/
+mutual
+inductive KTrace : FSequent → Type where
+  | ax {A Θ : List Formula} {f : Formula} (hA : f ∈ A) (hΘ : f ∈ Θ) : KTrace ⟨A, Θ⟩
+  | rule {S : FSequent} {ps : List FSequent}
+      (hstep : KStep S ps) (children : KTraceAll ps) : KTrace S
+/-- A `Type`-level tuple of child certificates, one per premise of a fired hyperedge. -/
+inductive KTraceAll : List FSequent → Type where
+  | nil : KTraceAll []
+  | cons {P : FSequent} {ps : List FSequent} (t : KTrace P) (ts : KTraceAll ps) :
+      KTraceAll (P :: ps)
+end
+
+/-! Forget a `Type`-level certificate down to the `Prop` provability it witnesses. -/
+mutual
+def KTrace.toKProvable {S : FSequent} (t : KTrace S) : KProvable S :=
+  match t with
+  | .ax hA hΘ => KProvable.ax hA hΘ
+  | .rule hstep children => KProvable.rule hstep children.toForall
+  termination_by structural t
+def KTraceAll.toForall {ps : List FSequent} (ts : KTraceAll ps) : ∀ P ∈ ps, KProvable P :=
+  match ts with
+  | .nil => fun _ hP => absurd hP List.not_mem_nil
+  | .cons t ts' => fun P hP =>
+      match List.mem_cons.1 hP with
+      | Or.inl rfl => t.toKProvable
+      | Or.inr hP' => ts'.toForall P hP'
+  termination_by structural ts
+end
+
+/-! The node count of a certificate — a genuine computation over the `Type`-level tree (the
+    `KStep`/membership proof fields are erased; the constructor skeleton is not).  Witnesses that
+    `KTrace` is an operationally emittable object, not merely a `Prop` re-encoded in `Type`. -/
+mutual
+def KTrace.size {S : FSequent} (t : KTrace S) : Nat :=
+  match t with
+  | .ax _ _ => 1
+  | .rule _ children => 1 + children.sizeAll
+  termination_by structural t
+def KTraceAll.sizeAll {ps : List FSequent} (ts : KTraceAll ps) : Nat :=
+  match ts with
+  | .nil => 0
+  | .cons t ts' => t.size + ts'.sizeAll
+  termination_by structural ts
+end
+
+/-- A `Type`-level search outcome: either a real `KTrace` certificate carrying the derivation, or
+    a genuine refutation.  Unlike `Decidable (KProvable S)`, the positive arm survives runtime. -/
+inductive KSearchResult (S : FSequent) : Type where
+  | found (t : KTrace S) : KSearchResult S
+  | absent (h : ¬ KProvable S) : KSearchResult S
+
+/-- Collect a `Type`-level certificate for a whole premise list, or surface the first premise that
+    is not provable.  (Mirror of `decForallMem`, but keeping the `KTrace`s instead of erasing.) -/
+private def searchAll : (ps : List FSequent) →
+    (∀ P ∈ ps, KSearchResult P) →
+    PSum (KTraceAll ps) {P : FSequent // P ∈ ps ∧ ¬ KProvable P}
+  | [], _ => PSum.inl KTraceAll.nil
+  | P :: ps, rec =>
+    match rec P List.mem_cons_self with
+    | .absent h => PSum.inr ⟨P, List.mem_cons_self, h⟩
+    | .found t =>
+        match searchAll ps (fun Q hQ => rec Q (List.mem_cons_of_mem P hQ)) with
+        | PSum.inr ⟨Q, hQ, h⟩ => PSum.inr ⟨Q, List.mem_cons_of_mem P hQ, h⟩
+        | PSum.inl ts => PSum.inl (KTraceAll.cons t ts)
+
+/-- **The certificate-producing canonical-key search.**  On success it returns an actual
+    `Type`-level `KTrace` proof object (`found`); on failure a genuine `¬ KProvable S` (`absent`).
+    Same recursion as `pcomplete`, terminating on `seqCx`; the refutation arms reuse
+    `psound`/`valid_premises`/`pcomplete`.  The `Decidable` evaluator below is a thin wrapper. -/
+def KTrace.search (S : FSequent) : KSearchResult S := by
   cases firstCompound S.ante with
   | inl fw =>
       obtain ⟨f, hf, hcf⟩ := fw
       obtain ⟨ps, hstep⟩ := compound_ante_step (A := S.ante) (Θ := S.succ) hcf hf
-      exact match decForallMem ps (fun P hP => KProvable.decide P) with
-        | isTrue h => isTrue (KProvable.rule hstep h)
-        | isFalse h => isFalse (fun hp =>
-            h (fun P hP => KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
+      exact match searchAll ps (fun P hP => KTrace.search P) with
+        | PSum.inl ts => KSearchResult.found (KTrace.rule hstep ts)
+        | PSum.inr ⟨P, hP, hnp⟩ => KSearchResult.absent (fun hp =>
+            hnp (KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
   | inr hAbase =>
       cases firstCompound S.succ with
       | inl fw =>
           obtain ⟨f, hf, hcf⟩ := fw
           obtain ⟨ps, hstep⟩ := compound_succ_step (A := S.ante) (Θ := S.succ) hcf hf
-          exact match decForallMem ps (fun P hP => KProvable.decide P) with
-            | isTrue h => isTrue (KProvable.rule hstep h)
-            | isFalse h => isFalse (fun hp =>
-                h (fun P hP => KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
+          exact match searchAll ps (fun P hP => KTrace.search P) with
+            | PSum.inl ts => KSearchResult.found (KTrace.rule hstep ts)
+            | PSum.inr ⟨P, hP, hnp⟩ => KSearchResult.absent (fun hp =>
+                hnp (KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
       | inr hΘbase =>
           exact match hfd : S.succ.find? (fun g => memb g S.ante) with
             | some g => by
                 have hmem := List.find?_some hfd
-                exact isTrue (KProvable.ax ((memb_iff g S.ante).1 hmem)
+                exact KSearchResult.found (KTrace.ax ((memb_iff g S.ante).1 hmem)
                   (List.mem_of_find?_eq_some hfd))
-            | none => isFalse (fun hp => by
+            | none => KSearchResult.absent (fun hp => by
                 obtain ⟨g, hgΘ, hgev⟩ := hp.psound (fun x => memb x S.ante)
                   (fun f hf => by rw [eval_base (hAbase f hf)]; exact (memb_iff f S.ante).mpr hf)
                 have hgmem : memb g S.ante = true := by
@@ -2142,6 +2217,21 @@ def KProvable.decide (S : FSequent) : Decidable (KProvable S) := by
                 exact (List.find?_eq_none.1 hfd g hgΘ) hgmem)
   termination_by seqCx S
   decreasing_by all_goals exact hstep.seqCx_lt _ hP
+
+/-- Extract the certificate's node count from a search outcome — a concrete computation that
+    forces the whole `Type`-level trace, demonstrating it survives to runtime (`#eval`). -/
+def KSearchResult.certSize? {S : FSequent} : KSearchResult S → Option Nat
+  | .found t => some t.size
+  | .absent _ => none
+
+/-- **Proof-producing canonical-key evaluator.**  Decides `KProvable S` on top of the `Type`-level
+    `KTrace.search`: a `found` certificate forgets to `isTrue`, an `absent` refutation to
+    `isFalse`.  A Boolean would discard the derivation; here the derivation exists first (as a
+    `KTrace`) and the `Prop` decision is derived from it. -/
+def KProvable.decide (S : FSequent) : Decidable (KProvable S) :=
+  match KTrace.search S with
+  | .found t => isTrue t.toKProvable
+  | .absent h => isFalse h
 
 /-- The evaluator as a typeclass instance: `KProvable S` is decidable. -/
 instance (S : FSequent) : Decidable (KProvable S) := KProvable.decide S
@@ -2181,25 +2271,40 @@ theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
     principal across sides for free).  This is the **normalized-hyperderivation ↔ real-derivation**
     correspondence, *not* a raw one-step equivalence (provably false — see the counterexample).
 
-    **Proof-producing canonical-key evaluator — DONE (`KProvable.decide`).**  The evaluator is
-    `Decidable (KProvable S)`: on success `isTrue d` returns an actual set-key derivation `d`
-    (from `KProvable.rule`/`KProvable.ax`), on failure `isFalse` a genuine refutation — a
-    *certificate*, not a Boolean (per the audit: `KProvable`/`pcomplete`/`kCut` are `Prop`, so a
-    `Bool` would discard the derivation).  Same recursion as `pcomplete`, terminating on `seqCx`;
-    `isTrue`/`isFalse` reuse `psound`/`valid_premises`/`pcomplete`.  It computes (verified:
-    `p→p`, `p⊢p`, `p∨¬p`, MP all `true`; bare `p`, `p→q` `false`) and depends only on
-    `propext`/`Quot.sound`.  `KProvable.normKey_congr` certifies the decision depends only on the
-    canonical key `normKey C S` (equal in-closure keys are inter-provable), so this *is* the
-    canonical-key evaluator, with state space the `≤ 4^{|C|}` members of `allKeys C`.  Boundary
-    (per the audit): a positive `KProvable S` becomes an object-logic proof only through
-    `KProvable.sound`, which still needs the lifting-root condition `S.Lifts env Γ`.
+    **Certified decidability — DONE (`KProvable.decide`); Type-level certificate — DONE
+    (`KTrace` / `KTrace.search`).**  Two layers, per the audit's calibration:
+
+    (a) `KProvable.decide : Decidable (KProvable S)` is a certified decision procedure: same
+    recursion as `pcomplete`, terminating on `seqCx`; the refutation arms reuse
+    `psound`/`valid_premises`/`pcomplete`.  But `KProvable : Prop`, so its positive `isTrue`
+    witness is *erased* at runtime — it cannot be pattern-matched to build a `Type`-level term.
+    So a `Decidable` alone is a decision procedure, **not** an emittable certificate.
+
+    (b) `KTrace S : Type` is the `Type`-valued mirror of `KProvable`: a real proof-tree object.
+    `KTrace.search S : KSearchResult S` returns `found (t : KTrace S)` on success — an actual
+    certificate that *survives to runtime* — or `absent (¬ KProvable S)` on failure.  `KTrace` is
+    genuinely operational: `KTrace.size` computes its node count (verified via `#eval` on the
+    search output: `p→p`↦2, `p⊢p`↦1, `p∨¬p`↦3, MP↦3; bare `p`/`p→q`↦none).  `KProvable.decide`
+    is now a thin wrapper over `KTrace.search` (`found t ↦ isTrue t.toKProvable`), so the
+    derivation exists *first* as a `Type`-level object and the `Prop` decision is read off it.
+    Depends only on `propext`/`Quot.sound`.  `KProvable.normKey_congr` certifies the *decision*
+    depends only on `normKey C S` (state space `≤ 4^{|C|}`).
+
+    **Still remaining (do NOT claim these as done):**
+    • **Certificate reification** `KTrace S → FTrace/PPTerm/Core`.  `KTrace` deliberately omits the
+      `liftFormula?`/`LiftsAllF` guards, so reifying it into a lifting-aware `FTrace` (or an
+      emittable Core proof term) requires re-attaching the lifting root — it goes through the same
+      `S.Lifts env Γ` boundary that `KProvable.sound` needs.  Only skeleton-level extraction
+      (`KTrace.size`, structural traversal) is available so far.
+    • **Actual canonical-state execution.**  `KTrace.search` runs on *raw* `FSequent` lists with
+      `seqCx` recursion; it does not normalize input to `normKey` nor enumerate an `allKeys C`
+      table.  The `4^{|C|}` finite-key bound is thus *semantic* (a property of the state space),
+      not yet the program's runtime state representation.  A `normKey`-keyed, memoized BFS is the
+      genuine canonical-state / efficiency step — still open, though not a soundness gate.
 
     (Separately, and downstream of this whole `FDeriv ↔ KProvable` layer, PS2 still needs the
     genuine focused-completeness result `ProvesProp → FDeriv` — that the analytic calculus is
-    complete for the Hilbert kernel — which is not part of this file's set-key correspondence.
-    A genuinely *memoized* executable BFS with a runtime table keyed by `normKey` — as opposed to
-    this seqCx-recursive certificate producer — is an optional efficiency refinement, not a
-    soundness/completeness gate.) -/
+    complete for the Hilbert kernel — which is not part of this file's set-key correspondence.) -/
 
 end Focused
 end ContextualHOL
