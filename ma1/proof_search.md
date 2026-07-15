@@ -886,16 +886,30 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     `⊢p∨¬p`↦`(orR, or p ¬p)`; axiom leaves / `absent`↦`none`. This closes the audit's "the node
     cannot say which rule fired" blocker for a generic reifier. Axioms unchanged `[propext,
     Quot.sound]`.
-  * *Still remaining (NOT claimed done):* (a) **certificate reification** `KTrace → FTrace/PPTerm/
-    Core` — the rule tag/principal are now readable (`KRule`), but two obstacles remain: (i) `KTrace`
-    omits the `liftFormula?`/`LiftsAllF` guards, so a lifting-aware `FTrace`/Core term goes through
-    the same `S.Lifts env Γ` root that `KProvable.sound` needs; (ii) `KRule`/`KStep` is the
-    *set-normalized* calculus (`sremove` deletes all duplicates) whereas `FTrace` is the *raw-list*
-    calculus, and the proved bridge runs `FDeriv → KProvable` — the reverse is a genuine new
-    normalized-trace ↔ raw-FTrace correspondence with contraction/typing transports, not a mere
-    traversal (only skeleton extraction like `KTrace.size`/`rootTag` exists so far); (b)
-    **actual canonical-state execution** — a `normKey`-keyed, memoized BFS (vs. this `seqCx`-
-    recursive producer on raw lists), which is the genuine canonical-state / efficiency step.
+  * *Certificate reification — DONE (`KTrace.compile`), the direct `KTrace → PPTerm` route.* Per the
+    25a3ddd audit's forward guidance ("direct normalized `KTrace`/`KRule → PPTerm` compilation is
+    more natural than detouring through raw `FTrace`, but it must explicitly carry the lifting
+    invariant"): `KTrace.compile : KTrace S → S.Lifts env Γ → ReifiedDenote env Γ S` reifies a
+    set-key certificate **directly** into a `PPTerm` certificate (a `Contradiction` witness for the
+    refuted empty-succedent branch), carrying `S.Lifts` as an explicit argument. Structural on
+    `KTrace` (mutually with `compileAll`, mirroring `toKProvable`/`toForall`); at each node
+    `combineRule` reads the `KRule`, splits the principal's lifting from `S.Lifts` (`lift_*_split`),
+    threads premise lifting via `KStep.preserves_lifts`, applies the head-form rule combinator `rd*`
+    (the exact `Type`-valued rule bodies `Focused.compile` uses), and set-normalizes the conclusion
+    with `ReifiedDenote.ante_transport` (free, `pMono`) / `succ_transport` (structural, the new
+    `PPTerm.rightOr_elim` + `pRightOr_mem`). This is the certificate-carrying `Type`-level analogue
+    of `KProvable.sound` one universe up (`ReifiedDenote`↔`denote`, `PPTerm`↔`ProvesProp`).
+    `KTrace.provesSingle` closes it end to end: a lifting root with a singleton succedent reifies to
+    genuine M3 `Proves` (Core-replayable). It **computes** — `#eval` on `KTrace.search` output with a
+    real lifting root (`E={preds:=[("P","o")]}`, `G=[x:"o"]`, `φ=P x`): `⊢p→p`↦PPTerm size `5`,
+    `p⊢p`↦`1`, `⊢p∨¬p`↦`135` (the classical compile-back blowup). Axioms `[propext, Quot.sound]`; no
+    `sorry`/`Classical`/`native_decide`. The `FTrace` detour is deliberately avoided (it cannot
+    represent the set-key conclusion — its index forces the principal to the head), so the previous
+    "normalized↔raw correspondence" obstacle is *dissolved*, not solved: `sremove` normalization is
+    discharged by the two `ReifiedDenote` transports, no raw-list trace is reconstructed.
+  * *Still remaining (NOT claimed done):* **actual canonical-state execution** — a `normKey`-keyed,
+    memoized BFS (vs. this `seqCx`-recursive producer on raw lists), which is the genuine
+    canonical-state / efficiency step.
   * *Downstream (separate, not part of this set-key layer):* PS2 still needs genuine
     focused-completeness `ProvesProp → FDeriv` (the analytic calculus is complete for the Hilbert
     kernel).

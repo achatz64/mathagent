@@ -2295,10 +2295,15 @@ private def searchAll : (ps : List FSequent) →
         | PSum.inr ⟨Q, hQ, h⟩ => PSum.inr ⟨Q, List.mem_cons_of_mem P hQ, h⟩
         | PSum.inl ts => PSum.inl (KTraceAll.cons t ts)
 
-/-- **The certificate-producing canonical-key search.**  On success it returns an actual
+/-- **The certificate-producing search.**  On success it returns an actual
     `Type`-level `KTrace` proof object (`found`); on failure a genuine `¬ KProvable S` (`absent`).
     Same recursion as `pcomplete`, terminating on `seqCx`; the refutation arms reuse
-    `psound`/`valid_premises`/`pcomplete`.  The `Decidable` evaluator below is a thin wrapper. -/
+    `psound`/`valid_premises`/`pcomplete`.  The `Decidable` evaluator below is a thin wrapper.
+
+    Note: this recurses directly on the raw-list `FSequent` `S`, *not* on `normKey C S`; it is
+    only *extensionally* key-invariant (via `normKey_congr`), not a literal canonical-key BFS.
+    A genuine `normKey`-keyed memoized evaluator realizing the `≤ 4^{|C|}` state bound at runtime
+    remains future work. -/
 def KTrace.search (S : FSequent) : KSearchResult S := by
   cases firstCompound S.ante with
   | inl fw =>
@@ -2381,6 +2386,358 @@ theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
   ⟨fun hp => hp.respects_setEq (setEq_of_normKey_eq hS hS' hk),
    fun hp => hp.respects_setEq (setEq_of_normKey_eq hS' hS hk.symm)⟩
 
+/-! ### Certificate reification: `KTrace → PPTerm` (the direct, lifting-carrying compiler)
+
+    Per the audit's forward guidance, the certificate reifier compiles a `KTrace` **directly**
+    to a reified `PPTerm` certificate (`ReifiedDenote`), rather than detouring through the raw
+    `FTrace` calculus — which cannot even represent the set-key conclusion, since its conclusion
+    index forces the principal to the *head* of its side, whereas a `KRule` fires on membership
+    *anywhere*.  The compiler explicitly carries the lifting invariant `S.Lifts env Γ`: at each
+    node it splits the principal's lifting evidence out of `S.Lifts` (the same `lift_*_split`
+    lemmas `KProvable.sound` uses) and threads the premises' lifting through
+    `KStep.preserves_lifts`.
+
+    The bridge to `Focused.lean`'s verified `FTrace`-compiler is the observation that, writing
+    `A' := sremove principal A`, **every `KRule` premise is definitionally the head-form `FTrace`
+    premise** (principal pulled to the head, all duplicates removed) — only the *conclusion*
+    differs, by the set-equality `principal :: A' ≈ A`.  So compilation factors as: (1) a
+    head-form rule combinator `rd*` — the exact `Type`-valued rule body `compile` uses; then
+    (2) a set-normalization transport of the conclusion, `ante_transport` (free, via `pMono`) on
+    the antecedent side, `succ_transport` (structural, via `rightOr_elim` + `pRightOr_mem`) on
+    the succedent side.  This is the `Type`-level, certificate-carrying analogue of the Prop-level
+    `KProvable.sound`, whose `denote_ante_transport` / `denote_succ_transport` are the same two
+    transports one universe down. -/
+
+section Compile
+variable {env : Env} {Γ : Ctx}
+
+/-- **Type-level elimination of a right-nested disjunction** — the `PPTerm` (certificate-carrying)
+    mirror of `rightOr_elim`.  If `rightOr φ Θ` is certified and each disjunct `ψ ∈ φ :: Θ`
+    certifies the goal `T` when added to the context, then `T` is certified.  This is the
+    succedent-side structural admissibility the set-normalization transport needs, produced as
+    real `PPTerm` data (not an erased `ProvesProp`). -/
+def PPTerm.rightOr_elim {A : List Formula} {T : Formula}
+    (hT : (liftFormula? env Γ T).isSome = true) :
+    (φ : Formula) → (Θ : List Formula) → LiftsAllF env Γ (φ :: Θ) →
+      PPTerm env Γ A (rightOr φ Θ) →
+      (∀ ψ, ψ ∈ φ :: Θ → PPTerm env Γ (ψ :: A) T) →
+      PPTerm env Γ A T
+  | φ, [], hall, hor, hcase =>
+      PPTerm.mp hall.head (PPTerm.impIntro hall.head (hcase φ (by simp))) hor
+  | φ, χ :: Θ', hall, hor, hcase =>
+      let hR := liftFormula?_rightOr_isSome χ Θ' hall.tail.head hall.tail.tail
+      PPTerm.pOrElim hall.head hR hT hor
+        (PPTerm.impIntro hall.head (hcase φ (by simp)))
+        (PPTerm.impIntro hR
+          (PPTerm.rightOr_elim hT χ Θ' hall.tail (PPTerm.hyp (by simp))
+            (fun ψ hψ => PPTerm.pMono
+              (fun x hx => by
+                rcases List.mem_cons.1 hx with h | h
+                · exact h ▸ (by simp)
+                · exact List.mem_cons_of_mem _ (List.mem_cons_of_mem _ h))
+              (hcase ψ (List.mem_cons_of_mem _ hψ)))))
+
+/-- Transport a reified certificate across a **set-equal antecedent** — free, since the
+    antecedent enters `PPTerm` only through membership (`pMono`).  Both the contradiction branch
+    (empty succedent) and the certificate branch transport by `PPTerm.pMono`. -/
+def ReifiedDenote.ante_transport {A A' : List Formula} :
+    {Θ : List Formula} → (∀ x, x ∈ A → x ∈ A') → ReifiedDenote env Γ ⟨A, Θ⟩ →
+    ReifiedDenote env Γ ⟨A', Θ⟩
+  | [], hsub, c => ⟨c.witness, c.wwt, PPTerm.pMono hsub c.pos, PPTerm.pMono hsub c.neg⟩
+  | _ :: _, hsub, d => PPTerm.pMono hsub d
+
+/-- Transport a reified certificate across a **set-equal succedent** — the genuine structural
+    step, discharged by `PPTerm.rightOr_elim` (eliminate the source disjunction) and
+    `PPTerm.pRightOr_mem` (reintroduce each disjunct into the target).  Needs both succedents
+    lifting. -/
+def ReifiedDenote.succ_transport {A : List Formula} :
+    {Θ Θ' : List Formula} → (∀ x, x ∈ Θ ↔ x ∈ Θ') → LiftsAllF env Γ Θ → LiftsAllF env Γ Θ' →
+    ReifiedDenote env Γ ⟨A, Θ⟩ → ReifiedDenote env Γ ⟨A, Θ'⟩
+  | [], [], _, _, _, c => c
+  | [], χ' :: _, hΘ, _, _, _ => absurd ((hΘ χ').2 (by simp)) (by simp)
+  | χ :: _, [], hΘ, _, _, _ => absurd ((hΘ χ).1 (by simp)) (by simp)
+  | χ :: Θ0, χ' :: Θ'0, hΘ, hl, hl', d =>
+      PPTerm.rightOr_elim (liftFormula?_rightOr_isSome χ' Θ'0 hl'.head hl'.tail) χ Θ0 hl d
+        (fun ψ hψ => PPTerm.pRightOr_mem χ' Θ'0 ((hΘ ψ).1 hψ) (PPTerm.hyp (by simp)) hl')
+
+/-! #### Head-form rule combinators.
+
+    Each `rd*` takes the premises' reified certificates (in head-normalized form — principal at
+    the head, deduplicated) plus the principal's lifting evidence, and returns the reified
+    certificate of the head-form conclusion.  These are precisely the `Type`-valued rule bodies of
+    `Focused.lean`'s `compile`; `KTrace.compile` calls them and then set-normalizes the
+    conclusion.  Each handles the empty succedent (`Contradiction`) and nonempty succedent
+    (`PPTerm _ (rightOr ..)`) branches, exactly as `compile` does. -/
+
+private def rdAndL {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih : ReifiedDenote env Γ ⟨φ :: ψ :: A, Θ⟩) :
+    ReifiedDenote env Γ ⟨Formula.and φ ψ :: A, Θ⟩ :=
+  match Θ, ih with
+  | [], c => ⟨c.witness, c.wwt, PPTerm.pAndLcut hφ hψ c.pos, PPTerm.pAndLcut hφ hψ c.neg⟩
+  | _ :: _, ih => PPTerm.pAndLcut hφ hψ ih
+
+private def rdIffL {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (ih : ReifiedDenote env Γ ⟨Formula.imp φ ψ :: Formula.imp ψ φ :: A, Θ⟩) :
+    ReifiedDenote env Γ ⟨Formula.iff φ ψ :: A, Θ⟩ :=
+  match Θ, ih with
+  | [], c => ⟨c.witness, c.wwt, PPTerm.pIffLcut hφ hψ c.pos, PPTerm.pIffLcut hφ hψ c.neg⟩
+  | _ :: _, ih => PPTerm.pIffLcut hφ hψ ih
+
+private def rdOrL {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ)
+    (ih1 : ReifiedDenote env Γ ⟨φ :: A, Θ⟩) (ih2 : ReifiedDenote env Γ ⟨ψ :: A, Θ⟩) :
+    ReifiedDenote env Γ ⟨Formula.or φ ψ :: A, Θ⟩ :=
+  match Θ, hΘ, ih1, ih2 with
+  | [], _, c1, c2 =>
+      ⟨c1.witness, c1.wwt,
+       PPTerm.pOrLcut hφ hψ c1.wwt c1.pos (c2.explode c1.wwt),
+       PPTerm.pOrLcut hφ hψ (wtNot c1.wwt) c1.neg (c2.explode (wtNot c1.wwt))⟩
+  | χ0 :: Θ', hΘ, ih1, ih2 =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      PPTerm.pOrLcut hφ hψ hR ih1 ih2
+
+private def rdImpL {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ)
+    (ih1 : ReifiedDenote env Γ ⟨A, φ :: Θ⟩) (ih2 : ReifiedDenote env Γ ⟨ψ :: A, Θ⟩) :
+    ReifiedDenote env Γ ⟨Formula.imp φ ψ :: A, Θ⟩ :=
+  match Θ, hΘ, ih1, ih2 with
+  | [], _, ih1, cu =>
+      let dφ := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih1
+      let dψ := PPTerm.mp hφ (PPTerm.hyp (by simp)) dφ
+      let posρ := PPTerm.mp hψ
+        (PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hψ cu.pos)) dψ
+      let negρ := PPTerm.mp hψ
+        (PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) (PPTerm.impIntro hψ cu.neg)) dψ
+      ⟨cu.witness, cu.wwt, posρ, negρ⟩
+  | χ0 :: Θ', hΘ, ih1, ih2 =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      let ih1w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih1
+      let hl := PPTerm.impIntro hφ
+        (let hψp := PPTerm.mp hφ (PPTerm.hyp (by simp)) (PPTerm.hyp (by simp))
+         let h2 := PPTerm.pMono
+           (fun x hx => List.mem_cons_of_mem _ (List.mem_cons_of_mem _ hx))
+           (PPTerm.impIntro hψ ih2)
+         PPTerm.mp hψ h2 hψp)
+      PPTerm.pOrElim hφ hR hR ih1w hl (PPTerm.pImpId hR)
+
+private def rdNegR {A Θ : List Formula} {φ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hΘ : LiftsAllF env Γ Θ)
+    (ih : ReifiedDenote env Γ ⟨φ :: A, Θ⟩) :
+    ReifiedDenote env Γ ⟨A, Formula.not φ :: Θ⟩ :=
+  match Θ, hΘ, ih with
+  | [], _, c => PPTerm.pRaa hφ c.wwt c.pos c.neg
+  | χ0 :: Θ', hΘ, ih =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      PPTerm.pByCases hφ (wtOr (wtNot hφ) hR)
+        (PPTerm.pOrInr (wtNot hφ) hR ih)
+        (PPTerm.pOrInl (wtNot hφ) hR (PPTerm.hyp (by simp)))
+
+private def rdNegL {A Θ : List Formula} {φ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hΘ : LiftsAllF env Γ Θ)
+    (ih : ReifiedDenote env Γ ⟨A, φ :: Θ⟩) :
+    ReifiedDenote env Γ ⟨Formula.not φ :: A, Θ⟩ :=
+  match Θ, hΘ, ih with
+  | [], _, ih =>
+      ⟨φ, hφ, PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih, PPTerm.hyp (by simp)⟩
+  | χ0 :: Θ', hΘ, ih =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      let ihw := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih
+      let hl := PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hR) (PPTerm.hyp (by simp))
+      PPTerm.pOrElim hφ hR hR ihw hl (PPTerm.pImpId hR)
+
+private def rdImpR {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ) (ih : ReifiedDenote env Γ ⟨φ :: A, ψ :: Θ⟩) :
+    ReifiedDenote env Γ ⟨A, Formula.imp φ ψ :: Θ⟩ :=
+  match Θ, hΘ, ih with
+  | [], _, ihp => PPTerm.impIntro hφ ihp
+  | χ0 :: Θ', hΘ, ihp =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      PPTerm.pByCases hφ (wtOr (wtImp hφ hψ) hR)
+        (let hl := PPTerm.impIntro hψ
+            (PPTerm.pOrInl (wtImp hφ hψ) hR (PPTerm.pImpK hφ hψ (PPTerm.hyp (by simp))))
+         let hr := PPTerm.axOrR (wtImp hφ hψ) hR
+         PPTerm.pOrElim hψ hR (wtOr (wtImp hφ hψ) hR) ihp hl hr)
+        (PPTerm.pOrInl (wtImp hφ hψ) hR
+          (PPTerm.mp (wtNot hφ) (PPTerm.pEF hφ hψ) (PPTerm.hyp (by simp))))
+
+private def rdOrR {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ) (ih : ReifiedDenote env Γ ⟨A, φ :: ψ :: Θ⟩) :
+    ReifiedDenote env Γ ⟨A, Formula.or φ ψ :: Θ⟩ :=
+  match Θ, hΘ, ih with
+  | [], _, ih => (ih : PPTerm env Γ A (Formula.or φ ψ))
+  | χ0 :: Θ', hΘ, ihp =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      PPTerm.pOrAssocL hφ hψ hR ihp
+
+private def rdAndR {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ)
+    (ih1 : ReifiedDenote env Γ ⟨A, φ :: Θ⟩) (ih2 : ReifiedDenote env Γ ⟨A, ψ :: Θ⟩) :
+    ReifiedDenote env Γ ⟨A, Formula.and φ ψ :: Θ⟩ :=
+  match Θ, hΘ, ih1, ih2 with
+  | [], _, ih1p, ih2p =>
+      PPTerm.mp hψ (PPTerm.mp hφ (PPTerm.axAndI hφ hψ) ih1p) ih2p
+  | χ0 :: Θ', hΘ, ih1p, ih2p =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      let hgoalwt := wtOr (wtAnd hφ hψ) hR
+      let hlouter := PPTerm.impIntro hφ
+        (let ih2w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih2p
+         let hlin := PPTerm.impIntro hψ
+           (let hand := PPTerm.mp hψ
+               (PPTerm.mp hφ (PPTerm.axAndI hφ hψ) (PPTerm.hyp (by simp))) (PPTerm.hyp (by simp))
+            PPTerm.pOrInl (wtAnd hφ hψ) hR hand)
+         let hrin := PPTerm.axOrR (wtAnd hφ hψ) hR
+         PPTerm.pOrElim hψ hR hgoalwt ih2w hlin hrin)
+      let hrouter := PPTerm.axOrR (wtAnd hφ hψ) hR
+      PPTerm.pOrElim hφ hR hgoalwt ih1p hlouter hrouter
+
+private def rdIffR {A Θ : List Formula} {φ ψ : Formula}
+    (hφ : (liftFormula? env Γ φ).isSome = true) (hψ : (liftFormula? env Γ ψ).isSome = true)
+    (hΘ : LiftsAllF env Γ Θ)
+    (ih1 : ReifiedDenote env Γ ⟨A, Formula.imp φ ψ :: Θ⟩)
+    (ih2 : ReifiedDenote env Γ ⟨A, Formula.imp ψ φ :: Θ⟩) :
+    ReifiedDenote env Γ ⟨A, Formula.iff φ ψ :: Θ⟩ :=
+  match Θ, hΘ, ih1, ih2 with
+  | [], _, ih1p, ih2p =>
+      PPTerm.mp (wtImp hψ hφ)
+        (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) ih1p) ih2p
+  | χ0 :: Θ', hΘ, ih1p, ih2p =>
+      let hR := liftFormula?_rightOr_isSome χ0 Θ' hΘ.head hΘ.tail
+      let hgoalwt := wtOr (wtIff hφ hψ) hR
+      let hlouter := PPTerm.impIntro (wtImp hφ hψ)
+        (let ih2w := PPTerm.pMono (fun x hx => List.mem_cons_of_mem _ hx) ih2p
+         let hlin := PPTerm.impIntro (wtImp hψ hφ)
+           (let hiffp := PPTerm.mp (wtImp hψ hφ)
+               (PPTerm.mp (wtImp hφ hψ) (PPTerm.axIffI hφ hψ) (PPTerm.hyp (by simp)))
+               (PPTerm.hyp (by simp))
+            PPTerm.pOrInl (wtIff hφ hψ) hR hiffp)
+         let hrin := PPTerm.axOrR (wtIff hφ hψ) hR
+         PPTerm.pOrElim (wtImp hψ hφ) hR hgoalwt ih2w hlin hrin)
+      let hrouter := PPTerm.axOrR (wtIff hφ hψ) hR
+      PPTerm.pOrElim (wtImp hφ hψ) hR hgoalwt ih1p hlouter hrouter
+
+/-- A `Type`-level tuple of reified certificates, one per premise of a fired hyperedge — the
+    `ReifiedDenote` companion to `KTraceAll`.  Accessed by the projections `head`/`tail` (never
+    pattern-matched against a `sremove`-normalized premise index), so `combineRule` stays free of
+    dependent unification. -/
+inductive ReifiedAll (env : Env) (Γ : Ctx) : List FSequent → Type where
+  | nil : ReifiedAll env Γ []
+  | cons {P : FSequent} {ps : List FSequent} :
+      ReifiedDenote env Γ P → ReifiedAll env Γ ps → ReifiedAll env Γ (P :: ps)
+
+/-- The certificate of the first premise. -/
+def ReifiedAll.head {P : FSequent} {ps : List FSequent} :
+    ReifiedAll env Γ (P :: ps) → ReifiedDenote env Γ P
+  | .cons r _ => r
+
+/-- The certificates of the remaining premises. -/
+def ReifiedAll.tail {P : FSequent} {ps : List FSequent} :
+    ReifiedAll env Γ (P :: ps) → ReifiedAll env Γ ps
+  | .cons _ rs => rs
+
+/-- **Combine a fired rule with its premises' certificates.**  Pattern-matches the `Type`-valued
+    `KRule` (so it reads *which* rule fired and its principal), splits the principal's lifting out
+    of `S.Lifts`, applies the head-form combinator `rd*` to the premise certificates (read off
+    `ReifiedAll` by projection, so no destructuring of the `sremove`-normalized premise indices),
+    and transports the head-form conclusion back to the set-key `⟨A, Θ⟩`.  Non-recursive: the
+    recursion lives in `KTrace.compile`/`compileAll`. -/
+def KTrace.combineRule : {S : FSequent} → {ps : List FSequent} → KRule S ps → S.Lifts env Γ →
+    ReifiedAll env Γ ps → ReifiedDenote env Γ S
+  | _, _, .andL (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_and_split (hS.1 _ h)
+      ReifiedDenote.ante_transport (fun x hx => (mem_cons_sremove_iff h x).mp hx)
+        (rdAndL hφ hψ rs.head)
+  | _, _, .iffL (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_iff_split (hS.1 _ h)
+      ReifiedDenote.ante_transport (fun x hx => (mem_cons_sremove_iff h x).mp hx)
+        (rdIffL hφ hψ rs.head)
+  | _, _, .negL (φ := φ) h, hS, rs =>
+      let hφ := lift_not_split (hS.1 _ h)
+      ReifiedDenote.ante_transport (fun x hx => (mem_cons_sremove_iff h x).mp hx)
+        (rdNegL hφ hS.2 rs.head)
+  | _, _, .orL (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_or_split (hS.1 _ h)
+      ReifiedDenote.ante_transport (fun x hx => (mem_cons_sremove_iff h x).mp hx)
+        (rdOrL hφ hψ hS.2 rs.head rs.tail.head)
+  | _, _, .impL (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_imp_split (hS.1 _ h)
+      ReifiedDenote.ante_transport (fun x hx => (mem_cons_sremove_iff h x).mp hx)
+        (rdImpL hφ hψ hS.2 rs.head rs.tail.head)
+  | _, _, .negR (φ := φ) h, hS, rs =>
+      let hφ := lift_not_split (hS.2 _ h)
+      ReifiedDenote.succ_transport (fun x => mem_cons_sremove_iff h x)
+        (LiftsAllF.cons (hS.2 _ h) hS.2.sremove) hS.2
+        (rdNegR hφ hS.2.sremove rs.head)
+  | _, _, .impR (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_imp_split (hS.2 _ h)
+      ReifiedDenote.succ_transport (fun x => mem_cons_sremove_iff h x)
+        (LiftsAllF.cons (hS.2 _ h) hS.2.sremove) hS.2
+        (rdImpR hφ hψ hS.2.sremove rs.head)
+  | _, _, .orR (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_or_split (hS.2 _ h)
+      ReifiedDenote.succ_transport (fun x => mem_cons_sremove_iff h x)
+        (LiftsAllF.cons (hS.2 _ h) hS.2.sremove) hS.2
+        (rdOrR hφ hψ hS.2.sremove rs.head)
+  | _, _, .andR (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_and_split (hS.2 _ h)
+      ReifiedDenote.succ_transport (fun x => mem_cons_sremove_iff h x)
+        (LiftsAllF.cons (hS.2 _ h) hS.2.sremove) hS.2
+        (rdAndR hφ hψ hS.2.sremove rs.head rs.tail.head)
+  | _, _, .iffR (φ := φ) (ψ := ψ) h, hS, rs =>
+      let ⟨hφ, hψ⟩ := lift_iff_split (hS.2 _ h)
+      ReifiedDenote.succ_transport (fun x => mem_cons_sremove_iff h x)
+        (LiftsAllF.cons (hS.2 _ h) hS.2.sremove) hS.2
+        (rdIffR hφ hψ hS.2.sremove rs.head rs.tail.head)
+
+mutual
+/-- **The direct `KTrace → PPTerm` compiler.**  Given a lifting root `S.Lifts env Γ`, reify a
+    set-key certificate `KTrace S` into a `ReifiedDenote env Γ S` — a `PPTerm` certificate for a
+    nonempty succedent, an explicit `Contradiction` for the refuted branch.  Structural on the
+    `KTrace` (mutually with `compileAll`, mirroring `toKProvable`/`toForall`); at each `KRule` node
+    the premises' lifting is supplied by `KStep.preserves_lifts` and `combineRule` splits the
+    principal's lifting, applies the head-form combinator, and transports back to `⟨A, Θ⟩`. -/
+def KTrace.compile {S : FSequent} (t : KTrace S) (hS : S.Lifts env Γ) : ReifiedDenote env Γ S :=
+  match t, hS with
+  | .ax (A := A) (Θ := Θ) hA hΘ, hS =>
+      match Θ, hΘ, hS.2 with
+      | [], h, _ => absurd h List.not_mem_nil
+      | χ :: Θ', h, hall => PPTerm.pRightOr_mem χ Θ' h (PPTerm.hyp hA) hall
+  | .rule r children, hS =>
+      KTrace.combineRule r hS (children.compileAll (KStep.preserves_lifts r.toKStep hS))
+  termination_by structural t
+/-- Reify every premise certificate of a hyperedge into a `ReifiedAll`. -/
+def KTraceAll.compileAll {ps : List FSequent} (ts : KTraceAll ps)
+    (hpre : ∀ P ∈ ps, P.Lifts env Γ) : ReifiedAll env Γ ps :=
+  match ts with
+  | .nil => ReifiedAll.nil
+  | .cons t ts' =>
+      ReifiedAll.cons (t.compile (hpre _ List.mem_cons_self))
+        (ts'.compileAll (fun Q hQ => hpre Q (List.mem_cons_of_mem _ hQ)))
+  termination_by structural ts
+end
+
+/-- **Reification, end to end.**  A set-key certificate for a lifting root with a *singleton*
+    succedent compiles — through the direct `KTrace → PPTerm` pipeline — to a genuine M3 `Proves`
+    (Core-replayable) derivation.  This is the certificate-carrying analogue of `KProvable.sound`
+    at a single conclusion, and the `KTrace` counterpart of `compileSoundSingle`. -/
+theorem KTrace.provesSingle {A : List Formula} {φ : Formula}
+    (t : KTrace ⟨A, [φ]⟩) (hS : (⟨A, [φ]⟩ : FSequent).Lifts env Γ) : Proves env Γ A φ :=
+  ProvesProp.toProves (PPTerm.toProvesProp (t.compile hS : PPTerm env Γ A φ))
+
+/-- The reified certificate produced for a lifting root with a singleton succedent, as a
+    first-class `PPTerm` whose intermediate formulas and `size` are inspectable. -/
+def KTrace.toPPTerm {A : List Formula} {φ : Formula}
+    (t : KTrace ⟨A, [φ]⟩) (hS : (⟨A, [φ]⟩ : FSequent).Lifts env Γ) : PPTerm env Γ A φ :=
+  t.compile hS
+
+end Compile
+
 /-! ### TODO — what remains for the memoized search algorithm
 
     With `FSequent.Lifts` + `KStep.preserves_lifts` (typed guard re-attached) and
@@ -2435,16 +2792,29 @@ theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
     what `toKProvable`/`decide` use to stay downstream of the data — closing the audit's "the node
     cannot say *which* rule fired" gap that blocked a generic reifier.
 
+    (d) **Certificate reification — DONE (`KTrace.compile`), the direct `KTrace → PPTerm` route.**
+    Per the audit's forward guidance, the reifier compiles a `KTrace` **directly** to a reified
+    `PPTerm` certificate (`ReifiedDenote env Γ S`), *carrying the lifting invariant* `S.Lifts env
+    Γ` — not detouring through raw `FTrace` (which cannot even represent the set-key conclusion,
+    since its index forces the principal to the *head*, while a `KRule` fires on membership
+    *anywhere*).  The compiler is structural on `KTrace` (mutually with `compileAll`, mirroring
+    `toKProvable`/`toForall`): at each node `combineRule` reads the `KRule`, splits the principal's
+    lifting out of `S.Lifts` (the `lift_*_split` lemmas), threads premise lifting via
+    `KStep.preserves_lifts`, applies the head-form rule combinator `rd*` (the exact `Type`-valued
+    rule bodies `Focused.compile` uses), and set-normalizes the conclusion with `ante_transport`
+    (free, `pMono`) / `succ_transport` (structural, `PPTerm.rightOr_elim` + `pRightOr_mem`).  This
+    is the certificate-carrying `Type`-level analogue of `KProvable.sound`, one universe up
+    (`ReifiedDenote` for `denote`, `PPTerm` for `ProvesProp`).  `KTrace.provesSingle` closes the
+    pipeline end to end: a lifting root with a singleton succedent reifies to a genuine M3 `Proves`
+    (Core-replayable) derivation.  It **computes** (`#eval` on `KTrace.search` output, real lifting
+    root: `⊢p→p`↦PPTerm size `5`, `p⊢p`↦`1`, `⊢p∨¬p`↦`135` — the classical compile-back blowup),
+    and depends only on `propext`/`Quot.sound` (no `sorry`/`Classical`/`native_decide`).  This
+    dissolves the previous two obstacles: (i) the `S.Lifts env Γ` root is now an explicit argument
+    threaded throughout; (ii) the normalized↔raw mismatch is *avoided* — there is no `FTrace`
+    detour; the `sremove` normalization is discharged by the two `ReifiedDenote` transports, not by
+    reconstructing a raw-list trace.
+
     **Still remaining (do NOT claim these as done):**
-    • **Certificate reification** `KTrace S → FTrace/PPTerm/Core`.  The rule *tag*/*principal* are
-      now readable (`KRule`), but two obstacles remain, per the audit: (i) `KTrace` still omits the
-      `liftFormula?`/`LiftsAllF` guards, so a lifting-aware `FTrace` (or emittable Core term)
-      requires re-attaching the `S.Lifts env Γ` root that `KProvable.sound` needs; (ii) `KRule`/
-      `KStep` is the *set-normalized* calculus (`sremove` deletes all duplicates) whereas `FTrace`
-      is the *raw-list* calculus, and the proved bridge runs `FDeriv → KProvable` — the reverse is a
-      genuine new normalized-trace ↔ raw-FTrace correspondence with contraction/typing transports,
-      not a mere traversal.  Only skeleton-level extraction (`KTrace.size`, `rootTag`/`rootPrincipal`
-      traversal) is available so far.
     • **Actual canonical-state execution.**  `KTrace.search` runs on *raw* `FSequent` lists with
       `seqCx` recursion; it does not normalize input to `normKey` nor enumerate an `allKeys C`
       table.  The `4^{|C|}` finite-key bound is thus *semantic* (a property of the state space),
