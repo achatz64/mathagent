@@ -2377,9 +2377,12 @@ def KProvable.decide (S : FSequent) : Decidable (KProvable S) :=
 /-- The evaluator as a typeclass instance: `KProvable S` is decidable. -/
 instance (S : FSequent) : Decidable (KProvable S) := KProvable.decide S
 
-/-- **The evaluator is a function of the canonical key.**  On in-closure states, `KProvable`
-    depends only on `normKey C S`: equal keys are inter-provable.  So `KProvable.decide` genuinely
-    evaluates the canonical key, and its state space is the `≤ 4^{|C|}` members of `allKeys C`. -/
+/-- **`KProvable` is a function of the canonical key.**  On in-closure states, `KProvable`
+    depends only on `normKey C S`: equal keys are inter-provable.  Note this is a semantic
+    invariance statement about `KProvable`, not about the *implementation* of `KProvable.decide`,
+    which still recurses on the raw list sequent (via `KTrace.search`) and is only extensionally
+    key-invariant through this lemma — a genuine `normKey`-keyed evaluator whose runtime state
+    space is the `≤ 4^{|C|}` members of `allKeys C` remains future work (see the roadmap). -/
 theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
     (hS : S.InClosure C) (hS' : S'.InClosure C) (hk : normKey C S = normKey C S') :
     KProvable S ↔ KProvable S' :=
