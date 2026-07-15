@@ -2107,6 +2107,120 @@ private def firstCompound : (l : List Formula) →
           · exact eq_false_of_ne_true h
           · exact hall f hf)
 
+/-! ### Type-level rule data: `KRule` (the fired rule *as data*, not an erased `Prop` proof)
+
+    `KStep S ps` is `Prop`, so when a `KTrace.rule` node stores its `hstep`, a reifier can see that
+    *a* rule fired but cannot pattern-match it to learn *which* (`andL`/`impR`/`negL`/…) nor recover
+    its principal — the proof is erased.  `KRule S ps : Type` is the `Type`-valued mirror of the ten
+    analytic rules: the same constructors, but carried as data.  `KRule.toKStep` **realizes**
+    `KStep` (the correspondence theorem the audit asked for), while `KRule.tag`/`KRule.principal`
+    are the runtime-surviving observations a `KTrace → FTrace/Core` reifier needs. -/
+
+/-- The ten analytic backward rules as a runtime tag. -/
+inductive RuleTag where
+  | andL | andR | orR | orL | impR | impL | negR | negL | iffR | iffL
+  deriving DecidableEq, Repr
+
+/-- **`KStep` as data.**  The exact ten constructors of `KStep`, but `Type`-valued so a node can
+    store the fired rule and a reifier can pattern-match its tag and recover its principal.  The
+    membership witnesses stay `Prop` (erased) — only the tag and the principal `φ`/`ψ` are needed
+    at runtime, and those are constructor data that survive. -/
+inductive KRule : FSequent → List FSequent → Type where
+  | andL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.and φ ψ ∈ A) :
+      KRule ⟨A, Θ⟩ [⟨φ :: ψ :: sremove (Formula.and φ ψ) A, Θ⟩]
+  | andR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.and φ ψ ∈ Θ) :
+      KRule ⟨A, Θ⟩ [⟨A, φ :: sremove (Formula.and φ ψ) Θ⟩, ⟨A, ψ :: sremove (Formula.and φ ψ) Θ⟩]
+  | orR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.or φ ψ ∈ Θ) :
+      KRule ⟨A, Θ⟩ [⟨A, φ :: ψ :: sremove (Formula.or φ ψ) Θ⟩]
+  | orL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.or φ ψ ∈ A) :
+      KRule ⟨A, Θ⟩ [⟨φ :: sremove (Formula.or φ ψ) A, Θ⟩, ⟨ψ :: sremove (Formula.or φ ψ) A, Θ⟩]
+  | impR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.imp φ ψ ∈ Θ) :
+      KRule ⟨A, Θ⟩ [⟨φ :: A, ψ :: sremove (Formula.imp φ ψ) Θ⟩]
+  | impL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.imp φ ψ ∈ A) :
+      KRule ⟨A, Θ⟩ [⟨sremove (Formula.imp φ ψ) A, φ :: Θ⟩, ⟨ψ :: sremove (Formula.imp φ ψ) A, Θ⟩]
+  | negR {A Θ : List Formula} {φ : Formula} (h : Formula.not φ ∈ Θ) :
+      KRule ⟨A, Θ⟩ [⟨φ :: A, sremove (Formula.not φ) Θ⟩]
+  | negL {A Θ : List Formula} {φ : Formula} (h : Formula.not φ ∈ A) :
+      KRule ⟨A, Θ⟩ [⟨sremove (Formula.not φ) A, φ :: Θ⟩]
+  | iffR {A Θ : List Formula} {φ ψ : Formula} (h : Formula.iff φ ψ ∈ Θ) :
+      KRule ⟨A, Θ⟩ [⟨A, Formula.imp φ ψ :: sremove (Formula.iff φ ψ) Θ⟩,
+                    ⟨A, Formula.imp ψ φ :: sremove (Formula.iff φ ψ) Θ⟩]
+  | iffL {A Θ : List Formula} {φ ψ : Formula} (h : Formula.iff φ ψ ∈ A) :
+      KRule ⟨A, Θ⟩ [⟨Formula.imp φ ψ :: Formula.imp ψ φ :: sremove (Formula.iff φ ψ) A, Θ⟩]
+
+/-- **`KRule` realizes `KStep`.**  Forgetting the data down to the `Prop` relation: whatever `ps` a
+    `KRule` produces, the same `KStep` holds.  This is the correspondence the audit required before
+    `KTrace.rule` may store data instead of the `hstep` proof. -/
+def KRule.toKStep {S : FSequent} {ps : List FSequent} (r : KRule S ps) : KStep S ps :=
+  match r with
+  | .andL h => .andL h
+  | .andR h => .andR h
+  | .orR h => .orR h
+  | .orL h => .orL h
+  | .impR h => .impR h
+  | .impL h => .impL h
+  | .negR h => .negR h
+  | .negL h => .negL h
+  | .iffR h => .iffR h
+  | .iffL h => .iffL h
+
+/-- Which of the ten rules fired — the runtime tag a reifier reads off a node. -/
+def KRule.tag {S : FSequent} {ps : List FSequent} : KRule S ps → RuleTag
+  | .andL _ => .andL
+  | .andR _ => .andR
+  | .orR _ => .orR
+  | .orL _ => .orL
+  | .impR _ => .impR
+  | .impL _ => .impL
+  | .negR _ => .negR
+  | .negL _ => .negL
+  | .iffR _ => .iffR
+  | .iffL _ => .iffL
+
+/-- The principal formula the rule decomposed — recovered from the constructor's `φ`/`ψ` data (the
+    piece a reifier needs to rebuild the corresponding raw-calculus inference). -/
+def KRule.principal {S : FSequent} {ps : List FSequent} : KRule S ps → Formula
+  | .andL (φ := φ) (ψ := ψ) _ => Formula.and φ ψ
+  | .andR (φ := φ) (ψ := ψ) _ => Formula.and φ ψ
+  | .orR (φ := φ) (ψ := ψ) _ => Formula.or φ ψ
+  | .orL (φ := φ) (ψ := ψ) _ => Formula.or φ ψ
+  | .impR (φ := φ) (ψ := ψ) _ => Formula.imp φ ψ
+  | .impL (φ := φ) (ψ := ψ) _ => Formula.imp φ ψ
+  | .negR (φ := φ) _ => Formula.not φ
+  | .negL (φ := φ) _ => Formula.not φ
+  | .iffR (φ := φ) (ψ := ψ) _ => Formula.iff φ ψ
+  | .iffL (φ := φ) (ψ := ψ) _ => Formula.iff φ ψ
+
+/-- Type-level rule producer for a decomposable antecedent formula (the `KRule` mirror of
+    `compound_ante_step`): returns the premise list *and* the fired rule as data. -/
+private def compound_ante_rule {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ A) : (ps : List FSequent) × KRule ⟨A, Θ⟩ ps := by
+  cases f with
+  | and φ ψ => exact ⟨_, KRule.andL hf⟩
+  | or φ ψ => exact ⟨_, KRule.orL hf⟩
+  | imp φ ψ => exact ⟨_, KRule.impL hf⟩
+  | iff φ ψ => exact ⟨_, KRule.iffL hf⟩
+  | not φ => exact ⟨_, KRule.negL hf⟩
+  | atom _ _ _ => simp [isCompound] at hc
+  | papp _ _ => simp [isCompound] at hc
+  | all _ _ _ => simp [isCompound] at hc
+  | ex _ _ _ => simp [isCompound] at hc
+
+/-- Type-level rule producer for a decomposable succedent formula (mirror of
+    `compound_succ_step`). -/
+private def compound_succ_rule {A Θ : List Formula} {f : Formula}
+    (hc : isCompound f = true) (hf : f ∈ Θ) : (ps : List FSequent) × KRule ⟨A, Θ⟩ ps := by
+  cases f with
+  | and φ ψ => exact ⟨_, KRule.andR hf⟩
+  | or φ ψ => exact ⟨_, KRule.orR hf⟩
+  | imp φ ψ => exact ⟨_, KRule.impR hf⟩
+  | iff φ ψ => exact ⟨_, KRule.iffR hf⟩
+  | not φ => exact ⟨_, KRule.negR hf⟩
+  | atom _ _ _ => simp [isCompound] at hc
+  | papp _ _ => simp [isCompound] at hc
+  | all _ _ _ => simp [isCompound] at hc
+  | ex _ _ _ => simp [isCompound] at hc
+
 /-! ### Type-level certificate: `KTrace` (a pattern-matchable, computable proof object)
 
     `KProvable` lives in `Prop`, so the positive witness inside a `Decidable`/`isTrue` result is
@@ -2120,7 +2234,7 @@ mutual
 inductive KTrace : FSequent → Type where
   | ax {A Θ : List Formula} {f : Formula} (hA : f ∈ A) (hΘ : f ∈ Θ) : KTrace ⟨A, Θ⟩
   | rule {S : FSequent} {ps : List FSequent}
-      (hstep : KStep S ps) (children : KTraceAll ps) : KTrace S
+      (r : KRule S ps) (children : KTraceAll ps) : KTrace S
 /-- A `Type`-level tuple of child certificates, one per premise of a fired hyperedge. -/
 inductive KTraceAll : List FSequent → Type where
   | nil : KTraceAll []
@@ -2133,7 +2247,7 @@ mutual
 def KTrace.toKProvable {S : FSequent} (t : KTrace S) : KProvable S :=
   match t with
   | .ax hA hΘ => KProvable.ax hA hΘ
-  | .rule hstep children => KProvable.rule hstep children.toForall
+  | .rule r children => KProvable.rule r.toKStep children.toForall
   termination_by structural t
 def KTraceAll.toForall {ps : List FSequent} (ts : KTraceAll ps) : ∀ P ∈ ps, KProvable P :=
   match ts with
@@ -2189,18 +2303,20 @@ def KTrace.search (S : FSequent) : KSearchResult S := by
   cases firstCompound S.ante with
   | inl fw =>
       obtain ⟨f, hf, hcf⟩ := fw
-      obtain ⟨ps, hstep⟩ := compound_ante_step (A := S.ante) (Θ := S.succ) hcf hf
+      obtain ⟨ps, r⟩ := compound_ante_rule (A := S.ante) (Θ := S.succ) hcf hf
+      have hstep := r.toKStep
       exact match searchAll ps (fun P hP => KTrace.search P) with
-        | PSum.inl ts => KSearchResult.found (KTrace.rule hstep ts)
+        | PSum.inl ts => KSearchResult.found (KTrace.rule r ts)
         | PSum.inr ⟨P, hP, hnp⟩ => KSearchResult.absent (fun hp =>
             hnp (KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
   | inr hAbase =>
       cases firstCompound S.succ with
       | inl fw =>
           obtain ⟨f, hf, hcf⟩ := fw
-          obtain ⟨ps, hstep⟩ := compound_succ_step (A := S.ante) (Θ := S.succ) hcf hf
+          obtain ⟨ps, r⟩ := compound_succ_rule (A := S.ante) (Θ := S.succ) hcf hf
+          have hstep := r.toKStep
           exact match searchAll ps (fun P hP => KTrace.search P) with
-            | PSum.inl ts => KSearchResult.found (KTrace.rule hstep ts)
+            | PSum.inl ts => KSearchResult.found (KTrace.rule r ts)
             | PSum.inr ⟨P, hP, hnp⟩ => KSearchResult.absent (fun hp =>
                 hnp (KProvable.pcomplete P (hstep.valid_premises hp.psound P hP)))
       | inr hΘbase =>
@@ -2222,6 +2338,26 @@ def KTrace.search (S : FSequent) : KSearchResult S := by
     forces the whole `Type`-level trace, demonstrating it survives to runtime (`#eval`). -/
 def KSearchResult.certSize? {S : FSequent} : KSearchResult S → Option Nat
   | .found t => some t.size
+  | .absent _ => none
+
+/-- The tag of the rule fired at a certificate's root (`none` at an axiom leaf) — the observation a
+    reifier now *can* make, because the node stores a `Type`-level `KRule` rather than an erased
+    `KStep` proof.  Demonstrates that "which rule fired" survives to runtime. -/
+def KTrace.rootTag {S : FSequent} : KTrace S → Option RuleTag
+  | .ax _ _ => none
+  | .rule r _ => some r.tag
+
+/-- The principal formula decomposed at a certificate's root (`none` at an axiom leaf). -/
+def KTrace.rootPrincipal {S : FSequent} : KTrace S → Option Formula
+  | .ax _ _ => none
+  | .rule r _ => some r.principal
+
+/-- Read the root rule tag and principal off a search outcome (`#eval`-able). -/
+def KSearchResult.rootRule? {S : FSequent} : KSearchResult S → Option (RuleTag × Formula)
+  | .found t =>
+      match t.rootTag, t.rootPrincipal with
+      | some tag, some p => some (tag, p)
+      | _, _ => none
   | .absent _ => none
 
 /-- **Proof-producing canonical-key evaluator.**  Decides `KProvable S` on top of the `Type`-level
@@ -2290,12 +2426,25 @@ theorem KProvable.normKey_congr {C : List Formula} {S S' : FSequent}
     Depends only on `propext`/`Quot.sound`.  `KProvable.normKey_congr` certifies the *decision*
     depends only on `normKey C S` (state space `≤ 4^{|C|}`).
 
+    (c) `KRule S ps : Type` is the `Type`-valued mirror of `KStep` — the fired rule **as data**,
+    not the erased `hstep : KStep` proof a node used to store.  `KTrace.rule` now carries a `KRule`,
+    so a reifier can pattern-match the rule: `KRule.tag : RuleTag` (which of the ten fired) and
+    `KRule.principal : Formula` (recovered from the constructor's `φ`/`ψ`) *survive to runtime*
+    (`#eval (KTrace.search ·).rootRule?`: `⊢p→p`↦`(impR, imp p p)`, `⊢p∨¬p`↦`(orR, or p ¬p)`;
+    axiom leaves / `absent`↦`none`).  `KRule.toKStep` **realizes** `KStep` (no axioms), which is
+    what `toKProvable`/`decide` use to stay downstream of the data — closing the audit's "the node
+    cannot say *which* rule fired" gap that blocked a generic reifier.
+
     **Still remaining (do NOT claim these as done):**
-    • **Certificate reification** `KTrace S → FTrace/PPTerm/Core`.  `KTrace` deliberately omits the
-      `liftFormula?`/`LiftsAllF` guards, so reifying it into a lifting-aware `FTrace` (or an
-      emittable Core proof term) requires re-attaching the lifting root — it goes through the same
-      `S.Lifts env Γ` boundary that `KProvable.sound` needs.  Only skeleton-level extraction
-      (`KTrace.size`, structural traversal) is available so far.
+    • **Certificate reification** `KTrace S → FTrace/PPTerm/Core`.  The rule *tag*/*principal* are
+      now readable (`KRule`), but two obstacles remain, per the audit: (i) `KTrace` still omits the
+      `liftFormula?`/`LiftsAllF` guards, so a lifting-aware `FTrace` (or emittable Core term)
+      requires re-attaching the `S.Lifts env Γ` root that `KProvable.sound` needs; (ii) `KRule`/
+      `KStep` is the *set-normalized* calculus (`sremove` deletes all duplicates) whereas `FTrace`
+      is the *raw-list* calculus, and the proved bridge runs `FDeriv → KProvable` — the reverse is a
+      genuine new normalized-trace ↔ raw-FTrace correspondence with contraction/typing transports,
+      not a mere traversal.  Only skeleton-level extraction (`KTrace.size`, `rootTag`/`rootPrincipal`
+      traversal) is available so far.
     • **Actual canonical-state execution.**  `KTrace.search` runs on *raw* `FSequent` lists with
       `seqCx` recursion; it does not normalize input to `normKey` nor enumerate an `allKeys C`
       table.  The `4^{|C|}` finite-key bound is thus *semantic* (a property of the state space),

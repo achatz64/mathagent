@@ -876,10 +876,24 @@ trace language, in the order: (1) state + transitions; (2) closure into signed `
     its node count (verified via `#eval (KTrace.search …).certSize?`: `p→p`↦2, `p⊢p`↦1, `p∨¬p`↦3,
     MP↦3; bare `p`/`p→q`↦none). `KProvable.decide` is now a thin wrapper over `KTrace.search`, so
     the derivation exists *first* as a `Type` object. Axioms `[propext, Quot.sound]`.
+  * *Type-level rule data — DONE (`KRule`).* Per the 65abadf audit: `KTrace.rule` previously stored
+    its fired rule as `hstep : KStep S ps`, a `Prop` proof *erased* at runtime — so a reifier could
+    see that a rule fired but not *which* (`andL`/`impR`/…) nor its principal. `KRule S ps : Type`
+    is the `Type`-valued mirror of `KStep`'s ten constructors (the rule as data); `KTrace.rule` now
+    stores a `KRule`. `KRule.toKStep` **realizes** `KStep` (no axioms), keeping `toKProvable`/
+    `decide` downstream of the data; `KRule.tag : RuleTag` and `KRule.principal : Formula` survive
+    to runtime — verified via `#eval (KTrace.search …).rootRule?`: `⊢p→p`↦`(impR, imp p p)`,
+    `⊢p∨¬p`↦`(orR, or p ¬p)`; axiom leaves / `absent`↦`none`. This closes the audit's "the node
+    cannot say which rule fired" blocker for a generic reifier. Axioms unchanged `[propext,
+    Quot.sound]`.
   * *Still remaining (NOT claimed done):* (a) **certificate reification** `KTrace → FTrace/PPTerm/
-    Core` — `KTrace` omits the `liftFormula?`/`LiftsAllF` guards, so reifying it into a
-    lifting-aware `FTrace` or emittable Core term goes through the same `S.Lifts env Γ` root that
-    `KProvable.sound` needs (only skeleton extraction like `KTrace.size` exists so far); (b)
+    Core` — the rule tag/principal are now readable (`KRule`), but two obstacles remain: (i) `KTrace`
+    omits the `liftFormula?`/`LiftsAllF` guards, so a lifting-aware `FTrace`/Core term goes through
+    the same `S.Lifts env Γ` root that `KProvable.sound` needs; (ii) `KRule`/`KStep` is the
+    *set-normalized* calculus (`sremove` deletes all duplicates) whereas `FTrace` is the *raw-list*
+    calculus, and the proved bridge runs `FDeriv → KProvable` — the reverse is a genuine new
+    normalized-trace ↔ raw-FTrace correspondence with contraction/typing transports, not a mere
+    traversal (only skeleton extraction like `KTrace.size`/`rootTag` exists so far); (b)
     **actual canonical-state execution** — a `normKey`-keyed, memoized BFS (vs. this `seqCx`-
     recursive producer on raw lists), which is the genuine canonical-state / efficiency step.
   * *Downstream (separate, not part of this set-key layer):* PS2 still needs genuine
