@@ -295,15 +295,20 @@ does not have equality at arbitrary type.
 
 ## Adequacy Theorems
 
-The target theorems are:
+These are the theorems that justify the translation. Current status is noted per
+item; all Lean names below live in `formalization/ContextualHOL/`.
 
-1. Formula adequacy.
+1. Formula adequacy. **(planned)**
 
    For every HOL formula `phi` with free object variables in `Gamma`, erasing the
    contextual translation gives back `phi`, up to alpha-renaming and ordinary
    HOL beta/eta equivalence.
 
-2. Proof lifting.
+   Not yet a Lean theorem. The translation itself is realized (`Syntax`, `Elab`,
+   `Core`, `CorePrinter`), so an erasure/round-trip statement can be stated
+   against it, but no `adequacy`/`erase` lemma exists yet.
+
+2. Proof lifting. **(proved — M3.3)**
 
    If ordinary HOL proves:
 
@@ -317,7 +322,13 @@ The target theorems are:
    Gamma | [[A1]]Gamma, ..., [[An]]Gamma |- [[phi]]Gamma
    ```
 
-3. Proof erasure.
+   This is `proves_lift` in `ProvesLift.lean`: `Proves env Γ Δ phi` implies a
+   `CoreThm (SeqLift ...)` over the lifted assumptions and conclusion, discharged
+   by induction on the `Proves` derivation. The per-connective lifting lemmas
+   (`liftImp_some`, `liftAnd_some`, …) and the chain combinators in `Lifting.lean`
+   (`chainHyp`, `chainMP`, `chainIffMp`, …) are the supporting infrastructure.
+
+3. Proof erasure. **(planned)**
 
    If contextual HOL proves:
 
@@ -327,7 +338,9 @@ The target theorems are:
 
    then ordinary HOL proves the erased sequent.
 
-4. Structurality.
+   The converse direction to (2); not yet formalized.
+
+4. Structurality. **(machinery proved)**
 
    Proofs are stable under context maps:
 
@@ -337,6 +350,12 @@ The target theorems are:
    --------------------------------
    Theta | Delta[sigma] |- phi[sigma]
    ```
+
+   The substitution/weakening core is proved: `substEquiv_sound` (and its closed
+   form `substEquiv_sound_closed`) in `SubstSound.lean`, with `Weakening.lean` for
+   the reindexing lemmas. `proves_lift` already consumes this via `substIffLift` /
+   `weakenIff` to move lifted axioms under binders. A standalone structurality
+   theorem over the `Proves` judgment is not separately stated.
 
 ## Axiom Translation Policy
 
@@ -424,13 +443,26 @@ Pred.term (Exist X Final
       (v0 X Final))))
 ```
 
-## Tooling Plan
+## Tooling
 
-The first tool should be a small canonical translator from a typed JSON AST to
-Core text.  It should not prove anything.  Its job is to make the convention
-mechanical and testable.
+The translator was built in **Lean**, not as the originally-planned standalone
+JSON-AST tool, and it goes well past "make the convention mechanical" — the same
+`formalization/ContextualHOL/` project also carries the proof-lifting and
+substitution-soundness theorems above.
 
-Planned checks:
+The pipeline:
+
+* `Syntax.lean` — typed AST: `Ty`, `Term`, `Formula`, `Sequent`, `Env` (the
+  in-Lean replacement for the "typed JSON AST").
+* `Elab.lean` — elaboration and the checks below, producing the contextual
+  `CPred`/`CMap` translation.
+* `Core.lean`, `CorePrinter.lean` — render the canonical Core text
+  (`Cor.renderAxiom`, `Cor.renderFile`).
+* `GenerateCoreExamples.lean` — the executable driver. Its `main` emits
+  `ma1/generated_contextual_hol_examples.cor` from the example sequents
+  (`reflexiveSeq`, `symmetricStepSeq`, `memCongSeq`, `sepSeq`).
+
+The five originally-planned checks are all enforced by the elaborator:
 
 1. Every variable occurrence is found in the object context.
 2. Every constant/schema parameter has a declared type.
@@ -438,4 +470,15 @@ Planned checks:
 4. Quantifiers extend the context by prepending the bound variable.
 5. Output uses `sub2`, `Pred.*`, `Forall`, `Exist`, and `Cart.weakening` only.
 
-Later, a linter can compare handwritten Core formulas against this normal form.
+The "linter that compares handwritten Core against the normal form" also exists,
+as machine-checked diff files rather than a separate program:
+`contextual_hol_regen_check.cor` ascribes each handwritten `set.cor` statement as
+the *type* of the corresponding generated axiom instance, so the file type-checks
+iff the translator reproduces the handwritten form definitionally.
+`contextual_hol_basis_derivation_check.cor` does the analogous check against the
+beta-basis derivations.
+
+Beyond the original plan, the project also contains the proof-search and
+finite-state layers (`Search.lean`, `Focused.lean`, `FiniteState.lean`) and the
+certificate/evidence machinery (`Evidence.lean`, `SubstEvidenceBuilder.lean`),
+which are downstream of this translation rather than part of it.
