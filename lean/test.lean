@@ -9,6 +9,25 @@ namespace Construct
   axiom get_spec {X : Type} {h : X -> Prop} (c : ExistsUnique h) : (h (get c))
 end Construct
 
+-- How hard / what kind of gap we are leaving open.
+inductive Difficulty
+  | trivial     -- one-liner, just not worth spelling out here
+  | routine     -- standard, mechanical (a tedious induction, bookkeeping)
+  | hard        -- genuinely difficult but believed provable
+  | later       -- deferred; intend to come back and prove it
+  | unclear     -- statement/notation itself needs pinning down first
+  | impossible  -- believed false or unprovable as stated (a red flag)
+deriving Repr
+
+-- A deliberately unproved step ("gap"): a documented `sorry`. `reason` records
+-- what is being assumed and `difficulty` classifies it (see `Difficulty`).
+-- Unlike `sorry`, the explanation and rating live in the term, and every use is
+-- auditable via `#print axioms`.
+-- Use it in term position (`gap "why" .routine`) or tactically
+-- (`exact gap "why" .routine`). A `def` that stubs *data* (not a `Prop`) with
+-- `gap` must be `noncomputable`.
+axiom gap {α : Sort u} (reason : String) (difficulty : Difficulty) : α
+
 -- Peano as a class over a generic carrier `N`: data first, then the laws.
 -- Each `instance` discharges the laws from its own construction, so the former
 -- axioms (`zero`, `next`, `cond`) become obligations a carrier must meet, not
