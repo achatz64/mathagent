@@ -22,9 +22,7 @@ A normal user can type `\math-analysis mypaper.tex` to obtain a summary of the a
 
 In general, there will be various choices for a language like `ma5` supported, `ma5` was simply the default in the previous example, and `\math-analysis ma6 mypaper.tex` will produce `mypaper.ma6`, which will be code for the language `ma6`.    
 
-On the spectrum of languages, the formal verification languages are on the extreme end: for them, type checking is sufficient to prove correctness of proofs. 
-
-[TODO: come up with a syntax for a language `ma1` and make it as human readable as possible. This would be a language where the translation effort for math papers is minimal.]
+On the spectrum of languages, the formal verification languages are on the extreme end: for them, type checking is sufficient to prove correctness of proofs. We start with Lean as `ma1`; it is a well-established, very flexible and llms know it.
 
 ### Knowledge base
 
@@ -33,7 +31,7 @@ For each language `ma` the knowledge base (KB) are the dependencies available, m
 build_X: (KB) -> (tool X)
 (agent on analysis) <- MCP -> (tool X)
 ```
-Tool X can be a full text or semantic search or anything else we come up with. This will be subject to heavy development to ensure scaling. The start will be cold: no KB.
+Tool X can be a full text or semantic search or anything else we come up with. This will be subject to heavy development to ensure scaling. The start doesn't have to be called, for example Lean has an extensive MathLib library.
 
 Knowledge bases have the following advantage: 
 1. New knowledge is available without retraining of llm.
