@@ -5,34 +5,33 @@ namespace Construct
   -- Unique choice / definite description: strictly weaker than `Classical.choose`
   -- (it does not yield excluded middle via Diaconescu), so it keeps the
   -- development off `Classical.choice`.
-  axiom get     {X : Type} {h : X -> Prop} : (ExistsUnique h) -> X
+  axiom get      {X : Type} {h : X -> Prop} : (ExistsUnique h) -> X
   axiom get_spec {X : Type} {h : X -> Prop} (c : ExistsUnique h) : (h (get c))
 end Construct
 
-namespace N
-  -- main objects
-  axiom N : Type
-  axiom zero : N
-  axiom next : N -> N
+-- Peano as a class over a generic carrier `N`: data first, then the laws.
+-- Each `instance` discharges the laws from its own construction, so the former
+-- axioms (`zero`, `next`, `cond`) become obligations a carrier must meet, not
+-- fresh global postulates.
+class Peano (N : Type) where
+  zero : N                                                     -- data
+  next : N -> N                                                -- data
+  next_all       : (n : N) -> n = zero ∨ ∃ m : N, next m = n   -- law
+  next_injective : (n : N) -> (m : N) -> (next m = next n -> n = m)
+  next_non_zero  : (n : N) -> ¬ (next n = zero)
+  induction : (β : N -> Prop) ->
+    ((β zero) ∧ ((n : N) -> (β n -> β (next n)))) -> ((n : N) -> β n)
 
-  def InductionHyp (β : (N -> Prop)) : Prop := (β zero) ∧ ((n : N) -> ((β n) -> (β (next n))))
-  def InductionConclusion (β : (N -> Prop)) : Prop := (n : N) -> (β n)
+namespace Peano
+  variable {N : Type} [Peano N]
 
-  -- the Peano axioms
-  structure Peano : Prop where
-    next_all       : (n : N) -> n = zero ∨ ∃ m : N, (next m) = n
-    next_injective : (n : N) -> (m : N) -> ((next m) = (next n) -> n = m)
-    next_non_zero  : (n : N) -> ¬ ((next n) = zero)
-    induction : (β : (N -> Prop)) -> ((InductionHyp β) -> (InductionConclusion β))
+  def InductionHyp (β : N -> Prop) : Prop := (β zero) ∧ ((n : N) -> (β n -> β (next n)))
+  def InductionConclusion (β : N -> Prop) : Prop := (n : N) -> β n
 
-  -- axioms
-  axiom cond : Peano
-
-  -- some proofs
   -- two functions that agree pointwise by induction are equal
   def fun_unique {X : Type} {f g : N -> X}
       (h : InductionHyp (fun n => f n = g n)) : f = g :=
-    funext (cond.induction (fun n => f n = g n) h)
+    funext (induction (fun n => f n = g n) h)
 
   -- the three defining equations of addition, as named fields
   structure IsAddition (f : N -> N -> N) : Prop where
@@ -40,10 +39,10 @@ namespace N
     succ_left  : (n : N) -> (m : N) -> f (next n) m = next (f n m)
     succ_right : (n : N) -> (m : N) -> f n (next m) = next (f n m)
 
-  def identity := (fun (n : N) => n)
+  def identity : N -> N := fun n => n
 
-  -- proof of existence (and uniqueness) of addition
-  theorem addition_existence : Construct.ExistsUnique IsAddition :=
+  -- proof of existence (and uniqueness) of addition, for any Peano carrier
+  theorem addition_existence : Construct.ExistsUnique (IsAddition (N := N)) :=
     let IsSlice (n : N) (f : N -> N) :=
       ((f zero) = n ∧ ((m : N) -> (f (next m)) = (next (f m))))
 
@@ -82,7 +81,7 @@ namespace N
       ⟨g, hcond, fun _ hgg => slice_addition_unique hgg hcond⟩
 
     let addition_from_induction :=
-      (cond.induction SliceExists (And.intro slice_addition_zero slice_addition_induction_step))
+      (induction SliceExists (And.intro slice_addition_zero slice_addition_induction_step))
 
     let addition := fun (n : N) => fun (m : N) =>
       Construct.get (addition_from_induction n) m
@@ -110,13 +109,13 @@ namespace N
       fun g hg =>
         -- the left-recursion reaches `n`, i.e. `g n zero = n` — itself an induction
         have gn_zero : (n : N) -> g n zero = n :=
-          cond.induction (fun n => g n zero = n)
+          induction (fun n => g n zero = n)
             ⟨hg.zero_zero, fun n ih => (hg.succ_left n zero).trans (congrArg next ih)⟩
         -- each slice `g n` solves `IsSlice n`, so it equals `addition n`
         funext fun n =>
           slice_addition_unique ⟨gn_zero n, fun m => hg.succ_right n m⟩ (spec n)⟩
 
-  noncomputable abbrev addition := Construct.get addition_existence
-  def addition_spec := Construct.get_spec addition_existence
+  noncomputable abbrev addition := Construct.get (addition_existence (N := N))
+  def addition_spec := Construct.get_spec (addition_existence (N := N))
 
-end N
+end Peano
