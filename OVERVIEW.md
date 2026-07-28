@@ -46,6 +46,8 @@ inclusion: (paper x metadata) -> (KB update).
 
 Building the knowledge base is not a one time effort, but must be essentially reproducible. We need the infrastructure to build knowledge bases from a paper pipeline (format and architecture to be determined) in order to try out different agents, models, tools, and `ma` languages. 
 
+See [KB.md](KB.md) for the current Lean-first knowledge-base plan.
+
 ## Proposed architecture
 
 Agent skills are simply text files with instructions. Architecture of KB tools to be determined and will be under continuous development, MCP as protocol at start. 
@@ -55,5 +57,9 @@ Agent skills are simply text files with instructions. Architecture of KB tools t
 1. Attribution of results in knowledge base according to standards of the mathematical academical community.
 2. Service the math community.
 3. Generate data for improving llms.
+
+### Good to remember
+
+1. Only author-maintained source data should be authoritative; everything generated is disposable.
 
 
