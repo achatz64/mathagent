@@ -1,7 +1,10 @@
-# Reference: components, costs, limits
+# Reference: components, behaviour, limits
 
-Figures below are measured or taken from upstream measurements, not estimates,
-and drive the thresholds in `scripts/common.sh`.
+This document describes what the components do and how they behave. It holds no
+resource figures, and `scripts/common.sh` holds no thresholds derived from any —
+see **Resource behaviour** below. The numbers that do appear are upstream's fixed
+timeouts, pinned versions and commits, and deliberate policy limits: contracts,
+not estimates.
 
 ## Component inventory
 
@@ -16,7 +19,8 @@ and drive the thresholds in `scripts/common.sh`.
 | 7 | local Loogle | `nomeata/loogle`, cloned and built by the server itself | `install.sh --only loogle` |
 | 8 | `lean-explore[local]` | PyPI, pinned in `common.sh` | `install.sh --only leanexplore` |
 | 9 | LeanExplore data | Cloudflare R2, `lean-explore data fetch` | same stage |
-| 10 | Qwen3 embedding + reranker | HuggingFace, on first search | same stage |
+| 10 | Qwen3 embedding model | HuggingFace, on the first search | same stage |
+| 11 | Qwen3 reranker model | HuggingFace, prefetched (never loaded unless a call reranks) | same stage; `--no-rerank-prefetch` skips it |
 
 ## Resource behaviour
 
@@ -43,10 +47,13 @@ test reports rather than in this file.
   memory-intensive step. It is a one-off: later runs load the existing index,
   which is materially cheaper. Loogle hashes `.olean` dependencies, so changing
   the project's Mathlib invalidates it and the cost returns.
-- **LeanExplore's first query in each server process** loads the index and both
-  models lazily — not at startup — so whichever query happens to be first pays
-  for all of it. This recurs on every restart, not once per install. Reranking
-  is expensive on CPU.
+- **LeanExplore's first query in each server process** loads the index and the
+  embedding model lazily — not at startup — so whichever query happens to be
+  first pays for all of it. This recurs on every restart, not once per install.
+- **LeanExplore's reranking is recurring, per-query work**, and it is on by
+  default (`rerank_top` defaults to 50 in the MCP tools). It runs a Qwen3
+  cross-encoder over that many candidates every single time. This is not a
+  cold-start cost that amortises — see **Cold start vs reranking** below.
 - **Running both MCP servers at once** increases memory pressure well beyond
   either alone, and neither is sized for a machine also running an editor and a
   build. The skill does not predict whether a given host can do it.
@@ -61,18 +68,53 @@ shared, and the Loogle checkout is shared too when the toolchain matches.
 
 ### What is measured instead
 
-`install.sh` measures the two expensive steps — the Loogle index build and the
-LeanExplore warm-up — and reports what that execution produced: elapsed time,
-peak RSS via `/usr/bin/time` where available, terminating signal, cgroup v2
-`oom_kill` delta, and the artefact's actual size. Failures are recorded too; a
-failed attempt's cost is the more useful of the two.
+`install.sh` measures every expensive step it runs — the Loogle index build, the
+strict index probe when one is needed, the LeanExplore warm-up, and the reranking
+check when asked for — and reports what that execution produced: exit status,
+terminating signal, elapsed time, peak RSS via `/usr/bin/time` where available,
+the cgroup v2 `oom_kill` delta, and the artefact's actual size. Failures are
+measured on exactly the same terms; a failed attempt's cost is the more useful of
+the two, so the snapshot is taken the instant the command returns rather than on
+the success branch.
 
-Those figures go into the manifest under `measurements`, next to the pins and
-the host they were taken on. **They are provenance and diagnostics, not
-requirements.** Nothing reads them back, no threshold is derived from them, and
-no later run consults them. They accumulate rather than overwrite: a run that
-did not measure a step leaves the previous figure alone, because a null means
-"not measured", never "measured as nothing".
+Those records go into the manifest as `measurement_attempts`. **They are
+provenance and diagnostics, not requirements.** Nothing reads them back, no
+threshold is derived from them, and no later run consults them.
+
+They are **append-only and self-contained**. Each record carries its own stage,
+timestamp, outcome, host facts, the pins it ran against, and its metrics:
+
+```json
+{
+  "stage": "loogle_index",
+  "outcome": "failed",
+  "timestamp": "2026-07-29T11:04:22Z",
+  "host": { "os": "wsl", "ram_gib": "11.7", "cpus": 8 },
+  "pins": { "lean_toolchain": "leanprover/lean4:v4.31.0", "mathlib_rev": "…" },
+  "exit_status": 137,
+  "terminating_signal": 9,
+  "peak_rss_kb": 10412884,
+  "seconds": 906,
+  "oom_events": 1,
+  "oom_counter_available": true,
+  "artifact_bytes": null
+}
+```
+
+The earlier shape — one flat object merged key by key — could not survive a
+second run: the newer run's host and timestamp overwrote the older run's while
+the older run's per-stage figures stayed beside them, so the manifest could end
+up attributing a measurement taken on one host to another. A Mathlib bump
+followed by `--only register` did the same to the pins. A figure without its
+context is not provenance. A run that measures nothing now appends nothing, and
+records are never rewritten — the file keeps the most recent
+`MAX_ATTEMPT_RECORDS` (100, a size limit on a file humans read, not an estimate)
+and drops older ones whole.
+
+`oom_events: null` with `oom_counter_available: false` means the host could not
+answer, which is not the same as zero. Both used to be an empty string, which let
+a later, quieter run leave an earlier non-zero count standing as if it were
+current.
 
 `preflight.sh` reports live host facts — total and available RAM, swap, CPU
 count, free space per filesystem — as `INFO`, and draws no verdict from any of
@@ -85,14 +127,31 @@ Diagnostics distinguish what was seen from what it might mean:
 
 | Observed | What it establishes |
 |---|---|
-| cgroup `oom_kill` incremented | this run ran out of memory |
+| cgroup `oom_kill` incremented | a process **in this cgroup** was OOM-killed during the interval — likely, but not provably, the measured one |
 | terminated by signal N | it was terminated; SIGSEGV, an OOM kill and an operator are indistinguishable from here |
 | exited non-zero, no signal | only what the log says |
+| exited zero | that the process ended cleanly, not that it did the work — see the Loogle readiness check |
 | a slow first query | nothing on its own; lazy loading is *a* cause, not the only one |
 | missing output | that the artefact is not there, not why |
+| output present | that a file of that name exists, not that it loads or answers |
 
-Only the first line asserts an OOM. `install.sh` names `dmesg -T | grep -i oom`
-as what would settle the others.
+Only the first line involves an OOM at all, and even it names a cgroup rather
+than a process: anything sharing the cgroup increments the same counter. Where
+the measured command also died, that is the likeliest reading and the report says
+so in those words. `install.sh` names `dmesg -T | grep -i oom` as what would
+settle it.
+
+**The counter is frequently unavailable, and that is not the same as zero.** The
+root cgroup has no `memory.events` file, and a plain login shell on a VM usually
+sits in it (`/proc/self/cgroup` → `0::/`). Then an OOM kill is observable only as
+a terminating signal, which proves nothing about the cause — so the report says
+"not readable, no evidence either way" rather than "no OOM occurred". `preflight`
+reports which of the two situations you are in before the install starts. To get
+the evidence, give the run its own cgroup:
+
+```bash
+systemd-run --scope bash .claude/skills/lean-kb-setup/scripts/install.sh --project lean
+```
 
 ### Parallel Lake workers: there is no knob
 
@@ -118,6 +177,14 @@ way to act on it from inside the installer.
 1. **Install time.** No index after the attempt ⇒ the loogle stage stops the
    install. Preflight does not pre-judge whether the host can build one — it
    reports that a first build is ahead and lets the measured attempt answer.
+   **An index file is not evidence on its own.** The stage passes only when the
+   run exited zero *and* the log shows both `Loogle is ready.` and a JSON answer.
+   Otherwise it runs one strict probe against the file that is there, and stops
+   unless that probe loads and answers. Without this, an index left by an earlier
+   run turned a completely failed attempt into a PASS: the file existed, so the
+   stage recorded `replaced` and reported success while nothing about the current
+   run had worked. That is the same silent degradation the layer exists to
+   prevent, reached from the other side.
 2. **Registration.** `stage_register` refuses to register `lean-lsp` without
    `--loogle-local` unless you passed `--skip loogle`. Registering a working
    server pointed at the remote API is exactly the accident being prevented.
@@ -288,30 +355,79 @@ never seeded. `install.sh` emits its version constants on every run regardless
 of which stages ran, so seeding would have `--only register` assert that
 lean-lsp-mcp and lean-explore are installed when neither stage was selected.
 
-### Cold start: the first query of a session is slow
+### Cold start vs reranking: two different costs
 
-LeanExplore loads its local index and both Qwen3 models **lazily** — on the
-first query, not at startup — so whichever query happens to be first pays for
-all of it. Subsequent queries in the same process are fast.
+They are routinely confused, and only one of them amortises.
 
-This is expected, not a hang, and it is not evidence of anything about memory.
-It recurs every time the server process is restarted, which includes a Claude
-Code restart and not just a fresh install: the download is one-off, the load is
-not. `install.sh` reports what its own warm-up cost on the host it ran on, and
-that figure is in the manifest under `measurements` — it is a record of that
-run, not a prediction for yours.
+**Cold start is once per process.** LeanExplore loads its local index and the
+embedding model **lazily** — on the first query, not at startup — so whichever
+query happens to be first pays for all of it. It recurs every time the server
+process restarts, which includes a Claude Code restart and not just a fresh
+install: the download is one-off, the load is not. This is expected, not a hang,
+and it is not evidence of anything about memory. A warm-up hook that issues a
+throwaway query at session start is under test as a remedy.
 
-A warm-up hook that issues a throwaway query at session start is under test as
-a remedy; until then, the first query is simply slow.
+**Reranking is once per query, every query.** `search` and `search_summary` take
+`rerank_top`, and the MCP tools default it to **50**: a Qwen3 cross-encoder pass
+over 50 candidates on each call, plus loading the reranker model the first time.
+Nothing about this gets cheaper with a warm process. Upstream documents `0` as
+"skip reranking" (`search/engine.py`), and with it the reranker client is never
+constructed at all — the FAISS index and the embedding model still are, so a
+zero-rerank query still exercises everything an installation check is asking
+about.
+
+So **every LeanExplore call this skill makes passes `rerank_top: 0`**: the
+install warm-up, the verify probe, and the registered-entry smoke. Leaving it
+implicit put a recurring cross-encoder pass inside a readiness check, on the
+machine that had just finished building Mathlib, where nobody had asked for it
+and its cost read as the cost of installing.
+
+### Reranking at runtime: what the install can and cannot control
+
+`rerank_top: 0` covers everything *this skill* runs. It does not cover what
+happens afterwards, and the gap is not closeable from the registration:
+
+> `lean-explore mcp serve` accepts **only** `--backend` and `--api-key`
+> (`mcp/server.py: _parse_arguments`). The package reads no environment variable
+> or config key for reranking — `LEAN_EXPLORE_VERSION`, `LEAN_EXPLORE_CACHE_DIR`,
+> `LEAN_EXPLORE_DATA_DIR`, `LEAN_EXPLORE_PACKAGES_ROOT` and `LEANEXPLORE_API_KEY`
+> are the whole set. `rerank_top` is a per-call parameter and nothing else.
+
+So a registered server reranks whenever its caller omits the parameter, and the
+install has exactly two levers, neither of which changes that behaviour:
+
+| Lever | What it does | Default |
+|---|---|---|
+| **prefetch** — `install.sh --only leanexplore` | downloads the reranker so the first reranked *tool call* does not stall on a model download mid-session | **on** (`--no-rerank-prefetch` to skip) |
+| **exercise** — `install.sh --rerank-check`, `verify.sh --rerank` | runs one query with reranking on, proving it works rather than merely being present | off |
+
+The prefetch does exactly what `RerankerClient.__init__` does minus the
+inference — `AutoTokenizer.from_pretrained(m, padding_side="left",
+trust_remote_code=True)` and `AutoModelForCausalLM.from_pretrained(m,
+trust_remote_code=True)`, no `.to(device)`, no forward pass — so it lands the
+same files in the same shared HuggingFace cache. It runs under the tool venv's
+own interpreter, found from the `lean-explore` console script's shebang (with
+`$(uv tool dir)/lean-explore/bin/python` as a fallback), because `transformers`
+and `torch` exist only there. A failed prefetch is a WARN, not a stage failure:
+the install still works, the cost simply moves back to the first reranked query.
+
+Provenance follows what actually happened. `hf_reranker_model` reaches
+`installed` only via the prefetch or the reranking check; with both off it is
+`preexisting` or `absent`, never credited to a run that did not fetch it.
+
+**The third lever is the caller, and it lives outside this skill.** The project's
+`CLAUDE.md` carries the rule — pass `rerank_top` explicitly, default it to `0`,
+never omit it — because that is the only thing that reaches a live session.
 
 ## Platform limits
 
 - **Local Loogle is Unix-only.** Linux, macOS, WSL2. Native Windows must use the
   remote API.
 - **`LEAN_REPL_MEM_MB` is enforced on Linux/macOS only.**
-- **WSL2 defaults to roughly half the host's RAM**, which is frequently the
-  reason an index build is killed there while the same machine has memory to
-  spare. Raise it in `%USERPROFILE%\.wslconfig`:
+- **WSL2 caps the VM's memory below the host's total by default**, which is
+  frequently the reason an index build is killed there while the same machine
+  has memory to spare. `free -g` inside WSL reports the cap, not the host. Raise
+  it in `%USERPROFILE%\.wslconfig`:
 
   ```ini
   [wsl2]
@@ -382,8 +498,8 @@ stage succeeded.
 Upstream does all of it lazily, on the first `lean_loogle` call, behind fixed
 timeouts: **900 s** for the build (`_build_loogle`) and **300 s** for the
 subprocess to announce `Loogle is ready.` while it builds the index (`start`).
-Neither is configurable, and a cold Mathlib index on a modest host does not fit
-inside the second one.
+Neither is configurable, and a cold Mathlib index frequently does not fit inside
+the second one.
 
 Raising the MCP *client's* timeout does not help — that only extends how long
 the caller waits for a reply, while the limits are enforced inside the server.
@@ -400,14 +516,23 @@ constants, this drifts** — a second copy gets built beside the one the server
 wants, and the server rebuilds from scratch at first query. The pinned
 `lean-lsp-mcp` version is what keeps them in step.
 
-The index step is measured: peak RSS via `/usr/bin/time`, plus the exit signal
-and the cgroup v2 `memory.events` `oom_kill` counter. Only the **counter**
-confirms an OOM kill. A signal does not: SIGSEGV is a crash, and a SIGKILL is
-equally an operator, an orchestrator or a session teardown, all of which look
-identical from inside the script. So the report has three registers — confirmed
-by the counter, terminated by signal N with the cause unestablished, or exited
-non-zero with out-of-memory named as the usual cause on a host this size and
-`dmesg -T | grep -i oom` named as what would settle it.
+The index step is measured: exit status and elapsed time, peak RSS via
+`/usr/bin/time`, the exit signal, and the cgroup v2 `memory.events` `oom_kill`
+counter. Only the **counter** is evidence of an OOM kill, and then of one *in
+this cgroup* — it does not identify the victim, since any process sharing the
+cgroup increments it. A signal is evidence of less still: SIGSEGV is a crash, and
+a SIGKILL is equally an operator, an orchestrator or a session teardown, all
+identical from inside the script. So the report has three registers:
+
+- the counter moved — a process in this cgroup was OOM-killed while this ran;
+  that it was this command is likely, not established;
+- terminated by signal N, cause unestablished, `dmesg -T | grep -i oom` named as
+  what would settle it;
+- exited non-zero with no signal and no OOM event, where the log is the only
+  account.
+
+None of them says "the host is too small". That is a claim about every future
+run, made from one.
 
 ## LeanExplore data toolchains
 
@@ -564,13 +689,14 @@ indexing would have to be implemented.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `lean_local_search` errors | ripgrep missing | `install.sh --only ripgrep --allow-sudo` |
-| Loogle answers but no `.idx` | indexing OOMed, silently using the remote API | raise RAM, or `--skip loogle` to accept remote on purpose |
+| Loogle answers but no `.idx` | the index was not produced, so it is silently using the remote API — its absence says nothing about *why* | re-run `install.sh --only loogle` and read the measured attempt, or `--skip loogle` to accept remote on purpose |
 | `lean-explore search` says no API key | that CLI is API-only by design | test the local backend via `mcp serve --backend local` |
 | Loogle `.idx` exists but queries are rate-limited | the index belongs to another project path | check `introspect.py loogle-index <project>` |
 | Mathlib require rejected as "moving branch" | pinned to `master`/`main` | set a release tag or commit; KB.md requires a fixed pin |
 | MCP server "failed to connect" | Claude Code launched it without `~/.local/bin` on PATH | `install.sh --only register` — it registers absolute paths |
 | Loogle worked during install, fails after a Claude restart | the registration carries no `PATH`, so the server cannot find `lake` | `install.sh --only register`; see "The registered environment" |
-| First `search_summary` of a session is slow | lazy load of the index and both models | expected; see "Cold start" |
+| First `search_summary` of a session is slow | lazy load of the index and embedding model | expected once per process; see "Cold start vs reranking" |
+| *Every* `search_summary` is slow | `rerank_top` defaults to 50 — a cross-encoder pass per query | pass `rerank_top: 0` when ranking quality is not needed |
 | `lake exe cache get` fails | network, or a Mathlib rev with no published cache | re-run; `lake build` will compile from source, slowly |
 | No Mathlib tag for the toolchain | project on a nightly or rc | move to a released toolchain, or pin Mathlib by hand |
 | `import Mathlib` times out in verify | Mathlib not fully built | `install.sh --only mathlib` |

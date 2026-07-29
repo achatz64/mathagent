@@ -100,9 +100,26 @@ else
   note "Mathlib and Loogle versions"
   note "install.sh will measure the attempt and stop if the local index is not produced"
   if [ "$OS" = wsl ]; then
-    note "WSL caps memory at ~50% of the host by default; raise it in %USERPROFILE%\\.wslconfig"
-    note "([wsl2] memory=… swap=…) then 'wsl --shutdown' from Windows, if the build is killed"
+    note "WSL caps the VM's memory below the host's total by default; raise it in"
+    note "%USERPROFILE%\\.wslconfig ([wsl2] memory=… swap=…) then 'wsl --shutdown'"
+    note "from Windows, if the build is killed"
   fi
+fi
+
+# Whether a kill would be *provable* here. The cgroup v2 oom_kill counter is the
+# only thing that establishes an OOM in this skill, and it does not exist in the
+# root cgroup — where a plain login shell on a VM usually sits. Saying so up
+# front is the difference between a test that produces evidence and one that
+# produces a bare "terminated by signal 9". No verdict attached: this is about
+# what can be observed, not about whether the host is adequate.
+if cgroup_oom_kills >/dev/null 2>&1; then
+  info "cgroup OOM counter readable — an OOM kill during the install would be recorded"
+else
+  info "cgroup OOM counter not readable from this shell"
+  note "an OOM kill would show only as a terminating signal, which does not prove the cause"
+  note "for a run where that matters, put it in its own cgroup, e.g."
+  note "  systemd-run --scope bash .claude/skills/lean-kb-setup/scripts/install.sh --project <dir>"
+  note "and check 'dmesg -T | grep -i oom' either way"
 fi
 
 warn "capacity for concurrent LeanExplore and local Loogle use is not predicted by this skill"

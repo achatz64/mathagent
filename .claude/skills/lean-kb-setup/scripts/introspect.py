@@ -165,7 +165,7 @@ def cmd_resolved(args):
 # its artefacts on. Mirrored here because install.sh drives the clone/build/index
 # itself: routing that work through the `lean_loogle` tool puts it behind
 # upstream's fixed 900s build and 300s index timeouts, which a cold Mathlib
-# index on a modest host does not fit inside. Extending the MCP client's own
+# index frequently does not fit inside. Extending the MCP client's own
 # wait does nothing about them — they are enforced server-side.
 #
 # Keep in step with lean_lsp_mcp/loogle.py: REPO_URL, REPO_REF, repo_dir,
@@ -173,6 +173,11 @@ def cmd_resolved(args):
 # for, and the server would then rebuild it from scratch at first query.
 LOOGLE_REPO_URL = "https://github.com/nomeata/loogle.git"
 LOOGLE_REPO_REF = "9f11169aaebf1ed1e7dcc4077f2aafe0fcf66fd0"
+
+# How many measurement attempt records the manifest keeps. A deliberate policy
+# limit on file size, not an estimate of anything: records are appended and the
+# oldest are dropped whole, never rewritten or summarised.
+MAX_ATTEMPT_RECORDS = 100
 
 
 def _loogle_cache_dir(explicit):
@@ -717,23 +722,37 @@ def cmd_write_manifest(args):
 
     merged["provenance"] = _merge_provenance(merged.get("provenance"), fresh.get("provenance"))
 
-    # Measurements accumulate: the most recent run that actually measured a step
-    # wins, and a run that did not measure it leaves the previous figure alone.
-    # A null here means "not measured this run", never "measured as nothing", so
-    # letting it overwrite would destroy the only record of what the step cost.
+    # Measurement attempts are appended, never merged.
     #
-    # Nothing reads these back to decide anything — they are diagnostics kept
-    # next to the pins and the host they were taken on. Values from different
-    # runs can therefore coexist, which is why each is stored with enough
-    # context to be interpreted on its own.
-    old_m = merged.get("measurements")
-    new_m = fresh.get("measurements")
-    if isinstance(new_m, dict):
-        combined = dict(old_m) if isinstance(old_m, dict) else {}
-        for key, value in new_m.items():
-            if value is not None or key not in combined:
-                combined[key] = value
-        merged["measurements"] = combined
+    # The previous shape was one flat object merged key by key, and that quietly
+    # re-attributed history: the newer run's host and timestamp overwrote the
+    # older run's, while the older run's per-stage figures were preserved beside
+    # them, so a manifest could end up saying a Loogle index measured on host A
+    # was measured on host B. The same held for pins — a Mathlib bump followed by
+    # `--only register` left the old index cost sitting next to the new revision.
+    #
+    # Each record is self-contained (stage, timestamp, outcome, host, pins,
+    # metrics), so records from different runs coexist without any of them
+    # needing to be reconciled. A run that measured nothing appends nothing.
+    #
+    # Nothing reads these back to decide anything: no threshold, no later run, no
+    # requirement. They are diagnostics and provenance.
+    old_a = merged.get("measurement_attempts")
+    old_a = old_a if isinstance(old_a, list) else []
+    new_a = fresh.get("measurement_attempts")
+    new_a = new_a if isinstance(new_a, list) else []
+    if new_a or old_a:
+        # A retention cap, not an estimate: an install run appends at most a
+        # handful of records, and a manifest is a working file that a human
+        # reads. The oldest records are dropped, never rewritten, so what remains
+        # is still exactly what those runs observed.
+        merged["measurement_attempts"] = (old_a + new_a)[-MAX_ATTEMPT_RECORDS:]
+
+    # 0.9.0 and earlier wrote a flat `measurements` object with no per-figure
+    # context. It cannot be converted into records — the host and pins each
+    # figure belongs to were not recorded — so it is dropped rather than
+    # reinterpreted. Guessing that context is precisely the defect.
+    merged.pop("measurements", None)
 
     out.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"written": str(out)}))

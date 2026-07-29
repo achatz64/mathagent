@@ -3,11 +3,14 @@
 # a real query through each local index.
 #
 # Usage: verify.sh [--project DIR] [--quick] [--skip STAGES]
-#                  [--mcp-scope project|local|user]
+#                  [--mcp-scope project|local|user] [--rerank]
 #
-#   --quick  import one small Mathlib module instead of all of Mathlib, and
-#            skip the Loogle query, which loads the project's oleans and is the
-#            most resource-intensive check here
+#   --quick   import one small Mathlib module instead of all of Mathlib, and
+#             skip the Loogle query, which loads the project's oleans and is the
+#             most resource-intensive check here
+#   --rerank  additionally run one LeanExplore query with reranking ON. Every
+#             other LeanExplore probe here passes rerank_top=0, so the Qwen3
+#             cross-encoder is never loaded unless this is asked for by name.
 #
 # Exit 0 when nothing failed.
 #
@@ -20,14 +23,15 @@ set -uo pipefail   # deliberately no -e: every check must run and be reported
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/common.sh"
 
-PROJECT="$PWD"; QUICK=0; SKIP=""; MCP_SCOPE="project"
+PROJECT="$PWD"; QUICK=0; SKIP=""; MCP_SCOPE="project"; RERANK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT="$2"; shift 2 ;;
     --quick)   QUICK=1; shift ;;
     --skip)    SKIP="$2"; shift 2 ;;
     --mcp-scope) MCP_SCOPE="$2"; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    --rerank)  RERANK=1; shift ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -244,7 +248,11 @@ fi
 if [ -n "$idx" ]; then
   pass "index for THIS project present: $(du -h "$idx" | awk '{print $1}')"
 elif [ -n "$bin" ]; then
-  fail "binary built but this project has no index — first indexing run likely OOMed"
+  # What is established: the binary is there and the index is not. Why is not
+  # visible from here — the indexing run may have been killed, may have failed
+  # to build, may never have been attempted. install.sh measures the attempt and
+  # reports the evidence; this script only sees the result.
+  fail "binary built but this project has no index — the index was not produced"
   note "expected at ${expected:-$cache/index/mathlib-<project-hash>.idx}"
   note "lean_loogle is silently answering from the remote API (3 req/30s)"
   other="$(ls -1 "$cache"/index/*.idx 2>/dev/null | wc -l | tr -d ' ')"
@@ -295,13 +303,52 @@ if have lean-explore; then
   # backend this install is meant to avoid. The local backend is only reachable
   # through the MCP server.
   LE_CORE="search,search_summary,get_source_code,get_docstring,get_dependencies"
+  # rerank_top=0 explicitly. The tool's own default is 50, which runs a Qwen3
+  # cross-encoder over 50 candidates on every call — recurring CPU work and real
+  # memory pressure, hidden inside what is meant to be a readiness check. The
+  # embedding model and the FAISS index, which are what this check proves, load
+  # either way. Reranking is checked separately, under --rerank.
   if out="$(python3 "$HERE/mcp_smoke.py" --timeout 600 --quiet --expect-tools "$LE_CORE" \
-              --call search_summary --args '{"query": "commutativity of addition", "limit": 3}' \
+              --call search_summary \
+              --args '{"query": "commutativity of addition", "limit": 3, "rerank_top": 0}' \
               -- lean-explore mcp serve --backend local 2>&1)"; then
-    pass "MCP server answered a semantic query from the local backend"
+    pass "MCP server answered a semantic query from the local backend (rerank_top=0)"
   else
     fail "lean-explore MCP server failed"
     note "$(printf '%s' "$out" | tail -3)"
+  fi
+
+  # Asked for by name, because it is the expensive path and because it fetches
+  # the reranker if it is not already there — neither of which belongs in a
+  # default verification run. It *is* what a tool call with default arguments
+  # does, so it is worth being able to test on purpose.
+  if [ "$RERANK" -eq 1 ]; then
+    if out="$(python3 "$HERE/mcp_smoke.py" --timeout 3600 --quiet \
+                --call search_summary \
+                --args '{"query": "commutativity of addition", "limit": 3, "rerank_top": 10}' \
+                -- lean-explore mcp serve --backend local 2>&1)"; then
+      pass "reranked query answered; the Qwen3 reranker is present and works"
+    else
+      fail "the reranked query failed (--rerank)"
+      note "queries that leave rerank_top at its default of 50 take this path"
+      note "$(printf '%s' "$out" | tail -3)"
+    fi
+  else
+    note "reranking not exercised; --rerank runs one query with it on"
+  fi
+
+  # Whether the model is on disk is a separate, cheap question from whether
+  # reranking works — and it is the one that decides whether a runtime tool call
+  # stalls on a download. Nothing this skill registers can prevent that call:
+  # `mcp serve` takes only --backend and --api-key, and 1.2.1 has no env var or
+  # config key for reranking. rerank_top is a per-call parameter and nothing else.
+  if python3 "$HERE/introspect.py" hf-revision Qwen/Qwen3-Reranker-0.6B >/dev/null 2>&1; then
+    pass "Qwen3 reranker present in the HuggingFace cache"
+  else
+    warn "Qwen3 reranker not in the HuggingFace cache"
+    note "a tool call that omits rerank_top uses the default of 50 and would"
+    note "download the model mid-session; install.sh prefetches it by default"
+    note "run install.sh --only leanexplore to fetch it now"
   fi
 else
   fail "lean-explore not installed"
@@ -592,8 +639,10 @@ if check_registration lean-explore lean-explore "${LE_Q[@]}"; then
   # shells out to nothing, so there is no subprocess to lose. Only lean-lsp
   # needs the pin.
   if [ "$QUICK" -eq 0 ]; then
+    # rerank_top=0 here too: this probe exists to prove the registration starts
+    # and answers, not to exercise the cross-encoder.
     smoke_registered lean-explore search_summary \
-      '{"query": "commutativity of addition", "limit": 3}' 600 || true
+      '{"query": "commutativity of addition", "limit": 3, "rerank_top": 0}' 600 || true
   fi
 fi
 

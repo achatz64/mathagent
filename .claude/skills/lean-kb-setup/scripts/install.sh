@@ -9,6 +9,16 @@
 #   install.sh [--project DIR] [--only STAGES] [--skip STAGES]
 #              [--allow-sudo] [--mcp-scope project|local|user]
 #              [--le-data-version YYYYMMDD_HHMMSS]
+#              [--rerank-check] [--no-rerank-prefetch]
+#
+#   The LeanExplore readiness smoke passes rerank_top=0, so it never loads the
+#   Qwen3 reranker. But the MCP tools default rerank_top to 50, so any caller
+#   that omits it reranks — and would otherwise download the model mid-session.
+#
+#   --rerank-check       additionally run one query with reranking ON, proving
+#                        the reranker works rather than merely being present
+#   --no-rerank-prefetch skip the reranker download entirely; the first reranked
+#                        query at runtime then pays for it
 #
 # Stages, in order:
 #   uv           uv (userspace, no sudo)
@@ -18,7 +28,7 @@
 #   repl         pin + build leanprover-community/repl for fast run_code
 #   leanlsp      lean-lsp-mcp via uv
 #   loogle       build the local Loogle binary and its Mathlib index
-#   leanexplore  lean-explore[local] + prebuilt semantic index + models
+#   leanexplore  lean-explore[local] + prebuilt semantic index + embedding model
 #   register     register both MCP servers with Claude Code
 #
 # Anything needing root or a host restart is printed for approval, never run,
@@ -30,6 +40,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 PROJECT="$PWD"
 ONLY=""; SKIP=""; ALLOW_SUDO=0; MCP_SCOPE="project"; LE_DATA_PIN=""
+RERANK_CHECK=0; RERANK_PREFETCH=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -39,7 +50,9 @@ while [ $# -gt 0 ]; do
     --allow-sudo)       ALLOW_SUDO=1; shift ;;
     --mcp-scope)        MCP_SCOPE="$2"; shift 2 ;;
     --le-data-version)  LE_DATA_PIN="$2"; shift 2 ;;
-    -h|--help)          sed -n '2,26p' "$0"; exit 0 ;;
+    --rerank-check)      RERANK_CHECK=1; shift ;;
+    --no-rerank-prefetch) RERANK_PREFETCH=0; shift ;;
+    -h|--help)          sed -n '2,37p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -115,13 +128,7 @@ REPL_INPUTREV=""; REPL_REV=""
 LOOGLE_INDEX=""; LE_DATA_VERSION=""
 EMBED_REV=""; RERANK_REV=""
 
-# What the expensive steps actually cost *on this host, at these pins*. Recorded
-# in the manifest next to the versions they belong to, as provenance and
-# diagnostics. They are not requirements: nothing reads them back to decide
-# anything, here or on a later run, and a figure from one Mathlib revision says
-# little about the next.
-LOOGLE_IDX_PEAK_KB=""; LOOGLE_IDX_SECS=""; LOOGLE_IDX_OOM=""; LOOGLE_IDX_BYTES=""
-LE_WARM_PEAK_KB=""; LE_WARM_SECS=""
+LOOGLE_REPO_REF=""
 
 introspect() { python3 "$HERE/introspect.py" "$@"; }
 
@@ -335,8 +342,8 @@ stage_mathlib() {
   (cd "$PROJ" && lake update)
 
   # Mathlib's own binary cache. Without it this stage compiles Mathlib from
-  # source, which is hours rather than minutes.
-  step "Mathlib: fetching the build cache (multi-GB, slow)"
+  # source, which is by a wide margin the longest operation in the install.
+  step "Mathlib: fetching the build cache (a large download)"
   if ! (cd "$PROJ" && lake exe cache get); then
     warn "'lake exe cache get' failed — 'lake build' will compile Mathlib from source"
     # Lake 5.0 has no job-count option (`lake build -j N` is "unknown short
@@ -445,8 +452,8 @@ stage_leanlsp() {
 # lean-lsp-mcp builds and indexes lazily on first query, and wraps that work in
 # fixed internal timeouts: 900s for `lake build loogle`, 300s to wait for the
 # subprocess to announce readiness while it builds the Mathlib index. Neither is
-# configurable, and a cold index on a modest host does not fit inside the second
-# one. Raising the MCP *client's* timeout does nothing about them — they are
+# configurable, and a cold index frequently does not fit inside the second one.
+# Raising the MCP *client's* timeout does nothing about them — they are
 # enforced server-side, and the visible symptom is a first query that fails and
 # a second that succeeds off the half-built artefacts the first one left behind.
 #
@@ -464,10 +471,19 @@ stage_leanlsp() {
 # estimates, so the only figures it reports are ones it just observed. They are
 # diagnostics and provenance — recorded in the manifest alongside the versions
 # they belong to — never inputs to a later run's decisions.
-MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_ELAPSED=""
+#
+# MEASURE_OOM distinguishes three states, because two of them used to collapse
+# into one empty string: a number is an observed delta, "0" means the counter was
+# readable and did not move, and empty means the host could not answer at all.
+# MEASURE_OOM_AVAIL carries that last distinction separately so a consumer never
+# has to infer it from an empty value — and so a manifest can say "not observed"
+# rather than silently leaving an older run's non-zero count in place.
+MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_OOM_AVAIL=""
+MEASURE_ELAPSED=""; MEASURE_STATUS=""
 measured() { # logfile, then the command
   _log="$1"; shift
-  MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_ELAPSED=""
+  MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_OOM_AVAIL=""
+  MEASURE_ELAPSED=""; MEASURE_STATUS=""
 
   _oom_before="$(cgroup_oom_kills || true)"
   _t0="$(date +%s 2>/dev/null || echo 0)"
@@ -505,14 +521,57 @@ measured() { # logfile, then the command
   fi
   MEASURE_SIGNAL="$(sed -n 's/.*Command terminated by signal \([0-9][0-9]*\).*/\1/p' "$_tfile" 2>/dev/null | tail -1)"
 
+  # Readable-and-unchanged is a measurement; unreadable is not. Recording both
+  # as the same empty value made "no OOM happened" and "this host cannot tell
+  # you" indistinguishable — and let an older non-zero count survive a merge as
+  # though the newer, quieter run had never contradicted it.
   _oom_after="$(cgroup_oom_kills || true)"
-  if [ -n "$_oom_before" ] && [ -n "$_oom_after" ] && [ "$_oom_after" -gt "$_oom_before" ]; then
-    MEASURE_OOM=$((_oom_after - _oom_before))
+  if [ -n "$_oom_before" ] && [ -n "$_oom_after" ]; then
+    MEASURE_OOM_AVAIL=1
+    if [ "$_oom_after" -gt "$_oom_before" ]; then
+      MEASURE_OOM=$((_oom_after - _oom_before))
+    else
+      MEASURE_OOM=0
+    fi
   fi
 
   _t1="$(date +%s 2>/dev/null || echo 0)"
   if [ "$_t0" -gt 0 ] && [ "$_t1" -ge "$_t0" ]; then MEASURE_ELAPSED=$((_t1 - _t0)); fi
+  MEASURE_STATUS="$_rc"
   return "$_rc"
+}
+
+# ---------------------------------------------------------- attempt records ----
+#
+# One record per measured command, appended and never rewritten.
+#
+# The manifest used to hold a single flat `measurements` object, and merging it
+# across runs re-attributed old figures to new context: a `--only leanexplore`
+# run on a different host overwrote host_os and the timestamp while leaving the
+# previous host's loogle_index_seconds beside them, and a Mathlib bump did the
+# same to the pins. A number is only meaningful with the host, the versions and
+# the outcome it was taken under, so each record carries its own — and a run that
+# measures nothing appends nothing rather than diluting what is already there.
+#
+# Fields are positional and every one is a bare token (`-` for absent), so the
+# whole set passes through one environment variable the way PROVENANCE does.
+ATTEMPTS=""
+A_STATUS=""; A_SIGNAL=""; A_PEAK_KB=""; A_SECS=""; A_OOM=""; A_OOM_AVAIL=""
+
+# Snapshot the measurement the instant the command returns, before anything else
+# can run — the outcome and the artefact size are established afterwards, and on
+# the failure path there is a good deal of code between the two. Previously the
+# copy happened only on the success branch, so a failed LeanExplore warm-up
+# recorded no evidence at all: precisely the run whose cost is worth keeping.
+snap_measure() {
+  A_STATUS="$MEASURE_STATUS"; A_SIGNAL="$MEASURE_SIGNAL"
+  A_PEAK_KB="$MEASURE_PEAK_KB"; A_SECS="$MEASURE_ELAPSED"
+  A_OOM="$MEASURE_OOM"; A_OOM_AVAIL="$MEASURE_OOM_AVAIL"
+}
+
+attempt() { # stage, outcome (ok|failed), [artefact bytes]
+  ATTEMPTS="${ATTEMPTS}$1 $2 $(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo -) ${A_STATUS:--} ${A_SIGNAL:--} ${A_PEAK_KB:--} ${A_SECS:--} ${A_OOM:--} ${A_OOM_AVAIL:--} ${3:--}
+"
 }
 
 # Human-readable seconds. Reporting what a step took on this host is an
@@ -526,23 +585,32 @@ fmt_secs() {
 }
 
 # Everything the measurement actually established, as notes. Silent about what
-# it could not measure rather than guessing.
+# it could not measure rather than guessing. Reads the snapshot, not the live
+# MEASURE_* variables, so it reports the attempt it is describing even if
+# another command has been measured since.
 measure_notes() {
-  if [ -n "$MEASURE_ELAPSED" ]; then
-    note "took $(fmt_secs "$MEASURE_ELAPSED")"
+  if [ -n "$A_SECS" ]; then
+    note "took $(fmt_secs "$A_SECS")"
   fi
-  if [ -n "$MEASURE_PEAK_KB" ]; then
-    note "peak RSS $(awk -v k="$MEASURE_PEAK_KB" 'BEGIN{printf "%.1f", k/1048576}') GiB"
+  if [ -n "$A_PEAK_KB" ]; then
+    note "peak RSS $(awk -v k="$A_PEAK_KB" 'BEGIN{printf "%.1f", k/1048576}') GiB"
   else
     note "peak RSS not measured (no /usr/bin/time on this host)"
   fi
-  if [ -n "$MEASURE_SIGNAL" ]; then
+  [ -n "$A_STATUS" ] && note "exit status $A_STATUS"
+  if [ -n "$A_SIGNAL" ]; then
     # Stated as the observation it is. Which signal, from whom, and why are
     # three different questions, and only the first is answered here.
-    note "terminated by signal $MEASURE_SIGNAL"
+    note "terminated by signal $A_SIGNAL"
   fi
-  if [ -n "$MEASURE_OOM" ]; then
-    note "cgroup memory.events recorded $MEASURE_OOM OOM kill(s) during this step"
+  # Three distinct states, reported as three. "No line printed" used to mean
+  # both "nothing was killed" and "this host has no cgroup v2 counter".
+  if [ -z "$A_OOM_AVAIL" ]; then
+    note "cgroup OOM counter not readable here — no evidence either way"
+  elif [ "$A_OOM" = 0 ]; then
+    note "cgroup OOM counter did not move during this step"
+  else
+    note "cgroup memory.events recorded $A_OOM OOM kill(s) in this cgroup during this step"
   fi
   return 0
 }
@@ -627,9 +695,6 @@ stage_loogle() {
   if [ "$had_idx" -eq 1 ]; then prov loogle_index replacing; else prov loogle_index installing; fi
 
   mkdir -p "$idx_dir"
-  log="$(mktemp)"
-  step "loogle: building the Mathlib index (no timeout; upstream would cap this at 300s)"
-  note "the most resource-intensive step of the install; it is measured, not predicted"
 
   # Exactly the command lean-lsp-mcp runs, from the project directory so `lake
   # env` puts the project's own Mathlib on LEAN_PATH. In --interactive mode it
@@ -639,64 +704,124 @@ stage_loogle() {
   # The query comes from a file, not a pipe: `measured` is a function, and on
   # the right-hand side of a pipeline it would run in a subshell where every
   # measurement it took died with it.
-  qfile="$(mktemp)"
-  printf 'Nat.add_comm\n' >"$qfile"
-  # Called from an `if`, so a non-zero return cannot trip errexit here either.
-  # This whole branch exists to run *after* a failure.
-  if measured "$log" env LAKE_ARTIFACT_CACHE=false ELAN_TOOLCHAIN="$tc" \
-      sh -c 'cd "$0" && exec lake env "$1" --json --interactive --index-file "$2"' \
-      "$PROJ" "$lbin" "$expected" <"$qfile"; then
-    idx_rc=0
-  else
-    idx_rc=$?
-  fi
-  rm -f "$qfile"
+  loogle_run() { # logfile
+    _qf="$(mktemp)"
+    printf 'Nat.add_comm\n' >"$_qf"
+    # Called from an `if`, so a non-zero return cannot trip errexit here either.
+    # The branches this feeds exist to run *after* a failure.
+    if measured "$1" env LAKE_ARTIFACT_CACHE=false ELAN_TOOLCHAIN="$tc" \
+        sh -c 'cd "$0" && exec lake env "$1" --json --interactive --index-file "$2"' \
+        "$PROJ" "$lbin" "$expected" <"$_qf"; then _rrc=0; else _rrc=$?; fi
+    rm -f "$_qf"
+    return "$_rrc"
+  }
 
-  # Whether the file landed is the only thing that settles it. The command can
-  # exit non-zero after writing a perfectly good index, and it can exit zero
-  # having answered from nothing at all.
+  # Evidence that the index was actually loaded and served, rather than that a
+  # file of the right name exists. The binary prints `Loogle is ready.` once the
+  # index is in memory — it is what upstream's `start()` waits for — and then one
+  # JSON object per query. Both, or this proves nothing.
+  loogle_answered() { # logfile
+    grep -q 'Loogle is ready' "$1" 2>/dev/null || return 1
+    grep -q '^[[:space:]]*{' "$1" 2>/dev/null || return 1
+    return 0
+  }
+
+  # Everything the run established, in three registers, then the tail of the log.
+  loogle_diagnose() { # logfile
+    measure_notes
+    # Only the cgroup counter (or a kernel log) confirms an OOM kill — and even
+    # then it confirms one *in this cgroup*, not that this command was its
+    # victim. A signal on its own confirms less still: SIGSEGV is a crash, and a
+    # SIGKILL can equally be an operator, an orchestrator, or a session teardown.
+    # Reporting any signal as "that is the OOM killer" is the same unsupported
+    # leap as reporting it from total RAM, one step further along.
+    if [ -n "$A_OOM_AVAIL" ] && [ "${A_OOM:-0}" != 0 ]; then
+      note "the cgroup OOM counter incremented while this step ran: something in this"
+      note "cgroup was OOM-killed. That it was this command is likely but not established"
+      note "— every process sharing the cgroup increments the same counter."
+    elif [ -n "$A_SIGNAL" ]; then
+      note "terminated by signal $A_SIGNAL; the cause is not established here."
+      note "a crash, an out-of-memory kill and an external kill are indistinguishable from"
+      note "this side: check 'dmesg -T | grep -i oom' and the log below"
+    else
+      note "the indexer exited ${A_STATUS:-?} with no signal and no OOM event recorded."
+      note "the log below is the only account of why"
+    fi
+    note "log: $1"
+    printf '%s\n' "$(tail -5 "$1")" | while IFS= read -r _l; do note "$_l"; done
+  }
+
+  loogle_hard_stop() {
+    note "lean_loogle would answer from the remote API (3 req/30s) and look like it worked,"
+    note "so this is a hard stop. Address what the log reports, or --skip loogle to accept"
+    note "the remote API deliberately."
+    die "local Loogle index is not usable"
+  }
+
+  log="$(mktemp)"
+  step "loogle: building the Mathlib index (no timeout; upstream would cap this at 300s)"
+  note "the most resource-intensive step of the install; it is measured, not predicted"
+
+  if loogle_run "$log"; then idx_rc=0; else idx_rc=$?; fi
+  # Copied out immediately, before anything else runs: the outcome and the
+  # artefact size are both established below, and the failure path is long.
+  snap_measure
+
   paths="$(loogle_index_json)"
+  idx_bytes="$(printf '%s' "$paths" | jget size)"
   if [ "$(printf '%s' "$paths" | jget exists)" != True ]; then
     if [ "$had_idx" -eq 0 ]; then prov loogle_index absent; fi
     # Recorded before the hard stop: what a *failed* attempt cost is the more
     # useful measurement of the two, and the EXIT trap still writes the manifest.
-    LOOGLE_IDX_PEAK_KB="$MEASURE_PEAK_KB"
-    LOOGLE_IDX_SECS="$MEASURE_ELAPSED"
-    LOOGLE_IDX_OOM="$MEASURE_OOM"
+    attempt loogle_index failed
     fail "no index at $expected — local Loogle is NOT active"
-    measure_notes
-    # Only the cgroup counter (or a kernel log) confirms an OOM kill. A signal
-    # on its own does not: SIGSEGV is a crash, and a SIGKILL can equally be an
-    # operator, an orchestrator, or a session teardown. Reporting any signal as
-    # "that is the OOM killer" is the same unsupported leap as reporting it from
-    # total RAM, one step further along.
-    if [ -n "$MEASURE_OOM" ]; then
-      note "the cgroup OOM counter incremented during this step — this run ran out of memory"
-    elif [ -n "$MEASURE_SIGNAL" ]; then
-      note "terminated by signal $MEASURE_SIGNAL; the cause is not established here."
-      note "a crash, an out-of-memory kill and an external kill are indistinguishable from"
-      note "this side: check 'dmesg -T | grep -i oom' and the log below"
+    loogle_diagnose "$log"
+    loogle_hard_stop
+  fi
+
+  # A file is not an answer. This command can exit non-zero having left an index
+  # from an earlier run exactly where it found it — untouched, possibly stale,
+  # possibly written for a Mathlib that has since moved. Taking existence as
+  # proof meant a pre-existing index turned every failure of the current run into
+  # a PASS, which is the silent-degradation failure mode this stage exists to
+  # prevent, reached by a different route.
+  if [ "$idx_rc" -eq 0 ] && loogle_answered "$log"; then
+    attempt loogle_index ok "$idx_bytes"
+  else
+    attempt loogle_index failed "$idx_bytes"
+    if [ "$idx_rc" -ne 0 ]; then
+      warn "the index command exited $idx_rc"
     else
-      note "the indexer exited $idx_rc with no signal and no OOM event recorded."
-      note "the log below is the only account of why"
+      warn "the index command exited 0 but never reported readiness or answered a query"
     fi
-    note "log: $log"
-    printf '%s\n' "$(tail -5 "$log")" | while IFS= read -r _l; do note "$_l"; done
-    note "lean_loogle would answer from the remote API (3 req/30s) and look like it worked,"
-    note "so this is a hard stop. Address what the log reports, or --skip loogle to accept"
-    note "the remote API deliberately."
-    die "local Loogle index was not built"
+    loogle_diagnose "$log"
+
+    # One chance to prove the artefact on the ground is usable, since an index
+    # may legitimately predate this run. Same command, same evidence bar — and
+    # if it too fails to load and answer, the stage stops.
+    step "loogle: strict probe — does the index at $expected load and answer?"
+    plog="$(mktemp)"
+    if loogle_run "$plog"; then probe_rc=0; else probe_rc=$?; fi
+    snap_measure
+    if [ "$probe_rc" -eq 0 ] && loogle_answered "$plog"; then
+      attempt loogle_probe ok "$idx_bytes"
+      pass "the existing index loads and answers"
+      rm -f "$plog" "$plog.time"
+      # The snapshot now holds the probe, which is the run that proved the
+      # artefact — so that is what the closing measure_notes reports.
+    else
+      attempt loogle_probe failed "$idx_bytes"
+      fail "the index at $expected does not load and answer"
+      loogle_diagnose "$plog"
+      loogle_hard_stop
+    fi
   fi
 
   LOOGLE_INDEX="$expected"
+  LOOGLE_REPO_REF="$repo_ref"
   if [ "$had_idx" -eq 1 ]; then prov loogle_index replaced; else prov loogle_index installed; fi
   rm -f "$log" "$log.time"
-  # The artefact's real size, not a remembered one.
-  LOOGLE_IDX_BYTES="$(printf '%s' "$paths" | jget size)"
-  LOOGLE_IDX_PEAK_KB="$MEASURE_PEAK_KB"
-  LOOGLE_IDX_SECS="$MEASURE_ELAPSED"
-  LOOGLE_IDX_OOM="$MEASURE_OOM"
-  pass "index built: $LOOGLE_INDEX ($(du -h "$LOOGLE_INDEX" | awk '{print $1}'))"
+  pass "index usable: $LOOGLE_INDEX ($(du -h "$LOOGLE_INDEX" | awk '{print $1}'))"
   measure_notes
 }
 
@@ -741,7 +866,7 @@ stage_leanexplore() {
     had_data=0
   fi
 
-  step "lean-explore: fetching the prebuilt index (a multi-GB download)"
+  step "lean-explore: fetching the prebuilt index (a large download)"
   if [ "$had_data" -eq 1 ] && { [ -z "$pin" ] || [ "$(cat "$active")" = "$pin" ]; }; then
     LE_DATA_VERSION="$(cat "$active")"
     prov lean_explore_data reused
@@ -758,18 +883,34 @@ stage_leanexplore() {
     pass "data toolchain ${LE_DATA_VERSION:-unknown}"
   fi
 
-  # The warm-up downloads the two Qwen3 models into the shared HuggingFace
+  # The warm-up downloads the Qwen3 embedding model into the shared HuggingFace
   # cache, which other tools on this machine use too. Recorded, but as `shared`
   # — see reference.md — so no uninstall ever treats them as ours to delete.
   if introspect hf-revision Qwen/Qwen3-Embedding-0.6B >/dev/null 2>&1; then had_embed=1; else had_embed=0; fi
   if introspect hf-revision Qwen/Qwen3-Reranker-0.6B >/dev/null 2>&1; then had_rerank=1; else had_rerank=0; fi
   if [ "$had_embed"  -eq 0 ]; then prov hf_embedding_model installing; fi
-  if [ "$had_rerank" -eq 0 ]; then prov hf_reranker_model  installing; fi
+  # The reranker is only claimed as an in-flight mutation when something is
+  # actually going to fetch it. The readiness smoke below does not: it passes
+  # rerank_top=0, and upstream builds the RerankerClient lazily, so with
+  # reranking off the model is never touched.
+  if [ "$had_rerank" -eq 0 ] && { [ "$RERANK_CHECK" -eq 1 ] || [ "$RERANK_PREFETCH" -eq 1 ]; }; then
+    prov hf_reranker_model installing
+  fi
 
   # `lean-explore search` is the *hosted API* and needs LEANEXPLORE_API_KEY.
   # The local backend is only reachable through the MCP server, so warm and
-  # prove it there. The first call also pulls the two Qwen3 models.
-  step "lean-explore: warming the local backend and its models"
+  # prove it there.
+  #
+  # `rerank_top: 0` is explicit, and it matters. The MCP tool's own default is
+  # 50, which runs a Qwen3 cross-encoder over 50 candidates on every single
+  # query — recurring CPU work and real memory pressure, on the machine that has
+  # just finished building Mathlib. Leaving it implicit put that inside the basic
+  # readiness check, where nobody asked for it and its cost looked like the cost
+  # of "installing". Upstream documents 0 as "skip reranking"
+  # (`engine.py: rerank_top ... Set to 0 or None to skip reranking`), and the
+  # embedding model and FAISS index — the parts this check exists to prove — are
+  # loaded either way.
+  step "lean-explore: warming the local backend (rerank_top=0)"
   # Measured like the Loogle index, and for the same reason: this is the other
   # resource-intensive step, and the only honest thing to say about its cost is
   # what it cost here. The output is kept rather than discarded — when it fails,
@@ -777,33 +918,157 @@ stage_leanexplore() {
   # answer" is a worse report than the one we were handed.
   warm_log="$(mktemp)"
   if measured "$warm_log" python3 "$HERE/mcp_smoke.py" --timeout 1800 --quiet \
-        --call search_summary --args '{"query": "commutativity of addition", "limit": 3}' \
+        --call search_summary \
+        --args '{"query": "commutativity of addition", "limit": 3, "rerank_top": 0}' \
         -- "$le" mcp serve --backend local; then
     warm_ok=1
-    LE_WARM_PEAK_KB="$MEASURE_PEAK_KB"; LE_WARM_SECS="$MEASURE_ELAPSED"
-    pass "local semantic search answering"
+  else
+    warm_ok=0
+  fi
+  # Before the branch, not inside it. Copying only on success discarded the
+  # evidence of exactly the run worth keeping: a failed warm-up recorded no
+  # elapsed time, no peak RSS, no signal and no OOM delta at all.
+  snap_measure
+  attempt leanexplore_warmup "$([ "$warm_ok" -eq 1 ] && echo ok || echo failed)"
+
+  if [ "$warm_ok" -eq 1 ]; then
+    pass "local semantic search answering (no reranking)"
     measure_notes
     # The download is one-off; the load is not. Every fresh server process pays
     # it again on its first query, because the index and models load lazily.
-    note "that figure includes a cold load: the index and models load lazily, on"
-    note "the first query of each server process, not at startup"
+    note "that figure includes a cold load: the index and embedding model load"
+    note "lazily, on the first query of each server process, not at startup"
     rm -f "$warm_log" "$warm_log.time"
   else
-    warm_ok=0
     warn "local backend did not answer — check: $le mcp serve --backend local"
     measure_notes
-    if [ -n "$MEASURE_OOM" ]; then
-      note "the cgroup OOM counter incremented during this step — this run ran out of memory"
+    if [ -n "$A_OOM_AVAIL" ] && [ "${A_OOM:-0}" != 0 ]; then
+      note "the cgroup OOM counter incremented while this step ran: something in this"
+      note "cgroup was OOM-killed, though not necessarily this command"
     fi
     printf '%s\n' "$(tail -5 "$warm_log")" | while IFS= read -r _l; do note "$_l"; done
     note "log: $warm_log"
     stage_failed
   fi
 
+  # ---- the reranker: prefetch, then optionally exercise ---------------------
+  #
+  # Two separate questions, and the install answers them separately.
+  #
+  # 1. Is the model *on disk*? It has to be, because nothing this skill controls
+  #    governs runtime behaviour: the registration is `lean-explore mcp serve
+  #    --backend local`, and `mcp serve` takes only `--backend` and `--api-key`.
+  #    There is no flag, env var or config key for reranking anywhere in 1.2.1 —
+  #    `rerank_top` is a per-call parameter and nothing else. So a caller that
+  #    omits it reranks, and if the model is absent it downloads it *inside a
+  #    tool call*, mid-session. Prefetching moves that download into the install,
+  #    where it is visible and measured. This is the default.
+  # 2. Does reranking *work*? Only running it answers that, and it is expensive,
+  #    so it stays opt-in behind --rerank-check.
+  #
+  # The prefetch does exactly what upstream's RerankerClient.__init__ does minus
+  # the inference: AutoTokenizer + AutoModelForCausalLM from_pretrained, no
+  # .to(device), no forward pass. Same repo, same files, same shared HF cache.
+  rerank_ok=0
+  if [ "$RERANK_PREFETCH" -eq 1 ] && [ "$had_rerank" -eq 0 ]; then
+    # The tool venv's interpreter, not this shell's python3: transformers and
+    # torch live in the venv `uv tool install` created, and nowhere else. The
+    # console script's shebang points straight at it, which stays correct however
+    # lean-explore was installed; `uv tool dir` is the fallback.
+    lepy=""
+    _sb="$(head -1 "$le" 2>/dev/null || true)"
+    case "$_sb" in
+      '#!'*) lepy="$(printf '%s' "${_sb#\#!}" | awk '{print $1}')" ;;
+    esac
+    if [ ! -x "${lepy:-/nonexistent}" ] && have uv; then
+      lepy="$(uv tool dir 2>/dev/null)/lean-explore/bin/python"
+    fi
+
+    if [ -x "${lepy:-/nonexistent}" ]; then
+      step "lean-explore: prefetching the Qwen3 reranker (a large download)"
+      note "the MCP tools default rerank_top to 50, and there is no server-side way"
+      note "to change that — so fetch it here rather than inside a tool call later"
+      pf_log="$(mktemp)"
+      if measured "$pf_log" "$lepy" -c '
+import sys
+from transformers import AutoModelForCausalLM, AutoTokenizer
+m = "Qwen/Qwen3-Reranker-0.6B"
+# Exactly RerankerClient.__init__ minus .to(device) and any inference: this is a
+# download, not a load test. --rerank-check is the load test.
+AutoTokenizer.from_pretrained(m, padding_side="left", trust_remote_code=True)
+AutoModelForCausalLM.from_pretrained(m, trust_remote_code=True)
+print("reranker files present")
+'; then pf_ok=1; else pf_ok=0; fi
+      snap_measure
+      attempt leanexplore_reranker_prefetch "$([ "$pf_ok" -eq 1 ] && echo ok || echo failed)"
+      if [ "$pf_ok" -eq 1 ]; then
+        pass "reranker downloaded; a reranked query will not fetch it mid-session"
+        measure_notes
+        note "downloaded, not exercised — --rerank-check runs a real reranked query"
+        rm -f "$pf_log" "$pf_log.time"
+      else
+        # Not a stage failure: the install is usable without it, and the cost
+        # simply moves to the first reranked query. Say which, and why.
+        warn "could not prefetch the reranker"
+        measure_notes
+        printf '%s\n' "$(tail -5 "$pf_log")" | while IFS= read -r _l; do note "$_l"; done
+        note "log: $pf_log"
+        note "the local backend still works; a query that leaves rerank_top at its"
+        note "default of 50 will download the model at that point instead"
+      fi
+    else
+      warn "cannot locate the lean-explore interpreter — reranker not prefetched"
+      note "looked at the shebang of $le, then \$(uv tool dir)/lean-explore/bin/python"
+    fi
+  elif [ "$RERANK_PREFETCH" -eq 1 ]; then
+    note "reranker already in the HuggingFace cache; nothing to prefetch"
+  else
+    note "reranker not prefetched (--no-rerank-prefetch); a query that leaves"
+    note "rerank_top at its default of 50 will download it at that point"
+  fi
+
+  # Reranking is a separate contract, asked for by name. It is what the two
+  # tools do by default, so it is worth being able to test — but it is not part
+  # of "is the local backend installed", and running it unasked is how a
+  # multi-minute cross-encoder pass ended up inside a readiness check.
+  if [ "$RERANK_CHECK" -eq 1 ] && [ "$warm_ok" -eq 1 ]; then
+    step "lean-explore: reranking check (--rerank-check), downloading Qwen3-Reranker"
+    note "this is the tools' default behaviour and it is expensive on CPU;"
+    note "it is measured like every other expensive step here"
+    rr_log="$(mktemp)"
+    if measured "$rr_log" python3 "$HERE/mcp_smoke.py" --timeout 3600 --quiet \
+          --call search_summary \
+          --args '{"query": "commutativity of addition", "limit": 3, "rerank_top": 10}' \
+          -- "$le" mcp serve --backend local; then
+      rerank_ok=1
+    else
+      rerank_ok=0
+    fi
+    snap_measure
+    attempt leanexplore_rerank "$([ "$rerank_ok" -eq 1 ] && echo ok || echo failed)"
+    if [ "$rerank_ok" -eq 1 ]; then
+      pass "reranked query answered; the reranker model is present and works"
+      measure_notes
+      rm -f "$rr_log" "$rr_log.time"
+    else
+      warn "the reranked query did not answer"
+      measure_notes
+      printf '%s\n' "$(tail -5 "$rr_log")" | while IFS= read -r _l; do note "$_l"; done
+      note "log: $rr_log"
+      note "the zero-rerank path above works; queries that leave rerank_top at its"
+      note "default of 50 go through this one"
+      stage_failed
+    fi
+  elif [ "$warm_ok" -eq 1 ]; then
+    note "reranking not exercised: every query this stage ran passed rerank_top=0,"
+    note "so the cross-encoder never ran. 'install.sh --only leanexplore"
+    note "--rerank-check' runs one for real."
+  fi
+
   EMBED_REV="$(introspect hf-revision Qwen/Qwen3-Embedding-0.6B 2>/dev/null | jget revision || true)"
   RERANK_REV="$(introspect hf-revision Qwen/Qwen3-Reranker-0.6B 2>/dev/null | jget revision || true)"
 
-  # Only settle the models when the warm-up actually answered. `refs/main` can
+  # Only settle a model when something actually exercised it. `refs/main` can
   # exist after a partial download, so its presence is not proof the snapshot is
   # complete — and the caught-failure rule says the in-flight action stands.
   if [ "$warm_ok" -eq 1 ]; then
@@ -812,11 +1077,21 @@ stage_leanexplore() {
     elif [ "$had_embed" -eq 0 ]; then
       prov hf_embedding_model absent
     fi
-    if [ -n "$RERANK_REV" ]; then
-      if [ "$had_rerank" -eq 1 ]; then prov hf_reranker_model preexisting; else prov hf_reranker_model installed; fi
-    elif [ "$had_rerank" -eq 0 ]; then
-      prov hf_reranker_model absent
+  fi
+  # The reranker is settled only by something that actually fetched it — the
+  # prefetch or the reranking check. With both off, this stage neither fetched
+  # nor proved it, so it records what it observed and nothing more: `preexisting`
+  # when it was already on disk, `absent` when it was not. Claiming `installed`
+  # off a warm-up that skipped reranking would credit this run with a download it
+  # never performed.
+  if [ -n "$RERANK_REV" ]; then
+    if [ "$had_rerank" -eq 1 ]; then
+      prov hf_reranker_model preexisting
+    elif [ "${pf_ok:-0}" -eq 1 ] || [ "$rerank_ok" -eq 1 ]; then
+      prov hf_reranker_model installed
     fi
+  elif [ "$had_rerank" -eq 0 ]; then
+    prov hf_reranker_model absent
   fi
 }
 
@@ -1035,9 +1310,7 @@ write_manifest() {
     MF_LE="$LEAN_EXPLORE_VERSION" MF_LE_DATA="$LE_DATA_VERSION" \
     MF_EMBED_REV="$EMBED_REV" MF_RERANK_REV="$RERANK_REV" \
     MF_SKILL="$SKILL_VERSION" MF_PROVENANCE="$PROVENANCE" \
-    MF_IDX_PEAK_KB="$LOOGLE_IDX_PEAK_KB" MF_IDX_SECS="$LOOGLE_IDX_SECS" \
-    MF_IDX_OOM="$LOOGLE_IDX_OOM" MF_IDX_BYTES="$LOOGLE_IDX_BYTES" \
-    MF_LE_WARM_PEAK_KB="$LE_WARM_PEAK_KB" MF_LE_WARM_SECS="$LE_WARM_SECS" \
+    MF_ATTEMPTS="$ATTEMPTS" MF_LOOGLE_REF="$LOOGLE_REPO_REF" \
     MF_HOST_RAM="$(ram_gib)" MF_HOST_CPUS="$(cpu_count)" MF_HOST_OS="$OS" \
     MF_STARTED="$STARTED_STAGES" MF_DONE="$DONE_STAGES" \
     python3 - <<'PY'
@@ -1079,25 +1352,95 @@ def num(k):
         return None
 
 
-# What the expensive steps cost *in this run*, alongside the host and the pins
-# they were measured against — the context without which a number means nothing.
+# What the expensive steps cost, as self-contained attempt records.
 #
-# This is diagnostic and provenance data. Nothing reads it back: no threshold is
-# derived from it, no later run consults it, and it is not a requirement for
-# anything. It exists so that a slow or failed install can be compared against a
-# successful one on the same host, and so that a figure quoted anywhere else can
-# be traced to the versions it was taken at.
-measurements = {
-    "host_os":                    env("MF_HOST_OS"),
-    "host_ram_gib":               env("MF_HOST_RAM"),
-    "host_cpus":                  num("MF_HOST_CPUS"),
-    "loogle_index_peak_rss_kb":   num("MF_IDX_PEAK_KB"),
-    "loogle_index_seconds":       num("MF_IDX_SECS"),
-    "loogle_index_oom_events":    num("MF_IDX_OOM"),
-    "loogle_index_bytes":         num("MF_IDX_BYTES"),
-    "leanexplore_warmup_peak_rss_kb": num("MF_LE_WARM_PEAK_KB"),
-    "leanexplore_warmup_seconds":     num("MF_LE_WARM_SECS"),
+# Each record carries the host it ran on, the pins it ran against, how it ended
+# and what it measured. That redundancy is the point. The previous shape was one
+# flat object merged key by key across runs, and merging re-attributed history: a
+# `--only leanexplore` run on a second machine overwrote host_os while leaving
+# the first machine's loogle_index_seconds beside it, and a Mathlib bump left an
+# old index measurement sitting next to the new revision's pins. A figure without
+# its context is not provenance, it is a rumour.
+#
+# So records are appended, never rewritten, and a run that measured nothing
+# appends nothing. Nothing reads them back: no threshold is derived from them, no
+# later run consults them, and they are not requirements for anything. They exist
+# so a slow or failed install can be compared with a successful one, and so a
+# figure quoted anywhere else can be traced to the versions and the host it was
+# taken on.
+host = {
+    "os":      env("MF_HOST_OS"),
+    "ram_gib": env("MF_HOST_RAM"),
+    "cpus":    num("MF_HOST_CPUS"),
 }
+
+# The pins that plausibly move a given stage's cost. Recorded per record, from
+# *this* run: null where the run did not resolve one, which is honest — a
+# `--only loogle` run knows its toolchain but not the Mathlib revision the
+# mathlib stage would have reported.
+_PINS = {
+    "loogle_index": ("lean_toolchain", "mathlib_rev", "mathlib_inputrev",
+                     "lean_lsp_mcp", "loogle_repo_ref"),
+    "loogle_probe": ("lean_toolchain", "mathlib_rev", "mathlib_inputrev",
+                     "lean_lsp_mcp", "loogle_repo_ref"),
+    "leanexplore_warmup": ("lean_explore", "lean_explore_data",
+                           "embedding_revision"),
+    "leanexplore_rerank": ("lean_explore", "lean_explore_data",
+                           "embedding_revision", "reranker_revision"),
+    "leanexplore_reranker_prefetch": ("lean_explore", "reranker_revision"),
+}
+
+_pin_values = {
+    "lean_toolchain":     (proj / "lean-toolchain").read_text(encoding="utf-8").strip(),
+    "mathlib_rev":        env("MF_MATHLIB_REV"),
+    "mathlib_inputrev":   env("MF_MATHLIB_INPUTREV"),
+    "lean_lsp_mcp":       env("MF_LEAN_LSP"),
+    "loogle_repo_ref":    env("MF_LOOGLE_REF"),
+    "lean_explore":       env("MF_LE"),
+    "lean_explore_data":  env("MF_LE_DATA"),
+    "embedding_revision": env("MF_EMBED_REV"),
+    "reranker_revision":  env("MF_RERANK_REV"),
+}
+
+
+def _tok(v):
+    """`-` is the absent marker; everything else is a bare token."""
+    return None if v in ("-", "") else v
+
+
+def _int(v):
+    v = _tok(v)
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+# stage outcome timestamp status signal peak_kb secs oom oom_avail bytes
+attempts = []
+for line in (os.environ.get("MF_ATTEMPTS") or "").splitlines():
+    f = line.split()
+    if len(f) < 10:
+        continue
+    stage = f[0]
+    oom_available = _tok(f[8]) is not None
+    attempts.append({
+        "stage":     stage,
+        "outcome":   f[1],
+        "timestamp": _tok(f[2]),
+        "host":      host,
+        "pins":      {k: _pin_values.get(k) for k in _PINS.get(stage, ())},
+        "exit_status":     _int(f[3]),
+        "terminating_signal": _int(f[4]),
+        "peak_rss_kb":     _int(f[5]),
+        "seconds":         _int(f[6]),
+        # Observed zero and "the host cannot tell you" are different answers.
+        # `oom_events: null` with `oom_counter_available: false` says the second
+        # one; it never means "nothing was killed".
+        "oom_events":      _int(f[7]) if oom_available else None,
+        "oom_counter_available": oom_available,
+        "artifact_bytes":  _int(f[9]),
+    })
 
 print(json.dumps({
     "generated":          datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -1105,7 +1448,7 @@ print(json.dumps({
     "project":            str(proj),
     "lean_toolchain":     (proj / "lean-toolchain").read_text(encoding="utf-8").strip(),
     "provenance":         prov,
-    "measurements":       measurements,
+    "measurement_attempts": attempts,
     "stages_completed":   done,
     "stages_incomplete":  incomplete,
     "mathlib_inputrev":   env("MF_MATHLIB_INPUTREV"),

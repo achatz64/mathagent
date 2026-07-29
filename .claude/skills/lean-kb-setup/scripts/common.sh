@@ -134,6 +134,13 @@ lt() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a < b) }'; }
 # when the host cannot answer, which is not the same as an answer of zero — a
 # caller comparing before and after must treat "empty" as "no evidence either
 # way" rather than as "nothing was killed".
+#
+# What a positive delta establishes: *something in this cgroup* was OOM-killed
+# while the measurement was running. It does not identify the victim. The
+# measured subprocess is the likeliest one when it also died, but any other
+# process sharing the cgroup — a sibling, the shell, an editor under the same
+# scope — increments the same counter. Report it as an OOM kill in this cgroup,
+# not as proof that this command was the one killed.
 cgroup_oom_kills() {
   _rel="$(awk -F: '$1 == "0" { print $3 }' /proc/self/cgroup 2>/dev/null)"
   [ -n "$_rel" ] || return 1
@@ -224,6 +231,23 @@ classify_ref() { # url, rev
 # Pins live here so the manifest written by install.sh and the checks in
 # preflight.sh/verify.sh can never disagree about what "installed" means.
 
+# 0.9.2: the Qwen3 reranker is prefetched during installation by default
+#        (`--no-rerank-prefetch` opts out), because nothing in the registration
+#        can stop a runtime call from reranking: `mcp serve` takes only
+#        --backend/--api-key and 1.2.1 reads no env var or config key for it.
+#        Prefetching moves the download out of a live tool call. The call site is
+#        the only real lever, so the rule "pass rerank_top explicitly, default 0"
+#        lives in the project's CLAUDE.md. verify reports whether the model is on
+#        disk.
+# 0.9.1: measurements are append-only, self-contained attempt records — each
+#        carries its own stage, timestamp, outcome, host facts, pins and metrics,
+#        so a later run cannot re-attribute an older figure to a new host. Exit
+#        status and terminating signal are recorded, for failed attempts too, and
+#        an unreadable OOM counter is distinguished from an observed zero. The
+#        LeanExplore smoke calls pass rerank_top=0; exercising the reranker is a
+#        separate, explicit contract (`--rerank-check` / `--rerank`). A Loogle
+#        run that exits non-zero must prove the index loads and answers before
+#        the stage passes — an existing file is no longer evidence on its own.
 # 0.9.0: no resource estimates anywhere. Every RAM, disk, download-size and
 #        timing constant is gone, and nothing derives a PASS/WARN/FAIL from one.
 #        preflight reports live host facts as INFO; install.sh measures the
@@ -231,11 +255,10 @@ classify_ref() { # url, rev
 #        and records them in the manifest as provenance, never as requirements.
 # 0.8.1: `measured` no longer re-enables errexit, which killed the script at the
 #        call site before the failure diagnostics could run; the registration
-#        pins LEAN_LOOGLE_CACHE_DIR as well as PATH; the 14 GiB Loogle floor is
-#        state-dependent; host RAM is judged with headroom over the measured
-#        workload; verify reads the toolchain-keyed loogle binary; a signal
-#        alone is no longer reported as a confirmed OOM; the loogle checkout and
-#        the LeanExplore data are classified `shared`.
+#        pins LEAN_LOOGLE_CACHE_DIR as well as PATH; verify reads the
+#        toolchain-keyed loogle binary; a signal alone is no longer reported as a
+#        confirmed OOM; the loogle checkout and the LeanExplore data are
+#        classified `shared`.
 # 0.8.0: first-VM-run fixes. `lake -j` never existed in Lake 5.0, so the whole
 #        job cap is gone; the Loogle clone/build/index runs directly instead of
 #        through the tool call that wraps it in upstream's 900s/300s timeouts;
@@ -258,7 +281,7 @@ classify_ref() { # url, rev
 # 0.3.0: provenance carries a sticky origin; lake build is capped by RAM.
 # 0.2.x manifests hold flat provenance strings; the action vocabulary did not
 # change, so _merge_provenance normalises them and derives the origin in place.
-SKILL_VERSION="0.9.0"
+SKILL_VERSION="0.9.2"
 LEAN_LSP_MCP_VERSION="${LEAN_LSP_MCP_VERSION:-0.29.0}"
 LEAN_EXPLORE_VERSION="${LEAN_EXPLORE_VERSION:-1.2.1}"
 

@@ -47,7 +47,7 @@ is LeanExplore's own extraction pipeline, noted at the end of `reference.md`.
 | Lean REPL | fast `lean_run_code` / `lean_multi_attempt` | yes |
 | `lean-lsp-mcp` | 16 LSP tools, local search, build | yes |
 | local Loogle index | type/pattern search without the 3-req/30s remote limit | yes |
-| `lean-explore[local]` + data | semantic search over Mathlib: prebuilt index + Qwen3 models | yes |
+| `lean-explore[local]` + data | semantic search over Mathlib: prebuilt index + Qwen3 embedding model | yes |
 
 Four `lean-lsp-mcp` tools stay remote because they have no local mode:
 `lean_leansearch`, `lean_leanfinder`, `lean_state_search`, `lean_hammer_premise`.
@@ -106,9 +106,20 @@ turn down, and a cache miss can end at the OOM killer. The lever is the host.
 
 The loogle stage runs the clone, build and index itself rather than triggering
 them through a `lean_loogle` call, because that path wraps them in upstream's
-fixed 900 s and 300 s timeouts. It also records the index step's peak RSS, the
-exit signal and the cgroup OOM counter, so a failure is diagnosed from evidence
-rather than inferred from the host's total RAM.
+fixed 900 s and 300 s timeouts. It measures the index step — exit status, signal,
+elapsed time, peak RSS, cgroup OOM delta — so a failure is diagnosed from
+evidence rather than inferred from the host's total RAM. It passes only when the
+run reported readiness *and* answered a query; when it did not, one strict probe
+gets to prove the index on disk still loads, and otherwise the stage stops. An
+index file left by an earlier run is not evidence about this one.
+
+The LeanExplore warm-up passes `rerank_top: 0`, so the readiness check does not
+drag in a per-query cross-encoder pass. The Qwen3 **reranker** is still
+prefetched by default, because nothing in the registration can stop a runtime
+call from reranking — `mcp serve` has no such flag and the package reads no such
+env var — and an unfetched model means that call downloads it mid-session.
+`--no-rerank-prefetch` skips the download; `--rerank-check` additionally runs one
+reranked query to prove it works.
 
 It writes `.lean-kb-manifest.json` recording the *resolved commits*, not just the
 tags asked for, plus a `provenance` map giving each component a sticky
@@ -135,11 +146,18 @@ first VM run every config check passed while the server, spawned by Claude Code
 without `~/.elan/bin`, could not find `lake`. Even so, only a real Claude
 restart settles a registration; this is the closest a script can get.
 
-**Expect a slow first query.** LeanExplore loads its index and both models
-lazily, on the first query rather than at startup, so whichever query comes
-first pays for all of it — per server process, not per install, so it recurs
-after every Claude restart. That is not a hang, and it is not evidence about
-memory. A warm-up hook is under test as a remedy.
+**Expect a slow first query, and know which cost is which.** LeanExplore loads
+its index and the embedding model lazily, on the first query rather than at
+startup, so whichever query comes first pays for all of it — per server process,
+not per install, so it recurs after every Claude restart. That is not a hang, and
+it is not evidence about memory. A warm-up hook is under test as a remedy.
+
+Reranking is a *different* cost and does not amortise: `rerank_top` defaults to
+50 in both search tools, which is a cross-encoder pass on every call. Every probe
+this skill runs passes `rerank_top: 0`; `verify.sh --rerank` tests the reranking
+path deliberately. **Tell the user that callers must pass `rerank_top: 0`
+explicitly** — the server side cannot be configured, so the call site is the only
+lever. The project's `CLAUDE.md` is where that rule belongs.
 
 `--skip SECTIONS` suppresses a section *and the binaries it owns*, so a staged
 install can be verified as it goes: `--skip "leanlsp loogle leanexplore
@@ -176,15 +194,23 @@ confirm with `claude mcp list`.
   disk, download-size or timing constants, and derives no PASS/WARN/FAIL from
   one: they all move with upstream versions, models, queries and the host. Say
   what is expensive and why, run the operation, and report what *this* run
-  measured — elapsed time, peak RSS, signal, cgroup OOM events, artefact size.
-  Figures in the manifest's `measurements` are provenance for that run, not
-  requirements for the next.
+  measured — exit status, elapsed time, peak RSS, signal, cgroup OOM events,
+  artefact size. The manifest's `measurement_attempts` are append-only records,
+  each carrying the host and pins it was taken under: provenance for that run,
+  never requirements for the next. Never quote one of them back as a threshold.
 - Report the tool's own error text. `--quiet` suppresses stdout, never the
   server's account of what went wrong, and "it failed" plus a guess at the cause
   is a worse report than the one the server already handed you.
-- Do not assert an OOM from the host's RAM alone. Say it is the usual cause and
-  name what would confirm it — an exit signal, `dmesg`, the cgroup counter, or a
-  captured peak. `install.sh` captures all four for the index step.
+- **Do not assert an OOM.** Not from the host's RAM, not from a signal, and not
+  from a missing artefact. The cgroup `oom_kill` counter is the only evidence
+  here, and even it establishes that something *in that cgroup* was killed, not
+  which process. Report what was observed and name `dmesg -T | grep -i oom` as
+  what would settle the rest. `install.sh` captures status, signal, peak RSS and
+  the counter for every expensive step it runs.
+- **An artefact existing is not an artefact working.** The Loogle stage requires
+  readiness and a real answer, not a file of the right name; a query answering is
+  not proof the local index served it. Apply the same test to anything else you
+  are tempted to call verified.
 - Never pin Mathlib to a moving branch.
 - Prefer `--only` over rerunning everything when repairing one component.
 - Never claim this built a KB.md knowledge base. See **Scope** above.
