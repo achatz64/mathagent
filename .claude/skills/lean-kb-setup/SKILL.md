@@ -7,8 +7,8 @@ description: Install, repair, and test the local Lean knowledge-base tooling for
 
 Installs and verifies the **prerequisites** for `ma1` (Lean) knowledge-base work:
 two MCP servers and their local indexes, configured so every index that *can* be
-local *is* local. See `reference.md` for the component matrix, measured resource
-costs, and troubleshooting.
+local *is* local. See `reference.md` for the component matrix, what each run
+measures, and troubleshooting.
 
 Targets Linux, macOS, and WSL2. Native Windows is not supported — local Loogle is
 Unix-only; tell the user to work inside WSL2.

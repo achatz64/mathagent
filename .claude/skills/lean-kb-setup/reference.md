@@ -141,13 +141,16 @@ the measured command also died, that is the likeliest reading and the report say
 so in those words. `install.sh` names `dmesg -T | grep -i oom` as what would
 settle it.
 
-**The counter is frequently unavailable, and that is not the same as zero.** The
-root cgroup has no `memory.events` file, and a plain login shell on a VM usually
-sits in it (`/proc/self/cgroup` → `0::/`). Then an OOM kill is observable only as
-a terminating signal, which proves nothing about the cause — so the report says
-"not readable, no evidence either way" rather than "no OOM occurred". `preflight`
-reports which of the two situations you are in before the install starts. To get
-the evidence, give the run its own cgroup:
+**When the counter is unavailable, that is not the same as zero.** The root
+cgroup has no `memory.events` file, so whether the counter can be read comes down
+to what put the shell in a cgroup. Under systemd a login session lands in its own
+scope (`/user.slice/user-N.slice/session-N.scope`) and the file is there; without
+that delegation — WSL2 with systemd off, some container runtimes — the shell sits
+in the root cgroup (`/proc/self/cgroup` → `0::/`) and it is not. Then an OOM kill
+is observable only as a terminating signal, which proves nothing about the cause,
+so the report says "not readable, no evidence either way" rather than "no OOM
+occurred". Do not predict which case you are in; `preflight` probes it and says.
+Where it is unavailable, give the run its own cgroup:
 
 ```bash
 systemd-run --scope bash .claude/skills/lean-kb-setup/scripts/install.sh --project lean
