@@ -417,6 +417,131 @@ def cmd_mcp_entry(args):
         return 1
 
 
+def _settings_path(repo_root, settings_file):
+    """Which settings file carries the client-side env for this project.
+
+    `settings.local.json` rather than `settings.json`: the value this writes is
+    a property of *this host* (how long its page cache lets a Mathlib import
+    take), not of the project, and settings.json is the committed one. Writing a
+    machine-specific timeout into a shared file would export one box's
+    behaviour to every checkout.
+    """
+    if settings_file:
+        return pathlib.Path(settings_file)
+    return pathlib.Path(repo_root).resolve(strict=False) / ".claude" / "settings.local.json"
+
+
+def cmd_settings_env(args):
+    """Read, set and roll back ONE key of `env` in a Claude settings file.
+
+    Same discipline as `mcp-entry`, for the same reasons: a config that cannot
+    be parsed is *unknown*, never empty, and the whole file is never rewritten
+    from scratch. Claude Code owns other keys here (`permissions`,
+    `enabledMcpjsonServers`), and clobbering them to set a timeout would be a
+    far worse bug than the one being fixed.
+
+    Note that `env` does not appear in the settings key table inside the
+    2.1.220 binary, yet it is honoured — verified by experiment on 2026-07-29,
+    dropping the page cache to force the failure and observing the timeout take
+    effect. Do not "correct" this back to an env-var-only approach on the
+    strength of that string table.
+    """
+    path = _settings_path(args.repo_root, args.settings_file)
+    out = {"key": args.key, "source": str(path)}
+
+    def read():
+        """(data, error). A missing file is {}; an unparseable one is an error."""
+        if not path.is_file():
+            return {}, None
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return None, str(exc)
+        if not isinstance(data, dict):
+            return None, "settings root is not a JSON object"
+        env = data.get("env")
+        if "env" in data and not isinstance(env, dict):
+            return None, "env is %s, not a JSON object" % json.dumps(env)
+        return data, None
+
+    if args.action == "get":
+        data, error = read()
+        out.update(file_existed=path.is_file(), readable=error is None,
+                   present=False, value=None)
+        if error is not None:
+            out["error"] = error
+        else:
+            env = data.get("env") or {}
+            if args.key in env:
+                out.update(present=True, value=env[args.key])
+        print(json.dumps(out))
+        return 0
+
+    if args.action == "set":
+        data, error = read()
+        if error is not None:
+            # Refuse rather than start from {}: writing our key over a file we
+            # could not parse destroys whatever Claude Code had put there, and
+            # the snapshot taken to undo it would say the same thing.
+            print(json.dumps({**out, "written": False, "error": error}))
+            return 1
+        env = data.get("env")
+        if not isinstance(env, dict):
+            env = {}
+        previous = env.get(args.key) if args.key in env else None
+        env[args.key] = args.value
+        data["env"] = env
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({**out, "written": False, "error": str(exc)}))
+            return 1
+        print(json.dumps({**out, "written": True, "previous": previous,
+                          "value": args.value}))
+        return 0
+
+    # restore
+    try:
+        state = json.loads(pathlib.Path(args.state_file).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(json.dumps({**out, "restored": False, "error": str(exc)}))
+        return 1
+    if not state.get("readable", True):
+        print(json.dumps({**out, "restored": False, "error": "no readable snapshot"}))
+        return 1
+
+    data, error = read()
+    if error is not None:
+        print(json.dumps({**out, "restored": False, "error": error}))
+        return 1
+    env = data.get("env")
+    if not isinstance(env, dict):
+        env = {}
+    if state.get("present"):
+        env[args.key] = state.get("value")
+        action = "reinstated"
+    else:
+        env.pop(args.key, None)
+        action = "removed"
+    if env:
+        data["env"] = env
+    else:
+        data.pop("env", None)
+    try:
+        if not state.get("file_existed") and _looks_empty(data):
+            if path.exists():
+                path.unlink()
+            print(json.dumps({**out, "restored": True, "action": "removed-file"}))
+            return 0
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(json.dumps({**out, "restored": False, "error": str(exc)}))
+        return 1
+    print(json.dumps({**out, "restored": True, "action": action}))
+    return 0
+
+
 def cmd_mcp_registered(args):
     """Is <name> registered in one *specific* scope?
 
@@ -625,7 +750,11 @@ def _merge_provenance(old, fresh):
     # recorded, and guessing it wrong is how a user-scoped registration inherits
     # a skill origin. Retire them to an explicit `.unknown` scope instead —
     # visibly not a real scope, and still a record that something exists.
-    for name in [k for k in old if k.startswith("mcp_") and "." not in k]:
+    # Named exactly, not matched by prefix. `mcp_*` is not a namespace reserved
+    # for registrations — `mcp_timeout` (a settings-file mutation, no scope of
+    # its own) matched a `startswith("mcp_")` guard here and was retired to a
+    # scope it never had, on its first run.
+    for name in [k for k in ("mcp_lean_lsp", "mcp_lean_explore") if k in old]:
         entry = old.pop(name)
         entry.setdefault("scope", "unknown")
         old.setdefault(name + ".unknown", entry)
@@ -779,6 +908,15 @@ def main():
     p.add_argument("--repo-root", required=True)
     p.add_argument("--state-file", help="snapshot JSON, required for restore")
     p.set_defaults(fn=cmd_mcp_entry)
+
+    p = sub.add_parser("settings-env", help="read/set/restore one env key in Claude settings")
+    p.add_argument("action", choices=("get", "set", "restore"))
+    p.add_argument("--key", required=True)
+    p.add_argument("--value", help="required for set")
+    p.add_argument("--repo-root", required=True)
+    p.add_argument("--settings-file", help="override the settings.local.json path")
+    p.add_argument("--state-file", help="snapshot JSON, required for restore")
+    p.set_defaults(fn=cmd_settings_env)
 
     p = sub.add_parser("mcp-registered", help="is an MCP server registered in one scope?")
     p.add_argument("name")

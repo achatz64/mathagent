@@ -231,6 +231,21 @@ classify_ref() { # url, rev
 # Pins live here so the manifest written by install.sh and the checks in
 # preflight.sh/verify.sh can never disagree about what "installed" means.
 
+# 0.10.0: the register stage raises Claude Code's MCP handshake budget.
+#        With --loogle-local, lean-lsp-mcp's app_lifespan awaits
+#        LoogleManager.start() before yielding, and that imports Mathlib —
+#        so the handshake cannot complete until ~10,700 .olean files are read.
+#        Claude Code abandons the connection at its 30000ms default, and then
+#        NONE of the 16 lean-lsp tools register. Diagnosed on a 2-vCPU host
+#        2026-07-29: 9s/13s/28s warm, hard timeout after drop_caches. Nothing
+#        controls page-cache state, so the same install worked or failed by
+#        luck. install.sh now writes env.MCP_TIMEOUT into the project's
+#        .claude/settings.local.json (never lowering a larger existing value;
+#        --no-mcp-timeout opts out) and verify.sh FAILs when it is short or
+#        absent. `claude mcp add -e` could not carry this: it sets the *server's*
+#        environment, and the budget is spent by the client.
+#        Provenance is `settings_mcp_timeout` — deliberately NOT under `mcp_`,
+#        which the 0.3.x scope migration matches by prefix.
 # 0.9.2: the Qwen3 reranker is prefetched during installation by default
 #        (`--no-rerank-prefetch` opts out), because nothing in the registration
 #        can stop a runtime call from reranking: `mcp serve` takes only
@@ -281,7 +296,7 @@ classify_ref() { # url, rev
 # 0.3.0: provenance carries a sticky origin; lake build is capped by RAM.
 # 0.2.x manifests hold flat provenance strings; the action vocabulary did not
 # change, so _merge_provenance normalises them and derives the origin in place.
-SKILL_VERSION="0.9.2"
+SKILL_VERSION="0.10.0"
 LEAN_LSP_MCP_VERSION="${LEAN_LSP_MCP_VERSION:-0.29.0}"
 LEAN_EXPLORE_VERSION="${LEAN_EXPLORE_VERSION:-1.2.1}"
 
@@ -325,6 +340,29 @@ LEAN_EXPLORE_VERSION="${LEAN_EXPLORE_VERSION:-1.2.1}"
 # Set only when the local index exists. `--skip loogle` means the user asked
 # for the remote API, and then this must not be applied.
 LOOGLE_NULL_BACKEND="http://127.0.0.1:1"
+
+# How long Claude Code waits for an MCP server's handshake, in milliseconds.
+#
+# Claude Code's own default is 30000 ("Starting connection with timeout of
+# 30000ms", logged per connection in
+# ~/.cache/claude-cli-nodejs/<slug>/mcp-logs-<server>/). With --loogle-local,
+# lean-lsp-mcp's app_lifespan awaits LoogleManager.start() *before* yielding,
+# and that spawns `lake env loogle` which imports Mathlib — ~10,700 .olean
+# files — so the handshake cannot complete until the import does.
+#
+# Observed on one 2-vCPU/7.8-GiB host, 2026-07-29: 9 s, 13 s and 28 s on a warm
+# page cache, and a hard timeout after `echo 3 > /proc/sys/vm/drop_caches`.
+# Nothing controls that state, so the same install works or fails depending on
+# what ran before it — which is what "fails regularly on new instances" was.
+#
+# This is a POLICY LIMIT, not an estimate derived from those figures: it is a
+# ceiling on how long the user is willing to wait, chosen by the user
+# (2026-07-29, "no guessing, let's make it 5 min"). It does not move when the
+# host, the corpus or the model does, so the no-estimates rule above does not
+# reach it — same category as LOOGLE_NULL_BACKEND and upstream's 900s/300s.
+# Claude Code reports the wait while it happens, so a long ceiling costs
+# nothing when the import is fast.
+MCP_STARTUP_TIMEOUT_MS="300000"
 
 # --------------------------------------------------- the registered PATH ----
 #

@@ -9,7 +9,7 @@
 #   install.sh [--project DIR] [--only STAGES] [--skip STAGES]
 #              [--allow-sudo] [--mcp-scope project|local|user]
 #              [--le-data-version YYYYMMDD_HHMMSS]
-#              [--rerank-check] [--no-rerank-prefetch]
+#              [--rerank-check] [--no-rerank-prefetch] [--no-mcp-timeout]
 #
 #   The LeanExplore readiness smoke passes rerank_top=0, so it never loads the
 #   Qwen3 reranker. But the MCP tools default rerank_top to 50, so any caller
@@ -19,6 +19,15 @@
 #                        the reranker works rather than merely being present
 #   --no-rerank-prefetch skip the reranker download entirely; the first reranked
 #                        query at runtime then pays for it
+#
+#   With --loogle-local, lean-lsp-mcp imports Mathlib before answering the MCP
+#   handshake, and Claude Code's 30000ms default budget is shorter than a cold
+#   import. The register stage raises it to MCP_STARTUP_TIMEOUT_MS in the
+#   project's .claude/settings.local.json, never lowering a larger value already
+#   there.
+#
+#   --no-mcp-timeout     do not touch MCP_TIMEOUT; lean-lsp then fails to
+#                        connect whenever the import outruns the client budget
 #
 # Stages, in order:
 #   uv           uv (userspace, no sudo)
@@ -40,7 +49,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 PROJECT="$PWD"
 ONLY=""; SKIP=""; ALLOW_SUDO=0; MCP_SCOPE="project"; LE_DATA_PIN=""
-RERANK_CHECK=0; RERANK_PREFETCH=1
+RERANK_CHECK=0; RERANK_PREFETCH=1; SET_MCP_TIMEOUT=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -52,7 +61,8 @@ while [ $# -gt 0 ]; do
     --le-data-version)  LE_DATA_PIN="$2"; shift 2 ;;
     --rerank-check)      RERANK_CHECK=1; shift ;;
     --no-rerank-prefetch) RERANK_PREFETCH=0; shift ;;
-    -h|--help)          sed -n '2,37p' "$0"; exit 0 ;;
+    --no-mcp-timeout)    SET_MCP_TIMEOUT=0; shift ;;
+    -h|--help)          sed -n '2,47p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -1294,6 +1304,65 @@ stage_register() {
     warn "lean-explore not installed — not registered"
     stage_failed
   fi
+
+  register_startup_timeout
+}
+
+# Raise Claude Code's MCP handshake budget past a cold Mathlib import.
+#
+# This is a *client* setting, so it cannot travel in the registration: `claude
+# mcp add -e` sets the environment of the spawned server, and the budget is
+# spent by Claude Code itself. It has to live where the client reads it.
+register_startup_timeout() {
+  [ "$SET_MCP_TIMEOUT" = "1" ] || { note "leaving MCP_TIMEOUT alone (--no-mcp-timeout)"; return 0; }
+
+  step "MCP handshake budget (MCP_TIMEOUT)"
+  settings_env() { introspect settings-env "$@" --key MCP_TIMEOUT --repo-root "$REPO_ROOT"; }
+
+  snap="$(mktemp -d)"
+  if ! settings_env get >"$snap/env.json" 2>/dev/null || [ "$(jget readable <"$snap/env.json")" != True ]; then
+    warn "cannot read $(jget source <"$snap/env.json" 2>/dev/null) — not setting MCP_TIMEOUT"
+    note "$(jget error <"$snap/env.json" 2>/dev/null)"
+    note "an unparseable settings file cannot be safely written or undone"
+    rm -rf "$snap"
+    prov settings_mcp_timeout absent
+    stage_failed
+    return 1
+  fi
+
+  had="$(jget present <"$snap/env.json")"
+  cur="$(jget value <"$snap/env.json")"
+
+  # Never lower a value the user chose. A bigger budget is strictly safer here:
+  # the only cost of waiting is waiting, and Claude Code shows the wait.
+  if [ "$had" = True ] && case "$cur" in ''|*[!0-9]*) false ;; *) [ "$((10#$cur))" -ge "$MCP_STARTUP_TIMEOUT_MS" ] ;; esac; then
+    pass "MCP_TIMEOUT already ${cur}ms (>= ${MCP_STARTUP_TIMEOUT_MS}ms) — left as is"
+    prov settings_mcp_timeout preexisting
+    rm -rf "$snap"
+    return 0
+  fi
+
+  if [ "$had" = True ]; then prov settings_mcp_timeout replacing; else prov settings_mcp_timeout installing; fi
+  if settings_env set --value "$MCP_STARTUP_TIMEOUT_MS" >"$snap/set.json" 2>/dev/null \
+     && [ "$(jget written <"$snap/set.json")" = True ]; then
+    if [ "$had" = True ]; then prov settings_mcp_timeout replaced
+    else prov settings_mcp_timeout installed; fi
+    pass "MCP_TIMEOUT set to ${MCP_STARTUP_TIMEOUT_MS}ms in $(jget source <"$snap/set.json")"
+    [ "$had" = True ] && note "previous value was '$cur'"
+    note "TELL THE USER: Claude Code's MCP handshake budget for this project was changed"
+    note "  why: with --loogle-local, lean-lsp-mcp imports Mathlib before it answers the"
+    note "  handshake, and Claude Code's 30000ms default is shorter than a cold import"
+    note "  effect: on a slow start Claude waits and reports the wait instead of dropping"
+    note "  the server; nothing else about Claude Code's behaviour changes"
+    note "  undo: remove env.MCP_TIMEOUT from that file"
+  else
+    warn "could not write MCP_TIMEOUT — lean-lsp may fail to connect on a cold page cache"
+    note "$(jget error <"$snap/set.json" 2>/dev/null)"
+    note "set it by hand, or launch with MCP_TIMEOUT=$MCP_STARTUP_TIMEOUT_MS claude"
+    # No settled action: `absent` is a claim about the world and would reset origin.
+    stage_failed
+  fi
+  rm -rf "$snap"
 }
 
 # ------------------------------------------------------------- manifest ----

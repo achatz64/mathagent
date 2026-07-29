@@ -650,6 +650,39 @@ if ! have claude; then
   note "claude CLI missing, but the config files were read directly"
 fi
 
+# The handshake budget. This is the check that would have caught a real failure
+# on 2026-07-29: every config check passed while lean-lsp never registered,
+# because with --loogle-local the server imports Mathlib before answering the
+# handshake and Claude Code abandons the connection at its 30000ms default.
+#
+# It is not observable from here by running the server: this script starts it
+# with its own budget, so it passes at 28s and at 103s alike — the same blind
+# spot that let the missing-PATH registration pass. The only thing that can be
+# checked is whether the client will be told to wait.
+#
+# Only applies when local Loogle is registered; without --loogle-local there is
+# no eager import and the default budget is ample.
+if [ "$(python3 "$HERE/introspect.py" mcp-registered lean-lsp --scope "$MCP_SCOPE" \
+          --repo-root "$ROOT" --has-arg=--loogle-local 2>/dev/null | jget has_arg)" = True ]; then
+  tj="$(python3 "$HERE/introspect.py" settings-env get --key MCP_TIMEOUT --repo-root "$ROOT" 2>/dev/null || echo '{}')"
+  tv="$(printf '%s' "$tj" | jget value)"
+  # The launch environment counts too, and wins for the session it launched.
+  [ -n "${MCP_TIMEOUT:-}" ] && tv="$MCP_TIMEOUT"
+  if [ "$(printf '%s' "$tj" | jget readable)" = False ]; then
+    warn "cannot read $(printf '%s' "$tj" | jget source) to check MCP_TIMEOUT"
+  elif [ -z "$tv" ] || [ "$tv" = None ]; then
+    fail "MCP_TIMEOUT is not set; Claude Code will abandon lean-lsp after 30000ms"
+    note "with --loogle-local the server imports Mathlib before the handshake completes"
+    note "that fits inside 30000ms only while Mathlib's .olean files are in the page cache"
+    note "fix: install.sh --only register (writes it), or launch with MCP_TIMEOUT=$MCP_STARTUP_TIMEOUT_MS claude"
+  elif case "$tv" in ''|*[!0-9]*) true ;; *) [ "$((10#$tv))" -lt "$MCP_STARTUP_TIMEOUT_MS" ] ;; esac; then
+    fail "MCP_TIMEOUT is '$tv', below the ${MCP_STARTUP_TIMEOUT_MS}ms this skill sets"
+    note "a cold Mathlib import has been observed to outrun far more than that"
+  else
+    pass "MCP_TIMEOUT is ${tv}ms — the client will wait for the Mathlib import"
+  fi
+fi
+
 fi
 
 summary "Verify"

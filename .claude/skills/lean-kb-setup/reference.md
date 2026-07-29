@@ -156,6 +156,64 @@ Where it is unavailable, give the run its own cgroup:
 systemd-run --scope bash .claude/skills/lean-kb-setup/scripts/install.sh --project lean
 ```
 
+### The startup import, and the client budget it has to fit inside
+
+With `--loogle-local`, lean-lsp-mcp's `app_lifespan` (`server.py:377`) awaits
+`_ensure_shared_loogle` **before it yields**, and that reaches
+`LoogleManager.start()`, which spawns `lake env … loogle --index-file …` and
+waits for the process to print its ready line. That process imports Mathlib —
+roughly 10,700 `.olean` files — so the MCP handshake cannot complete until the
+import does. Upstream backgrounds its *other* startup work (`_maybe_start_prewarm`
+uses `create_task`), so this is a deliberate choice, not an oversight.
+
+Two consequences worth understanding before touching any of it:
+
+- **The blast radius is all 16 tools.** A slow search index takes down
+  `lean_run_code`, `lean_diagnostics` and everything else, because the
+  handshake is what fails.
+- **Claude Code's budget is 30000 ms**, logged verbatim per connection as
+  `Starting connection with timeout of 30000ms`.
+
+Whether the import fits is a function of the **page cache**, which nothing in
+this skill or in Claude Code controls. Measured on one 2-vCPU/7.8-GiB host on
+2026-07-29: 9 s, 13 s and 28 s warm, and a hard timeout immediately after
+`sync; echo 3 > /proc/sys/vm/drop_caches`. Where the resident servers together
+approach the host's memory — see that install's own `measurement_attempts` for
+what they cost on *your* box — the cache gets evicted routinely, and that is
+what "lean-lsp fails to load on new instances, but not always" was.
+
+So the register stage writes `env.MCP_TIMEOUT` into the project's
+`.claude/settings.local.json`. Three things about that choice:
+
+- **It cannot ride in the registration.** `claude mcp add -e` sets the
+  environment of the *spawned server*; this budget is spent by the client.
+- **`settings.local.json`, not `settings.json`.** The value describes this
+  host's behaviour, not the project's; the committed file would export one
+  box's timing to every checkout.
+- **`env` is honoured even though it is absent from the settings key table in
+  the 2.1.220 binary.** Verified by experiment — dropping the page cache to
+  force the failure, then observing the setting prevent it. Do not "fix" this
+  back to a launch-environment-only approach on the strength of that table.
+
+The value is a **policy limit**, not a measurement: it is how long the user is
+willing to wait (5 minutes, their call), and it does not move when the host,
+the corpus or the model does. Claude Code surfaces the wait while it happens,
+so an over-generous budget costs nothing on a fast start.
+
+**What no script can check.** `verify.sh` starts servers from their own
+registrations, but on *its* budget — so it passes at 9 s and at 103 s alike.
+That blind spot is structural, the same one that let a registration with no
+`PATH` pass while the restarted server could not find `lake`. All that can be
+verified is whether the client will be told to wait, which is why the check
+reads the setting rather than timing a startup.
+
+**Where the evidence lives.** Claude Code writes per-server JSONL logs to
+`~/.cache/claude-cli-nodejs/<project-slug>/mcp-logs-<server>/<stamp>.jsonl`,
+each line timestamped, including the server's stderr. A failed connection is
+recorded there with its budget, so a past failure can be read rather than
+reproduced. `claude --debug` piped to a filter will not show it — the pipe
+kills the TUI before servers connect.
+
 ### Parallel Lake workers: there is no knob
 
 Lake defaults to one worker per core, and on a cache miss each is a full `lean`
@@ -713,6 +771,8 @@ indexing would have to be implemented.
 | Mathlib require rejected as "moving branch" | pinned to `master`/`main` | set a release tag or commit; KB.md requires a fixed pin |
 | MCP server "failed to connect" | Claude Code launched it without `~/.local/bin` on PATH | `install.sh --only register` — it registers absolute paths |
 | Loogle worked during install, fails after a Claude restart | the registration carries no `PATH`, so the server cannot find `lake` | `install.sh --only register`; see "The registered environment" |
+| No `mcp__lean-lsp__*` tools at all after a restart, intermittently | the Mathlib import outran Claude Code's 30000 ms handshake budget; the page cache decides | `install.sh --only register` writes `MCP_TIMEOUT`; confirm in `mcp-logs-lean-lsp/*.jsonl` |
+| `claude mcp list` says healthy but no lean-lsp tools appear | listing is not the session's connection; it is not evidence of readiness | read the per-server JSONL log, or `verify.sh` |
 | First `search_summary` of a session is slow | lazy load of the index and embedding model | expected once per process; see "Cold start vs reranking" |
 | *Every* `search_summary` is slow | `rerank_top` defaults to 50 — a cross-encoder pass per query | pass `rerank_top: 0` when ranking quality is not needed |
 | Warm `search_summary` still slow with `rerank_top: 0` | LeanExplore queries are compute-bound and scale with cores | a low-vCPU host is the limit; Loogle is unaffected by the same shortage |

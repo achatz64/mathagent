@@ -121,6 +121,18 @@ env var — and an unfetched model means that call downloads it mid-session.
 `--no-rerank-prefetch` skips the download; `--rerank-check` additionally runs one
 reranked query to prove it works.
 
+The register stage also raises **Claude Code's MCP handshake budget**. With
+`--loogle-local`, lean-lsp-mcp imports Mathlib *before* it answers the
+handshake, and Claude Code abandons a server after 30000 ms — at which point
+none of the 16 lean-lsp tools register. Whether the import fits inside that
+depends on whether Mathlib's `.olean` files are in the page cache, which nothing
+controls, so the same install works or fails by luck. `install.sh` writes
+`env.MCP_TIMEOUT` into the project's `.claude/settings.local.json`, never
+lowering a larger value already there; `--no-mcp-timeout` opts out. **Tell the
+user this setting was changed, and why** — it alters how their Claude Code
+behaves, not just this project's tooling. Claude reports the wait while it
+happens, so a long budget costs nothing when the import is fast.
+
 It writes `.lean-kb-manifest.json` recording the *resolved commits*, not just the
 tags asked for, plus a `provenance` map giving each component a sticky
 `origin` (`skill` or `user`) and the latest `action`. Consult it before removing
@@ -182,6 +194,15 @@ confirm with `claude mcp list`.
 - A config you cannot parse is *unknown*, never *empty*. Registration is
   refused outright when the rollback snapshot is unreadable, because that is
   the one case where a failed write cannot be undone.
+- **A server that starts is not a server that starts in time.** Claude Code
+  gives an MCP handshake 30000 ms; lean-lsp-mcp with `--loogle-local` spends
+  that importing Mathlib before it replies. No script can observe this by
+  running the server, because it runs the server on its own budget — `verify.sh`
+  passes identically at 9 s and at 103 s. The only checkable thing is whether
+  the client was told to wait, so `verify.sh` FAILs when `MCP_TIMEOUT` is unset
+  or short. When lean-lsp is missing after a restart, read
+  `~/.cache/claude-cli-nodejs/<slug>/mcp-logs-lean-lsp/*.jsonl` — every
+  connection logs its budget and its outcome with timestamps.
 - **A server that works when you run it does not work when Claude runs it.**
   Claude Code spawns MCP servers without a login shell, so anything the server
   resolves from its environment has to be recorded in the registration itself:
