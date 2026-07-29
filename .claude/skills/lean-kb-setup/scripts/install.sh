@@ -115,6 +115,14 @@ REPL_INPUTREV=""; REPL_REV=""
 LOOGLE_INDEX=""; LE_DATA_VERSION=""
 EMBED_REV=""; RERANK_REV=""
 
+# What the expensive steps actually cost *on this host, at these pins*. Recorded
+# in the manifest next to the versions they belong to, as provenance and
+# diagnostics. They are not requirements: nothing reads them back to decide
+# anything, here or on a later run, and a figure from one Mathlib revision says
+# little about the next.
+LOOGLE_IDX_PEAK_KB=""; LOOGLE_IDX_SECS=""; LOOGLE_IDX_OOM=""; LOOGLE_IDX_BYTES=""
+LE_WARM_PEAK_KB=""; LE_WARM_SECS=""
+
 introspect() { python3 "$HERE/introspect.py" "$@"; }
 
 # The exact index file for this project, never a glob over the shared cache.
@@ -316,9 +324,9 @@ stage_mathlib() {
 
   if [ "$had_pkg" -eq 1 ]; then prov mathlib_packages replacing; else prov mathlib_packages installing; fi
 
-  # The first lake invocation makes elan download the pinned toolchain (~2.8
-  # GiB) if it is not already there. It lands in ~/.elan/toolchains, shared with
-  # every other project on this machine, so it is recorded as `shared`.
+  # The first lake invocation makes elan download the pinned toolchain if it is
+  # not already there. It lands in ~/.elan/toolchains, shared with every other
+  # project on this machine, so it is recorded as `shared`.
   tc="$(tr -d '\r' <"$PROJ/lean-toolchain")"
   if elan toolchain list 2>/dev/null | grep -qF "$tc"; then had_tc=1; else had_tc=0; fi
   if [ "$had_tc" -eq 0 ]; then prov lean_toolchain installing; fi
@@ -333,11 +341,11 @@ stage_mathlib() {
     warn "'lake exe cache get' failed — 'lake build' will compile Mathlib from source"
     # Lake 5.0 has no job-count option (`lake build -j N` is "unknown short
     # option '-j'"), so there is nothing to turn down here: it runs one `lean`
-    # worker per core, each holding its imports in memory. On a host with more
-    # cores than RAM can feed, a cache miss can end at the OOM killer, and the
-    # only lever is the host.
-    note "compiling from source: one worker per core, ~2 GiB each, against $(ram_gib) GiB"
-    note "Lake offers no way to cap that — if it dies mid-build, the host needs more RAM"
+    # worker per core, each holding its imports in memory. Whether that fits is
+    # a question about this host and this Mathlib, and the build itself is the
+    # only thing that answers it.
+    note "compiling from source: Lake runs one lean worker per core ($(cpu_count) here)"
+    note "and offers no way to cap that. If the build is killed, the output will say so."
   fi
 
   step "Mathlib: lake build"
@@ -451,16 +459,18 @@ stage_leanlsp() {
 # it worked, which is the silent degradation the whole stage exists to prevent.
 # `--skip loogle` is the way to ask for the remote API on purpose.
 
-# Peak RSS and cause of death for one command, when the host can report them.
-# The point is evidence: "the index build was killed by signal 9 at 12.8 GiB"
-# is a diagnosis, whereas inferring OOM from the host's total RAM is a guess
-# that happens to be right most of the time.
-MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""
+# What one command actually cost and how it actually ended, on this host, at
+# these pins. This is the skill's answer to resource questions: it holds no
+# estimates, so the only figures it reports are ones it just observed. They are
+# diagnostics and provenance — recorded in the manifest alongside the versions
+# they belong to — never inputs to a later run's decisions.
+MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_ELAPSED=""
 measured() { # logfile, then the command
   _log="$1"; shift
-  MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""
+  MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""; MEASURE_ELAPSED=""
 
   _oom_before="$(cgroup_oom_kills || true)"
+  _t0="$(date +%s 2>/dev/null || echo 0)"
 
   # GNU time can put its two dozen lines of statistics in a file of its own,
   # which keeps the build's actual output readable. BSD time cannot, so on
@@ -499,12 +509,28 @@ measured() { # logfile, then the command
   if [ -n "$_oom_before" ] && [ -n "$_oom_after" ] && [ "$_oom_after" -gt "$_oom_before" ]; then
     MEASURE_OOM=$((_oom_after - _oom_before))
   fi
+
+  _t1="$(date +%s 2>/dev/null || echo 0)"
+  if [ "$_t0" -gt 0 ] && [ "$_t1" -ge "$_t0" ]; then MEASURE_ELAPSED=$((_t1 - _t0)); fi
   return "$_rc"
+}
+
+# Human-readable seconds. Reporting what a step took on this host is an
+# observation; it says nothing about what it will take on the next one.
+fmt_secs() {
+  awk -v s="${1:-0}" 'BEGIN {
+    if (s < 60) { printf "%ds", s }
+    else if (s < 3600) { printf "%dm%02ds", s / 60, s % 60 }
+    else { printf "%dh%02dm", s / 3600, (s % 3600) / 60 }
+  }'
 }
 
 # Everything the measurement actually established, as notes. Silent about what
 # it could not measure rather than guessing.
 measure_notes() {
+  if [ -n "$MEASURE_ELAPSED" ]; then
+    note "took $(fmt_secs "$MEASURE_ELAPSED")"
+  fi
   if [ -n "$MEASURE_PEAK_KB" ]; then
     note "peak RSS $(awk -v k="$MEASURE_PEAK_KB" 'BEGIN{printf "%.1f", k/1048576}') GiB"
   else
@@ -524,12 +550,10 @@ measure_notes() {
 stage_loogle() {
   step "local Loogle: clone, build, index"
 
-  ram="$(ram_gib)"
-  if lt "$ram" "$NEED_RAM_LOOGLE_INDEX"; then
-    warn "${ram} GiB RAM; the initial index needs ~13 GiB peak RSS"
-    note "attempting anyway — if it is killed this stage stops the install"
-  fi
-
+  # No RAM gate. Whether this host can index this Mathlib is not something a
+  # constant in this repo knows, and refusing to try is a worse answer than
+  # trying and reporting what happened. The attempt is measured, and a missing
+  # index at the end is still a hard stop.
   [ -d "$PROJ/.lake/packages/mathlib" ] || die "no Mathlib in $PROJ, so local Loogle has nothing to index.
       Run the mathlib stage first, or --skip loogle to use the remote API."
   # The index is only ever consumed by lean-lsp-mcp, and the path convention it
@@ -605,7 +629,7 @@ stage_loogle() {
   mkdir -p "$idx_dir"
   log="$(mktemp)"
   step "loogle: building the Mathlib index (no timeout; upstream would cap this at 300s)"
-  note "this is the peak-memory step of the whole install"
+  note "the most resource-intensive step of the install; it is measured, not predicted"
 
   # Exactly the command lean-lsp-mcp runs, from the project directory so `lake
   # env` puts the project's own Mathlib on LEAN_PATH. In --interactive mode it
@@ -634,6 +658,11 @@ stage_loogle() {
   paths="$(loogle_index_json)"
   if [ "$(printf '%s' "$paths" | jget exists)" != True ]; then
     if [ "$had_idx" -eq 0 ]; then prov loogle_index absent; fi
+    # Recorded before the hard stop: what a *failed* attempt cost is the more
+    # useful measurement of the two, and the EXIT trap still writes the manifest.
+    LOOGLE_IDX_PEAK_KB="$MEASURE_PEAK_KB"
+    LOOGLE_IDX_SECS="$MEASURE_ELAPSED"
+    LOOGLE_IDX_OOM="$MEASURE_OOM"
     fail "no index at $expected — local Loogle is NOT active"
     measure_notes
     # Only the cgroup counter (or a kernel log) confirms an OOM kill. A signal
@@ -642,25 +671,31 @@ stage_loogle() {
     # "that is the OOM killer" is the same unsupported leap as reporting it from
     # total RAM, one step further along.
     if [ -n "$MEASURE_OOM" ]; then
-      note "the cgroup counter confirms an OOM kill: the host cannot index Mathlib in ${ram} GiB"
+      note "the cgroup OOM counter incremented during this step — this run ran out of memory"
     elif [ -n "$MEASURE_SIGNAL" ]; then
-      note "killed by signal $MEASURE_SIGNAL, cause not established here."
-      note "out of memory is the usual one on a host this size (signal 9), but a crash or an"
-      note "external kill look identical from here: check 'dmesg -T | grep -i oom'"
+      note "terminated by signal $MEASURE_SIGNAL; the cause is not established here."
+      note "a crash, an out-of-memory kill and an external kill are indistinguishable from"
+      note "this side: check 'dmesg -T | grep -i oom' and the log below"
     else
-      note "indexer exited $idx_rc. Out of memory is the usual cause on a host this size,"
-      note "but nothing here confirms it: check 'dmesg -T | grep -i oom' or the log below"
+      note "the indexer exited $idx_rc with no signal and no OOM event recorded."
+      note "the log below is the only account of why"
     fi
     note "log: $log"
-    note "$(tail -5 "$log")"
+    printf '%s\n' "$(tail -5 "$log")" | while IFS= read -r _l; do note "$_l"; done
     note "lean_loogle would answer from the remote API (3 req/30s) and look like it worked,"
-    note "so this is a hard stop. Raise available RAM, or --skip loogle to accept the remote API."
+    note "so this is a hard stop. Address what the log reports, or --skip loogle to accept"
+    note "the remote API deliberately."
     die "local Loogle index was not built"
   fi
 
   LOOGLE_INDEX="$expected"
   if [ "$had_idx" -eq 1 ]; then prov loogle_index replaced; else prov loogle_index installed; fi
   rm -f "$log" "$log.time"
+  # The artefact's real size, not a remembered one.
+  LOOGLE_IDX_BYTES="$(printf '%s' "$paths" | jget size)"
+  LOOGLE_IDX_PEAK_KB="$MEASURE_PEAK_KB"
+  LOOGLE_IDX_SECS="$MEASURE_ELAPSED"
+  LOOGLE_IDX_OOM="$MEASURE_OOM"
   pass "index built: $LOOGLE_INDEX ($(du -h "$LOOGLE_INDEX" | awk '{print $1}'))"
   measure_notes
 }
@@ -673,9 +708,10 @@ stage_leanexplore() {
   if have lean-explore; then had_le=1; else had_le=0; fi
   if [ "$had_le" -eq 1 ]; then prov lean_explore replacing; else prov lean_explore installing; fi
 
-  # On Linux the default torch wheel drags in ~2 GiB of CUDA runtime. Ask uv
-  # for CPU wheels when there is no NVIDIA GPU; fall back if uv is too old to
-  # understand the flag. This is a disk optimisation — nothing here needs a GPU.
+  # On Linux the default torch wheel drags in the CUDA runtime, which is much
+  # larger than the CPU build. Ask uv for CPU wheels when there is no NVIDIA
+  # GPU; fall back if uv is too old to understand the flag. This is a disk
+  # optimisation — nothing here needs a GPU.
   if [ "$OS" != macos ] && ! have nvidia-smi; then
     UV_TORCH_BACKEND=cpu uv tool install --force "lean-explore[local]==$LEAN_EXPLORE_VERSION" \
       || uv tool install --force "lean-explore[local]==$LEAN_EXPLORE_VERSION"
@@ -705,7 +741,7 @@ stage_leanexplore() {
     had_data=0
   fi
 
-  step "lean-explore: fetching the prebuilt index (~3.9 GiB)"
+  step "lean-explore: fetching the prebuilt index (a multi-GB download)"
   if [ "$had_data" -eq 1 ] && { [ -z "$pin" ] || [ "$(cat "$active")" = "$pin" ]; }; then
     LE_DATA_VERSION="$(cat "$active")"
     prov lean_explore_data reused
@@ -732,23 +768,35 @@ stage_leanexplore() {
 
   # `lean-explore search` is the *hosted API* and needs LEANEXPLORE_API_KEY.
   # The local backend is only reachable through the MCP server, so warm and
-  # prove it there. First call pulls the two Qwen3 models (~2.4 GiB).
+  # prove it there. The first call also pulls the two Qwen3 models.
   step "lean-explore: warming the local backend and its models"
-  # Output is kept, not discarded: when this fails, the tool result carries the
-  # server's own explanation, and a bare "did not answer" is a worse report than
-  # the one we were handed.
-  if warm_out="$(python3 "$HERE/mcp_smoke.py" --timeout 1800 --quiet \
+  # Measured like the Loogle index, and for the same reason: this is the other
+  # resource-intensive step, and the only honest thing to say about its cost is
+  # what it cost here. The output is kept rather than discarded — when it fails,
+  # the tool result carries the server's own explanation, and a bare "did not
+  # answer" is a worse report than the one we were handed.
+  warm_log="$(mktemp)"
+  if measured "$warm_log" python3 "$HERE/mcp_smoke.py" --timeout 1800 --quiet \
         --call search_summary --args '{"query": "commutativity of addition", "limit": 3}' \
-        -- "$le" mcp serve --backend local 2>&1)"; then
+        -- "$le" mcp serve --backend local; then
     warm_ok=1
+    LE_WARM_PEAK_KB="$MEASURE_PEAK_KB"; LE_WARM_SECS="$MEASURE_ELAPSED"
     pass "local semantic search answering"
+    measure_notes
     # The download is one-off; the load is not. Every fresh server process pays
-    # it again on its first query — see the cold-start note in reference.md.
-    note "first query in a new session takes ~75s while the index and models load"
+    # it again on its first query, because the index and models load lazily.
+    note "that figure includes a cold load: the index and models load lazily, on"
+    note "the first query of each server process, not at startup"
+    rm -f "$warm_log" "$warm_log.time"
   else
     warm_ok=0
     warn "local backend did not answer — check: $le mcp serve --backend local"
-    note "$(printf '%s' "$warm_out" | tail -5)"
+    measure_notes
+    if [ -n "$MEASURE_OOM" ]; then
+      note "the cgroup OOM counter incremented during this step — this run ran out of memory"
+    fi
+    printf '%s\n' "$(tail -5 "$warm_log")" | while IFS= read -r _l; do note "$_l"; done
+    note "log: $warm_log"
     stage_failed
   fi
 
@@ -987,6 +1035,10 @@ write_manifest() {
     MF_LE="$LEAN_EXPLORE_VERSION" MF_LE_DATA="$LE_DATA_VERSION" \
     MF_EMBED_REV="$EMBED_REV" MF_RERANK_REV="$RERANK_REV" \
     MF_SKILL="$SKILL_VERSION" MF_PROVENANCE="$PROVENANCE" \
+    MF_IDX_PEAK_KB="$LOOGLE_IDX_PEAK_KB" MF_IDX_SECS="$LOOGLE_IDX_SECS" \
+    MF_IDX_OOM="$LOOGLE_IDX_OOM" MF_IDX_BYTES="$LOOGLE_IDX_BYTES" \
+    MF_LE_WARM_PEAK_KB="$LE_WARM_PEAK_KB" MF_LE_WARM_SECS="$LE_WARM_SECS" \
+    MF_HOST_RAM="$(ram_gib)" MF_HOST_CPUS="$(cpu_count)" MF_HOST_OS="$OS" \
     MF_STARTED="$STARTED_STAGES" MF_DONE="$DONE_STAGES" \
     python3 - <<'PY'
 import datetime, json, os, pathlib, subprocess
@@ -1018,12 +1070,42 @@ for line in (os.environ.get("MF_PROVENANCE") or "").splitlines():
 done = (os.environ.get("MF_DONE") or "").split()
 incomplete = [s for s in (os.environ.get("MF_STARTED") or "").split() if s not in done]
 
+
+def num(k):
+    v = os.environ.get(k)
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+# What the expensive steps cost *in this run*, alongside the host and the pins
+# they were measured against — the context without which a number means nothing.
+#
+# This is diagnostic and provenance data. Nothing reads it back: no threshold is
+# derived from it, no later run consults it, and it is not a requirement for
+# anything. It exists so that a slow or failed install can be compared against a
+# successful one on the same host, and so that a figure quoted anywhere else can
+# be traced to the versions it was taken at.
+measurements = {
+    "host_os":                    env("MF_HOST_OS"),
+    "host_ram_gib":               env("MF_HOST_RAM"),
+    "host_cpus":                  num("MF_HOST_CPUS"),
+    "loogle_index_peak_rss_kb":   num("MF_IDX_PEAK_KB"),
+    "loogle_index_seconds":       num("MF_IDX_SECS"),
+    "loogle_index_oom_events":    num("MF_IDX_OOM"),
+    "loogle_index_bytes":         num("MF_IDX_BYTES"),
+    "leanexplore_warmup_peak_rss_kb": num("MF_LE_WARM_PEAK_KB"),
+    "leanexplore_warmup_seconds":     num("MF_LE_WARM_SECS"),
+}
+
 print(json.dumps({
     "generated":          datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "skill_version":      env("MF_SKILL"),
     "project":            str(proj),
     "lean_toolchain":     (proj / "lean-toolchain").read_text(encoding="utf-8").strip(),
     "provenance":         prov,
+    "measurements":       measurements,
     "stages_completed":   done,
     "stages_incomplete":  incomplete,
     "mathlib_inputrev":   env("MF_MATHLIB_INPUTREV"),

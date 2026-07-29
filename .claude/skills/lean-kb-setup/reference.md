@@ -18,80 +18,106 @@ and drive the thresholds in `scripts/common.sh`.
 | 9 | LeanExplore data | Cloudflare R2, `lean-explore data fetch` | same stage |
 | 10 | Qwen3 embedding + reranker | HuggingFace, on first search | same stage |
 
-## Disk
+## Resource behaviour
 
-| Location | Contents | Size |
-|---|---|---|
-| `~/.elan/toolchains` | **one Lean toolchain per pinned version** | **~2.8 GiB each** |
-| `<project>/.lake` | Mathlib + deps + repl (estimate) | ~9 GiB |
-| `~/.cache/lean-lsp-mcp/loogle` | loogle checkout, binary, Mathlib index | ~2 GiB |
-| `~/.lean_explore/cache/<version>` | `lean_explore.db` 2.18 GB, `informalization_faiss.index` 1.68 GB, id maps | 3.86 GiB |
-| `~/.cache/huggingface` | `Qwen3-Embedding-0.6B` 1.19 GB + `Qwen3-Reranker-0.6B` 1.19 GB | ~2.5 GiB |
-| uv tool venvs | both servers; torch dominates | ~1.5 GiB CPU-only, ~3.5 GiB with CUDA |
+**This document holds no resource estimates, and the skill holds no thresholds.**
 
-Budget ~25 GiB total, and note the toolchain cost is *per pinned Lean version* —
-projects on different toolchains do not share one.
+Every such figure is a measurement of one workload, on one host, at one set of
+pins. Memory and time move with the Mathlib revision being indexed, the
+LeanExplore release, the model implementation, the query parameters, the OS and
+whatever else is resident; artefact and download sizes move with every upstream
+publish. None of that changes when this skill changes, so a number written down
+here becomes false without anyone touching the repo — and a number that controls
+an install blocks hosts that would have worked and reassures about hosts that
+will not.
 
-**These are per-location `du` figures, not a measured install footprint.** They
-do not agree with a `df` delta and should not be presented as if they did:
-hardlinked and overlapping caches are counted once by `df` and once per row
-here, so the rows sum higher than the disk actually moves. The first VM run left
-171 GiB free of 200 GiB, which says the 26 GiB preflight allowance is
-conservative — the right conclusion to draw — but not what the install "really"
-costs. State the measurement method before quoting either number.
+So: qualitative here, measured at run time, and historical figures live in dated
+test reports rather than in this file.
 
-What a **second project on the same host** adds: its own `.lake` (~9 GiB) and
-its own Loogle index. Everything else — the toolchain, LeanExplore's data, the
-HuggingFace models, the uv tool venvs — is shared, and the loogle checkout is
-shared too when the toolchain matches.
+### What is expensive, and why
 
-## Memory
+- **Building Mathlib on a cache miss** is the longest operation in the install
+  by a wide margin. Lake runs one `lean` worker per core, each holding its
+  imports resident, and Lake 5.0 offers no way to cap that (see below).
+- **The first local Loogle index** for a (project, toolchain) is the most
+  memory-intensive step. It is a one-off: later runs load the existing index,
+  which is materially cheaper. Loogle hashes `.olean` dependencies, so changing
+  the project's Mathlib invalidates it and the cost returns.
+- **LeanExplore's first query in each server process** loads the index and both
+  models lazily — not at startup — so whichever query happens to be first pays
+  for all of it. This recurs on every restart, not once per install. Reranking
+  is expensive on CPU.
+- **Running both MCP servers at once** increases memory pressure well beyond
+  either alone, and neither is sized for a machine also running an editor and a
+  build. The skill does not predict whether a given host can do it.
+- **Disk** is dominated by Mathlib's build artefacts in `<project>/.lake`, the
+  LeanExplore corpus, the model weights, one Lean toolchain per pinned version,
+  and the tool venvs (much larger with the CUDA torch build, which `install.sh`
+  avoids when there is no NVIDIA GPU).
 
-Two different questions live here: what it takes to **build** the stack once,
-and what it takes to **run** it every day. Sizing a host on the second alone
-produces a machine that can never install what it is meant to run.
+A **second project on the same host** adds its own `.lake` and its own Loogle
+index. The toolchain, the LeanExplore corpus, the models and the tool venvs are
+shared, and the Loogle checkout is shared too when the toolchain matches.
 
-| Operation | Peak RSS | when |
-|---|---|---|
-| LSP tools over a built Mathlib | ~2–4 GiB | runtime |
-| **local Loogle, first index** | **~13 GiB** | build, once per (project, toolchain) |
-| local Loogle, warm load | ~7 GiB | runtime |
-| LeanExplore local search | ~4–6 GiB (1.68 GB FAISS index plus two 0.6B models) | runtime |
-| **both MCP servers resident together** | **~9 GiB** | runtime, measured |
+### What is measured instead
 
-The 9 GiB figure is measured on the 16 GiB test VM (2026-07-29) with both
-servers up and each having answered a query — steady state, not a peak, and
-LeanExplore's behaviour there is not yet fully characterised.
+`install.sh` measures the two expensive steps — the Loogle index build and the
+LeanExplore warm-up — and reports what that execution produced: elapsed time,
+peak RSS via `/usr/bin/time` where available, terminating signal, cgroup v2
+`oom_kill` delta, and the artefact's actual size. Failures are recorded too; a
+failed attempt's cost is the more useful of the two.
 
-**A workload's RSS is not a host requirement.** On a 9 GiB host those 9 GiB are
-the entire machine, leaving nothing for the kernel, Claude Code, an editor or a
-build. So preflight judges hosts against `9 + 3 GiB` of headroom and reports the
-two numbers separately, rather than letting the measured figure stand in for the
-requirement. Note also that every check in `verify.sh` passes well below either:
-nothing there runs both servers concurrently with real work, which is what daily
-use does.
+Those figures go into the manifest under `measurements`, next to the pins and
+the host they were taken on. **They are provenance and diagnostics, not
+requirements.** Nothing reads them back, no threshold is derived from them, and
+no later run consults them. They accumulate rather than overwrite: a run that
+did not measure a step leaves the previous figure alone, because a null means
+"not measured", never "measured as nothing".
 
-The Loogle index is the binding constraint for the whole stack. Under ~14 GiB it
-is OOM-killed, and `lean_loogle` then falls back to the remote API *silently* —
-which is why `install.sh` builds the index in the foreground and `verify.sh`
-checks for the `.idx` file rather than trusting a successful query. That
-threshold stands on upstream's documented ~13 GiB; the first VM run at 16 GiB
-succeeded but sampled memory too coarsely to revise it, since minute-level
-sampling can miss a short peak entirely. `install.sh` now records the actual
-peak RSS of the index step, so the next run produces a figure worth acting on.
+`preflight.sh` reports live host facts — total and available RAM, swap, CPU
+count, free space per filesystem — as `INFO`, and draws no verdict from any of
+them. It still FAILs on genuine blockers: an unsupported OS, a missing `python3`,
+`git` or `curl`, a Lean project it cannot find, a moving Mathlib pin.
 
-**That 14 GiB is a one-off, and preflight treats it as one.** It is the cost of
-*building* a first index for a given (project, toolchain); once that index
-exists, the binding figure is the ~7 GiB warm load. Preflight therefore resolves
-the project and looks for its index before deciding, so a repair run or an
-`--only register` on a working install is judged against the warm figure instead
-of failing permanently on a cost already paid.
+### Inference vs observation
+
+Diagnostics distinguish what was seen from what it might mean:
+
+| Observed | What it establishes |
+|---|---|
+| cgroup `oom_kill` incremented | this run ran out of memory |
+| terminated by signal N | it was terminated; SIGSEGV, an OOM kill and an operator are indistinguishable from here |
+| exited non-zero, no signal | only what the log says |
+| a slow first query | nothing on its own; lazy loading is *a* cause, not the only one |
+| missing output | that the artefact is not there, not why |
+
+Only the first line asserts an OOM. `install.sh` names `dmesg -T | grep -i oom`
+as what would settle the others.
+
+### Parallel Lake workers: there is no knob
+
+Lake defaults to one worker per core, and on a cache miss each is a full `lean`
+process holding its imports resident. Earlier versions of this skill capped that
+with `lake build -j N`. **Lake 5.0 has no such option**, and never did:
+
+```
+$ lake build -j 4
+error: unknown short option '-j'
+```
+
+`lake --help` and `lake build --help` list no jobs, threads or concurrency
+option, and there is no environment variable equivalent. The feature has been
+removed rather than left as an argument Lake rejects — it made both build sites
+fail on their first invocation. The reasoning still stands; what is gone is any
+way to act on it from inside the installer.
+
+## Local Loogle: no fallback
 
 **There is no fallback**, at three layers:
 
 1. **Install time.** No index after the attempt ⇒ the loogle stage stops the
-   install. Preflight FAILs below ~14 GiB rather than letting a default run get
-   that far.
+   install. Preflight does not pre-judge whether the host can build one — it
+   reports that a first build is ahead and lets the measured attempt answer.
 2. **Registration.** `stage_register` refuses to register `lean-lsp` without
    `--loogle-local` unless you passed `--skip loogle`. Registering a working
    server pointed at the remote API is exactly the accident being prevented.
@@ -262,40 +288,18 @@ never seeded. `install.sh` emits its version constants on every run regardless
 of which stages ran, so seeding would have `--only register` assert that
 lean-lsp-mcp and lean-explore are installed when neither stage was selected.
 
-### Parallel Lake workers: there is no knob
-
-Lake defaults to one worker per core. That is harmless while `lake exe cache
-get` hits — unpacking oleans is I/O — but on a miss Mathlib compiles from
-source and every worker is a full `lean` process holding its imports resident.
-Sixteen cores against 8 GiB is an OOM kill partway through a multi-hour build,
-reported as an opaque Lake failure.
-
-Earlier versions of this skill capped that with `lake build -j N`. **Lake 5.0
-has no such option**, and never did:
-
-```
-$ lake build -j 4
-error: unknown short option '-j'
-```
-
-`lake --help` and `lake build --help` list no jobs, threads or concurrency
-option, and there is no environment variable equivalent. The whole feature has
-been removed rather than left as an argument Lake rejects — it made both build
-sites fail on their first invocation. The reasoning above still stands; what is
-gone is any way to act on it from inside the installer. On a host where a cache
-miss OOMs, the lever is the host.
-
 ### Cold start: the first query of a session is slow
 
-Measured on the 16 GiB test VM: the first `search_summary` after a fresh
-`lean-explore mcp serve` takes **~75 s**. The local index and both Qwen3 models
-load lazily, on the first query rather than at startup, so whichever query
-happens to be first pays for all of it. Subsequent queries in the same session
-are fast.
+LeanExplore loads its local index and both Qwen3 models **lazily** — on the
+first query, not at startup — so whichever query happens to be first pays for
+all of it. Subsequent queries in the same process are fast.
 
-This is expected, not a hang. It recurs every time the server process is
-restarted — a Claude Code restart, not just a fresh install — because the load
-is per-process. The download is one-off; the load is not.
+This is expected, not a hang, and it is not evidence of anything about memory.
+It recurs every time the server process is restarted, which includes a Claude
+Code restart and not just a fresh install: the download is one-off, the load is
+not. `install.sh` reports what its own warm-up cost on the host it ran on, and
+that figure is in the manifest under `measurements` — it is a record of that
+run, not a prediction for yours.
 
 A warm-up hook that issues a throwaway query at session start is under test as
 a remedy; until then, the first query is simply slow.
@@ -305,34 +309,40 @@ a remedy; until then, the first query is simply slow.
 - **Local Loogle is Unix-only.** Linux, macOS, WSL2. Native Windows must use the
   remote API.
 - **`LEAN_REPL_MEM_MB` is enforced on Linux/macOS only.**
-- **WSL2 defaults to ~50% of host RAM.** On a 16 GB host that is ~7.5 GiB — below
-  the Loogle indexing threshold. Raise it in `%USERPROFILE%\.wslconfig`:
+- **WSL2 defaults to roughly half the host's RAM**, which is frequently the
+  reason an index build is killed there while the same machine has memory to
+  spare. Raise it in `%USERPROFILE%\.wslconfig`:
 
   ```ini
   [wsl2]
-  memory=14GB
-  swap=8GB
+  memory=<GB>
+  swap=<GB>
   ```
 
-  then `wsl --shutdown` from Windows. On a 16 GB host this leaves Windows ~2 GB;
-  the alternative is `install.sh --skip loogle` and living with the remote API.
+  then `wsl --shutdown` from Windows. What to put there depends on the host and
+  on what the measured build actually reported; leave Windows enough to work
+  with. The alternative to raising it is `install.sh --skip loogle` and living
+  with the remote API.
   This is a host-level change with a reboot, so the skill reports it and lets the
   user decide.
-- **Do not build on `/mnt/c` under WSL.** Windows drives are mounted over 9p;
-  Lean's many small files make builds 5–10x slower, and `lean-lsp-mcp` hard-codes
-  a 900 s Loogle build timeout and a 300 s index-readiness timeout that a 9p build
-  will blow through. Keep the Lean project on the WSL ext4 filesystem.
+- **Do not build on `/mnt/c` under WSL.** Windows drives are mounted over 9p,
+  and Lean's many small files make builds markedly slower there. `lean-lsp-mcp`
+  hard-codes a 900 s Loogle build timeout and a 300 s index-readiness timeout —
+  those are upstream's fixed limits, not estimates, and a 9p build is the case
+  most likely to exceed them. `install.sh` sidesteps both by building directly,
+  but the LSP's own calls still face them. Keep the project on WSL ext4.
 - **Linux torch pulls CUDA wheels, but no component needs a GPU.** `lean-explore[local]`
   depends on torch, whose default Linux x86_64 install adds four `nvidia-cu13`
-  wheels (cudnn, nccl, cusparselt, nvshmem — ~0.81 GB compressed, ~2 GiB unpacked)
-  on top of torch's own 0.53 GB wheel. That is *packaging*, not a requirement:
+  wheels (cudnn, nccl, cusparselt, nvshmem) on top of torch's own, which is a
+  large multiple of the CPU build. That is *packaging*, not a requirement:
   torch runs on CPU regardless, and `lean-explore` pins `faiss-cpu`, so vector
   search never touches a GPU. `install.sh` sets `UV_TORCH_BACKEND=cpu` when no
   `nvidia-smi` is present purely to save the disk, falling back to the default
   wheel if uv is too old to know the flag.
 
-  A GPU, if present, only accelerates the two Qwen3 0.6B models (~2.5 GiB VRAM
-  for both at bf16). Lean, Mathlib, Loogle, and ripgrep are CPU-only throughout.
+  A GPU, if present, only accelerates the two Qwen3 0.6B models — which is where
+  reranking cost lands on a CPU-only host. Lean, Mathlib, Loogle and ripgrep are
+  CPU-only throughout.
 
 ## Local vs remote tool coverage
 
@@ -363,7 +373,7 @@ Worth knowing, because the failure modes are unintuitive:
    invalidates and rebuilds the index automatically.
 
 Consequences: the index is per-(project, toolchain) — two projects on different
-toolchains each pay the ~13 GiB indexing cost — and a project without Mathlib has
+toolchains each pay the indexing cost separately — and a project without Mathlib has
 nothing to index, which is why `install.sh` stops rather than pretending the
 stage succeeded.
 
@@ -560,11 +570,11 @@ indexing would have to be implemented.
 | Mathlib require rejected as "moving branch" | pinned to `master`/`main` | set a release tag or commit; KB.md requires a fixed pin |
 | MCP server "failed to connect" | Claude Code launched it without `~/.local/bin` on PATH | `install.sh --only register` — it registers absolute paths |
 | Loogle worked during install, fails after a Claude restart | the registration carries no `PATH`, so the server cannot find `lake` | `install.sh --only register`; see "The registered environment" |
-| First `search_summary` of a session takes ~75 s | lazy load of the index and both models | expected; see "Cold start" |
+| First `search_summary` of a session is slow | lazy load of the index and both models | expected; see "Cold start" |
 | `lake exe cache get` fails | network, or a Mathlib rev with no published cache | re-run; `lake build` will compile from source, slowly |
 | No Mathlib tag for the toolchain | project on a nightly or rc | move to a released toolchain, or pin Mathlib by hand |
 | `import Mathlib` times out in verify | Mathlib not fully built | `install.sh --only mathlib` |
-| `lake build` killed with no error | OOM: one worker per core, ~2 GiB each | Lake 5.0 offers no `-j`; the host needs more RAM |
+| `lake build` killed with no error | one `lean` worker per core, each holding its imports | Lake 5.0 offers no `-j`; check `dmesg` for an OOM kill |
 | Preflight says a host is unreachable | genuinely offline, or a proxy blocking HEAD | `curl -I <url>` by hand to confirm |
 
 ## Packaging

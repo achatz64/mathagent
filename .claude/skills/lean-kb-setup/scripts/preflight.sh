@@ -27,16 +27,18 @@ export PATH="$HOME/.local/bin:$HOME/.elan/bin:$PATH"
 
 OS="$(os_kind)"
 RAM="$(ram_gib)"
+RAM_AVAIL="$(ram_available_gib 2>/dev/null || true)"
+SWAP="$(swap_gib 2>/dev/null || true)"
 CPUS="$(cpu_count)"
 
 # Resolved here rather than in the "Lean project" section further down, because
-# the memory verdict depends on it: the 14 GiB figure is the cost of *building*
-# the Loogle index, and a host that already has one is not going to pay it
-# again. Reporting a permanent blocker for a one-off cost turns every repair run
-# and every `--only register` on a working install into a failure.
+# the memory section reports on it: whether this project's index already exists
+# decides whether a resource-intensive first build is still ahead. That is a
+# statement about *state*, which is knowable — unlike a statement about whether
+# the host can afford it, which is not.
 #
 # Both are "no" answers, not errors: a run with no project yet, or with no index
-# yet, is exactly the case where the build peak does still apply.
+# yet, is simply one where the first build has not happened.
 LOOGLE_INDEXED=0
 if PRE_PROJ="$(find_lean_project "$PROJECT" 2>/dev/null)"; then
   if [ "$(python3 "$HERE/introspect.py" loogle-index "$PRE_PROJ" 2>/dev/null | jget exists)" = True ]; then
@@ -78,54 +80,33 @@ fi
 
 # ---------------------------------------------------------------- memory ----
 
-section "Memory (${RAM} GiB total)"
+section "Memory"
 
-if lt "$RAM" "$NEED_RAM_HARD"; then
-  fail "under ${NEED_RAM_HARD} GiB — building Mathlib and running the LSP will thrash"
-elif lt "$RAM" "$NEED_RAM_COMFORT"; then
-  warn "under ${NEED_RAM_COMFORT} GiB — 'import Mathlib' and LeanExplore search will be tight"
-  note "both fit, but expect swapping; close other memory-hungry processes"
-elif lt "$RAM" "$NEED_RAM_RUNTIME"; then
-  # The measured workload is ~9 GiB resident for the two servers together. That
-  # is not the same as a 9 GiB host: on one, those 9 GiB are the whole machine,
-  # with nothing left for the kernel, Claude Code, an editor or a build. So the
-  # host figure carries headroom, and the two numbers are reported separately
-  # rather than one standing in for the other.
-  warn "under ${NEED_RAM_RUNTIME} GiB — both MCP servers measured ~${RAM_BOTH_SERVERS_RSS} GiB resident together"
-  note "plus ~${RAM_HOST_HEADROOM} GiB for the OS, Claude Code and an editor"
-  note "each server works alone; running both alongside real work will swap"
-else
-  pass "enough for both MCP servers (~${RAM_BOTH_SERVERS_RSS} GiB measured) plus ~${RAM_HOST_HEADROOM} GiB headroom"
-fi
+# Observations only. This skill holds no memory thresholds, so nothing below is
+# a PASS or a FAIL: what the stack costs depends on the pinned Mathlib and
+# LeanExplore versions, the model implementation, the query, the OS and whatever
+# else is resident, none of which a constant in this repo can track. A verdict
+# from a stale number is worse than no verdict — it blocks hosts that would have
+# worked and reassures about hosts that will not.
+info "RAM ${RAM} GiB total$( [ -n "$RAM_AVAIL" ] && printf ', %s GiB available now' "$RAM_AVAIL" )"
+info "swap ${SWAP:-not reported}${SWAP:+ GiB}"
 
 if [ "$LOOGLE_INDEXED" -eq 1 ]; then
-  # The expensive part is already paid for. What is left is loading an index
-  # that exists, which is a different and much smaller number.
-  if lt "$RAM" "$NEED_RAM_LOOGLE_WARM"; then
-    fail "under ${NEED_RAM_LOOGLE_WARM} GiB — loading the existing Loogle index needs ~7 GiB"
-  else
-    pass "this project's Loogle index already exists; the ${NEED_RAM_LOOGLE_INDEX} GiB build peak does not apply"
-    note "only a first index for a (project, toolchain) pays that; $PRE_PROJ has one"
-  fi
-elif lt "$RAM" "$NEED_RAM_LOOGLE_INDEX"; then
-  # A blocker, not a degradation: the loogle stage is a hard stop on a missing
-  # index, so a default install.sh run will abort here rather than quietly
-  # settling for the remote API.
-  fail "under ${NEED_RAM_LOOGLE_INDEX} GiB — local Loogle's first Mathlib index needs ~13 GiB peak RSS"
-  note "it will OOM, and the loogle stage stops the install rather than falling back"
-  note "either raise available RAM, or run install.sh --skip loogle to accept the remote API"
-  if [ "$OS" = wsl ]; then
-    note "WSL caps at ~50% of host RAM by default; raise it in %USERPROFILE%\\.wslconfig:"
-    note "  [wsl2]"
-    note "  memory=14GB"
-    note "  swap=8GB"
-    note "then run 'wsl --shutdown' from Windows. See reference.md."
-  else
-    note "install.sh --skip loogle keeps everything else local; see reference.md"
-  fi
+  info "this project's local Loogle index already exists — no first build ahead"
+  note "at $PRE_PROJ"
 else
-  pass "enough for local Loogle's initial Mathlib index"
+  info "local Loogle's first index has not been built"
+  note "indexing is resource-intensive and requirements vary with the pinned"
+  note "Mathlib and Loogle versions"
+  note "install.sh will measure the attempt and stop if the local index is not produced"
+  if [ "$OS" = wsl ]; then
+    note "WSL caps memory at ~50% of the host by default; raise it in %USERPROFILE%\\.wslconfig"
+    note "([wsl2] memory=… swap=…) then 'wsl --shutdown' from Windows, if the build is killed"
+  fi
 fi
+
+warn "capacity for concurrent LeanExplore and local Loogle use is not predicted by this skill"
+note "actual usage depends on versions, query mode, and concurrent processes"
 
 # ------------------------------------------------------------------ disk ----
 
@@ -136,34 +117,27 @@ HOME_FREE="$(disk_free_gib "$HOME")"
 PROJ_MNT="$(disk_mount "$PROJECT")"
 HOME_MNT="$(disk_mount "$HOME")"
 
+# Reported, not judged. Download and artefact sizes move with every upstream
+# publish — Mathlib's build cache, the LeanExplore corpus, the model weights —
+# so a budget baked in here is a number about the day it was written.
 if [ "$PROJ_MNT" = "$HOME_MNT" ]; then
-  # One pool, so the two budgets compete for the same bytes. Checking them
-  # separately would pass 15 GiB free against a 12 and a 14 GiB requirement.
-  NEED_BOTH=$((NEED_DISK_PROJECT + NEED_DISK_HOME))
-  if lt "$PROJ_FREE" "$NEED_BOTH"; then
-    fail "project and \$HOME share $PROJ_MNT with ${PROJ_FREE} GiB free, needs ~${NEED_BOTH} GiB combined"
-    note "Mathlib ~${NEED_DISK_PROJECT} GiB in the project, ~${NEED_DISK_HOME} GiB of caches and models in \$HOME"
-  else
-    pass "$PROJ_MNT (project and \$HOME): ${PROJ_FREE} GiB free, needs ~${NEED_BOTH} GiB"
-  fi
+  # Worth saying: one pool means the project's build artefacts and $HOME's
+  # caches draw down the same free space, so the two cannot be read separately.
+  info "$PROJ_MNT holds both the project and \$HOME: ${PROJ_FREE} GiB free"
+  note "Mathlib's .lake, the Loogle cache, the LeanExplore corpus and the model"
+  note "weights all come out of this one pool"
 else
-  if lt "$PROJ_FREE" "$NEED_DISK_PROJECT"; then
-    fail "project filesystem has ${PROJ_FREE} GiB free, needs ~${NEED_DISK_PROJECT} GiB for Mathlib"
-  else
-    pass "project filesystem ($PROJ_MNT): ${PROJ_FREE} GiB free"
-  fi
-
-  if lt "$HOME_FREE" "$NEED_DISK_HOME"; then
-    fail "\$HOME has ${HOME_FREE} GiB free, needs ~${NEED_DISK_HOME} GiB"
-    note "LeanExplore data 3.9, HF models 2.5, loogle ~2, venvs 1.5-3.5, Lean toolchain ~2.8 GiB"
-  else
-    pass "\$HOME ($HOME_MNT): ${HOME_FREE} GiB free"
-  fi
+  info "project filesystem ($PROJ_MNT): ${PROJ_FREE} GiB free"
+  info "\$HOME ($HOME_MNT): ${HOME_FREE} GiB free"
 fi
+note "install.sh downloads Mathlib's cache, the LeanExplore corpus and two models;"
+note "sizes track upstream releases and are not predicted here. It will fail visibly"
+note "on a full filesystem rather than being blocked by an estimate."
 
 if [ "$OS" = wsl ] && is_windows_mount "$PROJECT"; then
-  warn "project sits on a Windows drive (9p/drvfs) — Lean builds there are 5-10x slower"
-  note "lean-lsp-mcp hard-codes a 900s loogle build timeout and a 300s index timeout"
+  warn "project sits on a Windows drive (9p/drvfs) — Lean builds there are markedly slower"
+  note "lean-lsp-mcp hard-codes a 900s loogle build timeout and a 300s index timeout,"
+  note "which install.sh bypasses by building directly — but the LSP's own calls do not"
   note "consider moving or cloning the Lean project onto the WSL ext4 filesystem"
 fi
 

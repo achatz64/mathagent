@@ -18,6 +18,11 @@ pass()    { COUNT_OK=$((COUNT_OK + 1));     printf '  %sPASS%s  %s\n' "$C_G" "$C
 warn()    { COUNT_WARN=$((COUNT_WARN + 1)); printf '  %sWARN%s  %s\n' "$C_Y" "$C_N" "$*"; }
 fail()    { COUNT_FAIL=$((COUNT_FAIL + 1)); printf '  %sFAIL%s  %s\n' "$C_R" "$C_N" "$*"; }
 note()    { printf '        %s%s%s\n' "$C_D" "$*" "$C_N"; }
+# An observation the reader needs, with no verdict attached. Counted nowhere:
+# it is neither a check that passed nor one that failed, and a script that
+# reports a host fact it refuses to draw a conclusion from must not have that
+# show up as either.
+info()    { printf '  %sINFO%s  %s\n' "$C_B" "$C_N" "$*"; }
 step()    { printf '\n%s==>%s %s\n' "$C_B" "$C_N" "$*"; }
 die()     { printf '\n%sfatal:%s %s\n' "$C_R" "$C_N" "$*" >&2; exit 1; }
 
@@ -58,12 +63,44 @@ os_kind() {
   esac
 }
 
+# Live host facts, for reporting. Nothing in this skill compares them against a
+# threshold — see the note above the version pins.
+
 # Total physical RAM in GiB, one decimal place.
 ram_gib() {
   case "$(uname -s)" in
     Linux)  awk '/^MemTotal:/ { printf "%.1f", $2 / 1048576 }' /proc/meminfo ;;
     Darwin) sysctl -n hw.memsize | awk '{ printf "%.1f", $1 / 1073741824 }' ;;
     *)      echo 0 ;;
+  esac
+}
+
+# Currently available RAM in GiB — what the kernel thinks is reclaimable now,
+# which is a different and more useful number than the total. Empty when the
+# host does not report it.
+ram_available_gib() {
+  case "$(uname -s)" in
+    Linux)  awk '/^MemAvailable:/ { printf "%.1f", $2 / 1048576; found = 1 }
+                 END { exit !found }' /proc/meminfo ;;
+    Darwin) _pg="$(sysctl -n hw.pagesize 2>/dev/null)" || return 1
+            vm_stat 2>/dev/null | awk -v pg="$_pg" '
+              /Pages free/       { f = $3 }
+              /Pages inactive/   { i = $3 }
+              END { if (pg == "" ) exit 1; gsub(/\./, "", f); gsub(/\./, "", i)
+                    printf "%.1f", (f + i) * pg / 1073741824 }' ;;
+    *)      return 1 ;;
+  esac
+}
+
+# Total swap in GiB. Empty when there is none or the host does not report it.
+swap_gib() {
+  case "$(uname -s)" in
+    Linux)  awk '/^SwapTotal:/ { printf "%.1f", $2 / 1048576; found = 1 }
+                 END { exit !found }' /proc/meminfo ;;
+    Darwin) sysctl -n vm.swapusage 2>/dev/null \
+              | sed -n 's/.*total = \([0-9.]*\)M.*/\1/p' \
+              | awk 'NF { printf "%.1f", $1 / 1024 }' ;;
+    *)      return 1 ;;
   esac
 }
 
@@ -187,6 +224,11 @@ classify_ref() { # url, rev
 # Pins live here so the manifest written by install.sh and the checks in
 # preflight.sh/verify.sh can never disagree about what "installed" means.
 
+# 0.9.0: no resource estimates anywhere. Every RAM, disk, download-size and
+#        timing constant is gone, and nothing derives a PASS/WARN/FAIL from one.
+#        preflight reports live host facts as INFO; install.sh measures the
+#        expensive steps (elapsed, peak RSS, signal, cgroup OOM, artefact size)
+#        and records them in the manifest as provenance, never as requirements.
 # 0.8.1: `measured` no longer re-enables errexit, which killed the script at the
 #        call site before the failure diagnostics could run; the registration
 #        pins LEAN_LOOGLE_CACHE_DIR as well as PATH; the 14 GiB Loogle floor is
@@ -216,42 +258,38 @@ classify_ref() { # url, rev
 # 0.3.0: provenance carries a sticky origin; lake build is capped by RAM.
 # 0.2.x manifests hold flat provenance strings; the action vocabulary did not
 # change, so _merge_provenance normalises them and derives the origin in place.
-SKILL_VERSION="0.8.1"
+SKILL_VERSION="0.9.0"
 LEAN_LSP_MCP_VERSION="${LEAN_LSP_MCP_VERSION:-0.29.0}"
 LEAN_EXPLORE_VERSION="${LEAN_EXPLORE_VERSION:-1.2.1}"
 
-# Space requirements in GiB, from measured artefact sizes. See reference.md.
-NEED_DISK_PROJECT=12      # Mathlib + deps + repl in the project's .lake
-NEED_DISK_HOME=14         # loogle ~2 + LeanExplore data 3.9 + HF models 2.5
-                          # + tool venvs ~1.5-3.5 + one Lean toolchain ~2.8
-
-# RAM in GiB. Two different questions live here: what it takes to *build* the
-# stack once, and what it takes to *run* it every day. The build peak is much
-# higher, so sizing a host on the runtime figure alone produces a machine that
-# can never install what it is meant to run.
+# ------------------------------------------ no resource estimates, at all ----
 #
-# And a workload's RSS is not a host requirement. A 9 GiB workload on a 9 GiB
-# host leaves nothing for the kernel, Claude Code, an editor or a build, so the
-# measured figure and the number a host is judged against are kept apart —
-# conflating them is how "enough" gets reported for a machine that will swap.
-NEED_RAM_HARD=6           # below this nothing works reliably
-NEED_RAM_COMFORT=8        # below this `import Mathlib` and LeanExplore swap
-
-RAM_BOTH_SERVERS_RSS=9    # MEASURED workload: both MCP servers resident and
-                          # answering, on the 16 GiB test VM, 2026-07-29 —
-                          # lean-lsp holding Mathlib oleans plus LeanExplore
-                          # holding the two Qwen3 models. Steady state, not a
-                          # peak, and LeanExplore's behaviour there is not yet
-                          # fully characterised.
-RAM_HOST_HEADROOM=3       # kernel, page cache, Claude Code, an editor
-NEED_RAM_RUNTIME=$((RAM_BOTH_SERVERS_RSS + RAM_HOST_HEADROOM))
-
-NEED_RAM_LOOGLE_INDEX=14  # below this the initial loogle index is OOM-killed.
-                          # A one-off: it is the *build* peak, and only the first
-                          # index for a given (project, toolchain) pays it. Once
-                          # that index exists the binding figure is the warm load
-                          # below, so this is checked state-dependently.
-NEED_RAM_LOOGLE_WARM=8    # loading an existing index, ~7 GiB with a margin
+# There are deliberately no memory, disk, download-size or timing constants
+# here, and nothing in this skill decides anything from one.
+#
+# Every figure that used to live here was a measurement of one workload, on one
+# host, at one set of pinned versions. What the Loogle index costs moves with
+# the Mathlib revision it indexes; what LeanExplore costs moves with its
+# release, its model implementation and the query parameters; artefact and
+# download sizes move with every upstream publish; timings move with all of that
+# plus the disk and the network. None of it changes when this skill changes, so
+# a constant frozen from one run is a claim about every future run that nobody
+# re-checks — and its failure mode is the bad one: it blocks an install on a
+# host that would have worked, or promises "enough" for one that will not.
+#
+# So the skill measures instead of predicting. `install.sh` runs the expensive
+# step and reports what that execution produced — exit status, terminating
+# signal, elapsed time, peak RSS where the host can report it, cgroup OOM
+# events, the artefact's actual size — and stops if the artefact is not there.
+# `preflight.sh` reports live host facts and draws no verdict from them. An OOM
+# is asserted only from an OOM counter, never from a total or a signal.
+#
+# What stays: version pins, commit hashes, exit-code contracts, protocol
+# values, and deliberate policy limits like LOOGLE_NULL_BACKEND. Those are
+# reproducibility inputs and behavioural contracts, not estimates.
+#
+# Historical measurements belong in dated test reports, not in executable
+# policy. Per-run measurements belong in the manifest, as provenance.
 
 # Closing lean-lsp-mcp's runtime fallback to the public Loogle API.
 #

@@ -6,7 +6,8 @@
 #                  [--mcp-scope project|local|user]
 #
 #   --quick  import one small Mathlib module instead of all of Mathlib, and
-#            skip the Loogle query (which loads ~7 GiB of oleans)
+#            skip the Loogle query, which loads the project's oleans and is the
+#            most resource-intensive check here
 #
 # Exit 0 when nothing failed.
 #
@@ -61,8 +62,10 @@ PROJ="$(find_lean_project "$PROJECT")" || die "no Lean project at or above $PROJ
 section "Binaries"
 
 # Version probes get a hard timeout. `lake --version` in particular can block
-# for minutes: outside a Lean project elan resolves a *default* toolchain and
-# will download one if none is installed.
+# for a long time: outside a Lean project elan resolves a *default* toolchain
+# and will download one if none is installed. The timeout is a policy choice —
+# a probe that has not answered by then is treated as a broken install — not an
+# estimate of how long the probe ought to take.
 #
 # Probes run as argument vectors, never through `sh -c` with an interpolated
 # project path — a path containing an apostrophe would otherwise break or

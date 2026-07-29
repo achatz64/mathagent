@@ -47,7 +47,7 @@ is LeanExplore's own extraction pipeline, noted at the end of `reference.md`.
 | Lean REPL | fast `lean_run_code` / `lean_multi_attempt` | yes |
 | `lean-lsp-mcp` | 16 LSP tools, local search, build | yes |
 | local Loogle index | type/pattern search without the 3-req/30s remote limit | yes |
-| `lean-explore[local]` + data | semantic search over Mathlib, ~3.9 GiB index + Qwen3 models | yes |
+| `lean-explore[local]` + data | semantic search over Mathlib: prebuilt index + Qwen3 models | yes |
 
 Four `lean-lsp-mcp` tools stay remote because they have no local mode:
 `lean_leansearch`, `lean_leanfinder`, `lean_state_search`, `lean_hammer_premise`.
@@ -58,8 +58,10 @@ The last two accept self-hosted backends via `LEAN_STATE_SEARCH_URL` / `LEAN_HAM
 Run the scripts in order from the repo root. They are idempotent — after a
 failure, fix the cause and re-run the same command.
 
-**1. Probe the host.** Never skip this; it is what turns an OOM three hours into
-the build into a warning up front.
+**1. Probe the host.** Never skip this: it finds the blockers that would
+otherwise surface deep inside a long build — an unsupported platform, a missing
+prerequisite, a moving Mathlib pin. It reports host resources as facts and
+draws no verdict from them; this skill holds no resource thresholds.
 
 ```bash
 bash .claude/skills/lean-kb-setup/scripts/preflight.sh --project lean
@@ -67,10 +69,15 @@ bash .claude/skills/lean-kb-setup/scripts/preflight.sh --project lean
 
 Read the output to the user, then act on it:
 
-- **FAIL** — stop and report. These are host limits (unsupported OS, not enough
-  disk, no Mathlib tag for the toolchain), not things to work around silently.
+- **FAIL** — stop and report. These are hard blockers (unsupported OS, a missing
+  `python3`/`git`/`curl`, no Lean project, no Mathlib tag for the toolchain), not
+  things to work around silently.
 - **WARN** — proceed, but tell the user which capability is degraded and what it
   would take to fix.
+- **INFO** — a host fact with no verdict attached: RAM, swap, cores, free space,
+  whether a first Loogle index is still ahead. Pass these on as observations.
+  Do not turn them into a prediction about whether the install will succeed —
+  that is what running it establishes.
 - **needs approval** — a `sudo` command (only ripgrep needs one). Ask the user
   before running anything with `--allow-sudo`.
 
@@ -80,8 +87,9 @@ Read the output to the user, then act on it:
 bash .claude/skills/lean-kb-setup/scripts/install.sh --project lean
 ```
 
-Run it in the background — a cold Mathlib fetch plus a Loogle index is tens of
-minutes. Useful flags: `--only STAGES` / `--skip STAGES` (stages listed in
+Run it in the background: a cold Mathlib fetch plus a first Loogle index is the
+longest part of the setup, and how long depends on the host, the network and
+whether Mathlib's build cache hits. Useful flags: `--only STAGES` / `--skip STAGES` (stages listed in
 `install.sh --help`), `--allow-sudo`, `--mcp-scope project|local|user` (default
 `project`), `--le-data-version` to pin the LeanExplore corpus.
 
@@ -128,9 +136,10 @@ without `~/.elan/bin`, could not find `lake`. Even so, only a real Claude
 restart settles a registration; this is the closest a script can get.
 
 **Expect a slow first query.** LeanExplore loads its index and both models
-lazily, so the first `search_summary` in a fresh session takes ~75 s — per
-server process, not per install. That is not a hang. A warm-up hook is under
-test as a remedy.
+lazily, on the first query rather than at startup, so whichever query comes
+first pays for all of it — per server process, not per install, so it recurs
+after every Claude restart. That is not a hang, and it is not evidence about
+memory. A warm-up hook is under test as a remedy.
 
 `--skip SECTIONS` suppresses a section *and the binaries it owns*, so a staged
 install can be verified as it goes: `--skip "leanlsp loogle leanexplore
@@ -163,10 +172,13 @@ confirm with `claude mcp list`.
   from a probe that used your own environment; that is precisely what passed
   while the restarted server was failing. A genuine Claude restart is the only
   real test.
-- Distinguish a **workload's** memory from a **host's** requirement, and a
-  one-off **build** peak from the recurring **runtime** cost. Both servers
-  measure ~9 GiB resident; a 9 GiB host is still too small. The 14 GiB Loogle
-  figure applies only until that project's index exists.
+- **Never quote a resource figure as a requirement.** This skill holds no RAM,
+  disk, download-size or timing constants, and derives no PASS/WARN/FAIL from
+  one: they all move with upstream versions, models, queries and the host. Say
+  what is expensive and why, run the operation, and report what *this* run
+  measured — elapsed time, peak RSS, signal, cgroup OOM events, artefact size.
+  Figures in the manifest's `measurements` are provenance for that run, not
+  requirements for the next.
 - Report the tool's own error text. `--quiet` suppresses stdout, never the
   server's account of what went wrong, and "it failed" plus a guess at the cause
   is a worse report than the one the server already handed you.

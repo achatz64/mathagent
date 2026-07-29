@@ -717,6 +717,24 @@ def cmd_write_manifest(args):
 
     merged["provenance"] = _merge_provenance(merged.get("provenance"), fresh.get("provenance"))
 
+    # Measurements accumulate: the most recent run that actually measured a step
+    # wins, and a run that did not measure it leaves the previous figure alone.
+    # A null here means "not measured this run", never "measured as nothing", so
+    # letting it overwrite would destroy the only record of what the step cost.
+    #
+    # Nothing reads these back to decide anything — they are diagnostics kept
+    # next to the pins and the host they were taken on. Values from different
+    # runs can therefore coexist, which is why each is stored with enough
+    # context to be interpreted on its own.
+    old_m = merged.get("measurements")
+    new_m = fresh.get("measurements")
+    if isinstance(new_m, dict):
+        combined = dict(old_m) if isinstance(old_m, dict) else {}
+        for key, value in new_m.items():
+            if value is not None or key not in combined:
+                combined[key] = value
+        merged["measurements"] = combined
+
     out.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps({"written": str(out)}))
     return 0
