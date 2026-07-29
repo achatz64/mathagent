@@ -8,7 +8,11 @@ later | unclear | impossible`). It stays import-free (pure core Lean, no
 Mathlib, no `import Lean`). The two ideas below trade that minimalism for
 tooling and are deferred until we want them.
 
-### 1. Editor warning on every `gap` (yellow squiggle)
+### 1. Specify statements
+
+Add a list of statements to `gap` which are sufficient to the proof. Similar to habit in math literature: "from X, Y, and Z, we can deduce...". And similar to Lean tactics like `rw`.  
+
+### 2. Editor warning on every `gap` (yellow squiggle)
 
 The bare axiom is silent — a `gap` typechecks with no visual signal, so open
 holes are easy to miss while reading. Give each use an editor diagnostic by
@@ -23,7 +27,7 @@ with the reason and difficulty before emitting `gap …`.
   version: warn, then `Term.elabTerm`/`evalTactic` the `gap` application.
 - Keep the plain axiom as the fallback so import-free files can still use gaps.
 
-### 2. `gap`-report command (self-reporting open assumptions)
+### 3. `gap`-report command (self-reporting open assumptions)
 
 A `#gaps <decl>` command (or a whole-file scan) that walks a declaration's value,
 collects every `gap` application, and prints a table of `reason` × `difficulty` ×
