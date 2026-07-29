@@ -1,0 +1,159 @@
+---
+name: lean-kb-setup
+description: Install, repair, and test the local Lean knowledge-base tooling for a Lean 4 + Mathlib project — lean-lsp-mcp (LSP tools, ripgrep local search, local Loogle index, Lean REPL) and LeanExplore with its prebuilt local semantic index — then register both as MCP servers. Use when asked to set up, install, reinstall, repair, or verify the Lean MCP tools, local Loogle, or the local LeanExplore index.
+---
+
+# Lean knowledge-base setup
+
+Installs and verifies the **prerequisites** for `ma1` (Lean) knowledge-base work:
+two MCP servers and their local indexes, configured so every index that *can* be
+local *is* local. See `reference.md` for the component matrix, measured resource
+costs, and troubleshooting.
+
+Targets Linux, macOS, and WSL2. Native Windows is not supported — local Loogle is
+Unix-only; tell the user to work inside WSL2.
+
+## Scope
+
+This skill installs **stock upstream tooling**. It does **not** implement the
+knowledge base described in [KB.md](../../../KB.md). Do not describe a successful
+run as "the knowledge base is built".
+
+What you get is a working Lean environment plus search over **Mathlib as
+published upstream**. Specifically, KB.md requires all of the following, and none
+of it is delivered here:
+
+| KB.md requirement | Status after this skill |
+|---|---|
+| Project declarations in the search corpus | **absent** — the LeanExplore index is a prebuilt Mathlib snapshot; your own Lean code is not in it |
+| One unified corpus over Mathlib + project code | **absent** — Loogle and LeanExplore are separate corpora with separate coverage |
+| Source-reference / bibliography metadata | **absent** — no extraction, no schema, no query filter |
+| Incremental indexing, atomic index publication | **absent** — LeanExplore data is fetched whole; Loogle re-indexes wholesale |
+| A KB MCP tool over the unified corpus | **absent** — you get upstream's tools, not KB.md's |
+| Reproducibility from pinned versions | **partial** — `.lean-kb-manifest.json` records resolved pins, but the LeanExplore corpus is a dated nightly unrelated to your Mathlib pin |
+
+The one KB.md step this genuinely satisfies is the last link in its chain:
+verifying retrieved declarations against a locally pinned Lean/Mathlib via
+`lean-lsp-mcp`. Building the corpus itself is separate work — the extension point
+is LeanExplore's own extraction pipeline, noted at the end of `reference.md`.
+
+## What gets installed
+
+| Component | Purpose | Local? |
+|---|---|---|
+| `uv` | runs both Python servers | — |
+| `ripgrep` | required by `lean_local_search`, `lean_verify` | — |
+| Mathlib | the corpus every local tool reads | yes |
+| Lean REPL | fast `lean_run_code` / `lean_multi_attempt` | yes |
+| `lean-lsp-mcp` | 16 LSP tools, local search, build | yes |
+| local Loogle index | type/pattern search without the 3-req/30s remote limit | yes |
+| `lean-explore[local]` + data | semantic search over Mathlib, ~3.9 GiB index + Qwen3 models | yes |
+
+Four `lean-lsp-mcp` tools stay remote because they have no local mode:
+`lean_leansearch`, `lean_leanfinder`, `lean_state_search`, `lean_hammer_premise`.
+The last two accept self-hosted backends via `LEAN_STATE_SEARCH_URL` / `LEAN_HAMMER_URL`.
+
+## Procedure
+
+Run the scripts in order from the repo root. They are idempotent — after a
+failure, fix the cause and re-run the same command.
+
+**1. Probe the host.** Never skip this; it is what turns an OOM three hours into
+the build into a warning up front.
+
+```bash
+.claude/skills/lean-kb-setup/scripts/preflight.sh --project lean
+```
+
+Read the output to the user, then act on it:
+
+- **FAIL** — stop and report. These are host limits (unsupported OS, not enough
+  disk, no Mathlib tag for the toolchain), not things to work around silently.
+- **WARN** — proceed, but tell the user which capability is degraded and what it
+  would take to fix.
+- **needs approval** — a `sudo` command (only ripgrep needs one). Ask the user
+  before running anything with `--allow-sudo`.
+
+**2. Install.**
+
+```bash
+.claude/skills/lean-kb-setup/scripts/install.sh --project lean
+```
+
+Run it in the background — a cold Mathlib fetch plus a Loogle index is tens of
+minutes. Useful flags: `--only STAGES` / `--skip STAGES` (stages listed in
+`install.sh --help`), `--allow-sudo`, `--mcp-scope project|local|user` (default
+`project`), `--le-data-version` to pin the LeanExplore corpus, `--lake-jobs N`
+to override the parallel-build cap.
+
+Version pins come from the project's own `lean-toolchain`; the script derives the
+matching Mathlib and `repl` release tags. It **validates an existing pin** rather
+than trusting it — a require on a moving branch is a hard error, because an
+unpinned dependency defeats KB.md's reproducibility requirement.
+
+`lake build` runs under a cap of the smaller of the core count and what RAM can
+feed (~2 GiB per worker). This only binds when `lake exe cache get` misses and
+Mathlib compiles from source; the default one-worker-per-core is what turns a
+high-core, memory-constrained host into an OOM kill mid-build. Raise it with
+`--lake-jobs` when you know the machine can take it.
+
+It writes `.lean-kb-manifest.json` recording the *resolved commits*, not just the
+tags asked for, plus a `provenance` map giving each component a sticky
+`origin` (`skill` or `user`) and the latest `action`. Consult it before removing
+anything — it is the only record of the pre-install state. A run that aborts
+partway still writes it, and `stages_incomplete` names what did not finish.
+
+**3. Verify.**
+
+```bash
+.claude/skills/lean-kb-setup/scripts/verify.sh --project lean
+```
+
+Checks binaries, that Mathlib actually imports, both MCP handshakes, a real
+query through each local index, and *how* each server was registered — a
+`lean-lsp` without `--loogle-local` is a FAIL, not a pass. `--quick` skips the
+full `import Mathlib` and the Loogle query when you only need a fast confidence
+check. `--mcp-scope` must match whatever `install.sh` used (default `project`).
+
+`--skip SECTIONS` suppresses a section *and the binaries it owns*, so a staged
+install can be verified as it goes: `--skip "leanlsp loogle leanexplore
+register"` after `--only mathlib` passes without failing on tools that are
+absent exactly as intended.
+
+`install.sh` exits non-zero when any stage did not complete, even one that
+carried on after a caught error. Do not read a zero exit as "all stages ran" —
+read `stages_incomplete` in the manifest.
+
+**4. Restart Claude Code** so it picks up the newly registered MCP servers, then
+confirm with `claude mcp list`.
+
+## Rules
+
+- Report host limits, do not paper over them. There is no Loogle fallback at
+  any layer: no index ⇒ `install.sh` stops; no `--loogle-local` ⇒ registration
+  refuses; and registration pins `LOOGLE_URL` to a dead endpoint so an upstream
+  runtime fallback raises instead of answering remotely. Never ship a setup the
+  user believes is fully local when it is not. `--skip loogle` is the user's
+  decision to make, not yours — ask first.
+- A config you cannot parse is *unknown*, never *empty*. Registration is
+  refused outright when the rollback snapshot is unreadable, because that is
+  the one case where a failed write cannot be undone.
+- Never pin Mathlib to a moving branch.
+- Prefer `--only` over rerunning everything when repairing one component.
+- Never claim this built a KB.md knowledge base. See **Scope** above.
+- `lean-explore search` on the CLI is the **hosted API** and needs
+  `LEANEXPLORE_API_KEY`. The local backend is reachable only via
+  `lean-explore mcp serve --backend local`. Never use the CLI to test a local
+  install — it verifies the wrong backend.
+- A successful `lean_loogle` query does not prove local Loogle works: it falls
+  back to the remote API silently. Only this project's own index file, at the
+  path `introspect.py loogle-index` computes, is evidence.
+- `introspect.py loogle-index` exits 0 whether or not the index exists — it
+  answers "where would it be". Read its `exists` field, never its exit status.
+- Only ever remove a component whose `provenance` entry says `origin: skill`.
+  `origin: user` means the user had it before this skill ran, and nothing here
+  can put back what a `replaced` action overwrote. `origin: shared` is a
+  machine-wide cache (Lean toolchains, HuggingFace models) — never remove those
+  on behalf of one project, whoever triggered the download.
+- An `action` ending in `-ing` means that mutation never completed. Treat the
+  component as possibly half-written and re-run its stage before trusting it.

@@ -1,0 +1,658 @@
+#!/usr/bin/env python3
+"""Introspection helpers for the lean-kb-setup skill.
+
+These live in Python rather than the shell for two reasons. The things they
+inspect — TOML require blocks, Lake's resolved manifest, HuggingFace snapshot
+revisions, Loogle's hashed cache paths — are not safely parseable with grep.
+And doing the work here keeps untrusted values (project paths, revisions read
+out of files) out of shell word-splitting and heredoc interpolation entirely.
+
+Every subcommand prints JSON on stdout. Exit codes:
+
+    0  the thing was found (see `loogle-index` for the one exception)
+    1  the thing is absent
+    2  `require` only: the lakefile exists but does not parse
+
+`loogle-index` is deliberately different: it answers "where would the index
+be", which has an answer whether or not the file exists, so it always exits 0
+and reports presence in its "exists" field. Callers must read that field —
+treating its exit status as existence reports every missing index as present.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import sys
+
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+class LakefileError(Exception):
+    """The lakefile exists but could not be parsed."""
+
+
+def _strip_comment(line):
+    """Drop an inline # comment without cutting inside a quoted string."""
+    out, quote = [], None
+    for ch in line:
+        if quote:
+            out.append(ch)
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+            out.append(ch)
+        elif ch == "#":
+            break
+        else:
+            out.append(ch)
+    return "".join(out).strip()
+
+
+def _unquote(value):
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        return value[1:-1]
+    return value
+
+
+def load_toml(path):
+    """Parse a lakefile. tomllib is 3.11+, so fall back to a block scanner.
+
+    Raises LakefileError rather than returning empty on a parse failure: a
+    malformed lakefile silently reported as "no such require" would make the
+    caller append a duplicate require block.
+    """
+    text = path.read_text(encoding="utf-8")
+    try:
+        import tomllib
+    except ImportError:
+        tomllib = None
+
+    if tomllib is not None:
+        try:
+            return tomllib.loads(text)
+        except Exception as exc:
+            raise LakefileError(f"{path}: {exc}") from exc
+
+    # Python 3.10 fallback: collect [[require]] tables, which is all we need.
+    requires, current = [], None
+    for raw in text.splitlines():
+        line = _strip_comment(raw)
+        if not line:
+            continue
+        if line.startswith("[[require]]"):
+            current = {}
+            requires.append(current)
+        elif line.startswith("["):
+            current = None
+        elif current is not None and "=" in line:
+            key, _, value = line.partition("=")
+            current[key.strip()] = _unquote(value)
+    return {"require": requires}
+
+
+def cmd_require(args):
+    """What the lakefile *asks* for.
+
+    Classifies the revision syntactically only. Deciding whether a name is a
+    reproducible tag or a moving branch needs the remote, so that judgement is
+    left to the caller — a blacklist of branch names here would accept
+    `develop`, `stable`, or `release-next` as pins.
+    """
+    path = pathlib.Path(args.project) / "lakefile.toml"
+    if not path.exists():
+        print(json.dumps({"error": "no lakefile.toml"}))
+        return 1
+    try:
+        parsed = load_toml(path)
+    except LakefileError as exc:
+        print(json.dumps({"error": str(exc)}))
+        return 2
+
+    for req in parsed.get("require", []):
+        if req.get("name") == args.name:
+            rev = req.get("rev")
+            print(
+                json.dumps(
+                    {
+                        "name": args.name,
+                        "rev": rev,
+                        "git": req.get("git"),
+                        "scope": req.get("scope"),
+                        # commit | name | none — never a reproducibility verdict.
+                        "rev_kind": (
+                            "commit" if rev and COMMIT_RE.match(rev)
+                            else "name" if rev
+                            else "none"
+                        ),
+                    }
+                )
+            )
+            return 0
+    return 1
+
+
+def cmd_resolved(args):
+    """What Lake actually resolved — the commit SHA. This is the real lock."""
+    path = pathlib.Path(args.project) / "lake-manifest.json"
+    if not path.exists():
+        return 1
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return 1
+    for pkg in data.get("packages", []):
+        if pkg.get("name") == args.name:
+            print(
+                json.dumps(
+                    {
+                        "name": args.name,
+                        "rev": pkg.get("rev"),
+                        "inputRev": pkg.get("inputRev"),
+                        "url": pkg.get("url"),
+                    }
+                )
+            )
+            return 0
+    return 1
+
+
+def cmd_loogle_index(args):
+    """The exact index file for this project.
+
+    lean-lsp-mcp keys the index on sha256 of the resolved project path, so a
+    glob over the cache can pick up a *different* project's index. Reproduce
+    the key instead of guessing.
+
+    Always exits 0: computing a path is not the same question as whether the
+    file is there, and conflating them made a missing index abort the caller
+    under `set -e` before it could build one. Read "exists" for that.
+    """
+    project = pathlib.Path(args.project).resolve(strict=False)
+    key = hashlib.sha256(str(project).encode()).hexdigest()[:12]
+    cache = pathlib.Path(
+        args.cache_dir or (pathlib.Path.home() / ".cache/lean-lsp-mcp/loogle")
+    )
+    idx = cache / "index" / f"mathlib-{key}.idx"
+    print(
+        json.dumps(
+            {
+                "path": str(idx),
+                "exists": idx.exists(),
+                "size": idx.stat().st_size if idx.exists() else 0,
+            }
+        )
+    )
+    return 0
+
+
+def _hf_cache_root():
+    """Honour the documented HuggingFace cache overrides, in priority order."""
+    for var in ("HF_HUB_CACHE", "HUGGINGFACE_HUB_CACHE"):
+        if os.environ.get(var):
+            return pathlib.Path(os.environ[var])
+    if os.environ.get("HF_HOME"):
+        return pathlib.Path(os.environ["HF_HOME"]) / "hub"
+    return pathlib.Path.home() / ".cache/huggingface/hub"
+
+
+def cmd_hf_revision(args):
+    """The commit `main` points at for a cached model.
+
+    Snapshot directory names are commit hashes, so picking the lexical maximum
+    is meaningless — it has no relation to what `main` references or to what
+    was actually loaded. Read refs/main instead, and only fall back to a lone
+    snapshot when there is exactly one and therefore no ambiguity.
+    """
+    org, _, name = args.model.partition("/")
+    root = _hf_cache_root() / f"models--{org}--{name}"
+
+    ref = root / "refs" / "main"
+    if ref.is_file():
+        rev = ref.read_text(encoding="utf-8").strip()
+        if rev:
+            print(json.dumps({"model": args.model, "revision": rev, "source": "refs/main"}))
+            return 0
+
+    snaps = sorted(p.name for p in (root / "snapshots").iterdir()) if (root / "snapshots").is_dir() else []
+    if len(snaps) == 1:
+        print(json.dumps({"model": args.model, "revision": snaps[0], "source": "sole-snapshot"}))
+        return 0
+    return 1
+
+
+def _mcp_config_path(scope, repo_root):
+    home = pathlib.Path.home()
+    if scope == "project":
+        return pathlib.Path(repo_root).resolve(strict=False) / ".mcp.json"
+    return home / ".claude.json"
+
+
+def _mcp_child(holder, key, create, label):
+    """One level into an MCP config: the child object, or None when absent.
+
+    Membership, never `.get()`. A key that is present and `null` is not a key
+    that is missing, and `.get()` cannot tell them apart — which would put a
+    JSON null straight back into the "absent" bucket that everything below is
+    written to keep it out of. So a present-but-not-an-object value raises,
+    `null` included, and only a genuinely missing key may be created.
+    """
+    if key not in holder:
+        if not create:
+            return None
+        holder[key] = {}
+        return holder[key]
+    value = holder[key]
+    if not isinstance(value, dict):
+        raise ValueError("%s is %s, not a JSON object" % (label, json.dumps(value)))
+    return value
+
+
+def _mcp_servers(data, scope, repo_root, create=False):
+    """The dict holding mcpServers for one scope, or None when it is absent.
+
+    `local` scope nests under projects.<repo root>, so the three scopes are not
+    interchangeable even when two of them share a file.
+
+    Raises ValueError when any container along the way is present but is not an
+    object. "Not there" and "there, but not something I understand" are
+    different answers, and collapsing the second into the first is the dangerous
+    direction: it reports a config we cannot parse as a confident "nothing is
+    registered", the caller registers over it, and the snapshot it took to undo
+    that says the same thing.
+    """
+    holder = data
+    if scope == "local":
+        projects = _mcp_child(data, "projects", create, "projects")
+        if projects is None:
+            return None
+        key = str(pathlib.Path(repo_root).resolve(strict=False))
+        holder = _mcp_child(projects, key, create, "projects[%s]" % json.dumps(key))
+        if holder is None:
+            return None
+    return _mcp_child(holder, "mcpServers", create, "mcpServers")
+
+
+def _looks_empty(value):
+    """True when a document holds no information beyond empty containers."""
+    if isinstance(value, dict):
+        return all(_looks_empty(v) for v in value.values())
+    if isinstance(value, list):
+        return all(_looks_empty(v) for v in value)
+    return value is None
+
+
+def cmd_mcp_entry(args):
+    """Snapshot and restore ONE registration, not the whole config file.
+
+    Whole-file rollback has two failure modes this avoids. It cannot undo a
+    registration in `~/.claude.json` without also reverting whatever else
+    Claude Code wrote there since the snapshot, so the file was left alone —
+    which left a failed `add`'s registration live. And restoring a whole file
+    clobbers concurrent unrelated edits.
+
+    Operating on `mcpServers.<name>` at one scope undoes exactly what this skill
+    did. The read-modify-write window shrinks from "snapshot until failure" to
+    a few milliseconds inside one process.
+    """
+    path = _mcp_config_path(args.scope, args.repo_root)
+    out = {"name": args.name, "scope": args.scope, "source": str(path)}
+
+    if args.action == "get":
+        out.update(file_existed=path.is_file(), present=False, entry=None, readable=True)
+        try:
+            if path.is_file():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    raise ValueError("config root is not a JSON object")
+                servers = _mcp_servers(data, args.scope, args.repo_root) or {}
+                if args.name in servers:
+                    out["present"] = True
+                    out["entry"] = servers[args.name]
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            out.update(readable=False, error=str(exc))
+        print(json.dumps(out))
+        return 0
+
+    # restore
+    try:
+        state = json.loads(pathlib.Path(args.state_file).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        print(json.dumps({**out, "restored": False, "error": str(exc)}))
+        return 1
+
+    if not state.get("readable", True):
+        # We never established a before-state, so we cannot undo anything
+        # without risking the destruction of something we did not record.
+        print(json.dumps({**out, "restored": False, "error": "no readable snapshot"}))
+        return 1
+
+    try:
+        data = {}
+        if path.is_file():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                # Starting from {} here would write our entry over whatever the
+                # file actually held. Refusing leaves the mess intact and visible.
+                raise ValueError("config root is not a JSON object")
+
+        servers = _mcp_servers(data, args.scope, args.repo_root, create=state.get("present", False))
+        if state.get("present"):
+            servers[args.name] = state.get("entry")
+            action = "reinstated"
+        else:
+            if servers is not None:
+                servers.pop(args.name, None)
+            action = "removed"
+
+        # The file itself is ours to delete only if it did not exist before and
+        # nothing but the entry we removed was ever in it.
+        if not state.get("file_existed") and not state.get("present") and _looks_empty(data):
+            if path.exists():
+                path.unlink()
+            print(json.dumps({**out, "restored": True, "action": "removed-file"}))
+            return 0
+
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({**out, "restored": True, "action": action}))
+        return 0
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        print(json.dumps({**out, "restored": False, "error": str(exc)}))
+        return 1
+
+
+def cmd_mcp_registered(args):
+    """Is <name> registered in one *specific* scope?
+
+    `claude mcp get` resolves across all three scopes, so it cannot tell a
+    project-scoped registration this skill owns from a user-scoped one it must
+    not touch — and answering the wrong question turns "we created this" into
+    "we replaced someone else's". Read the file the scope actually writes.
+
+    Always exits 0. "registered" is true, false, or null when the config exists
+    but cannot be read; the caller decides what to do with an unknown, and the
+    conservative choice is to assume something was there.
+
+    --env-key and --has-arg answer "how was it registered?" as structured
+    fields, because the flattened `args`/`env` strings are only fit for printing.
+    Substring-matching them is not an exact check and reads as one: with
+    LOOGLE_URL pinned to http://127.0.0.1:1, the string form is satisfied by
+    NOTE=LOOGLE_URL=http://127.0.0.1:1-suffix (a different variable entirely)
+    and by LOOGLE_URL=http://127.0.0.1:10 (a different port), while
+    `--loogle-local=false` contains `--loogle-local`. All three are exactly the
+    fallback-capable registrations the check exists to catch.
+    """
+    path = _mcp_config_path(args.scope, args.repo_root)
+
+    # Everything from the stat onwards is caught: an unreadable file, a
+    # permission error on a parent, a bad encoding, and a config whose shape is
+    # not what it should be all mean the same thing here — we cannot tell. The
+    # "always exits 0" contract has to hold against all of them, not just
+    # against malformed JSON.
+    out = {"name": args.name, "scope": args.scope, "source": str(path)}
+    try:
+        if not path.is_file():
+            out["registered"] = False
+        else:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("config root is not a JSON object")
+            servers = _mcp_servers(data, args.scope, args.repo_root)
+            if servers is None:
+                servers = {}
+            out["registered"] = args.name in servers
+            if out["registered"]:
+                entry = servers[args.name]
+                # An entry that is not an object is a registration we cannot
+                # read. Say so as a field: the key really is present, so
+                # reporting "not registered" would be a lie, and every "how was
+                # it registered" answer below has to fail closed.
+                out["entry_object"] = isinstance(entry, dict)
+                argv, env = [], {}
+                if isinstance(entry, dict):
+                    if isinstance(entry.get("args"), list):
+                        argv = [str(a) for a in entry["args"]]
+                    if isinstance(entry.get("env"), dict):
+                        env = entry["env"]
+                # The command matters as much as the arguments: an entry naming
+                # the right flags on the wrong binary is not this skill's server.
+                command = entry.get("command") if isinstance(entry, dict) else None
+                out["command"] = "" if command is None else str(command)
+                # Flattened forms, for printing only. Never match against these.
+                out["args"] = " ".join(argv)
+                out["env"] = " ".join("%s=%s" % (k, v) for k, v in sorted(env.items()))
+                if args.require_arg:
+                    out["missing_args"] = " ".join(a for a in args.require_arg if a not in argv)
+                if args.opt_value is not None:
+                    # The element *after* an option, e.g. --lean-project-path DIR.
+                    out["opt"] = args.opt_value
+                    out["opt_present"] = args.opt_value in argv
+                    i = argv.index(args.opt_value) if args.opt_value in argv else -1
+                    out["opt_value"] = argv[i + 1] if 0 <= i < len(argv) - 1 else None
+                if args.has_arg is not None:
+                    out["arg"] = args.has_arg
+                    out["has_arg"] = args.has_arg in argv     # exact element
+                if args.env_key is not None:
+                    out["env_key"] = args.env_key
+                    out["env_present"] = args.env_key in env
+                    value = env.get(args.env_key)
+                    out["env_value"] = None if value is None else str(value)
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        out["registered"] = None
+        out["error"] = str(exc)
+    print(json.dumps(out))
+    return 0
+
+
+# Which actions mean "this component would not be here but for the skill".
+# In-flight actions count: a half-finished install is still the skill's mess.
+_SKILL_ACTIONS = {"installed", "installing"}
+
+# Components that live outside the project and are shared with every other
+# project and tool on the machine. The skill may well have triggered the
+# download, but "we caused it" does not make it ours to delete, so they get a
+# distinct origin rather than being silently left out of the record.
+_SHARED_COMPONENTS = {"lean_toolchain", "hf_embedding_model", "hf_reranker_model"}
+
+
+def _merge_provenance(old, fresh):
+    """Merge provenance component by component, preserving *origin*.
+
+    Provenance answers a question about the whole history of the install, not
+    about the last run: may an uninstall remove this? Recording only what the
+    latest run observed loses that. A run that installs uv writes `installed`;
+    the next run sees uv already present and writes `preexisting`, and the fact
+    that the skill created it is gone after one repair.
+
+    So each component carries a sticky `origin` — `skill` if the skill brought
+    it into existence, `user` if it predated the skill — alongside `action`,
+    what the latest run did. Origin is derived once, from the first action ever
+    recorded, and never overwritten afterwards.
+
+    The one reset is `absent`: if the component is not there, the next run's
+    observation starts fresh, so a user who reinstalls it by hand is not
+    recorded as `skill` on the strength of an install that is long gone.
+
+    Entries are merged, never cleared by stage: a stage that ran and failed
+    reports nothing, and dropping its history on that basis would erase the
+    record of what an earlier run created — precisely when it matters most.
+    """
+    def normalise(entry):
+        # 0.2.x wrote a bare action string, and a hand-edited manifest may too.
+        # The action vocabulary did not change, so the origin follows from it.
+        if isinstance(entry, dict):
+            return dict(entry)
+        return {"action": str(entry)}
+
+    def origin_for(action, prior):
+        if action == "absent":
+            return None                      # nothing there: the next run re-derives
+        if action in _SKILL_ACTIONS:
+            # install.sh only chooses these when its before-state check found
+            # the component missing, so this run created what is there now —
+            # whatever an older, since-removed copy used to belong to.
+            return "skill"
+        return prior or "user"
+
+    old = {k: normalise(v) for k, v in old.items()} if isinstance(old, dict) else {}
+    fresh = fresh if isinstance(fresh, dict) else {}
+
+    # 0.3.x keyed MCP registrations without a scope. Leaving those behind would
+    # strand real history under a key nothing writes any more. They cannot be
+    # folded into the current scope either: the scope they referred to was never
+    # recorded, and guessing it wrong is how a user-scoped registration inherits
+    # a skill origin. Retire them to an explicit `.unknown` scope instead —
+    # visibly not a real scope, and still a record that something exists.
+    for name in [k for k in old if k.startswith("mcp_") and "." not in k]:
+        entry = old.pop(name)
+        entry.setdefault("scope", "unknown")
+        old.setdefault(name + ".unknown", entry)
+
+    # Derive the recorded history's origins *first*. A 0.2.x entry that this
+    # run also touches has to contribute its own origin before the new action
+    # overwrites the old one — otherwise migrating and touching in the same run
+    # silently downgrades a skill-owned component to `user`.
+    for entry in old.values():
+        if "origin" not in entry:
+            derived = origin_for(entry.get("action"), None)
+            if derived:
+                entry["origin"] = derived
+
+    merged = dict(old)
+    for name, raw in fresh.items():
+        entry = normalise(raw)
+        action = entry.get("action")
+        origin = origin_for(action, old.get(name, {}).get("origin"))
+
+        out = {"action": action}
+        if origin:
+            out["origin"] = origin
+        if entry.get("scope"):
+            out["scope"] = entry["scope"]
+        merged[name] = out
+
+    # Caches shared with every other project and tool on the machine. Whoever
+    # triggered the download, they are never one project's to delete.
+    for name, entry in merged.items():
+        if name in _SHARED_COMPONENTS and entry.get("action") != "absent":
+            entry["origin"] = "shared"
+    return merged
+
+
+def cmd_write_manifest(args):
+    """Merge resolved values into the manifest.
+
+    Stage ownership matters: a key owned by a stage that ran this time is
+    overwritten even when the new value is null (the stage genuinely produced
+    nothing), while keys owned by stages that did not run are preserved. A
+    blind merge would leave stale pins behind after a component was removed.
+
+    `--stages` lists the stages that ran *to completion*. A stage that started
+    and then failed knows nothing reliable about its keys, so clearing them on
+    its behalf would replace good recorded pins with nulls.
+
+    Provenance does not use stage ownership at all — see _merge_provenance.
+    """
+    owners = {
+        "mathlib": ["mathlib_rev", "mathlib_inputrev", "mathlib_url"],
+        "repl": ["repl_rev", "repl_inputrev"],
+        "leanlsp": ["lean_lsp_mcp"],
+        "loogle": ["loogle_index"],
+        "leanexplore": [
+            "lean_explore",
+            "lean_explore_data",
+            "embedding_model",
+            "embedding_revision",
+            "reranker_model",
+            "reranker_revision",
+        ],
+    }
+
+    out = pathlib.Path(args.out)
+    merged = {}
+    if out.exists():
+        try:
+            merged = json.loads(out.read_text(encoding="utf-8"))
+        except ValueError:
+            merged = {}
+
+    fresh = json.loads(args.values)
+    ran = set(args.stages.split())
+
+    # Always-current facts.
+    for key in (
+        "generated", "project", "lean_toolchain",
+        "elan", "ripgrep", "uv", "skill_version", "lake_jobs",
+        "stages_completed", "stages_incomplete",
+    ):
+        if key in fresh:
+            merged[key] = fresh[key]
+
+    # A stage that completed owns its keys outright. A stage that did not is
+    # preserved, never *seeded*: install.sh emits its version constants on every
+    # run regardless of which stages ran, so copying non-null values across
+    # would have `--only register` assert that lean-lsp-mcp 0.29.0 and
+    # lean-explore 1.2.1 are installed when neither stage was even selected.
+    for stage, keys in owners.items():
+        if stage in ran:
+            for key in keys:
+                merged[key] = fresh.get(key)
+
+    merged["provenance"] = _merge_provenance(merged.get("provenance"), fresh.get("provenance"))
+
+    out.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps({"written": str(out)}))
+    return 0
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("require", help="read a [[require]] block from lakefile.toml")
+    p.add_argument("project"); p.add_argument("name"); p.set_defaults(fn=cmd_require)
+
+    p = sub.add_parser("resolved", help="read a resolved package from lake-manifest.json")
+    p.add_argument("project"); p.add_argument("name"); p.set_defaults(fn=cmd_resolved)
+
+    p = sub.add_parser("loogle-index", help="exact loogle index path for a project")
+    p.add_argument("project"); p.add_argument("--cache-dir"); p.set_defaults(fn=cmd_loogle_index)
+
+    p = sub.add_parser("mcp-entry", help="snapshot/restore one MCP registration")
+    p.add_argument("action", choices=("get", "restore"))
+    p.add_argument("name")
+    p.add_argument("--scope", required=True, choices=("project", "local", "user"))
+    p.add_argument("--repo-root", required=True)
+    p.add_argument("--state-file", help="snapshot JSON, required for restore")
+    p.set_defaults(fn=cmd_mcp_entry)
+
+    p = sub.add_parser("mcp-registered", help="is an MCP server registered in one scope?")
+    p.add_argument("name")
+    p.add_argument("--scope", required=True, choices=("project", "local", "user"))
+    p.add_argument("--repo-root", required=True)
+    p.add_argument("--env-key", help="report this env var exactly: env_present, env_value")
+    p.add_argument("--has-arg", help="exact argv membership, as has_arg (use --has-arg=--flag)")
+    p.add_argument("--require-arg", action="append", default=[],
+                   help="repeatable; the absent ones come back in missing_args")
+    p.add_argument("--opt-value", help="the argv element following this option, as opt_value")
+    p.set_defaults(fn=cmd_mcp_registered)
+
+    p = sub.add_parser("hf-revision", help="cached snapshot revision of a HF model")
+    p.add_argument("model"); p.set_defaults(fn=cmd_hf_revision)
+
+    p = sub.add_parser("write-manifest", help="merge resolved values into the manifest")
+    p.add_argument("--out", required=True)
+    p.add_argument("--values", required=True, help="JSON object of resolved values")
+    p.add_argument("--stages", default="", help="space-separated stages that ran")
+    p.set_defaults(fn=cmd_write_manifest)
+
+    args = ap.parse_args()
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
