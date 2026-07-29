@@ -52,3 +52,28 @@ Reach for a positive `rerank_top` deliberately, not by default:
 | batch or repeated searches | `rerank_top: 0` throughout |
 
 The first reranked call in a session also loads the reranker model into the server process (and downloads it, if `install.sh` did not prefetch it). Expect that call to be slow, and do not read the delay as a hang.
+
+### Declaration `id` is index-local — never persist one
+
+`id` on a search result is a plain SQLite primary key on the `declarations`
+table (`lean_explore/models/search_db.py`: `id: Mapped[int] =
+mapped_column(Integer, primary_key=True)`), assigned by insertion order. It is
+not a hash and carries no information about the declaration. It is unique and
+stable *within one built index*, and meaningless outside it: re-fetching the
+corpus at a different `--le-data-version` renumbers everything, so a remembered
+id may later name a different declaration, or none.
+
+**Within a session, use ids — you have no choice.** The six detail tools
+(`get_source_code`, `get_docstring`, `get_source_link`, `get_description`,
+`get_module`, `get_dependencies`) take `declaration_id: int` and offer no
+by-name lookup. The intended flow is exactly `search_summary` → note the id →
+`get_source_code(id)`.
+
+**Across sessions, use the name.** `name` is the stable identifier (`unique`,
+indexed — e.g. `Nat.add_comm`). Write names into notes, commits, and issues,
+never ids. To come back to a declaration later, `search` for the name and take
+the id from the fresh result.
+
+The corpus version this rule is scoped to is recorded as
+`lean_explore_data` in `<project>/.lean-kb-manifest.json`. If that value
+changed, every id you were holding is stale.
