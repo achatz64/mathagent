@@ -385,6 +385,21 @@ implicit put a recurring cross-encoder pass inside a readiness check, on the
 machine that had just finished building Mathlib, where nobody had asked for it
 and its cost read as the cost of installing.
 
+**Warm steady state: the two engines respond to different hardware.** Once past
+cold start, LeanExplore query latency **scales with core count** — a warm query
+is compute, a transformer forward pass over the query text plus a vector search,
+and both use whatever cores are there. Loogle is **insensitive to cores**: its
+index is resident and a query is a pattern match against it, so what it wants is
+the RAM to hold the index, not parallelism. The practical consequence is that
+adding vCPUs is a LeanExplore lever and does nothing for Loogle, while the
+memory peak recorded during indexing is a Loogle constraint that no amount of
+CPU relieves.
+
+This skill does not measure steady-state query latency, and no figure for it
+appears anywhere here — it moves with the query, the corpus release and the
+model. The *direction* is the durable part; measure your own host if you need a
+number.
+
 ### Reranking at runtime: what the install can and cannot control
 
 `rerank_top: 0` covers everything *this skill* runs. It does not cover what
@@ -700,6 +715,7 @@ indexing would have to be implemented.
 | Loogle worked during install, fails after a Claude restart | the registration carries no `PATH`, so the server cannot find `lake` | `install.sh --only register`; see "The registered environment" |
 | First `search_summary` of a session is slow | lazy load of the index and embedding model | expected once per process; see "Cold start vs reranking" |
 | *Every* `search_summary` is slow | `rerank_top` defaults to 50 — a cross-encoder pass per query | pass `rerank_top: 0` when ranking quality is not needed |
+| Warm `search_summary` still slow with `rerank_top: 0` | LeanExplore queries are compute-bound and scale with cores | a low-vCPU host is the limit; Loogle is unaffected by the same shortage |
 | `lake exe cache get` fails | network, or a Mathlib rev with no published cache | re-run; `lake build` will compile from source, slowly |
 | No Mathlib tag for the toolchain | project on a nightly or rc | move to a released toolchain, or pin Mathlib by hand |
 | `import Mathlib` times out in verify | Mathlib not fully built | `install.sh --only mathlib` |
