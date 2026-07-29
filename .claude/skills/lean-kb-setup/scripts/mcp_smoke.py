@@ -6,8 +6,16 @@ answers: initialize -> notifications/initialized -> tools/list -> tools/call.
 
     mcp_smoke.py [--timeout S] [--expect-tools a,b] [--call NAME --args JSON]
                  [--quiet] -- COMMAND [ARGS...]
+    mcp_smoke.py [...] --entry-file SNAPSHOT.json
 
 Exit 0 when every requested check passes, 1 otherwise.
+
+--entry-file starts the server from an MCP registration as written — the
+recorded command, argv and env — instead of from a command line assembled here.
+That is a different question from "does the installed binary work": a server
+can answer perfectly when launched by hand and still fail under Claude Code,
+which spawns it without a login shell and therefore without the PATH the
+installer had. Only the registration can answer that one.
 """
 
 import argparse
@@ -24,12 +32,17 @@ PROTOCOL_VERSION = "2025-06-18"
 class Server:
     """A subprocess speaking newline-delimited JSON-RPC over stdio."""
 
-    def __init__(self, argv, timeout):
+    def __init__(self, argv, timeout, extra_env=None):
         self.timeout = timeout
         self._next_id = 0
         self._replies = queue.Queue()
 
         env = dict(os.environ)
+        # The registration's own env, applied the way a client applies it: over
+        # the inherited environment, winning where they disagree. A registered
+        # PATH must override the caller's, or this would test the caller's.
+        if extra_env:
+            env.update({str(k): str(v) for k, v in extra_env.items()})
         # Keep the server's own logging off the wire we are parsing.
         env.setdefault("LEAN_LOG_LEVEL", "ERROR")
 
@@ -128,19 +141,36 @@ def main():
     ap.add_argument("--call")
     ap.add_argument("--args", default="{}")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--entry-file",
+                    help="JSON from `introspect.py mcp-entry get`: launch the "
+                         "server exactly as registered")
     ap.add_argument("command", nargs=argparse.REMAINDER)
     opts = ap.parse_args()
 
-    argv = opts.command[1:] if opts.command and opts.command[0] == "--" else opts.command
+    extra_env = None
+    if opts.entry_file:
+        try:
+            entry = json.loads(open(opts.entry_file, encoding="utf-8").read()).get("entry")
+        except (OSError, ValueError) as exc:
+            print(f"error: cannot read {opts.entry_file}: {exc}", file=sys.stderr)
+            return 1
+        if not isinstance(entry, dict) or not entry.get("command"):
+            print(f"error: {opts.entry_file} holds no usable registration", file=sys.stderr)
+            return 1
+        argv = [str(entry["command"])] + [str(a) for a in entry.get("args") or []]
+        env = entry.get("env")
+        extra_env = env if isinstance(env, dict) else None
+    else:
+        argv = opts.command[1:] if opts.command and opts.command[0] == "--" else opts.command
     if not argv:
-        ap.error("no server command given (put it after --)")
+        ap.error("no server command given (put it after --, or use --entry-file)")
 
     def say(*a):
         if not opts.quiet:
             print(*a)
 
     try:
-        server = Server(argv, opts.timeout)
+        server = Server(argv, opts.timeout, extra_env)
     except OSError as exc:
         print(f"error: cannot launch {argv[0]}: {exc}", file=sys.stderr)
         return 1
@@ -164,8 +194,13 @@ def main():
             text = render(result)
             say(f"{opts.call} ->")
             say(text[:2000])
+            # The server's own words go to stderr even under --quiet. They are
+            # the only account of what went wrong — every caller here discards
+            # stdout — and losing them is how "the index build failed" became a
+            # guess about the cause instead of a report of it.
             if result.get("isError"):
-                print(f"{opts.call} returned an error", file=sys.stderr)
+                print(f"{opts.call} returned an error:", file=sys.stderr)
+                print(text[:2000] or "(no content)", file=sys.stderr)
                 return 1
             if not text.strip():
                 print(f"{opts.call} returned nothing", file=sys.stderr)

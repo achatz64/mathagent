@@ -93,6 +93,18 @@ disk_mount() {
 # Float comparison: is $1 < $2?
 lt() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a < b) }'; }
 
+# Running total of OOM kills in this process's cgroup (v2 only). Non-zero exit
+# when the host cannot answer, which is not the same as an answer of zero — a
+# caller comparing before and after must treat "empty" as "no evidence either
+# way" rather than as "nothing was killed".
+cgroup_oom_kills() {
+  _rel="$(awk -F: '$1 == "0" { print $3 }' /proc/self/cgroup 2>/dev/null)"
+  [ -n "$_rel" ] || return 1
+  _f="/sys/fs/cgroup${_rel}/memory.events"
+  [ -r "$_f" ] || return 1
+  awk '$1 == "oom_kill" { print $2; found = 1 } END { exit !found }' "$_f"
+}
+
 # True when $1 sits on a Windows drive mounted into WSL (9p/drvfs). Lean builds
 # there are slow enough to trip lean-lsp-mcp's fixed 900s/300s timeouts.
 is_windows_mount() {
@@ -175,6 +187,19 @@ classify_ref() { # url, rev
 # Pins live here so the manifest written by install.sh and the checks in
 # preflight.sh/verify.sh can never disagree about what "installed" means.
 
+# 0.8.1: `measured` no longer re-enables errexit, which killed the script at the
+#        call site before the failure diagnostics could run; the registration
+#        pins LEAN_LOOGLE_CACHE_DIR as well as PATH; the 14 GiB Loogle floor is
+#        state-dependent; host RAM is judged with headroom over the measured
+#        workload; verify reads the toolchain-keyed loogle binary; a signal
+#        alone is no longer reported as a confirmed OOM; the loogle checkout and
+#        the LeanExplore data are classified `shared`.
+# 0.8.0: first-VM-run fixes. `lake -j` never existed in Lake 5.0, so the whole
+#        job cap is gone; the Loogle clone/build/index runs directly instead of
+#        through the tool call that wraps it in upstream's 900s/300s timeouts;
+#        registrations carry the PATH the server will actually be spawned with;
+#        verify compares the resolved executable and the ordered argv, and runs
+#        the server from its own registration.
 # 0.7.1: JSON null counts as malformed, not absent; verify validates the whole
 #        entry (command, args, project path, backend) for both servers; a failed
 #        rollback keeps its in-flight provenance marker.
@@ -191,7 +216,7 @@ classify_ref() { # url, rev
 # 0.3.0: provenance carries a sticky origin; lake build is capped by RAM.
 # 0.2.x manifests hold flat provenance strings; the action vocabulary did not
 # change, so _merge_provenance normalises them and derives the origin in place.
-SKILL_VERSION="0.7.1"
+SKILL_VERSION="0.8.1"
 LEAN_LSP_MCP_VERSION="${LEAN_LSP_MCP_VERSION:-0.29.0}"
 LEAN_EXPLORE_VERSION="${LEAN_EXPLORE_VERSION:-1.2.1}"
 
@@ -200,11 +225,33 @@ NEED_DISK_PROJECT=12      # Mathlib + deps + repl in the project's .lake
 NEED_DISK_HOME=14         # loogle ~2 + LeanExplore data 3.9 + HF models 2.5
                           # + tool venvs ~1.5-3.5 + one Lean toolchain ~2.8
 
-# RAM in GiB, as three bands. Loogle's first Mathlib index is the peak consumer
-# of the whole stack; upstream measures ~13 GiB peak RSS, ~7 GiB on warm loads.
+# RAM in GiB. Two different questions live here: what it takes to *build* the
+# stack once, and what it takes to *run* it every day. The build peak is much
+# higher, so sizing a host on the runtime figure alone produces a machine that
+# can never install what it is meant to run.
+#
+# And a workload's RSS is not a host requirement. A 9 GiB workload on a 9 GiB
+# host leaves nothing for the kernel, Claude Code, an editor or a build, so the
+# measured figure and the number a host is judged against are kept apart —
+# conflating them is how "enough" gets reported for a machine that will swap.
 NEED_RAM_HARD=6           # below this nothing works reliably
 NEED_RAM_COMFORT=8        # below this `import Mathlib` and LeanExplore swap
-NEED_RAM_LOOGLE_INDEX=14  # below this the initial loogle index OOMs
+
+RAM_BOTH_SERVERS_RSS=9    # MEASURED workload: both MCP servers resident and
+                          # answering, on the 16 GiB test VM, 2026-07-29 —
+                          # lean-lsp holding Mathlib oleans plus LeanExplore
+                          # holding the two Qwen3 models. Steady state, not a
+                          # peak, and LeanExplore's behaviour there is not yet
+                          # fully characterised.
+RAM_HOST_HEADROOM=3       # kernel, page cache, Claude Code, an editor
+NEED_RAM_RUNTIME=$((RAM_BOTH_SERVERS_RSS + RAM_HOST_HEADROOM))
+
+NEED_RAM_LOOGLE_INDEX=14  # below this the initial loogle index is OOM-killed.
+                          # A one-off: it is the *build* peak, and only the first
+                          # index for a given (project, toolchain) pays it. Once
+                          # that index exists the binding figure is the warm load
+                          # below, so this is checked state-dependently.
+NEED_RAM_LOOGLE_WARM=8    # loading an existing index, ~7 GiB with a margin
 
 # Closing lean-lsp-mcp's runtime fallback to the public Loogle API.
 #
@@ -218,25 +265,32 @@ NEED_RAM_LOOGLE_INDEX=14  # below this the initial loogle index OOMs
 # for the remote API, and then this must not be applied.
 LOOGLE_NULL_BACKEND="http://127.0.0.1:1"
 
-# ------------------------------------------------------------ lake jobs ----
+# --------------------------------------------------- the registered PATH ----
 #
-# Lake defaults to one worker per core. That is fine while `lake exe cache get`
-# hits — unpacking oleans is I/O — but when the cache misses, Mathlib compiles
-# from source and each worker is a full `lean` process holding its imports in
-# memory. On a high-core, memory-constrained host the default reliably invites
-# the OOM killer, which surfaces as an opaque mid-build failure.
+# Claude Code launches MCP servers directly, not through a login shell, so the
+# server inherits whatever environment Claude itself was started with. That is
+# routinely a PATH without ~/.elan/bin — and lean-lsp-mcp shells out to `lake`
+# and `git` to build and run local Loogle. The install-time checks all pass,
+# because the installer put elan on its own PATH; the server then fails at the
+# first query after a restart, which is exactly the split this exists to close.
+#
+# So the PATH the server will get is written into the registration rather than
+# assumed. Absolute directories only: a relative entry resolves against whatever
+# working directory Claude happens to spawn the server in.
+mcp_runtime_path() {
+  python3 - "$HOME/.elan/bin" "$HOME/.local/bin" <<'PY'
+import os, sys
 
-RAM_PER_LAKE_JOB=2        # GiB peak per `lean` worker compiling Mathlib
-RAM_LAKE_RESERVED=2       # GiB left for the OS, the editor, and the LSP
-
-# Cores, capped by what RAM can actually feed. Never below 1.
-lake_jobs_default() {
-  awk -v ram="$(ram_gib)" -v cpus="$(cpu_count)" \
-      -v per="$RAM_PER_LAKE_JOB" -v res="$RAM_LAKE_RESERVED" '
-    BEGIN {
-      n = int((ram - res) / per)
-      if (n > cpus) n = cpus
-      if (n < 1) n = 1
-      print n
-    }'
+# The tool directories first, then everything this installer inherited, so the
+# compilers, git and the system utilities a Lean build needs are all still
+# reachable. Never a hardcoded /root or /home/<name>: $HOME is the only
+# portable answer, and this runs as whoever installed.
+seen, out = set(), []
+for d in list(sys.argv[1:]) + os.environ.get("PATH", "").split(os.pathsep):
+    if not d or not os.path.isabs(d) or d in seen:
+        continue
+    seen.add(d)
+    out.append(d)
+print(os.pathsep.join(out))
+PY
 }

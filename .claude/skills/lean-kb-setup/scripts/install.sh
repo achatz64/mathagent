@@ -8,11 +8,7 @@
 # Usage:
 #   install.sh [--project DIR] [--only STAGES] [--skip STAGES]
 #              [--allow-sudo] [--mcp-scope project|local|user]
-#              [--le-data-version YYYYMMDD_HHMMSS] [--lake-jobs N]
-#
-#   --lake-jobs  parallel Lake workers. Defaults to the smaller of the core
-#                count and what RAM can feed (~2 GiB per worker when Mathlib
-#                compiles from source). Also settable as LEAN_KB_LAKE_JOBS.
+#              [--le-data-version YYYYMMDD_HHMMSS]
 #
 # Stages, in order:
 #   uv           uv (userspace, no sudo)
@@ -34,7 +30,6 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 
 PROJECT="$PWD"
 ONLY=""; SKIP=""; ALLOW_SUDO=0; MCP_SCOPE="project"; LE_DATA_PIN=""
-LAKE_JOBS="${LEAN_KB_LAKE_JOBS:-}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -44,8 +39,7 @@ while [ $# -gt 0 ]; do
     --allow-sudo)       ALLOW_SUDO=1; shift ;;
     --mcp-scope)        MCP_SCOPE="$2"; shift 2 ;;
     --le-data-version)  LE_DATA_PIN="$2"; shift 2 ;;
-    --lake-jobs)        LAKE_JOBS="$2"; shift 2 ;;
-    -h|--help)          sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help)          sed -n '2,26p' "$0"; exit 0 ;;
     *) die "unknown argument: $1" ;;
   esac
 done
@@ -62,18 +56,6 @@ done
 case "$MCP_SCOPE" in
   project|local|user) ;;
   *) die "invalid --mcp-scope '$MCP_SCOPE' — use project, local, or user" ;;
-esac
-
-# An explicit job count is honoured as given — the operator may know something
-# the RAM heuristic does not — but it still has to be a positive integer, or
-# `lake build -j ""` fails deep inside the longest stage.
-case "$LAKE_JOBS" in
-  "")       ;;
-  *[!0-9]*) die "invalid --lake-jobs '$LAKE_JOBS' — expected a positive integer" ;;
-  *)        # 10# forces base 10, so "00" is rejected as zero rather than
-            # accepted as a digit string, and "08" is 8 rather than an error.
-            LAKE_JOBS=$((10#$LAKE_JOBS))
-            [ "$LAKE_JOBS" -ge 1 ] || die "invalid --lake-jobs — expected a positive integer" ;;
 esac
 
 wanted() {
@@ -101,13 +83,6 @@ export PATH="$HOME/.local/bin:$HOME/.elan/bin:$PATH"
 
 MANIFEST="$PROJ/.lean-kb-manifest.json"
 STARTED_STAGES=""; DONE_STAGES=""
-
-if [ -z "$LAKE_JOBS" ]; then
-  LAKE_JOBS="$(lake_jobs_default)"
-  JOBS_SOURCE="derived from $(ram_gib) GiB RAM and $(cpu_count) cores"
-else
-  JOBS_SOURCE="requested"
-fi
 
 # Installation provenance. The version manifest says what is installed; this
 # says how it got there, so a later uninstall knows what it may remove and what
@@ -356,11 +331,17 @@ stage_mathlib() {
   step "Mathlib: fetching the build cache (multi-GB, slow)"
   if ! (cd "$PROJ" && lake exe cache get); then
     warn "'lake exe cache get' failed — 'lake build' will compile Mathlib from source"
-    note "that is when -j matters: $LAKE_JOBS workers x ~${RAM_PER_LAKE_JOB} GiB against $(ram_gib) GiB"
+    # Lake 5.0 has no job-count option (`lake build -j N` is "unknown short
+    # option '-j'"), so there is nothing to turn down here: it runs one `lean`
+    # worker per core, each holding its imports in memory. On a host with more
+    # cores than RAM can feed, a cache miss can end at the OOM killer, and the
+    # only lever is the host.
+    note "compiling from source: one worker per core, ~2 GiB each, against $(ram_gib) GiB"
+    note "Lake offers no way to cap that — if it dies mid-build, the host needs more RAM"
   fi
 
-  step "Mathlib: lake build (-j $LAKE_JOBS)"
-  (cd "$PROJ" && lake build -j "$LAKE_JOBS")
+  step "Mathlib: lake build"
+  (cd "$PROJ" && lake build)
 
   # `replaced`, not `preexisting`: lake update + build ran over what was there.
   # `preexisting` means "detected, untouched", which is not what happened.
@@ -418,7 +399,7 @@ stage_repl() {
 
   if [ "$had_repl" -eq 1 ]; then prov repl_packages replacing; else prov repl_packages installing; fi
   (cd "$PROJ" && lake update repl) || true
-  if ! (cd "$PROJ" && lake build -j "$LAKE_JOBS" repl); then
+  if ! (cd "$PROJ" && lake build repl); then
     # Deliberately no settled action: `lake update` may have left a checkout,
     # complete or not, so "absent" is not established. The in-flight marker
     # stands, which is the truthful record of a mutation that never finished.
@@ -453,77 +434,235 @@ stage_leanlsp() {
 
 # --------------------------------------------------------------- loogle ----
 #
-# The server builds and indexes lazily on first query, behind fixed internal
-# timeouts (900s build, 300s index). Doing it here, in the foreground and
-# without those timeouts, turns a silent remote-fallback into a visible error.
+# lean-lsp-mcp builds and indexes lazily on first query, and wraps that work in
+# fixed internal timeouts: 900s for `lake build loogle`, 300s to wait for the
+# subprocess to announce readiness while it builds the Mathlib index. Neither is
+# configurable, and a cold index on a modest host does not fit inside the second
+# one. Raising the MCP *client's* timeout does nothing about them — they are
+# enforced server-side, and the visible symptom is a first query that fails and
+# a second that succeeds off the half-built artefacts the first one left behind.
+#
+# So this stage runs the same three commands itself, in the foreground and with
+# no timeout at all. The paths come from introspect.py, which mirrors upstream's
+# key derivation, so the artefacts land exactly where the server will look.
 #
 # No fallback: this stage either produces a local index or stops the install.
-# The failure it exists to catch is an OOM during indexing, after which
-# `lean_loogle` answers from the remote API and looks like it worked. Degrading
-# to that silently is the outcome the whole stage is here to prevent, so it is
-# a hard error. `--skip loogle` is the way to ask for the remote API on purpose.
+# After a failed index `lean_loogle` answers from the remote API and looks like
+# it worked, which is the silent degradation the whole stage exists to prevent.
+# `--skip loogle` is the way to ask for the remote API on purpose.
+
+# Peak RSS and cause of death for one command, when the host can report them.
+# The point is evidence: "the index build was killed by signal 9 at 12.8 GiB"
+# is a diagnosis, whereas inferring OOM from the host's total RAM is a guess
+# that happens to be right most of the time.
+MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""
+measured() { # logfile, then the command
+  _log="$1"; shift
+  MEASURE_PEAK_KB=""; MEASURE_SIGNAL=""; MEASURE_OOM=""
+
+  _oom_before="$(cgroup_oom_kills || true)"
+
+  # GNU time can put its two dozen lines of statistics in a file of its own,
+  # which keeps the build's actual output readable. BSD time cannot, so on
+  # macOS the report lands in the log with everything else and is parsed there.
+  #
+  # `if` rather than `set +e`/`set -e`: errexit is a *global* setting, so
+  # re-enabling it here re-enables it for the caller too. This function returns
+  # the command's status by design, and with errexit back on, that return killed
+  # the script at the call site — before the diagnostics that exist to explain
+  # the failure could run. `if` suppresses errexit for the pipeline without
+  # touching the caller's state, and under `pipefail` the pipeline's own status
+  # is already the command's (tee does not fail).
+  _tfile="$_log.time"
+  _rc=0
+  if [ -x /usr/bin/time ]; then
+    case "$OS" in
+      macos) _tfile="$_log"
+             if /usr/bin/time -l "$@" 2>&1 | tee -a "$_log"; then _rc=0; else _rc=$?; fi ;;
+      *)     if /usr/bin/time -v -o "$_tfile" "$@" 2>&1 | tee -a "$_log"; then _rc=0; else _rc=$?; fi ;;
+    esac
+  else
+    _tfile="$_log"
+    if "$@" 2>&1 | tee -a "$_log"; then _rc=0; else _rc=$?; fi
+  fi
+
+  # GNU time reports kbytes with the label first; BSD time reports bytes with
+  # the number first. Take whichever matched, normalised to KiB.
+  MEASURE_PEAK_KB="$(sed -n 's/.*Maximum resident set size[^0-9]*\([0-9][0-9]*\).*/\1/p' "$_tfile" 2>/dev/null | tail -1)"
+  if [ -z "$MEASURE_PEAK_KB" ]; then
+    _bytes="$(sed -n 's/^ *\([0-9][0-9]*\) *maximum resident set size.*/\1/p' "$_tfile" 2>/dev/null | tail -1)"
+    [ -n "$_bytes" ] && MEASURE_PEAK_KB=$((_bytes / 1024))
+  fi
+  MEASURE_SIGNAL="$(sed -n 's/.*Command terminated by signal \([0-9][0-9]*\).*/\1/p' "$_tfile" 2>/dev/null | tail -1)"
+
+  _oom_after="$(cgroup_oom_kills || true)"
+  if [ -n "$_oom_before" ] && [ -n "$_oom_after" ] && [ "$_oom_after" -gt "$_oom_before" ]; then
+    MEASURE_OOM=$((_oom_after - _oom_before))
+  fi
+  return "$_rc"
+}
+
+# Everything the measurement actually established, as notes. Silent about what
+# it could not measure rather than guessing.
+measure_notes() {
+  if [ -n "$MEASURE_PEAK_KB" ]; then
+    note "peak RSS $(awk -v k="$MEASURE_PEAK_KB" 'BEGIN{printf "%.1f", k/1048576}') GiB"
+  else
+    note "peak RSS not measured (no /usr/bin/time on this host)"
+  fi
+  if [ -n "$MEASURE_SIGNAL" ]; then
+    # Stated as the observation it is. Which signal, from whom, and why are
+    # three different questions, and only the first is answered here.
+    note "terminated by signal $MEASURE_SIGNAL"
+  fi
+  if [ -n "$MEASURE_OOM" ]; then
+    note "cgroup memory.events recorded $MEASURE_OOM OOM kill(s) during this step"
+  fi
+  return 0
+}
 
 stage_loogle() {
-  step "local Loogle index"
+  step "local Loogle: clone, build, index"
 
   ram="$(ram_gib)"
   if lt "$ram" "$NEED_RAM_LOOGLE_INDEX"; then
     warn "${ram} GiB RAM; the initial index needs ~13 GiB peak RSS"
-    note "attempting anyway — if it OOMs this stage stops the install"
+    note "attempting anyway — if it is killed this stage stops the install"
   fi
 
   [ -d "$PROJ/.lake/packages/mathlib" ] || die "no Mathlib in $PROJ, so local Loogle has nothing to index.
       Run the mathlib stage first, or --skip loogle to use the remote API."
-  have lean-lsp-mcp || die "lean-lsp-mcp is not installed, so the Loogle index cannot be built.
+  # The index is only ever consumed by lean-lsp-mcp, and the path convention it
+  # is keyed on comes from that package. Building one with the server absent
+  # would produce an artefact nothing reads.
+  have lean-lsp-mcp || die "lean-lsp-mcp is not installed, so the Loogle index has no consumer.
       Run the leanlsp stage first, or --skip loogle to use the remote API."
+  have git  || die "git is required to fetch the loogle sources"
+  have lake || die "lake is required to build loogle (run the elan stage first)"
 
-  # Before-state for provenance: the server builds and indexes lazily, so both
-  # artefacts may already exist from an earlier run or another tool.
-  cache="${LEAN_LOOGLE_CACHE_DIR:-$HOME/.cache/lean-lsp-mcp/loogle}"
-  if ls -1 "$cache"/repo-*/.lake/build/bin/loogle >/dev/null 2>&1; then had_bin=1; else had_bin=0; fi
-  if loogle_index_exists; then had_idx=1; else had_idx=0; fi
-  if [ "$had_bin" -eq 1 ]; then prov loogle_binary replacing; else prov loogle_binary installing; fi
+  paths="$(loogle_index_json)"
+  repo="$(printf '%s' "$paths" | jget repo_dir)"
+  repo_url="$(printf '%s' "$paths" | jget repo_url)"
+  repo_ref="$(printf '%s' "$paths" | jget repo_ref)"
+  lbin="$(printf '%s' "$paths" | jget binary)"
+  expected="$(printf '%s' "$paths" | jget path)"
+  idx_dir="$(printf '%s' "$paths" | jget index_dir)"
+  tc="$(printf '%s' "$paths" | jget toolchain)"
+  [ -n "$tc" ] || die "cannot read $PROJ/lean-toolchain — the loogle checkout is keyed on it"
+
+  # Before-state, per artefact and for THIS toolchain and project. The old glob
+  # over repo-*/ matched a checkout built for a different toolchain, so a fresh
+  # build here would have been recorded as a replacement of someone else's.
+  if [ "$(printf '%s' "$paths" | jget binary_exists)" = True ]; then had_bin=1; else had_bin=0; fi
+  if [ "$(printf '%s' "$paths" | jget exists)" = True ]; then had_idx=1; else had_idx=0; fi
+
+  # ---- 1. sources -----------------------------------------------------------
+  if [ "$(printf '%s' "$paths" | jget repo_cloned)" = True ]; then
+    step "loogle: checking out $repo_ref"
+    if [ "$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo none)" != "$repo_ref" ]; then
+      git -C "$repo" fetch --depth 1 origin "$repo_ref"
+    fi
+    git -C "$repo" checkout --detach "$repo_ref"
+  elif [ -e "$repo" ]; then
+    # Upstream refuses this case too. Deleting it would destroy whatever is
+    # actually there, which this skill does not do to a directory it did not
+    # create.
+    die "$repo exists but is not a git checkout. Remove it by hand, then re-run."
+  else
+    step "loogle: cloning $repo_url"
+    prov loogle_repo installing
+    mkdir -p "$(dirname "$repo")"
+    git clone --depth 1 --no-checkout "$repo_url" "$repo"
+    git -C "$repo" fetch --depth 1 origin "$repo_ref"
+    git -C "$repo" checkout --detach "$repo_ref"
+    prov loogle_repo installed
+  fi
+
+  # ---- 2. the binary --------------------------------------------------------
+  if [ "$had_bin" -eq 1 ]; then
+    prov loogle_binary preexisting
+    pass "binary already built: $lbin"
+  else
+    prov loogle_binary installing
+    step "loogle: lake build (no timeout; upstream would cap this at 900s)"
+    # ELAN_TOOLCHAIN pins the build to the project's toolchain and
+    # LAKE_ARTIFACT_CACHE=false matches what the server does, so the build this
+    # produces is the one it would have produced itself.
+    if ! (cd "$repo" && LAKE_ARTIFACT_CACHE=false ELAN_TOOLCHAIN="$tc" lake build loogle); then
+      # No settled action: the build may have left a partial .lake tree.
+      fail "loogle build failed under toolchain $tc"
+      note "no index can be built without the binary; re-run, or --skip loogle for the remote API"
+      die "local Loogle binary was not built"
+    fi
+    [ -x "$lbin" ] || die "loogle build reported success but $lbin is not there"
+    prov loogle_binary installed
+    pass "binary built: $lbin"
+  fi
+
+  # ---- 3. the Mathlib index -------------------------------------------------
   if [ "$had_idx" -eq 1 ]; then prov loogle_index replacing; else prov loogle_index installing; fi
 
-  expected="$(loogle_index_path)"
-  export LEAN_LOOGLE_LOCAL=true
-  # So a remote answer cannot stand in for a local one during this probe.
-  export LOOGLE_URL="$LOOGLE_NULL_BACKEND"
+  mkdir -p "$idx_dir"
+  log="$(mktemp)"
+  step "loogle: building the Mathlib index (no timeout; upstream would cap this at 300s)"
+  note "this is the peak-memory step of the whole install"
 
-  # A tools/call to lean_loogle drives the whole lazy path: clone, build under
-  # the project's toolchain, then index the project's Mathlib.
-  # Not fatal on its own: the call itself can fail while the index still lands,
-  # and the index file is the only thing that actually settles the question.
-  if ! python3 "$HERE/mcp_smoke.py" --timeout 3600 --quiet \
-        --call lean_loogle --args '{"query": "Nat.add_comm", "num_results": 1}' \
-        -- "$(command -v lean-lsp-mcp)" --lean-project-path "$PROJ" --loogle-local >/dev/null; then
-    warn "the lean_loogle call failed — checking for the index anyway"
+  # Exactly the command lean-lsp-mcp runs, from the project directory so `lake
+  # env` puts the project's own Mathlib on LEAN_PATH. In --interactive mode it
+  # builds or loads the index, prints "Loogle is ready.", then serves one query
+  # per line; feeding it a query and closing stdin makes it exit on its own.
+  #
+  # The query comes from a file, not a pipe: `measured` is a function, and on
+  # the right-hand side of a pipeline it would run in a subshell where every
+  # measurement it took died with it.
+  qfile="$(mktemp)"
+  printf 'Nat.add_comm\n' >"$qfile"
+  # Called from an `if`, so a non-zero return cannot trip errexit here either.
+  # This whole branch exists to run *after* a failure.
+  if measured "$log" env LAKE_ARTIFACT_CACHE=false ELAN_TOOLCHAIN="$tc" \
+      sh -c 'cd "$0" && exec lake env "$1" --json --interactive --index-file "$2"' \
+      "$PROJ" "$lbin" "$expected" <"$qfile"; then
+    idx_rc=0
+  else
+    idx_rc=$?
   fi
+  rm -f "$qfile"
 
-  # A successful query proves nothing: lean_loogle falls back to the remote API
-  # silently. Only this project's own index file is evidence.
-  # `absent` is only truthful when nothing was there before either — it resets
-  # the origin, so claiming it after destroying something of the user's would
-  # erase that fact. When the before-state was present and the artefact is now
-  # gone, leave the in-flight marker standing.
-  if ls -1 "$cache"/repo-*/.lake/build/bin/loogle >/dev/null 2>&1; then
-    if [ "$had_bin" -eq 1 ]; then prov loogle_binary preexisting; else prov loogle_binary installed; fi
-  elif [ "$had_bin" -eq 0 ]; then
-    prov loogle_binary absent
-  fi
-
-  if ! loogle_index_exists; then
+  # Whether the file landed is the only thing that settles it. The command can
+  # exit non-zero after writing a perfectly good index, and it can exit zero
+  # having answered from nothing at all.
+  paths="$(loogle_index_json)"
+  if [ "$(printf '%s' "$paths" | jget exists)" != True ]; then
     if [ "$had_idx" -eq 0 ]; then prov loogle_index absent; fi
     fail "no index at $expected — local Loogle is NOT active"
-    note "almost always an OOM during indexing: the peak is ~13 GiB and this host has ${ram} GiB"
+    measure_notes
+    # Only the cgroup counter (or a kernel log) confirms an OOM kill. A signal
+    # on its own does not: SIGSEGV is a crash, and a SIGKILL can equally be an
+    # operator, an orchestrator, or a session teardown. Reporting any signal as
+    # "that is the OOM killer" is the same unsupported leap as reporting it from
+    # total RAM, one step further along.
+    if [ -n "$MEASURE_OOM" ]; then
+      note "the cgroup counter confirms an OOM kill: the host cannot index Mathlib in ${ram} GiB"
+    elif [ -n "$MEASURE_SIGNAL" ]; then
+      note "killed by signal $MEASURE_SIGNAL, cause not established here."
+      note "out of memory is the usual one on a host this size (signal 9), but a crash or an"
+      note "external kill look identical from here: check 'dmesg -T | grep -i oom'"
+    else
+      note "indexer exited $idx_rc. Out of memory is the usual cause on a host this size,"
+      note "but nothing here confirms it: check 'dmesg -T | grep -i oom' or the log below"
+    fi
+    note "log: $log"
+    note "$(tail -5 "$log")"
     note "lean_loogle would answer from the remote API (3 req/30s) and look like it worked,"
     note "so this is a hard stop. Raise available RAM, or --skip loogle to accept the remote API."
     die "local Loogle index was not built"
   fi
 
   LOOGLE_INDEX="$expected"
-  if [ "$had_idx" -eq 1 ]; then prov loogle_index preexisting; else prov loogle_index installed; fi
+  if [ "$had_idx" -eq 1 ]; then prov loogle_index replaced; else prov loogle_index installed; fi
+  rm -f "$log" "$log.time"
   pass "index built: $LOOGLE_INDEX ($(du -h "$LOOGLE_INDEX" | awk '{print $1}'))"
+  measure_notes
 }
 
 # ---------------------------------------------------------- lean-explore ----
@@ -595,14 +734,21 @@ stage_leanexplore() {
   # The local backend is only reachable through the MCP server, so warm and
   # prove it there. First call pulls the two Qwen3 models (~2.4 GiB).
   step "lean-explore: warming the local backend and its models"
-  if python3 "$HERE/mcp_smoke.py" --timeout 1800 --quiet \
+  # Output is kept, not discarded: when this fails, the tool result carries the
+  # server's own explanation, and a bare "did not answer" is a worse report than
+  # the one we were handed.
+  if warm_out="$(python3 "$HERE/mcp_smoke.py" --timeout 1800 --quiet \
         --call search_summary --args '{"query": "commutativity of addition", "limit": 3}' \
-        -- "$le" mcp serve --backend local >/dev/null; then
+        -- "$le" mcp serve --backend local 2>&1)"; then
     warm_ok=1
     pass "local semantic search answering"
+    # The download is one-off; the load is not. Every fresh server process pays
+    # it again on its first query — see the cold-start note in reference.md.
+    note "first query in a new session takes ~75s while the index and models load"
   else
     warm_ok=0
     warn "local backend did not answer — check: $le mcp serve --backend local"
+    note "$(printf '%s' "$warm_out" | tail -5)"
     stage_failed
   fi
 
@@ -675,15 +821,16 @@ stage_register() {
     return 0
   }
 
-  # Optional `-e KEY=VALUE` for the registered server, set by the caller.
-  MCP_ENV=""
+  # Environment for the registered server, as an array of KEY=VALUE. It has to
+  # be repeatable: a registration needs both LOOGLE_URL and PATH, and threading
+  # a single string through one `-e` silently dropped whichever came second.
+  MCP_ENV=()
   mcp_add() { # name, command...
     _n="$1"; shift
-    if [ -n "$MCP_ENV" ]; then
-      (cd "$REPO_ROOT" && claude mcp add "$_n" -s "$MCP_SCOPE" -e "$MCP_ENV" -- "$@")
-    else
-      (cd "$REPO_ROOT" && claude mcp add "$_n" -s "$MCP_SCOPE" -- "$@")
-    fi
+    _e=()
+    for _kv in ${MCP_ENV+"${MCP_ENV[@]}"}; do _e+=(-e "$_kv"); done
+    (cd "$REPO_ROOT" && claude mcp add "$_n" -s "$MCP_SCOPE" \
+        ${_e+"${_e[@]}"} -- "$@")
   }
 
   # Replacing a registration means remove-then-add, and the add can still fail
@@ -767,17 +914,36 @@ stage_register() {
     # flag is decided by looking at the index, not by whether this run happened
     # to include the loogle stage — `--only register` must not silently drop it.
     set -- --lean-project-path "$PROJ" --repl
+
+    # Claude Code spawns this server without a login shell, so it inherits
+    # Claude's own PATH — routinely one without ~/.elan/bin. lean-lsp-mcp shells
+    # out to `lake` and `git`, and without them local Loogle fails at runtime and
+    # falls through to the remote API. Every install-time check passes anyway,
+    # because the installer put elan on its own PATH; the failure only appears
+    # after Claude restarts. Pin the PATH the server will actually get.
+    MCP_ENV=("PATH=$(mcp_runtime_path)")
+
     if loogle_index_exists; then
       set -- "$@" --loogle-local
       # Upstream falls back to the public Loogle API on any *runtime* local
       # failure, silently. Pointing LOOGLE_URL at a dead endpoint makes that
       # fall-through raise instead of quietly answering from the network.
-      MCP_ENV="LOOGLE_URL=$LOOGLE_NULL_BACKEND"
+      MCP_ENV+=("LOOGLE_URL=$LOOGLE_NULL_BACKEND")
+      # Where the binary and index actually are. Upstream resolves this at
+      # runtime from LEAN_LOOGLE_CACHE_DIR, then XDG_CACHE_HOME, then ~/.cache —
+      # all of which are properties of the *spawning* environment, not of this
+      # install. Claude Code's environment is not the installer's, so a server
+      # left to work it out for itself can look in a directory where nothing was
+      # ever built and rebuild from scratch, or fall through to the remote API.
+      # Exactly the PATH defect in a second variable. Pin the resolved value
+      # always, not only when it is non-default: "the default" is itself a
+      # function of an environment we do not control.
+      MCP_ENV+=("LEAN_LOOGLE_CACHE_DIR=$(loogle_index_json | jget cache_dir)")
       note "local Loogle index found; registering with --loogle-local"
       note "LOOGLE_URL pinned to a dead endpoint so a runtime fallback cannot go unnoticed"
+      note "LEAN_LOOGLE_CACHE_DIR pinned to the directory this install built into"
     elif skipped_loogle; then
       # The user asked for the remote API by name. Leave LOOGLE_URL alone.
-      MCP_ENV=""
       warn "no local Loogle index; registering WITHOUT --loogle-local (you passed --skip loogle)"
       note "lean_loogle will use the remote API, rate limited to 3 req/30s"
     else
@@ -785,8 +951,13 @@ stage_register() {
       remote API. Run the loogle stage, or pass --skip loogle to choose the
       remote API deliberately."
     fi
+    # Summarised, not echoed: the full value is a hundred-odd characters per
+    # entry and the interesting part is that the tool directories lead it.
+    _p="${MCP_ENV[0]#PATH=}"
+    note "PATH pinned for the spawned server: $(printf '%s' "$_p" | tr ':' '\n' | wc -l | tr -d ' ') entries"
+    note "  leading with $(printf '%s' "$_p" | cut -d: -f1-2)"
     mcp_register lean-lsp "$lsp_bin" "$@" || stage_failed
-    MCP_ENV=""
+    MCP_ENV=()
   else
     prov_mcp_observed lean-lsp
     warn "lean-lsp-mcp not installed — not registered"
@@ -815,7 +986,7 @@ write_manifest() {
     MF_LEAN_LSP="$LEAN_LSP_MCP_VERSION" MF_LOOGLE_INDEX="$LOOGLE_INDEX" \
     MF_LE="$LEAN_EXPLORE_VERSION" MF_LE_DATA="$LE_DATA_VERSION" \
     MF_EMBED_REV="$EMBED_REV" MF_RERANK_REV="$RERANK_REV" \
-    MF_SKILL="$SKILL_VERSION" MF_LAKE_JOBS="$LAKE_JOBS" MF_PROVENANCE="$PROVENANCE" \
+    MF_SKILL="$SKILL_VERSION" MF_PROVENANCE="$PROVENANCE" \
     MF_STARTED="$STARTED_STAGES" MF_DONE="$DONE_STAGES" \
     python3 - <<'PY'
 import datetime, json, os, pathlib, subprocess
@@ -852,7 +1023,6 @@ print(json.dumps({
     "skill_version":      env("MF_SKILL"),
     "project":            str(proj),
     "lean_toolchain":     (proj / "lean-toolchain").read_text(encoding="utf-8").strip(),
-    "lake_jobs":          int(os.environ["MF_LAKE_JOBS"]),
     "provenance":         prov,
     "stages_completed":   done,
     "stages_incomplete":  incomplete,

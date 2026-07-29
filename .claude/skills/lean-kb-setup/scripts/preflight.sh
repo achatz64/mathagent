@@ -29,6 +29,23 @@ OS="$(os_kind)"
 RAM="$(ram_gib)"
 CPUS="$(cpu_count)"
 
+# Resolved here rather than in the "Lean project" section further down, because
+# the memory verdict depends on it: the 14 GiB figure is the cost of *building*
+# the Loogle index, and a host that already has one is not going to pay it
+# again. Reporting a permanent blocker for a one-off cost turns every repair run
+# and every `--only register` on a working install into a failure.
+#
+# Both are "no" answers, not errors: a run with no project yet, or with no index
+# yet, is exactly the case where the build peak does still apply.
+LOOGLE_INDEXED=0
+if PRE_PROJ="$(find_lean_project "$PROJECT" 2>/dev/null)"; then
+  if [ "$(python3 "$HERE/introspect.py" loogle-index "$PRE_PROJ" 2>/dev/null | jget exists)" = True ]; then
+    LOOGLE_INDEXED=1
+  fi
+else
+  PRE_PROJ=""
+fi
+
 # --------------------------------------------------------------- platform ---
 
 section "Platform"
@@ -68,11 +85,29 @@ if lt "$RAM" "$NEED_RAM_HARD"; then
 elif lt "$RAM" "$NEED_RAM_COMFORT"; then
   warn "under ${NEED_RAM_COMFORT} GiB — 'import Mathlib' and LeanExplore search will be tight"
   note "both fit, but expect swapping; close other memory-hungry processes"
+elif lt "$RAM" "$NEED_RAM_RUNTIME"; then
+  # The measured workload is ~9 GiB resident for the two servers together. That
+  # is not the same as a 9 GiB host: on one, those 9 GiB are the whole machine,
+  # with nothing left for the kernel, Claude Code, an editor or a build. So the
+  # host figure carries headroom, and the two numbers are reported separately
+  # rather than one standing in for the other.
+  warn "under ${NEED_RAM_RUNTIME} GiB — both MCP servers measured ~${RAM_BOTH_SERVERS_RSS} GiB resident together"
+  note "plus ~${RAM_HOST_HEADROOM} GiB for the OS, Claude Code and an editor"
+  note "each server works alone; running both alongside real work will swap"
 else
-  pass "enough for the LSP tools, Mathlib, and LeanExplore local search"
+  pass "enough for both MCP servers (~${RAM_BOTH_SERVERS_RSS} GiB measured) plus ~${RAM_HOST_HEADROOM} GiB headroom"
 fi
 
-if lt "$RAM" "$NEED_RAM_LOOGLE_INDEX"; then
+if [ "$LOOGLE_INDEXED" -eq 1 ]; then
+  # The expensive part is already paid for. What is left is loading an index
+  # that exists, which is a different and much smaller number.
+  if lt "$RAM" "$NEED_RAM_LOOGLE_WARM"; then
+    fail "under ${NEED_RAM_LOOGLE_WARM} GiB — loading the existing Loogle index needs ~7 GiB"
+  else
+    pass "this project's Loogle index already exists; the ${NEED_RAM_LOOGLE_INDEX} GiB build peak does not apply"
+    note "only a first index for a (project, toolchain) pays that; $PRE_PROJ has one"
+  fi
+elif lt "$RAM" "$NEED_RAM_LOOGLE_INDEX"; then
   # A blocker, not a degradation: the loogle stage is a hard stop on a missing
   # index, so a default install.sh run will abort here rather than quietly
   # settling for the remote API.

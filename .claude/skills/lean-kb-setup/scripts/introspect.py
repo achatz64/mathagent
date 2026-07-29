@@ -161,29 +161,76 @@ def cmd_resolved(args):
     return 1
 
 
-def cmd_loogle_index(args):
-    """The exact index file for this project.
+# The loogle checkout lean-lsp-mcp 0.29.0 builds from, and the layout it keys
+# its artefacts on. Mirrored here because install.sh drives the clone/build/index
+# itself: routing that work through the `lean_loogle` tool puts it behind
+# upstream's fixed 900s build and 300s index timeouts, which a cold Mathlib
+# index on a modest host does not fit inside. Extending the MCP client's own
+# wait does nothing about them — they are enforced server-side.
+#
+# Keep in step with lean_lsp_mcp/loogle.py: REPO_URL, REPO_REF, repo_dir,
+# index_path. A drift here builds a second copy beside the one the server looks
+# for, and the server would then rebuild it from scratch at first query.
+LOOGLE_REPO_URL = "https://github.com/nomeata/loogle.git"
+LOOGLE_REPO_REF = "9f11169aaebf1ed1e7dcc4077f2aafe0fcf66fd0"
 
-    lean-lsp-mcp keys the index on sha256 of the resolved project path, so a
-    glob over the cache can pick up a *different* project's index. Reproduce
-    the key instead of guessing.
+
+def _loogle_cache_dir(explicit):
+    """Upstream's get_cache_dir(), including the XDG override it honours."""
+    if explicit:
+        return pathlib.Path(explicit)
+    if os.environ.get("LEAN_LOOGLE_CACHE_DIR"):
+        return pathlib.Path(os.environ["LEAN_LOOGLE_CACHE_DIR"])
+    xdg = os.environ.get("XDG_CACHE_HOME") or (pathlib.Path.home() / ".cache")
+    return pathlib.Path(xdg) / "lean-lsp-mcp" / "loogle"
+
+
+def cmd_loogle_index(args):
+    """Every path lean-lsp-mcp uses for this project's local Loogle.
+
+    The index is keyed on sha256 of the *resolved project path* and the repo
+    checkout on sha256 of the *toolchain string*, so a glob over the cache can
+    pick up a different project's artefacts. Reproduce both keys instead.
 
     Always exits 0: computing a path is not the same question as whether the
     file is there, and conflating them made a missing index abort the caller
     under `set -e` before it could build one. Read "exists" for that.
     """
     project = pathlib.Path(args.project).resolve(strict=False)
-    key = hashlib.sha256(str(project).encode()).hexdigest()[:12]
-    cache = pathlib.Path(
-        args.cache_dir or (pathlib.Path.home() / ".cache/lean-lsp-mcp/loogle")
+    cache = _loogle_cache_dir(args.cache_dir)
+
+    idx = cache / "index" / (
+        "mathlib-%s.idx" % hashlib.sha256(str(project).encode()).hexdigest()[:12]
     )
-    idx = cache / "index" / f"mathlib-{key}.idx"
+
+    # The toolchain string is read raw and stripped, exactly as upstream does.
+    # A CRLF checkout would otherwise key the repo directory differently from
+    # the one the server goes on to use.
+    try:
+        toolchain = (project / "lean-toolchain").read_text(encoding="utf-8").strip()
+    except OSError:
+        toolchain = None
+    repo = cache / ("repo-%s-%s" % (
+        LOOGLE_REPO_REF[:12],
+        hashlib.sha256((toolchain or "unknown").encode()).hexdigest()[:12],
+    ))
+    binary = repo / ".lake" / "build" / "bin" / "loogle"
+
     print(
         json.dumps(
             {
                 "path": str(idx),
                 "exists": idx.exists(),
                 "size": idx.stat().st_size if idx.exists() else 0,
+                "cache_dir": str(cache),
+                "index_dir": str(cache / "index"),
+                "toolchain": toolchain,
+                "repo_url": LOOGLE_REPO_URL,
+                "repo_ref": LOOGLE_REPO_REF,
+                "repo_dir": str(repo),
+                "repo_cloned": (repo / ".git").is_dir(),
+                "binary": str(binary),
+                "binary_exists": binary.is_file(),
             }
         )
     )
@@ -425,6 +472,27 @@ def cmd_mcp_registered(args):
                 # Flattened forms, for printing only. Never match against these.
                 out["args"] = " ".join(argv)
                 out["env"] = " ".join("%s=%s" % (k, v) for k, v in sorted(env.items()))
+
+                # Comparing basenames answers "is it named right", not "is it
+                # the executable we installed". A shim called lean-lsp-mcp
+                # earlier on PATH, or a leftover registration pointing into a
+                # venv that has since been replaced, both pass a basename test
+                # and neither is this skill's server. realpath settles it.
+                out["command_realpath"] = (
+                    str(pathlib.Path(out["command"]).resolve(strict=False))
+                    if out["command"] else ""
+                )
+                if args.expect_command:
+                    want = str(pathlib.Path(args.expect_command).resolve(strict=False))
+                    out["expect_command_realpath"] = want
+                    out["command_exact"] = out["command_realpath"] == want
+
+                # Set membership cannot see order, and order is meaningful:
+                # `--lean-project-path --repl` parses `--repl` as the project
+                # path. Compare the vector as written.
+                if args.expect_argv is not None:
+                    out["expect_args"] = " ".join(args.expect_argv)
+                    out["argv_exact"] = argv == args.expect_argv
                 if args.require_arg:
                     out["missing_args"] = " ".join(a for a in args.require_arg if a not in argv)
                 if args.opt_value is not None:
@@ -441,6 +509,27 @@ def cmd_mcp_registered(args):
                     out["env_present"] = args.env_key in env
                     value = env.get(args.env_key)
                     out["env_value"] = None if value is None else str(value)
+
+                # Does the *registered* PATH resolve the subprocesses the server
+                # shells out to? Claude Code spawns MCP servers without a login
+                # shell, so a PATH that works in the terminal running this check
+                # says nothing about the one the server will actually get. This
+                # asks the registration itself, so the answer does not depend on
+                # the environment the verifier happens to be running in.
+                if args.env_path_find:
+                    raw = env.get(args.env_path_key)
+                    dirs = str(raw).split(os.pathsep) if isinstance(raw, str) else []
+                    out["env_path_value"] = raw if isinstance(raw, str) else None
+                    out["env_path_dirs"] = len(dirs)
+                    missing = []
+                    for name in args.env_path_find:
+                        for d in dirs:
+                            cand = pathlib.Path(d) / name
+                            if cand.is_file() and os.access(str(cand), os.X_OK):
+                                break
+                        else:
+                            missing.append(name)
+                    out["env_path_missing"] = " ".join(missing)
     except (OSError, ValueError, TypeError, AttributeError) as exc:
         out["registered"] = None
         out["error"] = str(exc)
@@ -456,7 +545,31 @@ _SKILL_ACTIONS = {"installed", "installing"}
 # project and tool on the machine. The skill may well have triggered the
 # download, but "we caused it" does not make it ours to delete, so they get a
 # distinct origin rather than being silently left out of the record.
-_SHARED_COMPONENTS = {"lean_toolchain", "hf_embedding_model", "hf_reranker_model"}
+#
+# The test is *where it lives*, not who fetched it. Everything under a
+# machine-wide cache is reachable by any project on the host, and this manifest
+# records one project: it has no way to know whether another project is using
+# the same artefact, and there is no reference count anywhere to consult. Absent
+# that, the conservative classification is the only safe one — a wrong `shared`
+# leaves a stale directory, a wrong `skill` deletes a working install out from
+# under another project.
+#
+#   lean_toolchain       ~/.elan/toolchains/<version>          per toolchain
+#   hf_*_model           ~/.cache/huggingface                  machine-wide
+#   lean_explore_data    ~/.lean_explore/cache/<version>       machine-wide
+#   loogle_repo/_binary  ~/.cache/lean-lsp-mcp/loogle/repo-*   per (ref, toolchain)
+#
+# `loogle_index` is deliberately NOT here: it is keyed on sha256 of the resolved
+# project path, so it belongs to exactly one project and nothing else can be
+# using it.
+_SHARED_COMPONENTS = {
+    "lean_toolchain",
+    "hf_embedding_model",
+    "hf_reranker_model",
+    "lean_explore_data",
+    "loogle_repo",
+    "loogle_binary",
+}
 
 
 def _merge_provenance(old, fresh):
@@ -586,7 +699,7 @@ def cmd_write_manifest(args):
     # Always-current facts.
     for key in (
         "generated", "project", "lean_toolchain",
-        "elan", "ripgrep", "uv", "skill_version", "lake_jobs",
+        "elan", "ripgrep", "uv", "skill_version",
         "stages_completed", "stages_incomplete",
     ):
         if key in fresh:
@@ -639,6 +752,14 @@ def main():
     p.add_argument("--require-arg", action="append", default=[],
                    help="repeatable; the absent ones come back in missing_args")
     p.add_argument("--opt-value", help="the argv element following this option, as opt_value")
+    p.add_argument("--expect-command", help="compare the registered command by realpath")
+    p.add_argument("--expect-argv", action="append",
+                   help="repeatable, ordered; the whole argv is compared as argv_exact")
+    p.add_argument("--env-path-key", default="PATH",
+                   help="which env var --env-path-find searches (default PATH)")
+    p.add_argument("--env-path-find", action="append", default=[],
+                   help="repeatable; executables not resolvable in the registered "
+                        "PATH come back in env_path_missing")
     p.set_defaults(fn=cmd_mcp_registered)
 
     p = sub.add_parser("hf-revision", help="cached snapshot revision of a HF model")

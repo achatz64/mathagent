@@ -62,7 +62,7 @@ failure, fix the cause and re-run the same command.
 the build into a warning up front.
 
 ```bash
-.claude/skills/lean-kb-setup/scripts/preflight.sh --project lean
+bash .claude/skills/lean-kb-setup/scripts/preflight.sh --project lean
 ```
 
 Read the output to the user, then act on it:
@@ -77,25 +77,30 @@ Read the output to the user, then act on it:
 **2. Install.**
 
 ```bash
-.claude/skills/lean-kb-setup/scripts/install.sh --project lean
+bash .claude/skills/lean-kb-setup/scripts/install.sh --project lean
 ```
 
 Run it in the background — a cold Mathlib fetch plus a Loogle index is tens of
 minutes. Useful flags: `--only STAGES` / `--skip STAGES` (stages listed in
 `install.sh --help`), `--allow-sudo`, `--mcp-scope project|local|user` (default
-`project`), `--le-data-version` to pin the LeanExplore corpus, `--lake-jobs N`
-to override the parallel-build cap.
+`project`), `--le-data-version` to pin the LeanExplore corpus.
 
 Version pins come from the project's own `lean-toolchain`; the script derives the
 matching Mathlib and `repl` release tags. It **validates an existing pin** rather
 than trusting it — a require on a moving branch is a hard error, because an
 unpinned dependency defeats KB.md's reproducibility requirement.
 
-`lake build` runs under a cap of the smaller of the core count and what RAM can
-feed (~2 GiB per worker). This only binds when `lake exe cache get` misses and
-Mathlib compiles from source; the default one-worker-per-core is what turns a
-high-core, memory-constrained host into an OOM kill mid-build. Raise it with
-`--lake-jobs` when you know the machine can take it.
+`lake build` runs with Lake's own defaults, which means one `lean` worker per
+core when `lake exe cache get` misses and Mathlib compiles from source. **Lake
+5.0 has no `-j`/`--jobs` option** — `lake build -j 4` is `error: unknown short
+option '-j'` — so on a high-core, memory-constrained host there is nothing to
+turn down, and a cache miss can end at the OOM killer. The lever is the host.
+
+The loogle stage runs the clone, build and index itself rather than triggering
+them through a `lean_loogle` call, because that path wraps them in upstream's
+fixed 900 s and 300 s timeouts. It also records the index step's peak RSS, the
+exit signal and the cgroup OOM counter, so a failure is diagnosed from evidence
+rather than inferred from the host's total RAM.
 
 It writes `.lean-kb-manifest.json` recording the *resolved commits*, not just the
 tags asked for, plus a `provenance` map giving each component a sticky
@@ -106,7 +111,7 @@ partway still writes it, and `stages_incomplete` names what did not finish.
 **3. Verify.**
 
 ```bash
-.claude/skills/lean-kb-setup/scripts/verify.sh --project lean
+bash .claude/skills/lean-kb-setup/scripts/verify.sh --project lean
 ```
 
 Checks binaries, that Mathlib actually imports, both MCP handshakes, a real
@@ -114,6 +119,18 @@ query through each local index, and *how* each server was registered — a
 `lean-lsp` without `--loogle-local` is a FAIL, not a pass. `--quick` skips the
 full `import Mathlib` and the Loogle query when you only need a fast confidence
 check. `--mcp-scope` must match whatever `install.sh` used (default `project`).
+
+It also starts each server **from its own registration** — recorded command,
+argv and env — under the PATH `verify.sh` was launched with rather than the one
+it exports for itself. Reading a config is not the same as running it: on the
+first VM run every config check passed while the server, spawned by Claude Code
+without `~/.elan/bin`, could not find `lake`. Even so, only a real Claude
+restart settles a registration; this is the closest a script can get.
+
+**Expect a slow first query.** LeanExplore loads its index and both models
+lazily, so the first `search_summary` in a fresh session takes ~75 s — per
+server process, not per install. That is not a hang. A warm-up hook is under
+test as a remedy.
 
 `--skip SECTIONS` suppresses a section *and the binaries it owns*, so a staged
 install can be verified as it goes: `--skip "leanlsp loogle leanexplore
@@ -138,6 +155,24 @@ confirm with `claude mcp list`.
 - A config you cannot parse is *unknown*, never *empty*. Registration is
   refused outright when the rollback snapshot is unreadable, because that is
   the one case where a failed write cannot be undone.
+- **A server that works when you run it does not work when Claude runs it.**
+  Claude Code spawns MCP servers without a login shell, so anything the server
+  resolves from its environment has to be recorded in the registration itself:
+  a `PATH` that finds `lake` and `git`, and `LEAN_LOOGLE_CACHE_DIR` naming the
+  cache the index was actually built in. Never conclude a registration is sound
+  from a probe that used your own environment; that is precisely what passed
+  while the restarted server was failing. A genuine Claude restart is the only
+  real test.
+- Distinguish a **workload's** memory from a **host's** requirement, and a
+  one-off **build** peak from the recurring **runtime** cost. Both servers
+  measure ~9 GiB resident; a 9 GiB host is still too small. The 14 GiB Loogle
+  figure applies only until that project's index exists.
+- Report the tool's own error text. `--quiet` suppresses stdout, never the
+  server's account of what went wrong, and "it failed" plus a guess at the cause
+  is a worse report than the one the server already handed you.
+- Do not assert an OOM from the host's RAM alone. Say it is the usual cause and
+  name what would confirm it — an exit signal, `dmesg`, the cgroup counter, or a
+  captured peak. `install.sh` captures all four for the index step.
 - Never pin Mathlib to a moving branch.
 - Prefer `--only` over rerunning everything when repairing one component.
 - Never claim this built a KB.md knowledge base. See **Scope** above.

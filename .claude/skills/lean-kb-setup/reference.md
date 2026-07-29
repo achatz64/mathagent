@@ -32,19 +32,60 @@ and drive the thresholds in `scripts/common.sh`.
 Budget ~25 GiB total, and note the toolchain cost is *per pinned Lean version* —
 projects on different toolchains do not share one.
 
+**These are per-location `du` figures, not a measured install footprint.** They
+do not agree with a `df` delta and should not be presented as if they did:
+hardlinked and overlapping caches are counted once by `df` and once per row
+here, so the rows sum higher than the disk actually moves. The first VM run left
+171 GiB free of 200 GiB, which says the 26 GiB preflight allowance is
+conservative — the right conclusion to draw — but not what the install "really"
+costs. State the measurement method before quoting either number.
+
+What a **second project on the same host** adds: its own `.lake` (~9 GiB) and
+its own Loogle index. Everything else — the toolchain, LeanExplore's data, the
+HuggingFace models, the uv tool venvs — is shared, and the loogle checkout is
+shared too when the toolchain matches.
+
 ## Memory
 
-| Operation | Peak RSS |
-|---|---|
-| LSP tools over a built Mathlib | ~2–4 GiB |
-| **local Loogle, first index** | **~13 GiB** |
-| local Loogle, warm load | ~7 GiB |
-| LeanExplore local search | ~4–6 GiB (1.68 GB FAISS index plus two 0.6B models) |
+Two different questions live here: what it takes to **build** the stack once,
+and what it takes to **run** it every day. Sizing a host on the second alone
+produces a machine that can never install what it is meant to run.
+
+| Operation | Peak RSS | when |
+|---|---|---|
+| LSP tools over a built Mathlib | ~2–4 GiB | runtime |
+| **local Loogle, first index** | **~13 GiB** | build, once per (project, toolchain) |
+| local Loogle, warm load | ~7 GiB | runtime |
+| LeanExplore local search | ~4–6 GiB (1.68 GB FAISS index plus two 0.6B models) | runtime |
+| **both MCP servers resident together** | **~9 GiB** | runtime, measured |
+
+The 9 GiB figure is measured on the 16 GiB test VM (2026-07-29) with both
+servers up and each having answered a query — steady state, not a peak, and
+LeanExplore's behaviour there is not yet fully characterised.
+
+**A workload's RSS is not a host requirement.** On a 9 GiB host those 9 GiB are
+the entire machine, leaving nothing for the kernel, Claude Code, an editor or a
+build. So preflight judges hosts against `9 + 3 GiB` of headroom and reports the
+two numbers separately, rather than letting the measured figure stand in for the
+requirement. Note also that every check in `verify.sh` passes well below either:
+nothing there runs both servers concurrently with real work, which is what daily
+use does.
 
 The Loogle index is the binding constraint for the whole stack. Under ~14 GiB it
-OOMs, and `lean_loogle` falls back to the remote API *silently* — which is why
-`install.sh` builds the index in the foreground and `verify.sh` checks for the
-`.idx` file rather than trusting a successful query.
+is OOM-killed, and `lean_loogle` then falls back to the remote API *silently* —
+which is why `install.sh` builds the index in the foreground and `verify.sh`
+checks for the `.idx` file rather than trusting a successful query. That
+threshold stands on upstream's documented ~13 GiB; the first VM run at 16 GiB
+succeeded but sampled memory too coarsely to revise it, since minute-level
+sampling can miss a short peak entirely. `install.sh` now records the actual
+peak RSS of the index step, so the next run produces a figure worth acting on.
+
+**That 14 GiB is a one-off, and preflight treats it as one.** It is the cost of
+*building* a first index for a given (project, toolchain); once that index
+exists, the binding figure is the ~7 GiB warm load. Preflight therefore resolves
+the project and looks for its index before deciding, so a repair run or an
+`--only register` on a working install is judged against the warm figure instead
+of failing permanently on a cost already paid.
 
 **There is no fallback**, at three layers:
 
@@ -131,14 +172,87 @@ announces "registered" first exits 0 on it:
 | --- | --- | --- |
 | entry is a JSON object | required | required |
 | `command` basename | `lean-lsp-mcp` | `lean-explore` |
+| `command` resolved path | `realpath` equals the installed binary | same |
+| whole argv, in order | `--lean-project-path <proj> --repl [--loogle-local]` | `mcp serve --backend local` |
 | required args | `--repl` | `mcp`, `serve` |
 | exact option value | `--lean-project-path` = the project being verified | `--backend` = `local` |
+| env | `PATH` resolving `lake` and `git`; `LOOGLE_URL` pinned; `LEAN_LOOGLE_CACHE_DIR` holding this project's index | — |
 | conditional | `--loogle-local` and `LOOGLE_URL` unless `--skip loogle` | — |
+| started from the entry | must handshake and answer a query | same |
 
 The project path is compared, not merely found: a server pointed at a different
 Lean project answers every query happily, about the wrong code. `--backend`
 likewise — the same binary without it is the hosted API, which needs
 `LEANEXPLORE_API_KEY` and answers from the network.
+
+Three of those rows exist because weaker versions of them passed a broken
+registration:
+
+- **Basename, not resolved path.** A shim named `lean-lsp-mcp` elsewhere on
+  disk, or an entry still pointing into a venv that has since been replaced,
+  both have the right basename.
+- **Set membership, not ordered vector.** In
+  `--repl --lean-project-path --loogle-local`, every required argument is
+  present and `--loogle-local` is "found" — and the project path is the string
+  `--loogle-local`.
+- **Reading the config, not running it.** See below.
+
+### The registered environment
+
+Claude Code spawns MCP servers directly, without a login shell. The server
+inherits whatever environment Claude itself was started with — routinely a
+`PATH` with no `~/.elan/bin`. `lean-lsp-mcp` shells out to `lake` and `git`
+(`LoogleManager._check_prerequisites`), so without them local Loogle fails at
+runtime, and upstream's unconditional fallback sends the query to the public
+API.
+
+That failure is invisible at install time. The installer put `~/.elan/bin` on
+its own `PATH`, so every check it runs passes; so does `verify.sh`, run from the
+same kind of shell. The break only appears after Claude Code restarts. On the
+first VM run it presented as a working install whose Loogle stopped working on
+restart — with the dead `LOOGLE_URL` pin doing its job and turning the silent
+remote fallback into a visible error, which is the only reason it was noticed
+rather than quietly downgraded.
+
+So the `PATH` the server will get is *written into the registration*:
+`~/.elan/bin`, `~/.local/bin`, then the absolute entries the installer
+inherited, de-duplicated. Never a hardcoded `/root` or `/home/<name>` — `$HOME`
+is the only portable answer. Relative entries are dropped: they would resolve
+against whatever working directory Claude spawns the server in.
+
+`PATH` is not the only variable with this shape. **`LEAN_LOOGLE_CACHE_DIR` is
+registered too**, for the same reason: upstream resolves the cache at runtime
+from `LEAN_LOOGLE_CACHE_DIR`, then `XDG_CACHE_HOME`, then `~/.cache` — every one
+of them a property of the environment that *spawns* the server, not of the
+environment that built the index. A server left to work it out for itself can
+land on a directory where nothing was ever built, rebuild from scratch, or fall
+through to the remote API. The resolved value is pinned unconditionally, not
+only when it differs from the default, because "the default" is itself a
+function of an environment this skill does not control.
+
+Three consequences worth knowing:
+
+- Both are **snapshots**. Move a toolchain or a cache after installing and the
+  registration goes stale; re-run `install.sh --only register`.
+- `lean-explore` gets neither. It loads its models in-process and shells out to
+  nothing, so there is no subprocess to lose and no cache to redirect.
+- `verify.sh` checks the cache dir by asking whether the registered directory
+  **contains this project's index**, not by comparing it against a path
+  recomputed in the verifier's own shell. Those two can differ legitimately
+  whenever `XDG_CACHE_HOME` does, and a difference is not a defect.
+
+`verify.sh` checks this two ways, because either alone is insufficient:
+
+1. **Structurally** — it asks the *registration* whether its `PATH` resolves
+   `lake` and `git`, walking the entries against the filesystem. This answer
+   does not depend on the environment `verify.sh` itself is running in, which
+   is what the earlier check got wrong.
+2. **Functionally** — it starts each server from its own entry (command, argv
+   and env as written) under the `PATH` the script was launched with rather
+   than the one it exported for itself, and calls a real tool.
+
+Neither is proof. Claude Code's environment may differ again, so **a genuine
+Claude restart remains the last word** on a registration.
 
 ### What the manifest will *not* claim
 
@@ -148,10 +262,7 @@ never seeded. `install.sh` emits its version constants on every run regardless
 of which stages ran, so seeding would have `--only register` assert that
 lean-lsp-mcp and lean-explore are installed when neither stage was selected.
 
-Running local Loogle and LeanExplore concurrently wants ~13 GiB together even
-after both are warm.
-
-### Parallel Lake workers
+### Parallel Lake workers: there is no knob
 
 Lake defaults to one worker per core. That is harmless while `lake exe cache
 get` hits — unpacking oleans is I/O — but on a miss Mathlib compiles from
@@ -159,19 +270,35 @@ source and every worker is a full `lean` process holding its imports resident.
 Sixteen cores against 8 GiB is an OOM kill partway through a multi-hour build,
 reported as an opaque Lake failure.
 
-`install.sh` therefore caps `lake build` at
-`min(cores, (RAM − 2 GiB) / 2 GiB)`, never below 1:
+Earlier versions of this skill capped that with `lake build -j N`. **Lake 5.0
+has no such option**, and never did:
 
-| RAM | cores | `-j` |
-|---|---|---|
-| 4 GiB | 8 | 1 |
-| 7.4 GiB | 16 | 2 |
-| 16 GiB | 8 | 7 |
-| 32 GiB | 16 | 15 |
+```
+$ lake build -j 4
+error: unknown short option '-j'
+```
 
-It is a floor on safety, not a tuning parameter — `--lake-jobs N` or
-`LEAN_KB_LAKE_JOBS=N` overrides it outright, and the effective value is recorded
-in the manifest as `lake_jobs`.
+`lake --help` and `lake build --help` list no jobs, threads or concurrency
+option, and there is no environment variable equivalent. The whole feature has
+been removed rather than left as an argument Lake rejects — it made both build
+sites fail on their first invocation. The reasoning above still stands; what is
+gone is any way to act on it from inside the installer. On a host where a cache
+miss OOMs, the lever is the host.
+
+### Cold start: the first query of a session is slow
+
+Measured on the 16 GiB test VM: the first `search_summary` after a fresh
+`lean-explore mcp serve` takes **~75 s**. The local index and both Qwen3 models
+load lazily, on the first query rather than at startup, so whichever query
+happens to be first pays for all of it. Subsequent queries in the same session
+are fast.
+
+This is expected, not a hang. It recurs every time the server process is
+restarted — a Claude Code restart, not just a fresh install — because the load
+is per-process. The download is one-off; the load is not.
+
+A warm-up hook that issues a throwaway query at session start is under test as
+a remedy; until then, the first query is simply slow.
 
 ## Platform limits
 
@@ -240,6 +367,38 @@ toolchains each pay the ~13 GiB indexing cost — and a project without Mathlib 
 nothing to index, which is why `install.sh` stops rather than pretending the
 stage succeeded.
 
+### Why the installer runs those three steps itself
+
+Upstream does all of it lazily, on the first `lean_loogle` call, behind fixed
+timeouts: **900 s** for the build (`_build_loogle`) and **300 s** for the
+subprocess to announce `Loogle is ready.` while it builds the index (`start`).
+Neither is configurable, and a cold Mathlib index on a modest host does not fit
+inside the second one.
+
+Raising the MCP *client's* timeout does not help — that only extends how long
+the caller waits for a reply, while the limits are enforced inside the server.
+The symptom is a first query that fails and a second that succeeds, off the
+partial artefacts the first one left behind. That is what the first VM run
+showed, and it is why `--timeout 3600` on the smoke client was not a fix.
+
+So `install.sh` runs the same `git clone` / `lake build loogle` /
+`lake env … --interactive --index-file` sequence directly, in the foreground,
+with no timeout. `introspect.py loogle-index` mirrors upstream's key derivation
+(`LOOGLE_REPO_REF`, the toolchain hash, the project-path hash) so the artefacts
+land exactly where the server will look for them. **If upstream changes those
+constants, this drifts** — a second copy gets built beside the one the server
+wants, and the server rebuilds from scratch at first query. The pinned
+`lean-lsp-mcp` version is what keeps them in step.
+
+The index step is measured: peak RSS via `/usr/bin/time`, plus the exit signal
+and the cgroup v2 `memory.events` `oom_kill` counter. Only the **counter**
+confirms an OOM kill. A signal does not: SIGSEGV is a crash, and a SIGKILL is
+equally an operator, an orchestrator or a session teardown, all of which look
+identical from inside the script. So the report has three registers — confirmed
+by the counter, terminated by signal N with the cause unestablished, or exited
+non-zero with out-of-memory named as the usual cause on a host this size and
+`dmesg -T | grep -i oom` named as what would settle it.
+
 ## LeanExplore data toolchains
 
 `lean-explore data fetch` reads a manifest from Cloudflare R2 and installs the
@@ -266,7 +425,7 @@ why the Scope table calls reproducibility *partial* rather than solved.
 `.lean-kb-manifest.json` in the project root answers two different questions.
 
 Most keys answer *what is installed*: resolved commits, tool versions, the
-LeanExplore data toolchain, the effective `lake_jobs`.
+LeanExplore data toolchain.
 
 The `provenance` map answers *what this skill did to get there*. Each component
 carries two fields, and the distinction between them is the whole point:
@@ -305,11 +464,27 @@ Only `origin: skill` is safe to remove on an uninstall. `replaced` is the worst
 case: the component is the user's, and the version the skill overwrote is not
 recoverable.
 
-Three components are always `origin: shared` regardless of who triggered the
+Some components are always `origin: shared` regardless of who triggered the
 download, because they live in machine-wide caches other projects and tools
-read: `lean_toolchain` (`~/.elan/toolchains`, ~2.8 GiB per Lean version) and
-`hf_embedding_model` / `hf_reranker_model` (`~/.cache/huggingface`). Causing a
-download does not make it ours to delete.
+read. Causing a download does not make it ours to delete.
+
+| Component | Location | Shared across |
+|---|---|---|
+| `lean_toolchain` | `~/.elan/toolchains/<version>` | every project on that toolchain |
+| `hf_embedding_model`, `hf_reranker_model` | `~/.cache/huggingface` | the whole machine |
+| `lean_explore_data` | `~/.lean_explore/cache/<version>` | the whole machine |
+| `loogle_repo`, `loogle_binary` | `~/.cache/lean-lsp-mcp/loogle/repo-<ref>-<tc>` | every project on that toolchain |
+
+The test is **where it lives**, not who fetched it. This manifest records one
+project and there is no reference count anywhere on the host, so it cannot know
+whether another project is relying on the same artefact. Given that, the
+conservative classification is the only safe one: a wrong `shared` leaves a
+stale directory behind, while a wrong `skill` deletes a working install out from
+under another project.
+
+`loogle_index` is deliberately **not** shared — it is keyed on sha256 of the
+resolved project path, so it belongs to exactly one project and nothing else can
+be using it.
 
 Five consequences worth knowing:
 
@@ -384,8 +559,26 @@ indexing would have to be implemented.
 | Loogle `.idx` exists but queries are rate-limited | the index belongs to another project path | check `introspect.py loogle-index <project>` |
 | Mathlib require rejected as "moving branch" | pinned to `master`/`main` | set a release tag or commit; KB.md requires a fixed pin |
 | MCP server "failed to connect" | Claude Code launched it without `~/.local/bin` on PATH | `install.sh --only register` — it registers absolute paths |
+| Loogle worked during install, fails after a Claude restart | the registration carries no `PATH`, so the server cannot find `lake` | `install.sh --only register`; see "The registered environment" |
+| First `search_summary` of a session takes ~75 s | lazy load of the index and both models | expected; see "Cold start" |
 | `lake exe cache get` fails | network, or a Mathlib rev with no published cache | re-run; `lake build` will compile from source, slowly |
 | No Mathlib tag for the toolchain | project on a nightly or rc | move to a released toolchain, or pin Mathlib by hand |
 | `import Mathlib` times out in verify | Mathlib not fully built | `install.sh --only mathlib` |
-| `lake build` killed with no error | OOM: too many workers for the RAM | lower `--lake-jobs`; check `lake_jobs` in the manifest |
+| `lake build` killed with no error | OOM: one worker per core, ~2 GiB each | Lake 5.0 offers no `-j`; the host needs more RAM |
 | Preflight says a host is unreachable | genuinely offline, or a proxy blocking HEAD | `curl -I <url>` by hand to confirm |
+
+## Packaging
+
+The three entry-point scripts are recorded `100755` in git. That mode only
+reaches a fresh clone once it is **committed** — `git update-index --chmod=+x`
+alone stages it and a clone reads `HEAD`. And a checkout with
+`core.filemode=false` (any drvfs/WSL working tree) shows every file as `777`
+locally, so a missing bit is invisible there.
+
+Because of that, and because the folder may be copied around rather than cloned,
+SKILL.md invokes the scripts as `bash <path>` rather than `<path>`. The mode is
+still set — it is the correct record — but nothing documented depends on it.
+
+`scripts/.gitignore` covers `__pycache__/` and `*.pyc`. They are never tracked,
+so git packaging is unaffected, but delete them before distributing the
+directory as a plain copy.
