@@ -47,6 +47,11 @@ references as structured native Lean data, for example by custom commands,
 declarations, attributes, or persistent environment extensions. The precise
 representation remains an open design question.
 
+Mathlib's inline `@[stacks TAG]` cross-references are a relevant existing
+example, although they are Mathlib metadata rather than project provenance.
+See [Mathlib Stacks Project tags](lean-search.md) for the mechanism and its
+current MCP retrieval limits.
+
 ## Architecture
 
 ```text
