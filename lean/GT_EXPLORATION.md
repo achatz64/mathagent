@@ -11,9 +11,11 @@ stronger result.  Existing constructions are normally reused directly rather
 than hidden behind aliases.
 
 The canonical acceptance target is `GT.lean`.  It must compile without
-`sorry`, `admit`, `gap`, or accidental project axioms.  Stable TeX labels occur
-in source comments, while Lean names follow Mathlib conventions.  Scratch
-experiments are not subject to the canonical target's completeness condition.
+`sorry`, `admit`, or `gap`.  An axiom is permitted only for a mathematical
+dependency cited but not proved by the source; every such axiom must be named,
+documented, and visible to `#print axioms`.  Stable TeX labels occur in source
+comments, while Lean names follow Mathlib conventions.  Scratch experiments
+are not subject to the canonical target's completeness condition.
 
 ## Source inventory
 
@@ -224,9 +226,12 @@ type exposes exactly which structure is preserved.
 
 ### Proof compression by interface selection
 
-The final file contains 86 declarations in 766 lines.  Most proofs are a direct
-application, instance synthesis, or a small adapter around a stronger library
-object.  Several adapters replace a whole textbook proof:
+After the semantic-audit correction pass and its follow-up retrieval batch,
+the file contains 144 top-level declaration commands in 1,839 lines. Most
+proofs remain a direct application,
+instance synthesis, or a small adapter around a stronger library object, but
+the audit demonstrated that wrapper count is not a useful proxy for statement
+fidelity.  Several adapters replace a whole textbook proof:
 
 - a multiplication bijection plus normality becomes an internal direct-product
   `MulEquiv`;
@@ -241,10 +246,125 @@ object.  Several adapters replace a whole textbook proof:
   about matrix coordinates;
 - the character formulas use Mathlib's `FDRep` categorical hom-space directly.
 
-The only custom algebraic proof of any size is the internal direct-product
-adapter.  Even there, the mathematical step is isolated to the fact that
-elements of disjoint normal subgroups commute; Mathlib supplies that lemma and
-the complement bijection.
+The correction pass added three deliberately non-wrapper proofs.  The
+prime-square classification constructs a `ZMod p` vector-space structure in
+the noncyclic case and recovers dimension two from cardinality.  The specified
+simple-submodule complement theorem follows the book's maximal-subfamily
+argument via `zorn_subset`.  The class-function development factors characters
+through `ConjClasses` and derives linear independence from the character
+pairing.  These are useful counterexamples to the first-pass assumption that
+all important results would be available as direct Mathlib wrappers.
+
+## Semantic-audit correction pass
+
+The first coverage pass was syntactic: it established that every source label
+occurred somewhere in the target.  A subsequent independent audit compared
+the proposition under each label with the Lean type.  It found a systematic
+failure mode: a true, convenient Mathlib consequence was sometimes tagged with
+a compound TeX label even though essential clauses were absent.  No proof was
+false, but label occurrence had been mistaken for statement coverage.
+
+The repair pass therefore used a **clause matrix**.  Each compound result was
+split into independently checkable obligations—existence, equations,
+uniqueness, preserved structure, hypotheses, and corollaries—and a label was
+kept on a declaration only when its type exposed the relevant obligation.
+This produced, among others:
+
+- a list-product characterization of generated subgroups, not only leastness;
+- the finite Cayley embedding into permutations of `Fin n`;
+- coset determination and equal-or-disjoint lemmas;
+- the normality of products and the explicit conjugate-set description of
+  normal generation;
+- an `∃!` quotient universal property with the commuting equation;
+- arbitrary-surjection correspondence, index preservation, normality, and the
+  induced quotient isomorphism;
+- both directions of the commuting and normal internal-product criteria;
+- a genuinely equivariant transitive-action equivalence;
+- cardinal-valued orbit--stabilizer, avoiding `Nat.card`'s collapse on
+  infinite types;
+- arbitrary-action kernel maximality, the finite orbit-sum formula, the block
+  criterion, and both strict block-stabilizer inclusions;
+- uniqueness of disjoint cycle decompositions;
+- classification of prime-square groups as `C_(p²)` or `C_p × C_p`;
+- existence and uniqueness in module Jordan--Hölder;
+- the specified-family version of the semisimple complement theorem and the
+  missing sums clause;
+- the exact simple/isotypic/unique-simple-type equivalence;
+- the exact algebraically closed division-algebra theorem and the actual group
+  algebra specialization;
+- class functions, character linear independence, and a basis constructor for
+  a complete enumeration of simple representations.
+
+The follow-up batch then tested the report's proposed hybrid pipeline on labels
+which the first pass had left only in the omission ledger. Semantic retrieval
+located exact or nearly exact APIs for the cyclicity criterion, the
+element-order characterization of `p`-groups, normal subgroups of symmetric
+groups, Sylow-normalizer control, and Sylow subgroups of subgroups. Narrow REPL
+adapters turned these into checked formulations of `it20a`, `ga13c`, `ga32`,
+`st8`, and `st11t`. A second Sylow pass established `st10` (the product of the
+Sylow subgroups when each is unique) and the full overgroup statement `ns18`.
+The same batch added `r41` through trace additivity and obtained `r20` and
+`r22` from the isotypic-module API.
+
+The remaining `p`-group existence theorem `ga15` was not a wrapper at all.  A
+short quotient induction nevertheless fit the available interfaces: after a
+normal subgroup of order `p^m` is constructed, its properness makes the
+quotient nontrivial; the quotient centre contains an element of order `p` by
+Cauchy's theorem; its cyclic subgroup is central and hence normal; and the
+preimage-cardinality theorem gives a normal subgroup of order `p^(m+1)`.  The
+only awkward adapter was an explicit equivalence between the subtype of a
+subgroup `comap` and the subtype of a set-theoretic preimage.  This is a useful
+example of a paper proof becoming inexpensive once library results cover its
+mathematical steps, even though no theorem with the final signature exists.
+Source-adjacent inspection also exposed `ns15` almost verbatim as Mathlib's
+kernel-in-the-centre bound on nilpotency class; the quotient projection reduces
+the book's corollary to a two-line adapter.
+
+The character-sum results `it24` and `it25` illustrate a more innovative
+interface choice. Unit-valued characters are kept bundled as monoid
+homomorphisms; orthogonality is reduced to Mathlib's theorem that a nontrivial
+finite-group homomorphism into an integral domain has zero sum. The dual sum is
+stated with `finsum`, avoiding an arbitrary `Fintype` choice in the public
+signature, and the proof temporarily installs the finite dual supplied by the
+roots-of-unity hypothesis. This is both closer to the mathematical indexing
+and more robust as a reusable API.
+
+Two high-cost semantic gaps remain explicit rather than hidden. Mathlib has a
+canonical isomorphism-invariant `CommGroup.freeRank`, which is enough to expose
+the right invariant for the rank clause of `it21`, but it does not currently
+provide uniqueness of the invariant-factor or elementary-divisor lists. In
+representation theory, character orthogonality and the final basis-from-cardinal
+linear algebra are checked, but the enumeration theorem `r32(a)` is still
+needed to instantiate the basis with a complete set of simple representations.
+These are theorem-development tasks, not wrapper-discovery tasks.
+
+### Lean REPL versus integrated builds
+
+The correction pass refined the execution strategy.  Compact but typeclass-
+sensitive statements were prototyped in `lean-repl`; this was particularly
+effective for the prime-square classification.  Four local iterations exposed
+two issues cheaply: `Mathlib.Algebra.Field.ZMod` was a required narrow import,
+and inferred module instances had to be named explicitly to avoid a scalar-
+structure diamond.  The successful local check took about four seconds after
+the import base was warm.
+
+The Zorn proof for the specified-family complement exceeded the REPL's fixed
+60-second request limit.  Moving it to the integrated target was more
+effective: each build returned concrete lattice and set-rewrite errors, and
+the final proof compiled without any gap.  The practical routing rule is now:
+
+1. REPL for statements small enough to elaborate well inside the timeout;
+2. project build for long tactic terms, Zorn arguments, or proofs that exercise
+   a large cumulative environment;
+3. never retry a timed-out large REPL term unchanged.
+
+### Axiom audit
+
+Feit--Thompson (`ns04`) is cited by the text but not proved there and is absent
+from Mathlib.  Merely defining its proposition did not establish the cited
+result.  The corrected target therefore declares one explicit axiom,
+`feitThompson : feitThompsonStatement`.  This is intentional and audible.  No
+result proved in the source is discharged by an axiom.
 
 ### Split compound claims only at reusable boundaries
 
@@ -291,16 +411,17 @@ paper-specific extension machinery, exact Coxeter results absent from the
 current library interface, or substantial new theory beyond a low-effort
 adapter.
 
-This negative-space audit is more useful than a raw declaration count.  It
-prevents two common failure modes:
+This negative-space audit is useful, but the semantic audit proved that it is
+only a first-line guard.  It prevents two common failure modes:
 
 1. silently ignoring hard results while reporting only famous successes;
 2. manufacturing proposition constants and counting them as proved facts.
 
-The cited Feit--Thompson result illustrates the second point.  It is represented
-by `feitThompsonStatement : Prop`, because the book cites it without proving it
-and Mathlib does not supply it.  The target does not claim an inhabitant and
-does not add a project assumption.
+It does not prevent a third failure mode: attaching a label to a proper
+consequence.  The clause matrix is required for that.  The cited
+Feit--Thompson result also showed that an uninhabited proposition definition is
+not evidence of a theorem; the corrected target uses the explicit, permitted
+axiom described above.
 
 ### Coverage levels
 
@@ -310,7 +431,7 @@ The experiment naturally produced four useful levels:
 |---|---|---|
 | construction reuse | Mathlib already owns the object | direct use of `FreeGroup`, `PresentedGroup`, `Sylow`, `FDRep` |
 | checked wrapper | statement-compatible result is proved | `theorem` or structure-preserving `def` |
-| proposition only | cited dependency is stated but not claimed | `feitThompsonStatement` |
+| explicit dependency axiom | cited dependency is stated and visibly assumed | `feitThompson` |
 | explicit omission | no low-effort faithful interface was found | stable label in the omission ledger |
 
 A future provenance system should store this level, not a single Boolean
@@ -343,9 +464,9 @@ characters, whose statements share elaborate typeclass contexts.
 ### Variant D: statement-first placeholders
 
 This is useful for cited dependencies, but dangerous as a completion metric.
-The experiment used it only for Feit--Thompson and explicitly declined to turn
-paper-proved missing results into unoccupied constants.  The omission ledger
-is more honest for those results.
+The experiment uses it only for Feit--Thompson and does not turn paper-proved
+results into axioms or unoccupied constants.  A proved partial interface and an
+explicit omission are both preferable to a mislabeled theorem.
 
 ### Recommended hybrid
 
@@ -362,11 +483,11 @@ is more honest for those results.
 
 The final audit includes all of the following:
 
-1. `lake build GT` succeeds from the `lean` project (2423 jobs in the final
-   semantic build);
+1. `lake build GT` succeeds from the `lean` project (2424 jobs after the added
+   `ZMod` field frontier);
 2. the canonical file contains none of the forbidden incomplete-proof tokens;
-3. no project-level assumptions are introduced; the one unavailable cited
-   result is an uninhabited proposition definition;
+3. the sole project-level assumption is the documented Feit--Thompson
+   dependency; no paper-proved result is axiomatized;
 4. inventory counts regenerate from `tools/gt_inventory.py`;
 5. all theorem-like labels are accounted for by `tools/gt_coverage.py`;
 6. wrapper comments retain stable TeX labels while declarations use
@@ -379,7 +500,8 @@ Reproduction commands from `lean/`:
 lake build GT
 python3 tools/gt_inventory.py --summary ../test/GT/GT.tex
 python3 tools/gt_coverage.py ../test/GT/GT.tex GT.lean
-rg -n '\b(sorry|admit|axiom|gap)\b' GT.lean
+rg -n '\b(sorry|admit|gap)\b' GT.lean
+rg -n '^axiom ' GT.lean
 ```
 
 ## Current conclusions
@@ -392,8 +514,13 @@ rg -n '\b(sorry|admit|axiom|gap)\b' GT.lean
    textbook proofs into auditable declarations with almost no custom proof.
 4. Lean REPL import latency must be treated as a resource with a hard failure
    boundary; module-frontier batching is safer than chapter-frontier batching.
-5. A mechanical source inventory plus an explicit omission ledger is the
-   simplest available defense against selective formalization while the
-   repository has no provenance system.
+5. A mechanical inventory prevents silent disappearance, but semantic
+   statement fidelity requires a clause-level audit; label coverage alone is
+   not evidence of formalization.
 6. The most honest completion metric is multi-valued: reused construction,
-   checked wrapper, proposition-only dependency, or explicit omission.
+   checked wrapper, explicit dependency axiom, proved partial interface, or
+   explicit omission.
+7. When a direct wrapper is unavailable, targeted mathematical development can
+   still be low effort if the proof is routed through the right abstraction:
+   finite-field dimension for `ga16`, lattice maximality for `r8`, and linear
+   functionals for character independence.
