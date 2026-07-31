@@ -53,7 +53,12 @@ class Settings:
     max_frame_bytes: int = 5 * 1024 * 1024
     max_environments: int = 256
     stderr_tail_bytes: int = 64 * 1024
+    warm_on_startup: bool = False
     warm_imports: tuple[str, ...] = ()
+
+    @property
+    def warm_enabled(self) -> bool:
+        return self.warm_on_startup or bool(self.warm_imports)
 
 
 @dataclass
@@ -142,6 +147,7 @@ def build_settings(
     max_frame_bytes: int = 5 * 1024 * 1024,
     max_environments: int = 256,
     stderr_tail_bytes: int = 64 * 1024,
+    warm_on_startup: bool = False,
     warm_imports: Iterable[str] = (),
 ) -> Settings:
     project_path = find_project(project)
@@ -153,6 +159,7 @@ def build_settings(
         max_frame_bytes=max_frame_bytes,
         max_environments=max_environments,
         stderr_tail_bytes=stderr_tail_bytes,
+        warm_on_startup=warm_on_startup,
         warm_imports=normalize_imports(warm_imports),
     )
 
@@ -443,7 +450,7 @@ class LeanReplManager:
         self._base_environment: int | None = None
         self._environments: dict[str, EnvironmentRecord] = {}
         self._created_environments = 0
-        self.warm_state = "not_configured" if not settings.warm_imports else "pending"
+        self.warm_state = "pending" if settings.warm_enabled else "not_configured"
         self.warm_error: str | None = None
 
     async def _invalidate_locked(
@@ -458,7 +465,7 @@ class LeanReplManager:
         self._base_environment = None
         self._environments.clear()
         self._created_environments = 0
-        if self.settings.warm_imports:
+        if self.settings.warm_enabled:
             self.warm_state = "not_warmed"
 
     async def _check_fingerprint_locked(self) -> None:
@@ -488,7 +495,7 @@ class LeanReplManager:
             if self._active_context == "file":
                 self._active_context = "none"
                 self._active_file = None
-            if self.settings.warm_imports:
+            if self.settings.warm_enabled:
                 self.warm_state = "not_warmed"
             raise
 
@@ -574,7 +581,7 @@ class LeanReplManager:
         env_id = int(response["env"])
         self._base_environment = env_id
         self._created_environments += 1
-        if self.settings.warm_imports and all(
+        if self.settings.warm_enabled and all(
             module in self._active_imports for module in self.settings.warm_imports
         ):
             self.warm_state = "ready"
@@ -764,7 +771,7 @@ class LeanReplManager:
             }
 
     async def warm(self) -> None:
-        if not self.settings.warm_imports:
+        if not self.settings.warm_enabled:
             return
         self.warm_state = "warming"
         try:

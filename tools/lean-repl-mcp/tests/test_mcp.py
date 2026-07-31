@@ -126,8 +126,7 @@ class McpIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 TEST_PROJECT,
                 "--timeout",
                 "60",
-                "--warm-import",
-                "Mathlib.Algebra.Group.Basic",
+                "--warm",
             ],
         )
         started = time.perf_counter()
@@ -138,16 +137,13 @@ class McpIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 self.assertLess(initialize_seconds, 5.0)
                 status = tool_result(await session.call_tool("lean_repl_status"))
                 self.assertIn(status["warm_state"], {"warming", "ready"})
-                self.assertEqual(
-                    status["warm_imports"], ["Mathlib.Algebra.Group.Basic"]
-                )
+                self.assertEqual(status["warm_imports"], [])
                 checked = tool_result(
                     await session.call_tool(
                         "lean_check",
                         {
-                            "code": "example {G : Type} [Group G] (x : G) : "
-                            "x * 1 = x := by simp",
-                            "imports": ["Mathlib.Algebra.Group.Basic"],
+                            "code": "example : True := by trivial",
+                            "imports": [],
                         },
                     )
                 )

@@ -80,6 +80,21 @@ class ManagerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(status["repl_pid"])
         self.assertEqual(status["environment_tokens"], 1)
 
+    async def test_empty_import_base_can_be_warmed(self) -> None:
+        await self.manager.close()
+        self.manager = LeanReplManager(
+            self.project.settings(warm_on_startup=True)
+        )
+        self.assertEqual(self.manager.status()["warm_state"], "pending")
+
+        await self.manager.warm()
+
+        status = self.manager.status()
+        self.assertEqual(status["warm_state"], "ready")
+        self.assertEqual(status["warm_imports"], [])
+        self.assertIsNotNone(status["repl_pid"])
+        self.assertEqual(self.manager.active_imports()["active_imports"], [])
+
     async def test_isolation_and_explicit_continuation(self) -> None:
         declared = await self.manager.check("def privateName := 1")
         continued = await self.manager.check(

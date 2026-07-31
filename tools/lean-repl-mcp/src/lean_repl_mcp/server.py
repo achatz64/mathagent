@@ -34,7 +34,7 @@ def create_server(manager: LeanReplManager) -> FastMCP:
     @asynccontextmanager
     async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, Any]]:
         warm_task: asyncio.Task[None] | None = None
-        if manager.settings.warm_imports:
+        if manager.settings.warm_enabled:
             warm_task = asyncio.create_task(manager.warm())
         try:
             yield {"manager": manager}
@@ -143,6 +143,11 @@ def make_parser() -> argparse.ArgumentParser:
         help="reset after this many REPL environments (default: 256)",
     )
     parser.add_argument(
+        "--warm",
+        action="store_true",
+        help="asynchronously warm the empty import base after MCP startup",
+    )
+    parser.add_argument(
         "--warm-import",
         action="append",
         default=[],
@@ -172,6 +177,7 @@ def main(argv: list[str] | None = None) -> None:
             timeout_seconds=args.timeout,
             max_frame_bytes=args.max_frame_bytes,
             max_environments=args.max_environments,
+            warm_on_startup=args.warm,
             warm_imports=args.warm_import,
         )
     except ConfigurationError as exc:

@@ -56,7 +56,7 @@ repository root without embedding a checkout-specific absolute path:
 ```toml
 [mcp_servers.lean-repl]
 command = "lean-repl-mcp"
-args = ["--project", "lean"]
+args = ["--project", "lean", "--warm"]
 cwd = ".."
 startup_timeout_sec = 30
 tool_timeout_sec = 120
@@ -82,10 +82,12 @@ the REPL can be overridden with `--repl`/`LEAN_REPL_PATH`, and Lake with
 - `lean_repl_reset`: stop the process and clear the active context and cached
   environments.
 
-The server never adds `import Mathlib`. Repeat `--warm-import MODULE` to warm
-one narrow import set asynchronously after MCP startup. Import bootstraps are
-validated before becoming active; a missing module leaves the prior successful
-set available for lazy reload.
+The server never adds `import Mathlib`. Pass `--warm` to warm the empty import
+base asynchronously after MCP startup. Repeat `--warm-import MODULE` to warm a
+narrow nonempty import set instead; specifying a warm import also enables
+warm-up without requiring `--warm`. Import bootstraps are validated before
+becoming active; a missing module leaves the prior successful set available for
+lazy reload.
 
 ## Development run
 

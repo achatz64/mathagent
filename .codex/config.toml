@@ -19,7 +19,10 @@ approval_mode = "approve"
 
 [mcp_servers.lean-repl]
 command = "lean-repl-mcp"
-args = ["--project", "lean"]
+args = [
+"--project", "lean",
+"--warm",
+]
 cwd = "."
 startup_timeout_sec = 30
 tool_timeout_sec = 120
