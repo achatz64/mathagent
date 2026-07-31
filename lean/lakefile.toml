@@ -5,3 +5,13 @@ defaultTargets = ["ma1"]
 name = "ma1"
 srcDir = "."
 roots = []
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.31.0"
+
+[[require]]
+name = "repl"
+git = "https://github.com/leanprover-community/repl"
+rev = "v4.31.0"
