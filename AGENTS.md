@@ -19,3 +19,10 @@ them only immediately with detail tools; do not report them to the user unless
 asked, and never record them in notes, commits, or issues. Declaration names
 (for example, `Nat.add_comm`) are the stable notation: record a name, then
 search again for a fresh ID in a later session.
+
+## Host process checks
+
+When asked to inspect running processes or services, do not rely on a
+sandboxed `ps` result: it sees only the agent's PID namespace. Run the process
+check with host visibility (`sandbox_permissions: "require_escalated"`) unless
+the user explicitly asks about sandbox-local processes.

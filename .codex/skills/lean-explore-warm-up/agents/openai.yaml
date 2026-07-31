@@ -1,0 +1,4 @@
+interface:
+  display_name: "LeanExplore Warm-up"
+  short_description: "Warm and benchmark LeanExplore."
+  default_prompt: "Run /lean-explore-warm-up to warm and benchmark the local LeanExplore MCP server."

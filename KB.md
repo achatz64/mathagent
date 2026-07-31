@@ -73,7 +73,7 @@ unified lexical, structural, and semantic index
 KB MCP tools
             |
             v
-Lean LSP verification
+Lean environment verification
 ```
 
 The generated record for a project declaration may include:
@@ -100,12 +100,12 @@ It should support:
 - filtering by source and other generated metadata.
 
 Existing Mathlib search infrastructure should be reused. LeanExplore and
-LeanSearch provide semantic discovery, while Loogle and Lean's search commands
-provide structural and type-based search. Public services do not automatically
-contain newly generated project code, so the project needs to run an indexing
-pipeline under its own control. We will first try the existing LeanExplore
-pipeline on Mathlib together with local project code, and extend it only where
-required behavior is missing.
+LeanSearch provide semantic discovery, while other Lean-aware tools can provide
+structural and type-based search. Public services do not automatically contain
+newly generated project code, so the project needs to run an indexing pipeline
+under its own control. We will first try the existing LeanExplore pipeline on
+Mathlib together with local project code, and extend it only where required
+behavior is missing.
 
 For the usable system, the implementation should reuse a pinned Mathlib base
 index and incrementally add project changes. Whether this is represented
@@ -119,9 +119,9 @@ an updated index should be atomic: clients see either the previous complete
 version or the next complete version. This is not required for the initial
 proof of concept, which may perform a full rebuild.
 
-Search results are candidates. `lean-lsp-mcp` confirms that a declaration is
-available in the locally pinned Lean/Mathlib environment and returns its exact
-type, imports, documentation, and goal information.
+Search results are candidates. The project should confirm that a declaration is
+available in the locally pinned Lean/Mathlib environment and obtain its exact
+type, imports, documentation, and goal information through a supported tool.
 
 ## Initial proof of concept
 
@@ -134,7 +134,7 @@ the core workflow:
 4. extend the pipeline only as needed to include the local declaration;
 5. build a unified logical search corpus;
 6. expose it through a minimal KB MCP tool;
-7. verify retrieved declarations through `lean-lsp-mcp`.
+7. verify retrieved declarations in the pinned Lean environment.
 
 The proof-of-concept acceptance test is:
 
@@ -144,7 +144,7 @@ Mathlib + one local Lean module
     -> semantic queries covering the four combinations of a result being
        present or absent in Mathlib and in the local module
     -> correct Mathlib and local results
-    -> Lean LSP confirmation of the results
+    -> Lean environment confirmation of the results
 ```
 
 The proof of concept may rebuild everything and may use temporary storage. Its

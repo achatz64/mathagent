@@ -1,0 +1,28 @@
+---
+name: lean-explore-warm-up
+description: Warm, inspect, and benchmark this project's local LeanExplore MCP server. Use when the user invokes `/lean-explore-warm-up`, asks to warm LeanExplore, reports slow LeanExplore queries, or before Lean-heavy work where current MCP latency matters.
+---
+
+# LeanExplore warm-up
+
+Run the procedure sequentially. Time each MCP request end-to-end with a
+monotonic clock; do not substitute a tool-reported time.
+
+1. Warm the server with `lean-explore.search` using
+   `query: "commutativity of addition"`, `limit: 10`, and `rerank_top: 0`.
+   Allow a slow first request to finish; it may be the documented cold start.
+2. Inspect the full process tree with
+   `ps -eo pid,ppid,etime,stat,comm,args --forest`. Report every
+   `lean-explore` process whose arguments include `mcp serve --backend local`.
+   Identify the configured process from `.mcp.json` when possible. Report PID,
+   PPID, elapsed time, state, arguments, attribution, and any competitors.
+   Never terminate or restart a process.
+3. Measure three serial `lean-explore.search` requests, each with `limit: 10`
+   and `rerank_top: 0`, for: `Nat.add_comm`, `continuity of a function on a
+   compact set`, and `prime number divisibility`.
+
+For each request, report its outcome and elapsed time, then report the median.
+Warn for a failure or a successful request at or above 5 seconds, including the
+measured time and discrepancy. Treat results as valid only for the current MCP
+session; rerun `/lean-explore-warm-up` after an MCP reconnect, server restart,
+or material process-tree change.

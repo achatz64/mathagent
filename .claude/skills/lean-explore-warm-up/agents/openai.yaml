@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lean MCP warm-up"
+  short_description: "Warm and benchmark Lean MCP servers"
+  default_prompt: "Use $warm-up to warm and benchmark the local Lean MCP servers."

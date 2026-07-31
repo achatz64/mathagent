@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "lean-explore": {
+      "type": "stdio",
+      "command": "/home/andre/.local/bin/lean-explore",
+      "args": ["mcp", "serve", "--backend", "local"],
+      "env": {}
+    }
+  }
+}
