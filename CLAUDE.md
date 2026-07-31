@@ -5,6 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Before working in this repository, read [OVERVIEW.md](OVERVIEW.md). It is the
 source of truth for the project vision, architecture, and rules.
 
+## Using the `lean-repl` MCP tools
+
+Use `lean-repl` for Lean execution. It owns the shared persistent REPL, so do
+not start another REPL, LeanInteract, or `lake env ... repl` process in the main
+agent or a subagent.
+
+Pass narrow module names in `lean_check.imports`; do not default to
+`import Mathlib`. Import-based checks are isolated. Continue from a returned
+environment token only when later code should see declarations from the earlier
+check. Use `lean_load_file` for the current contents of a project-local source
+file; a downstream `import` of that module requires its `.olean` to be rebuilt.
+
 ## Using the `lean-explore` MCP tools
 
 **Always pass `rerank_top` explicitly. Default it to `0`. Never omit it. Use a

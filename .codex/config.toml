@@ -1,0 +1,25 @@
+[mcp_servers.lean-explore]
+command = "lean-explore"
+args = ["mcp", "serve", "--backend", "local"]
+cwd = ".."
+startup_timeout_sec = 300
+tool_timeout_sec = 300
+
+[mcp_servers.lean-explore.tools.search_summary]
+approval_mode = "approve"
+
+[mcp_servers.lean-explore.tools.search]
+approval_mode = "approve"
+
+[mcp_servers.lean-explore.tools.get_source_code]
+approval_mode = "approve"
+
+[mcp_servers.lean-explore.tools.get_module]
+approval_mode = "approve"
+
+[mcp_servers.lean-repl]
+command = "lean-repl-mcp"
+args = ["--project", "lean"]
+cwd = "."
+startup_timeout_sec = 30
+tool_timeout_sec = 120
