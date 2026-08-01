@@ -35,14 +35,20 @@ axiom gap {α : Sort u} (reason : String) (difficulty : Difficulty) : α
 class Peano (N : Type) where
   zero : N                                                     -- data
   next : N -> N                                                -- data
-  next_all       : (n : N) -> n = zero ∨ ∃ m : N, next m = n   -- law
-  next_injective : (n : N) -> (m : N) -> (next m = next n -> n = m)
+  next_injective : (n : N) -> (m : N) -> (next m = next n -> n = m)   -- law
   next_non_zero  : (n : N) -> ¬ (next n = zero)
   induction : (β : N -> Prop) ->
     ((β zero) ∧ ((n : N) -> (β n -> β (next n)))) -> ((n : N) -> β n)
 
 namespace Peano
   variable {N : Type} [Peano N]
+
+  -- Derivable from `induction`, so it is a theorem rather than a field: no
+  -- `instance` should have to discharge it.  Take `β` to be the statement
+  -- itself; the step case does not even use its hypothesis.
+  theorem next_all (n : N) : n = zero ∨ ∃ m : N, next m = n :=
+    induction (fun n => n = zero ∨ ∃ m : N, next m = n)
+      ⟨Or.inl rfl, fun k _ => Or.inr ⟨k, rfl⟩⟩ n
 
   def InductionHyp (β : N -> Prop) : Prop := (β zero) ∧ ((n : N) -> (β n -> β (next n)))
   def InductionConclusion (β : N -> Prop) : Prop := (n : N) -> β n
@@ -136,5 +142,119 @@ namespace Peano
 
   noncomputable abbrev addition := Construct.get (addition_existence (N := N))
   def addition_spec := Construct.get_spec (addition_existence (N := N))
+
+  /- ## Recursion
+
+  `induction` has motive `β : N -> Prop`: it can *prove* things about every `n`,
+  but it cannot hand back an element of `X`, so it cannot define a function by
+  recursion.  `Construct.get` is the missing step, and doing it once — here —
+  turns every later definition by recursion into three lines.
+
+  The recursion is run on the graph rather than on values, because that is the
+  part that has to be stated without recursion: `RecRel` is the least relation
+  containing `(zero, x0)` and closed under `next` on the left and `s` on the
+  right, written `inductive`-free as the intersection of all such relations. -/
+
+  section Recursion
+  variable {X : Type}
+
+  -- `f` solves the recurrence given by a start value and a step
+  structure IsRec (x0 : X) (s : X -> X) (f : N -> X) : Prop where
+    zero : f zero = x0
+    next : (n : N) -> f (next n) = s (f n)
+
+  def RecRel (x0 : X) (s : X -> X) (n : N) (x : X) : Prop :=
+    (S : N -> X -> Prop) -> S zero x0 ->
+      ((a : N) -> (b : X) -> S a b -> S (next a) (s b)) -> S n x
+
+  variable (x0 : X) (s : X -> X)
+
+  -- the two closure properties, immediately from the definition
+  theorem rec_rel_zero : RecRel (N := N) x0 s zero x0 :=
+    fun _ h0 _ => h0
+
+  theorem rec_rel_next {n : N} {x : X} (h : RecRel x0 s n x) :
+      RecRel x0 s (next n) (s x) :=
+    fun S h0 hs => hs n x (h S h0 hs)
+
+  -- inversion: a successor is only ever related to a step.  The invariant must
+  -- carry `RecRel a b` itself, otherwise the closure case cannot rebuild it.
+  theorem rec_rel_inv {n : N} {x : X} (h : RecRel x0 s (next n) x) :
+      ∃ b : X, x = s b ∧ RecRel x0 s n b :=
+    let S : N -> X -> Prop := fun a b =>
+      RecRel x0 s a b ∧ ((a = zero ∧ b = x0) ∨
+        ∃ a' : N, ∃ b' : X, a = next a' ∧ b = s b' ∧ RecRel x0 s a' b')
+    have h0 : S zero x0 := ⟨rec_rel_zero x0 s, Or.inl ⟨rfl, rfl⟩⟩
+    have hs : (a : N) -> (b : X) -> S a b -> S (next a) (s b) :=
+      fun a b hab => ⟨rec_rel_next x0 s hab.left, Or.inr ⟨a, b, rfl, rfl, hab.left⟩⟩
+    match (h S h0 hs).right with
+    | Or.inl hz => absurd hz.left (next_non_zero n)
+    | Or.inr ⟨a', b', ha, hb, hab⟩ => ⟨b', hb, next_injective a' n ha ▸ hab⟩
+
+  -- one induction delivers existence *and* uniqueness of the value at each `n`
+  theorem rec_rel_existence (n : N) :
+      Construct.ExistsUnique (RecRel (N := N) x0 s n) :=
+    have base : Construct.ExistsUnique (RecRel (N := N) x0 s zero) :=
+      ⟨x0, rec_rel_zero x0 s, fun _y hy =>
+        let S : N -> X -> Prop := fun a b => a = zero -> b = x0
+        have h0 : S zero x0 := fun _ => rfl
+        have hs : (a : N) -> (b : X) -> S a b -> S (next a) (s b) :=
+          fun a _ _ hcontra => absurd hcontra (next_non_zero a)
+        hy S h0 hs rfl⟩
+    have step : (k : N) -> Construct.ExistsUnique (RecRel (N := N) x0 s k) ->
+        Construct.ExistsUnique (RecRel (N := N) x0 s (next k)) :=
+      fun _k ⟨b, hb, hunique⟩ =>
+        ⟨s b, rec_rel_next x0 s hb, fun _y hy =>
+          have ⟨c, hyc, hkc⟩ := rec_rel_inv x0 s hy
+          hyc.trans (congrArg s (hunique c hkc))⟩
+    induction (fun k => Construct.ExistsUnique (RecRel (N := N) x0 s k))
+      ⟨base, step⟩ n
+
+  theorem rec_rel_unique {n : N} {x y : X}
+      (hx : RecRel x0 s n x) (hy : RecRel x0 s n y) : x = y :=
+    have ⟨_, _, hunique⟩ := rec_rel_existence (N := N) x0 s n
+    (hunique x hx).trans (hunique y hy).symm
+
+  -- the solution of the recurrence
+  noncomputable def recurse : N -> X := fun n => Construct.get (rec_rel_existence x0 s n)
+
+  theorem rec_rel_recurse (n : N) : RecRel x0 s n (recurse (N := N) x0 s n) :=
+    Construct.get_spec (rec_rel_existence x0 s n)
+
+  theorem recurse_is_rec : IsRec x0 s (recurse (N := N) x0 s) :=
+    ⟨rec_rel_unique x0 s (rec_rel_recurse x0 s zero) (rec_rel_zero x0 s),
+     fun n => rec_rel_unique x0 s (rec_rel_recurse x0 s (next n))
+       (rec_rel_next x0 s (rec_rel_recurse x0 s n))⟩
+
+  -- uniqueness needs no choice principle: it is one induction
+  theorem rec_unique {f g : N -> X} (hf : IsRec x0 s f) (hg : IsRec x0 s g) : f = g :=
+    fun_unique ⟨hf.zero.trans hg.zero.symm,
+      fun n ih => (hf.next n).trans ((congrArg s ih).trans (hg.next n).symm)⟩
+
+  -- the recursion theorem: every recurrence has exactly one solution
+  theorem recursion : Construct.ExistsUnique (IsRec (N := N) x0 s) :=
+    ⟨recurse x0 s, recurse_is_rec x0 s,
+      fun _g hg => rec_unique x0 s hg (recurse_is_rec x0 s)⟩
+
+  end Recursion
+
+  /- ## Categoricity (Dedekind)
+
+  Any two Peano carriers are uniquely isomorphic.  With `recursion` in hand this
+  is not a construction at all: it is the recurrence `zero, next` read in `M`. -/
+
+  section Cast
+  variable {M : Type} [Peano M]
+
+  noncomputable def cast : N -> M := recurse zero next
+
+  theorem cast_existence : Construct.ExistsUnique (IsRec (N := N) (zero : M) next) :=
+    recursion zero next
+
+  theorem cast_zero : cast (N := N) (M := M) zero = zero := (recurse_is_rec zero next).zero
+  theorem cast_next (n : N) : cast (M := M) (next n) = next (cast (M := M) n) :=
+    (recurse_is_rec zero next).next n
+
+  end Cast
 
 end Peano
