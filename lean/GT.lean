@@ -1000,9 +1000,45 @@ theorem Group.card_center_add_sum_noncenter_eq_card [Finite G] :
       ∑ᶠ C ∈ ConjClasses.noncenter G, Nat.card C.carrier = Nat.card G :=
   Group.nat_card_center_add_sum_card_noncenter_eq_card G
 
-/- AUDIT-GAP `ga12` / `e36` / `e37`: expose the displayed class equations
-with centralizer indices, not only conjugacy-class sizes. Relevant API includes
-`ConjAct.stabilizer_eq_centralizer`. -/
+/-- A chosen representative of a conjugacy class. -/
+noncomputable def ConjClasses.representative (C : ConjClasses G) : G :=
+  Quotient.out C
+
+@[simp]
+theorem ConjClasses.mk_representative (C : ConjClasses G) :
+    ConjClasses.mk (ConjClasses.representative C) = C :=
+  Quotient.out_eq C
+
+/-- The size of a conjugacy class is the index of the centralizer of a chosen
+representative. -/
+theorem ConjClasses.centralizerIndex_representative [Finite G]
+    (C : ConjClasses G) :
+    (Subgroup.centralizer ({ConjClasses.representative C} : Set G)).index =
+      Nat.card C.carrier := by
+  rw [Subgroup.centralizer_eq_comap_stabilizer (ConjClasses.representative C),
+    Subgroup.index_comap_of_surjective _ ConjAct.toConjAct.surjective,
+    MulAction.index_stabilizer, ConjAct.orbit_eq_carrier_conjClasses,
+    Nat.card_coe_set_eq, ConjClasses.mk_representative]
+
+/-- GT `ga12` / `e36`: the class equation as a sum of centralizer indices
+of chosen conjugacy-class representatives. -/
+theorem Group.sum_centralizerIndex_representatives_eq_card [Finite G] :
+    ∑ᶠ C : ConjClasses G,
+      (Subgroup.centralizer ({ConjClasses.representative C} : Set G)).index =
+        Nat.card G := by
+  simp_rw [ConjClasses.centralizerIndex_representative]
+  exact Group.sum_card_conj_classes_eq_card G
+
+/-- GT `ga12` / `e37`: the class equation split into the centre and the
+centralizer indices of representatives of non-singleton conjugacy classes. -/
+theorem Group.nat_card_center_add_sum_centralizerIndex_noncenter_eq_card
+    [Finite G] :
+    Nat.card (Subgroup.center G) +
+      ∑ᶠ C ∈ ConjClasses.noncenter G,
+        (Subgroup.centralizer ({ConjClasses.representative C} : Set G)).index =
+          Nat.card G := by
+  simp_rw [ConjClasses.centralizerIndex_representative]
+  exact Group.nat_card_center_add_sum_card_noncenter_eq_card G
 
 /-- GT `ga13` (Cauchy): a prime divisor of the group order occurs as an element order. -/
 theorem exists_orderOf_eq_prime [Fintype G] {p : ℕ} (hp : p.Prime)
