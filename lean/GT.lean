@@ -1144,10 +1144,10 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
   exact (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
     (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂)
 
-/- AUDIT-GAP `it21`: full-decomposition torsion uniqueness is now exposed.
-It remains to construct a divisibility-ordered invariant-factor decomposition
-and to identify the displayed number of infinite cyclic factors with the
-intrinsic free rank. -/
+/- AUDIT-GAP `it21`: full-decomposition uniqueness, including equality of
+free ranks, is now exposed. It remains to construct a divisibility-ordered
+invariant-factor decomposition from the available elementary-divisor
+(prime-power cyclic factor) decomposition. -/
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
