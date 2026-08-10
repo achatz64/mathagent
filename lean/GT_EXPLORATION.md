@@ -203,6 +203,8 @@ all important results would be available as direct Mathlib wrappers.
   should preserve relevant assumptions and conventions.
 - Put an actionable `AUDIT-GAP` beside the partial declaration; reserve
   `AUDIT-DEFERRED` for intentional omissions in the final ledger.
+- A development pass may close an `AUDIT-GAP` or leave it with a blocker, but
+  must not reclassify it as `AUDIT-DEFERRED`; deferral is a separate scope decision.
 - A build checks Lean correctness; declaration types determine faithfulness.
 
 Developers can locate local work with `rg -n 'AUDIT-GAP' lean/GT.lean`.
