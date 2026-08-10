@@ -3048,11 +3048,33 @@ theorem MonoidAlgebra.matrixFactor_simpleModule_classification
     (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) M,
     MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e⟩
 
-/- AUDIT-GAP `r32(a)`: the factorwise classification above assumes a chosen
-matrix-product presentation.  Add a source-facing theorem under the chapter's
-algebraically closed characteristic-zero hypotheses which obtains that
-presentation and exposes the unconditional count and enumeration of simple
-`F[G]`-module isomorphism classes. -/
+/-- GT `r32(a)`, source-facing form: over an algebraically closed
+characteristic-zero field, the group algebra has a matrix-factor presentation;
+those factors uniquely enumerate all simple modules, and their number is the
+number of conjugacy classes. -/
+theorem MonoidAlgebra.exists_matrixFactor_simpleModule_classification
+    {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
+    ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
+      ∃ e : MonoidAlgebra k H ≃ₐ[k]
+        ∀ i, Matrix (Fin (d i)) (Fin (d i)) k,
+        n = Nat.card (ConjClasses H) ∧
+          ∀ (M : Type u) [AddCommGroup M] [Module (MonoidAlgebra k H) M]
+            [IsSimpleModule (MonoidAlgebra k H) M],
+            letI : ∀ i, NeZero (d i) := fun i => ⟨(hd i).ne'⟩
+            letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+              Module.compHom (Fin (d i) → k)
+                (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+                  (fun i => Matrix (Fin (d i)) (Fin (d i)) k)
+                  e.toRingEquiv i)
+            ∃! i, Nonempty (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k)) := by
+  obtain ⟨n, d, hd, ⟨e⟩⟩ :=
+    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+  have hdpos (i : Fin n) : 0 < d i := (hd i).out.pos
+  refine ⟨n, d, hdpos, e,
+    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e, ?_⟩
+  intro M _ _ _
+  letI : ∀ i, NeZero (d i) := hd
+  exact (MonoidAlgebra.matrixFactor_simpleModule_classification d e M).1
 
 end GroupAlgebraCenter
 
