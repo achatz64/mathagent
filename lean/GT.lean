@@ -1975,15 +1975,15 @@ private theorem exists_component_ne_zero [DecidableEq ι]
     have hz' := LinearMap.congr_fun (hzero i) b
     simpa using hz'
 
-/-- GT `r29(a)`, direct-sum form: if the regular module is a direct sum of
-pairwise nonisomorphic simple modules, these are exactly all simple modules.
-This is the source proof's reusable core; product factors supply the displayed
-regular-module equivalence in the matrix-algebra application. -/
+/-- Reusable core of GT `r29(a)`: repetitions are allowed in a regular-module
+decomposition, while `S` indexes pairwise nonisomorphic representatives. -/
 theorem simpleModule_classification_of_regular_dfinsupp
-    [DecidableEq ι] {S : ι → Type u}
+    [DecidableEq κ] {T : κ → Type u} {S : ι → Type u}
+    [∀ j, AddCommGroup (T j)] [∀ j, Module A (T j)]
     [∀ i, AddCommGroup (S i)] [∀ i, Module A (S i)]
-    (e : A ≃ₗ[A] (Π₀ i, S i))
-    (hS : ∀ i, IsSimpleModule A (S i))
+    (e : A ≃ₗ[A] (Π₀ j, T j))
+    (hT : ∀ j, IsSimpleModule A (T j))
+    (hclass : ∀ j, ∃ i, Nonempty (T j ≃ₗ[A] S i))
     (hne : ∀ i j, Nonempty (S i ≃ₗ[A] S j) → i = j)
     (M : Type u) [AddCommGroup M] [Module A M] [IsSimpleModule A M] :
     ∃! i, Nonempty (M ≃ₗ[A] S i) := by
@@ -2005,21 +2005,23 @@ theorem simpleModule_classification_of_regular_dfinsupp
       (f.range) with hbot | htop
     · exact False.elim (hr hbot)
     · rw [htop]
-  let fcomp : (Π₀ i, S i) →ₗ[A] M := f.comp e.symm.toLinearMap
+  let fcomp : (Π₀ j, T j) →ₗ[A] M := f.comp e.symm.toLinearMap
   have hfcomp : fcomp ≠ 0 := by
     intro hz
     have hz1 := LinearMap.congr_fun hz (e 1)
     change f (e.symm (e 1)) = 0 at hz1
     exact hx (by simpa [f] using hz1)
-  obtain ⟨i, hi⟩ := exists_component_ne_zero (A := A) (f := fcomp) hfcomp
-  letI : IsSimpleModule A (S i) := hS i
-  have hbij : Function.Bijective (fcomp.comp (DFinsupp.lsingle i)) :=
+  obtain ⟨j, hj⟩ := exists_component_ne_zero (A := A) (f := fcomp) hfcomp
+  letI : IsSimpleModule A (T j) := hT j
+  have hbij : Function.Bijective (fcomp.comp (DFinsupp.lsingle j)) :=
     (LinearMap.bijective_or_eq_zero
-      (fcomp.comp (DFinsupp.lsingle i))).resolve_right hi
-  refine ⟨i, ⟨(LinearEquiv.ofBijective _ hbij).symm⟩, ?_⟩
-  intro j hj
-  obtain ⟨ei⟩ := hj
-  exact (hne i j ⟨(LinearEquiv.ofBijective _ hbij).trans ei⟩).symm
+      (fcomp.comp (DFinsupp.lsingle j))).resolve_right hj
+  obtain ⟨i, ⟨eji⟩⟩ := hclass j
+  let emi : M ≃ₗ[A] S i := (LinearEquiv.ofBijective _ hbij).symm.trans eji
+  refine ⟨i, ⟨emi⟩, ?_⟩
+  intro k hk
+  obtain ⟨emk⟩ := hk
+  exact (hne i k ⟨emi.symm.trans emk⟩).symm
 
 /-- GT `r20`: over an Artinian simple ring, any two simple modules are
 linearly equivalent. In particular, this applies to any two minimal nonzero
@@ -2125,6 +2127,93 @@ theorem simpleAlgebra_nonempty_linearEquiv_of_finrank_eq
     LinearEquiv.piCongrLeft A (fun _ : Fin n => S) (finCongr hmn)
   exact ⟨eM.trans (eMN.trans eN.symm)⟩
 
+/-- The action homomorphism from a product presentation to its `i`th factor. -/
+def RingEquiv.piFactorHom {ι : Type u} (B : ι → Type u) [∀ i, Ring (B i)]
+    (e : A ≃+* ∀ i, B i) (i : ι) : A →+* B i :=
+  (Pi.evalRingHom B i).comp e.toRingHom
+
+/-- A simple module over one factor of a finite product is simple for the
+whole product acting through the factor projection. -/
+theorem RingEquiv.isSimpleModule_piFactor {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    (hS : ∀ i, IsSimpleModule (B i) (S i)) (i : ι) :
+    letI : Module A (S i) := Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+    IsSimpleModule A (S i) := by
+  let σ := RingEquiv.piFactorHom (A := A) B e i
+  letI : RingHomSurjective σ := ⟨by
+    intro b
+    exact ⟨e.symm (Function.update (0 : ∀ i, B i) i b), by
+      simp [σ, RingEquiv.piFactorHom]⟩⟩
+  letI : Module A (S i) := Module.compHom (S i) σ
+  let l : S i →ₛₗ[σ] S i :=
+    { toFun := id
+      map_add' := by simp
+      map_smul' := by intros; rfl }
+  exact (l.isSimpleModule_iff_of_bijective Function.bijective_id).mpr (hS i)
+
+/-- Modules induced from distinct factors of a finite product are not
+isomorphic. -/
+theorem RingEquiv.piFactor_not_linearEquiv {ι : Type u} [Fintype ι]
+    [DecidableEq ι] (B : ι → Type u) [∀ i, Ring (B i)]
+    (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    (hS : ∀ i, IsSimpleModule (B i) (S i)) {i j : ι} (hij : i ≠ j) :
+    letI : ∀ k, Module A (S k) := fun k => Module.compHom (S k) (RingEquiv.piFactorHom (A := A) B e k)
+    ¬ Nonempty (S i ≃ₗ[A] S j) := by
+  letI : ∀ k, Module A (S k) := fun k => Module.compHom (S k) (RingEquiv.piFactorHom (A := A) B e k)
+  rintro ⟨h⟩
+  letI : Nontrivial (S i) := IsSimpleModule.nontrivial (B i) (S i)
+  obtain ⟨x, hx⟩ := exists_ne (0 : S i)
+  let a : A := e.symm (Function.update (0 : ∀ k, B k) i 1)
+  have hm := h.map_smul a x
+  have hai : RingEquiv.piFactorHom (A := A) B e i a = 1 := by
+    simp [a, RingEquiv.piFactorHom]
+  have haj : RingEquiv.piFactorHom (A := A) B e j a = 0 := by
+    simp [a, RingEquiv.piFactorHom, Ne.symm hij]
+  rw [show a • x = x by
+        change RingEquiv.piFactorHom (A := A) B e i a • x = x
+        rw [hai]
+        simp,
+      show a • h x = 0 by
+        change RingEquiv.piFactorHom (A := A) B e j a • h x = 0
+        rw [haj]
+        simp] at hm
+  exact hx (h.injective (by simpa using hm))
+
+/-- The regular module of a finite product of Artinian simple rings is the
+direct sum of repeated copies of one chosen simple module from each factor. -/
+theorem RingEquiv.exists_regular_linearEquiv_piFactor_dfinsupp
+    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
+    [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    [∀ i, IsSimpleModule (B i) (S i)] :
+    letI : ∀ i, Module A (S i) := fun i => Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+    ∃ n : ι → ℕ, Nonempty (A ≃ₗ[A] Π₀ p : Σ i, Fin (n i), S p.1) := by
+  letI : ∀ i, Module A (S i) := fun i => Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+  choose n hn using fun i => simpleRing_exists_linearEquiv_fun_of_isSimpleModule
+    (A := B i) (S i)
+  let ei (i : ι) := (hn i).some
+  letI : ∀ i, Module A (B i) := fun i => Module.compHom (B i) (RingEquiv.piFactorHom (A := A) B e i)
+  let eProd : A ≃ₗ[A] (∀ i, B i) :=
+    { e.toAddEquiv with
+      map_smul' := by
+        intro a x
+        ext i
+        change e (a * x) i = RingEquiv.piFactorHom (A := A) B e i a * e x i
+        simp [RingEquiv.piFactorHom] }
+  let eFactor (i : ι) : B i ≃ₗ[A] (Fin (n i) → S i) :=
+    { (ei i).toAddEquiv with
+      map_smul' := by
+        intro a x
+        change ei i (RingEquiv.piFactorHom (A := A) B e i a * x) =
+          RingEquiv.piFactorHom (A := A) B e i a • ei i x
+        exact (ei i).map_smul _ _ }
+  exact ⟨n, ⟨eProd.trans ((LinearEquiv.piCongrRight eFactor).trans
+    ((LinearEquiv.piCurry A (fun i _ => S i)).symm.trans
+      DFinsupp.linearEquivFunOnFintype.symm))⟩⟩
+
 /-- GT `r21`: for a semisimple algebra, simplicity, isotypicity of the
 regular module, and uniqueness of the simple-module type are equivalent. -/
 theorem semisimpleAlgebra_simple_isotypic_unique_tfae
@@ -2208,8 +2297,89 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
   (AlgEquiv.ofBijective (Algebra.ofId F D)
     IsAlgClosed.algebraMap_bijective_of_isIntegral).symm
 
-/- AUDIT-GAP `r29`: the direct-sum classification core is checked above, but
-an explicit product-of-simple-algebras/factorwise wrapper is still needed. -/
+/-- GT `r29(a)`: for a finite product of Artinian simple rings, the simple
+modules induced from chosen simple factor modules are pairwise nonisomorphic
+and exhaust all simple modules. -/
+theorem RingEquiv.piFactor_simpleModule_classification
+    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
+    [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    (hS : ∀ i, IsSimpleModule (B i) (S i))
+    (M : Type u) [AddCommGroup M] [Module A M] [IsSimpleModule A M] :
+    letI : ∀ i, Module A (S i) := fun i =>
+      Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+    ∃! i, Nonempty (M ≃ₗ[A] S i) := by
+  letI : ∀ i, Module A (S i) := fun i =>
+    Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+  obtain ⟨n, ⟨ereg⟩⟩ :=
+    RingEquiv.exists_regular_linearEquiv_piFactor_dfinsupp (A := A) B e S
+  apply simpleModule_classification_of_regular_dfinsupp (A := A)
+    (T := fun p : Σ i, Fin (n i) => S p.1) (S := S) ereg
+  · intro p
+    exact RingEquiv.isSimpleModule_piFactor (A := A) B e S hS p.1
+  · intro p
+    exact ⟨p.1, ⟨LinearEquiv.refl A (S p.1)⟩⟩
+  · intro i j hij
+    by_contra hne
+    exact RingEquiv.piFactor_not_linearEquiv (A := A) B e S hS hne hij
+
+/-- GT `r29(b)`, existence: every finite module over a finite product of
+Artinian simple rings is a finite direct sum of the chosen factor modules.
+The fibre cardinality of `c : Fin n → ι` over `i` is the source's `rᵢ`. -/
+theorem RingEquiv.piFactor_exists_linearEquiv_fun
+    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
+    [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    (hS : ∀ i, IsSimpleModule (B i) (S i))
+    (M : Type u) [AddCommGroup M] [Module A M] [Module.Finite A M] :
+    letI : ∀ i, Module A (S i) := fun i =>
+      Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+    ∃ (n : ℕ) (c : Fin n → ι), Nonempty (M ≃ₗ[A] ∀ j, S (c j)) := by
+  letI : ∀ i, Module A (S i) := fun i =>
+    Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+  letI (i : ι) : IsSemisimpleRing (B i) :=
+    IsSimpleRing.isSemisimpleRing_iff_isArtinianRing.mpr inferInstance
+  letI : IsSemisimpleRing (∀ i, B i) := inferInstance
+  letI : IsSemisimpleRing A := e.symm.isSemisimpleRing
+  obtain ⟨n, T, eM, hT⟩ :=
+    IsSemisimpleModule.exists_linearEquiv_fin_dfinsupp A M
+  choose c hc using fun j =>
+    RingEquiv.piFactor_simpleModule_classification (A := A) B e S hS (T j)
+  let ec (j : Fin n) : T j ≃ₗ[A] S (c j) := (hc j).1.some
+  exact ⟨n, c, ⟨eM.trans ((DFinsupp.mapRange.linearEquiv ec).trans
+    DFinsupp.linearEquivFunOnFintype)⟩⟩
+
+/-- GT `r29(b)`, uniqueness: two finite sums of chosen factor modules are
+isomorphic exactly when their factor labels agree up to a permutation.  This
+is equivalent to equality of every multiplicity `rᵢ`. -/
+theorem RingEquiv.piFactor_decomposition_unique
+    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
+    (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
+    (hS : ∀ i, IsSimpleModule (B i) (S i))
+    {n m : ℕ} (c : Fin n → ι) (d : Fin m → ι) :
+    letI : ∀ i, Module A (S i) := fun i =>
+      Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+    Nonempty ((∀ j, S (c j)) ≃ₗ[A] (∀ j, S (d j))) ↔
+      ∃ σ : Fin n ≃ Fin m, ∀ j, c j = d (σ j) := by
+  letI : ∀ i, Module A (S i) := fun i =>
+    Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
+  constructor
+  · rintro ⟨esum⟩
+    have hsimp (i : ι) : IsSimpleModule A (S i) :=
+      RingEquiv.isSimpleModule_piFactor (A := A) B e S hS i
+    obtain ⟨σ, hσ⟩ := finite_directSum_simple_equiv
+      (R := A) (fun j => S (c j)) (fun j => S (d j)) esum
+    refine ⟨σ, fun j => ?_⟩
+    by_contra hne
+    exact RingEquiv.piFactor_not_linearEquiv (A := A) B e S hS hne (hσ j)
+  · rintro ⟨σ, hσ⟩
+    let er (j : Fin n) : S (c j) ≃ₗ[A] S (d (σ j)) :=
+      LinearEquiv.cast (R := A) (M := S) (hσ j)
+    exact ⟨(LinearEquiv.piCongrRight er).trans
+      (LinearEquiv.piCongrLeft A (fun j : Fin m => S (d j)) σ)⟩
 
 /-- GT `r31m`: in characteristic zero, the group algebra of a finite group
 over an algebraically closed field is a finite product of full matrix
