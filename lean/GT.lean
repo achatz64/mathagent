@@ -2635,10 +2635,6 @@ theorem FDRep.simple_character_orthonormal [IsAlgClosed k]
   classical
   exact FDRep.char_orthonormal V W
 
-/- AUDIT-GAP `r39`: orthonormality is proved, but the source's unconditional
-basis conclusion still requires the complete enumeration theorem `r32(a)`.
-Leave this marker if that dependency is not developed. -/
-
 /-- Class functions, represented without choosing representatives of conjugacy
 classes. -/
 abbrev ClassFunction := ConjClasses G → k
@@ -2711,9 +2707,26 @@ noncomputable def FDRep.simpleCharacterBasisOfCardEq
     (FDRep.simple_characterClassFunction_linearIndependent V hiso)
     (hcard.trans (Module.finrank_fintype_fun_eq_card k).symm)
 
-/- AUDIT-GAP `r35`: the basis constructor still assumes the cardinality
-conclusion of `r32(a)` instead of proving the source's unconditional basis
-statement. Leave this marker if that dependency is not developed. -/
+/-- GT `r35` and the basis conclusion of `r39`: after indexing a
+pairwise-nonisomorphic family of simple representations by the matrix factors
+of the group algebra, their characters form a basis of class functions.  The
+required cardinality is derived from `r32(a)`, not assumed. -/
+noncomputable def FDRep.simpleCharacterBasisOfMatrixFactors
+    [IsAlgClosed k] {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
+    (e : MonoidAlgebra k G ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k)
+    (V : Fin n → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j) :
+    Module.Basis (Fin n) k (ClassFunction (k := k) (G := G)) := by
+  classical
+  have hn : 0 < n := by
+    rw [MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e]
+    exact Nat.card_pos
+  letI : Nonempty (Fin n) := Fin.pos_iff_nonempty.mp hn
+  apply FDRep.simpleCharacterBasisOfCardEq V hiso
+  rw [Fintype.card_fin,
+    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
+    Nat.card_eq_fintype_card]
 
 end Characters
 
