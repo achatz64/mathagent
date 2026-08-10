@@ -14,7 +14,7 @@ Both points introduce ambiguity, which makes math papers harder to interpret for
 
 ## Features
 
-Agent skills and MCP tools. 
+Agent skills and tools. 
 
 ### Analysis
 
@@ -26,10 +26,10 @@ On the spectrum of languages, the formal verification languages are on the extre
 
 ### Knowledge base
 
-For each language `ma` the knowledge base (KB) are the dependencies available, meta data, documentation etc. The llm agent needs to find adequate dependencies, MCP tools will help accomplish that:
+For each language `ma` the knowledge base (KB) are the dependencies available, meta data, documentation etc. The llm agent needs to find adequate dependencies, tools will help accomplish that:
 ```
 build_X: (KB) -> (tool X)
-(agent on analysis) <- MCP -> (tool X)
+(agent on analysis) <-> (tool X)
 ```
 Tool X can be a full text or semantic search or anything else we come up with. This will be subject to heavy development to ensure scaling. The start doesn't have to be called, for example Lean has an extensive MathLib library.
 
@@ -50,13 +50,24 @@ See [KB.md](KB.md) for the current Lean-first knowledge-base plan.
 
 ## Proposed architecture
 
-Agent skills are simply text files with instructions. Architecture of KB tools to be determined and will be under continuous development, MCP as protocol at start. 
+Agent skills are simply text files with instructions. Architecture of KB tools to be determined and will be under continuous development. 
+
+### Tools available
+
+#### Lean repl MCP
+
+Custom lean repl server similar to lean-lsp.
+
+#### Lean explore MCP
+
+lean-explore 
 
 ## Rules
 
 1. Attribution of results in knowledge base according to standards of the mathematical academical community.
 2. Service the math community.
-3. Generate data for improving llms.
+3. Do not use or support powerful llms. AI safety first.
+3. Generate data for improving open source and special purpose math llms.
 
 ### Good to remember
 
