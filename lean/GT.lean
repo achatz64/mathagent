@@ -3,6 +3,7 @@ import Mathlib.Algebra.Central.Basic
 import Mathlib.Algebra.Central.Matrix
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
+import Mathlib.Data.ZMod.QuotientRing
 import Mathlib.FieldTheory.Finiteness
 import Mathlib.GroupTheory.FreeGroup.NielsenSchreier
 import Mathlib.GroupTheory.ClassEquation
@@ -543,6 +544,197 @@ theorem CommGroup.exists_mulEquiv_free_prod_primePower
           ((i : ι) → Multiplicative (ZMod (p i ^ e i)))) :=
   CommGroup.equiv_free_prod_prod_multiplicative_zmod G
 
+/-- The gcd of two prime powers records the smaller exponent
+when the primes agree, and is one otherwise. -/
+theorem Nat.gcd_primePow_primePow {p q e k : ℕ} (hp : p.Prime)
+    (hq : q.Prime) : (q ^ e).gcd (p ^ k) = if q = p then p ^ min e k else 1 := by
+  split_ifs with h
+  · subst q
+    rcases le_total e k with hek | hke
+    · rw [min_eq_left hek, Nat.gcd_eq_left_iff_dvd.mpr (pow_dvd_pow p hek)]
+    · rw [min_eq_right hke, Nat.gcd_eq_right_iff_dvd.mpr (pow_dvd_pow p hke)]
+  · exact (Nat.coprime_iff_gcd_eq_one.mp
+      ((Nat.coprime_primes hq hp).mpr h |>.pow e k))
+
+/-- Taking `d`-th roots of one commutes with a finite product of
+commutative groups. -/
+def CommGroup.powEqOnePiEquiv {ι : Type*} (A : ι → Type*)
+    [∀ i, CommGroup (A i)] (d : ℕ) :
+    {x : ∀ i, A i // x ^ d = 1} ≃ ∀ i, {x : A i // x ^ d = 1} where
+  toFun x i := ⟨x.1 i, congr_fun x.2 i⟩
+  invFun x := ⟨fun i => (x i).1, by ext i; exact (x i).2⟩
+  left_inv x := by cases x; rfl
+  right_inv x := by funext i; apply Subtype.ext; rfl
+
+/-- A multiplicative equivalence restricts to an equivalence between its
+subtypes of `d`-th roots of one. -/
+def CommGroup.powEqOneEquiv {A B : Type*} [CommGroup A] [CommGroup B]
+    (h : A ≃* B) (d : ℕ) : {x : A // x ^ d = 1} ≃ {x : B // x ^ d = 1} where
+  toFun x := ⟨h x.1, by
+    calc
+      h x.1 ^ d = h (x.1 ^ d) := (map_pow h x.1 d).symm
+      _ = h 1 := congrArg h x.2
+      _ = 1 := map_one h⟩
+  invFun x := ⟨h.symm x.1, by
+    calc
+      h.symm x.1 ^ d = h.symm (x.1 ^ d) := (map_pow h.symm x.1 d).symm
+      _ = h.symm 1 := congrArg h.symm x.2
+      _ = 1 := map_one h.symm⟩
+  left_inv x := by apply Subtype.ext; exact h.symm_apply_apply x.1
+  right_inv x := by apply Subtype.ext; exact h.apply_symm_apply x.1
+
+/-- The number of `d`-th roots of one in a finite product of finite cyclic
+groups is the product of the corresponding gcds. -/
+theorem CommGroup.card_powEqOne_pi_cyclic {ι : Type*} [Fintype ι]
+    (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Fintype (A i)]
+    [∀ i, IsCyclic (A i)] (d : ℕ) :
+    Nat.card {x : ∀ i, A i // x ^ d = 1} =
+      ∏ i, (Nat.card (A i)).gcd d := by
+  rw [Nat.card_congr (CommGroup.powEqOnePiEquiv A d), Nat.card_pi]
+  apply Finset.prod_congr rfl
+  intro i _
+  exact IsCyclic.card_powMonoidHom_ker (A i) d
+
+/-- The root-count profile of a product of cyclic prime-power groups. -/
+theorem CommGroup.card_powEqOne_pi_primePower {ι : Type*} [Fintype ι]
+    (q e : ι → ℕ) (hq : ∀ i, Nat.Prime (q i))
+    (p : ℕ) (hp : p.Prime) (k : ℕ) :
+    Nat.card {x : ∀ i, Multiplicative (ZMod (q i ^ e i)) // x ^ (p ^ k) = 1} =
+      p ^ ∑ i with q i = p, min (e i) k := by
+  letI (i : ι) : NeZero (q i ^ e i) := ⟨pow_ne_zero _ (hq i).ne_zero⟩
+  rw [CommGroup.card_powEqOne_pi_cyclic _ (p ^ k)]
+  have hcard (i : ι) :
+      Nat.card (Multiplicative (ZMod (q i ^ e i))) = q i ^ e i :=
+    (Nat.card_congr Multiplicative.toAdd).trans (Nat.card_zmod _)
+  simp_rw [hcard, Nat.gcd_primePow_primePow hp (hq _)]
+  rw [Finset.prod_ite, Finset.prod_const_one, mul_one,
+    Finset.prod_pow_eq_pow_sum]
+
+/-- Successive differences of the sum of truncated natural numbers count
+how many entries lie above the truncation point. -/
+theorem Finset.sum_min_succ (s : Finset ι) (a : ι → ℕ) (k : ℕ) :
+    (∑ i ∈ s, min (a i) (k + 1)) =
+      (∑ i ∈ s, min (a i) k) + (s.filter fun i => k < a i).card := by
+  rw [Finset.card_eq_sum_ones, Finset.sum_filter, ← Finset.sum_add_distrib]
+  apply Finset.sum_congr rfl
+  intro i hi
+  by_cases h : k < a i
+  · simp only [h, if_true]
+    omega
+  · simp only [h, if_false, add_zero]
+    omega
+
+/-- Partition the entries strictly above `k - 1` into those equal to `k`
+and those strictly above `k`. -/
+theorem Finset.card_filter_eq_add_card_filter_gt (s : Finset ι)
+    (a : ι → ℕ) {k : ℕ} (hk : 0 < k) :
+    (s.filter fun i => k - 1 < a i).card =
+      (s.filter fun i => a i = k).card + (s.filter fun i => k < a i).card := by
+  classical
+  let t := s.filter fun i => a i = k
+  let u := s.filter fun i => k < a i
+  have hd : Disjoint t u := by
+    rw [Finset.disjoint_left]
+    intro i hit hiu
+    simp only [t, u, Finset.mem_filter] at hit hiu
+    omega
+  change (s.filter fun i => k - 1 < a i).card = t.card + u.card
+  rw [← Finset.card_union_of_disjoint hd]
+  congr 1
+  ext i
+  simp only [t, u, Finset.mem_filter, Finset.mem_union]
+  constructor
+  · intro h
+    by_cases hik : a i = k
+    · exact Or.inl ⟨h.1, hik⟩
+    · exact Or.inr ⟨h.1, by omega⟩
+  · rintro (h | h) <;> exact ⟨h.1, by omega⟩
+
+/-- Isomorphic products of nontrivial cyclic prime-power groups have the same
+root-count exponent profile at every prime and exponent. -/
+theorem CommGroup.sum_min_eq_of_primePower_pi_mulEquiv
+    {ι κ : Type*} [Fintype ι] [Fintype κ]
+    (p e : ι → ℕ) (q f : κ → ℕ)
+    (hp : ∀ i, Nat.Prime (p i)) (hq : ∀ j, Nat.Prime (q j))
+    (h : ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
+      ((j : κ) → Multiplicative (ZMod (q j ^ f j)))) :
+    ∀ (r : ℕ), r.Prime → ∀ k,
+      (∑ i with p i = r, min (e i) k) =
+        ∑ j with q j = r, min (f j) k := by
+  intro r hr k
+  have hc := Nat.card_congr (CommGroup.powEqOneEquiv h (r ^ k))
+  rw [CommGroup.card_powEqOne_pi_primePower p e hp r hr k,
+    CommGroup.card_powEqOne_pi_primePower q f hq r hr k] at hc
+  exact Nat.pow_right_injective hr.two_le hc
+
+/-- GT `it21(c)`: the multiplicity of every elementary divisor `r^k` is
+preserved by an isomorphism between finite products of nontrivial cyclic
+prime-power groups.  This is uniqueness without choosing an ordering of the
+factors. -/
+theorem CommGroup.card_primePower_factors_eq_of_mulEquiv
+    {ι κ : Type*} [Fintype ι] [Fintype κ]
+    (p e : ι → ℕ) (q f : κ → ℕ)
+    (hp : ∀ i, Nat.Prime (p i)) (hq : ∀ j, Nat.Prime (q j))
+    (he : ∀ i, 0 < e i) (hf : ∀ j, 0 < f j)
+    (h : ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
+      ((j : κ) → Multiplicative (ZMod (q j ^ f j))))
+    (r k : ℕ) (hr : r.Prime) :
+    (Finset.univ.filter fun i => p i = r ∧ e i = k).card =
+      (Finset.univ.filter fun j => q j = r ∧ f j = k).card := by
+  classical
+  by_cases hk : k = 0
+  · subst k
+    simp [ne_of_gt (he _), ne_of_gt (hf _)]
+  have hkpos : 0 < k := Nat.pos_of_ne_zero hk
+  let sp := Finset.univ.filter fun i => p i = r
+  let sq := Finset.univ.filter fun j => q j = r
+  have hprofile := CommGroup.sum_min_eq_of_primePower_pi_mulEquiv
+    p e q f hp hq h
+  have htail (m : ℕ) :
+      (sp.filter fun i => m < e i).card =
+        (sq.filter fun j => m < f j).card := by
+    have hs := Finset.sum_min_succ sp e m
+    have ht := Finset.sum_min_succ sq f m
+    have h0 := hprofile r hr m
+    have h1 := hprofile r hr (m + 1)
+    change (∑ i ∈ sp, min (e i) m) = (∑ j ∈ sq, min (f j) m) at h0
+    change (∑ i ∈ sp, min (e i) (m + 1)) =
+      (∑ j ∈ sq, min (f j) (m + 1)) at h1
+    omega
+  have hpartp := Finset.card_filter_eq_add_card_filter_gt sp e hkpos
+  have hpartq := Finset.card_filter_eq_add_card_filter_gt sq f hkpos
+  have hprev := htail (k - 1)
+  have hnext := htail k
+  have hexact : (sp.filter fun i => e i = k).card =
+      (sq.filter fun j => f j = k).card := by omega
+  simpa only [sp, sq, Finset.filter_filter, Finset.mem_univ, true_and,
+    and_assoc] using hexact
+
+/-- Curry a dependent product over a sigma type, as a multiplicative
+equivalence. -/
+def CommGroup.piSigmaMulEquiv {ι : Type*} {κ : ι → Type*}
+    (A : (i : ι) → κ i → Type*) [∀ i j, Mul (A i j)] :
+    ((x : Σ i, κ i) → A x.1 x.2) ≃* ((i : ι) → (j : κ i) → A i j) where
+  toFun f i j := f ⟨i, j⟩
+  invFun f x := f x.1 x.2
+  left_inv _ := rfl
+  right_inv _ := rfl
+  map_mul' _ _ := rfl
+
+/-- Chinese remainder decomposition of a product of finite cyclic groups into
+its elementary-divisor factors. -/
+noncomputable def CommGroup.cyclicPiPrimePowerEquiv {ι : Type*} [Fintype ι]
+    (n : ι → ℕ) (hn : ∀ i, n i ≠ 0) :
+    ((i : ι) → Multiplicative (ZMod (n i))) ≃*
+      ((x : Σ i, (n i).primeFactors) →
+        Multiplicative (ZMod (x.2.1 ^ ((n x.1).factorization x.2.1)))) :=
+  (MulEquiv.piCongrRight fun i =>
+      (ZMod.equivPi (n i) (hn i)).toAddEquiv.toMultiplicative.trans
+        (MulEquiv.piMultiplicative fun p : (n i).primeFactors =>
+          ZMod ((p : ℕ) ^ ((n i).factorization p)))).trans
+    (CommGroup.piSigmaMulEquiv fun i (p : (n i).primeFactors) =>
+      Multiplicative (ZMod ((p : ℕ) ^ ((n i).factorization p)))).symm
+
 /-- Remove the trivial `p⁰` factors from a product of cyclic prime-power
 groups. -/
 noncomputable def CommGroup.piPrimePowerNeZeroMulEquiv {ι : Type*}
@@ -593,10 +785,10 @@ theorem CommGroup.freeRank_eq_of_mulEquiv
     (e : G ≃* H) : CommGroup.freeRank G = CommGroup.freeRank H :=
   CommGroup.freeRank_congr e
 
-/- AUDIT-GAP `it21`: normalized elementary-divisor existence and free-rank
-uniqueness are checked above.  The remaining source clauses are uniqueness of
-the invariant factors and of the elementary divisors; Mathlib's PID/finite-
-abelian structure theorems currently expose existence but no uniqueness API. -/
+/- AUDIT-GAP `it21(b)`: normalized existence, free-rank uniqueness, and
+elementary-divisor uniqueness are checked above.  It remains to recombine the
+canonical prime-power factors, right-aligned by prime valuation, to prove
+uniqueness of a divisibility-ordered invariant-factor decomposition. -/
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
