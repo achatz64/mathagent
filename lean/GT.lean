@@ -3192,6 +3192,18 @@ noncomputable def FDRep.simpleCharacterBasisOfCardEq
     (FDRep.simple_characterClassFunction_linearIndependent V hiso)
     (hcard.trans (Module.finrank_fintype_fun_eq_card k).symm)
 
+open scoped Classical in
+@[simp]
+theorem FDRep.simpleCharacterBasisOfCardEq_apply
+    [IsAlgClosed k] {ι : Type*} [Fintype ι] [Nonempty ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    (hcard : Fintype.card ι = Fintype.card (ConjClasses G)) (i : ι) :
+    FDRep.simpleCharacterBasisOfCardEq V hiso hcard i =
+      FDRep.characterClassFunction (V i) := by
+  rw [FDRep.simpleCharacterBasisOfCardEq,
+    coe_basisOfLinearIndependentOfCardEqFinrank]
+
 /-- GT `r35` and the basis conclusion of `r39`: after indexing a
 pairwise-nonisomorphic family of simple representations by the matrix factors
 of the group algebra, their characters form a basis of class functions.  The
@@ -3213,11 +3225,23 @@ noncomputable def FDRep.simpleCharacterBasisOfMatrixFactors
     MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
     Nat.card_eq_fintype_card]
 
-/- AUDIT-GAP `r35` / `r39`: the basis constructor's result type does not state
-that its basis vectors are `FDRep.characterClassFunction (V i)`, and it still
-requires a supplied matrix presentation and pairwise-nonisomorphic simple
-family.  Expose the basis-vector equation and a source-facing unconditional
-basis theorem from a complete enumeration of simple representations. -/
+@[simp]
+theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
+    [IsAlgClosed k] {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
+    (e : MonoidAlgebra k G ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k)
+    (V : Fin n → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j) (i : Fin n) :
+    FDRep.simpleCharacterBasisOfMatrixFactors d e V hiso i =
+      FDRep.characterClassFunction (V i) := by
+  classical
+  letI := Fintype.ofFinite (ConjClasses G)
+  have hn : 0 < n := by
+    rw [MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e]
+    exact Nat.card_pos
+  letI : Nonempty (Fin n) := Fin.pos_iff_nonempty.mp hn
+  unfold FDRep.simpleCharacterBasisOfMatrixFactors
+  rw [FDRep.simpleCharacterBasisOfCardEq_apply]
 
 end Characters
 
