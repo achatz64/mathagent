@@ -194,6 +194,19 @@ all important results would be available as direct Mathlib wrappers.
 
 ## Semantic-audit correction pass
 
+### Semantic faithfulness
+
+- Source claims should be visible in Lean types, not only comments or proofs.
+- Split compound claims when one bundled type does not expose their existence,
+  uniqueness, converses, equations, or corollaries.
+- Generic library results may be used internally, but source-facing wrappers
+  should preserve relevant assumptions and conventions.
+- Put an actionable `AUDIT-GAP` beside the partial declaration; reserve
+  `AUDIT-DEFERRED` for intentional omissions in the final ledger.
+- A build checks Lean correctness; declaration types determine faithfulness.
+
+Developers can locate local work with `rg -n 'AUDIT-GAP' lean/GT.lean`.
+
 The first coverage pass was syntactic: it established that every source label
 occurred somewhere in the target.  A subsequent independent audit compared
 the proposition under each label with the Lean type.  It found a systematic
@@ -201,10 +214,10 @@ failure mode: a true, convenient Mathlib consequence was sometimes tagged with
 a compound TeX label even though essential clauses were absent.  No proof was
 false, but label occurrence had been mistaken for statement coverage.
 
-The repair pass therefore used a **clause matrix**.  Each compound result was
-split into independently checkable obligations—existence, equations,
-uniqueness, preserved structure, hypotheses, and corollaries—and a label was
-kept on a declaration only when its type exposed the relevant obligation.
+The repair pass therefore checked each compound result clause by clause:
+existence, equations, uniqueness, preserved structure, hypotheses, and
+corollaries. A source hook was kept on a declaration only when its type exposed
+the relevant obligation.
 This produced, among others:
 
 - a list-product characterization of generated subgroups, not only leastness;
