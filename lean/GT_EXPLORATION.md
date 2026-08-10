@@ -127,69 +127,6 @@ default for every result.
 
 ## Lean execution experiments
 
-### Cumulative import attempt
-
-The first Lean REPL experiment requested a cumulative base containing:
-
-- `Mathlib.GroupTheory.FreeGroup.NielsenSchreier`
-- `Mathlib.GroupTheory.Index`
-- `Mathlib.GroupTheory.OrderOfElement`
-- `Mathlib.GroupTheory.QuotientGroup.Basic`
-- `Mathlib.GroupTheory.SchurZassenhaus`
-
-The request exceeded the MCP server's fixed 60-second request timeout.  A retry
-against the same registered import base also timed out.  The host process tree
-and `lean_repl_status` showed that the MCP server remained alive but its worker
-had been stopped.  There was no stderr and no competing REPL process.
-
-This behavior follows the server implementation: a timeout calls
-`_abort_locked`, which terminates the worker.  The configured `--warm` option
-warms only the empty import base because no `--warm-import` arguments are
-present.  It does not make a later broad import set cheap.
-
-### Consequence for a low-effort workflow
-
-A single “convenient” broad REPL base is fragile under a fixed timeout.  The
-better experiment design is:
-
-- start with the narrowest module containing the candidate declaration;
-- group several checks that share that module;
-- add one missing module at a time;
-- reserve a full project build for the integrated target.
-
-There is a useful inversion here: broad imports reduce *prompt effort* but can
-increase *tool failure cost*.  The best unit of batching is not “one chapter”;
-it is “one import frontier.”
-
-### Integrated build experiments
-
-The REPL timeout made a project build the reliable integration oracle.  Import
-choice mattered much more than proof size.  An early `import Mathlib` version
-was still compiling after more than four minutes and was abandoned.  Replacing
-it with declaration-owning modules produced the following observed sequence:
-
-| Target state | Jobs | Result | Reported target time |
-|---|---:|---|---:|
-| first narrow-import prototype | 1887 | elaboration errors | about 99 s |
-| corrected narrow prototype | 1887 | success | 23 s |
-| expanded algebra/character target, cold frontier | 2423 | elaboration errors | 66 s |
-| subsequent correction passes | 2423 | errors or success | 16–36 s |
-| final semantic pass before the audit comments | 2423 | success | 28 s |
-
-The expanded import frontier is substantially more expensive but remains
-predictable.  More importantly, failed target builds returned all elaboration
-errors together.  For this workload, a 30-second build poll plus continued
-session polling had lower human effort than submitting dozens of isolated REPL
-checks, even though a successful narrow REPL would have lower theoretical
-latency.
-
-One orchestration failure was also informative: losing track of yielded shell
-session identifiers accidentally started redundant builds.  They were stopped
-before continuing.  The robust driver treats the first command's session ID as
-state and polls that exact session until it exits; it never launches a second
-build merely because the first poll returned no output.  This is a general
-agent-tool lesson: an empty poll result is not evidence that a process ended.
-
 ## Translation strategy
 
 ### Strong library theorem, faithful paper wrapper
@@ -357,6 +294,15 @@ the final proof compiled without any gap.  The practical routing rule is now:
 2. project build for long tactic terms, Zorn arguments, or proofs that exercise
    a large cumulative environment;
 3. never retry a timed-out large REPL term unchanged.
+
+A useful general REPL workflow for locating an existing action is: search the
+Mathlib source for the mathematical operation and its likely carrier type;
+inspect nearby declarations and scoped-instance attributes; then use small
+`#check`/`#synth` probes in a minimal example, trying the likely acting group
+(and quotient or opposite variants) explicitly.  For `ga08` this distinguished
+the available `ConjAct G` action from the initially assumed direct `G` action,
+and exposed the accompanying stabilizer lemma before any custom definitions
+were attempted.
 
 ### Axiom audit
 

@@ -154,6 +154,12 @@ theorem Subgroup.card_mul_index_eq (H : Subgroup G) :
     Nat.card H * H.index = Nat.card G :=
   H.card_mul_index
 
+/-- GT `bd15`, divisibility conclusion: the order of a subgroup divides the
+order of the ambient group. -/
+theorem Subgroup.card_dvd_card' (H : Subgroup G) :
+    Nat.card H ∣ Nat.card G :=
+  H.card_subgroup_dvd_card
+
 /-- GT `bd16`: the order of an element divides the order of its group. -/
 theorem orderOf_dvd_group_card (x : G) : orderOf x ∣ Nat.card G :=
   orderOf_dvd_natCard x
@@ -226,6 +232,26 @@ theorem QuotientGroup.ker_mk'_eq (N : Subgroup G) [N.Normal] :
     (QuotientGroup.mk' N).ker = N :=
   QuotientGroup.ker_mk' N
 
+/-- `bd27`: uniqueness of the group operations on the quotient carrier.  Rather
+than comparing typeclass structures, this states the equivalent pointwise
+characterization: any operations whose values on quotient representatives are
+forced by the projection agree with Mathlib's quotient operations. -/
+theorem QuotientGroup.unique_group_operations (N : Subgroup G) [N.Normal] :
+    ∀ (mul : (G ⧸ N) → (G ⧸ N) → (G ⧸ N)) (inv : (G ⧸ N) → (G ⧸ N)),
+      (∀ a b : G, mul (QuotientGroup.mk' N a) (QuotientGroup.mk' N b) =
+        QuotientGroup.mk' N (a * b)) →
+      (∀ a : G, inv (QuotientGroup.mk' N a) = QuotientGroup.mk' N a⁻¹) →
+      mul = (· * ·) ∧ inv = Inv.inv := by
+  intro mul inv hmul hinv
+  constructor
+  · funext x y
+    obtain ⟨a, rfl⟩ := QuotientGroup.mk'_surjective N x
+    obtain ⟨b, rfl⟩ := QuotientGroup.mk'_surjective N y
+    simpa using hmul a b
+  · funext x
+    obtain ⟨a, rfl⟩ := QuotientGroup.mk'_surjective N x
+    simpa using hinv a
+
 /-- Construction used in the proof of the quotient universal property. -/
 def QuotientGroup.liftOfLeKer (N : Subgroup G) [N.Normal] (f : G →* G')
     (h : N ≤ f.ker) : G ⧸ N →* G' :=
@@ -249,6 +275,15 @@ theorem QuotientGroup.existsUnique_lift (N : Subgroup G) [N.Normal]
 noncomputable def QuotientGroup.quotientKerMulEquivRange (f : G →* G') :
     G ⧸ f.ker ≃* f.range :=
   QuotientGroup.quotientKerEquivRange f
+
+/-- GT `it01`, explicit commuting factorization: the quotient map followed by
+ the canonical equivalence and the range inclusion is the original map. -/
+theorem QuotientGroup.quotientKerMulEquivRange_comp_mk (f : G →* G') :
+    ((f.range.subtype).comp
+      (QuotientGroup.quotientKerMulEquivRange f).toMonoidHom).comp
+        (QuotientGroup.mk' f.ker) = f := by
+  ext x
+  rfl
 
 /-- GT `it02`: the second isomorphism theorem. -/
 noncomputable def QuotientGroup.quotientInfMulEquivSupQuotient
@@ -682,10 +717,79 @@ theorem MulAction.orbit_cardinal_eq_quotient (x : X) :
       ((MulAction.orbitEquivQuotientStabilizer G x).trans
         Equiv.ulift.{v, u}.symm))
 
+/-- The conjugation orbit of a subgroup is explicitly the quotient by its
+normalizer, valid without finiteness assumptions. -/
+noncomputable def Subgroup.conjugationOrbitEquivNormalizerQuotient
+    (H : Subgroup G) :
+    MulAction.orbit (ConjAct G) H ≃
+      (G ⧸ Subgroup.normalizer (H : Set G)) := by
+  let e : ConjAct G ≃* G := (ConjAct.toConjAct (G := G)).symm
+  have hs : Subgroup.map (ConjAct.toConjAct (G := G)).toMonoidHom
+      (Subgroup.normalizer (H : Set G)) = MulAction.stabilizer (ConjAct G) H := by
+    ext g
+    rw [Subgroup.mem_map_equiv, MulAction.mem_stabilizer_iff]
+    exact Subgroup.conjAct_pointwise_smul_iff.symm
+  have eqv : (ConjAct G ⧸ MulAction.stabilizer (ConjAct G) H) ≃
+      (G ⧸ Subgroup.normalizer (H : Set G)) := by
+    let f : ConjAct G ⧸ MulAction.stabilizer (ConjAct G) H →
+        G ⧸ Subgroup.normalizer (H : Set G) :=
+      Quotient.map' e (by
+        intro a b hab
+        rw [QuotientGroup.leftRel_apply] at hab ⊢
+        have hab' : e (a⁻¹ * b) ∈ Subgroup.normalizer (H : Set G) := by
+          rw [← Subgroup.conjAct_pointwise_smul_iff]
+          exact hab
+        simpa [map_mul, map_inv] using hab')
+    let g : G ⧸ Subgroup.normalizer (H : Set G) →
+        ConjAct G ⧸ MulAction.stabilizer (ConjAct G) H :=
+      Quotient.map' e.symm (by
+        intro a b hab
+        rw [QuotientGroup.leftRel_apply] at hab ⊢
+        have hab' : e.symm (a⁻¹ * b) ∈ MulAction.stabilizer (ConjAct G) H := by
+          rw [MulAction.mem_stabilizer_iff]
+          apply Subgroup.conjAct_pointwise_smul_iff.mpr
+          simpa using hab
+        simpa [map_mul, map_inv] using hab')
+    refine { toFun := f, invFun := g, left_inv := ?_, right_inv := ?_ }
+    · intro q
+      refine Quotient.inductionOn q ?_
+      intro a
+      rfl
+    · intro q
+      refine Quotient.inductionOn q ?_
+      intro a
+      rfl
+  exact (MulAction.orbitEquivQuotientStabilizer (ConjAct G) H).trans eqv
+
+/-- GT `ga08`, cardinal form: the conjugation orbit is equinumerous with the
+coset quotient by the normalizer, with no finiteness assumption. -/
+theorem Subgroup.mk_conjugation_orbit_eq_mk_normalizer_quotient
+    (H : Subgroup G) :
+    Cardinal.mk (MulAction.orbit (ConjAct G) H) =
+      Cardinal.mk (G ⧸ Subgroup.normalizer (H : Set G)) :=
+  Cardinal.mk_congr (Subgroup.conjugationOrbitEquivNormalizerQuotient H)
+
 /-- Finite `Nat.card` specialization of GT `ga08`. -/
 theorem MulAction.orbit_card_eq_index (x : X) :
     Nat.card (orbit G x) = (stabilizer G x).index :=
   by simpa using (MulAction.index_stabilizer G x).symm
+
+/-- GT `ga08`, conjugation specialization: the number of conjugates of a
+subgroup is the index of its normalizer.  Mathlib's pointwise action is by
+`ConjAct G`; `conjAct_pointwise_smul_iff` identifies its stabilizer after
+transport along `ConjAct.toConjAct`. -/
+theorem Subgroup.conjugation_orbit_card_eq_normalizer_index
+    (H : Subgroup G) :
+    Nat.card (MulAction.orbit (ConjAct G) H) =
+      (Subgroup.normalizer (H : Set G)).index := by
+  rw [MulAction.orbit_card_eq_index]
+  have heq : Subgroup.map (ConjAct.toConjAct (G := G)).toMonoidHom
+      (Subgroup.normalizer (H : Set G)) = MulAction.stabilizer (ConjAct G) H := by
+    ext g
+    rw [Subgroup.mem_map_equiv, MulAction.mem_stabilizer_iff]
+    exact Subgroup.conjAct_pointwise_smul_iff.symm
+  rw [← heq]
+  exact Subgroup.index_map_equiv _ (ConjAct.toConjAct (G := G))
 
 /-- GT `ga10`: the kernel of the coset action is the normal core. -/
 theorem Subgroup.normalCore_eq_cosetAction_ker (H : Subgroup G) :
@@ -1125,6 +1229,14 @@ theorem IsPGroup.le_sylow_of_le_normalizer {p : ℕ} {H : Subgroup G}
   rw [hH.inf_normalizer_sylow P] at hxinf
   exact hxinf.2
 
+/-- GT `st8`, explicit corollary: among Sylow `p`-subgroups, only `P` can
+normalize `P`. -/
+theorem Sylow.eq_of_le_normalizer {p : ℕ} (P Q : Sylow p G)
+    (hn : (Q : Subgroup G) ≤ Subgroup.normalizer (P : Set G)) : Q = P := by
+  apply Sylow.ext
+  exact (Q.is_maximal' P.isPGroup'
+    (IsPGroup.le_sylow_of_le_normalizer Q.isPGroup' P hn)).symm
+
 /-- GT `st11t`: if `P` is a Sylow subgroup of `G`, then every subgroup `H`
 has a Sylow subgroup obtained by intersecting `H` with a conjugate of `P`.
 The `comap` is precisely that intersection, expressed without coercion noise.
@@ -1501,6 +1613,15 @@ theorem LinearMap.bijective_or_eq_zero_of_simple
     Function.Bijective f ∨ f = 0 :=
   f.bijective_or_eq_zero
 
+/-- GT `r16`, division-algebra conclusion.  The scalar hypotheses expose the
+usual `Algebra F (Module.End A S)` structure alongside the division ring. -/
+@[reducible] noncomputable def Module.End.divisionRingOfIsSimple
+    (F A S : Type*) [Field F] [Ring A] [Algebra F A]
+    [AddCommGroup S] [Module A S] [Module F S] [IsScalarTower F A S]
+    [IsSimpleModule A S] : DivisionRing (Module.End A S) := by
+  classical
+  exact Module.End.instDivisionRing
+
 /-- GT `r19`: the finite-set form of the Jacobson density theorem. -/
 theorem jacobsonDensity [IsSemisimpleModule R M]
     (f : Module.End (Module.End R M) M) (S : Finset M) :
@@ -1572,6 +1693,19 @@ theorem simpleRing_nonempty_linearEquiv_of_isSimpleModule
       (IsSimpleRing.isIsotypic A A)
   exact hall M N inferInstance inferInstance
 
+/-- GT `r20`, direct-sum clause: the regular left module is a direct sum of
+simple left ideals, represented by simple submodules of the regular module. -/
+theorem simpleRing_exists_dfinsupp_simpleSubmodule
+    [IsSimpleRing A] [IsArtinianRing A] :
+    ∃ (s : Set (Submodule A A)),
+      Nonempty (A ≃ₗ[A] Π₀ I : s, I.1) ∧
+        ∀ I : s, IsSimpleModule A I.1 := by
+  letI : IsSemisimpleRing A :=
+    IsSimpleRing.isSemisimpleRing_iff_isArtinianRing.mpr inferInstance
+  obtain ⟨s, e, _, hs⟩ :=
+    IsSemisimpleModule.exists_linearEquiv_dfinsupp A A
+  exact ⟨s, ⟨e⟩, hs⟩
+
 /-- GT `r22`: the regular module of an Artinian simple ring is a finite
 direct sum of copies of any chosen simple module. -/
 theorem simpleRing_exists_linearEquiv_fun_of_isSimpleModule
@@ -1586,6 +1720,66 @@ theorem simpleRing_exists_linearEquiv_fun_of_isSimpleModule
   have htype : IsIsotypicOfType A A S := fun I _ ↦
     hall I S inferInstance inferInstance
   exact htype.linearEquiv_fun
+
+/-- GT `r22`, arbitrary-module form: every module over an Artinian simple ring
+is a direct sum of copies of any chosen simple module. -/
+theorem simpleRing_exists_linearEquiv_finsupp_of_isSimpleModule
+    [IsSimpleRing A] [IsArtinianRing A]
+    (M S : Type u) [AddCommGroup M] [Module A M]
+    [AddCommGroup S] [Module A S] [IsSimpleModule A S] :
+    ∃ ι : Type u, Nonempty (M ≃ₗ[A] ι →₀ S) := by
+  letI : IsSemisimpleRing A :=
+    IsSimpleRing.isSemisimpleRing_iff_isArtinianRing.mpr inferInstance
+  have hall : AllSimpleModulesIsomorphic A :=
+    (isIsotypic_self_iff_allSimpleModulesIsomorphic A).mp
+      (IsSimpleRing.isIsotypic A A)
+  have htype : IsIsotypicOfType A M S := by
+    intro I hI
+    exact hall I S hI inferInstance
+  exact htype.linearEquiv_finsupp
+
+/-- GT `r22`, equal-dimension clause: finite modules with the same scalar
+field dimension are isomorphic as A-modules. -/
+theorem simpleAlgebra_nonempty_linearEquiv_of_finrank_eq
+    [IsSimpleRing A] [FiniteDimensional F A]
+    (M N S : Type u) [AddCommGroup M] [Module A M]
+    [AddCommGroup N] [Module A N]
+    [AddCommGroup S] [Module A S] [IsSimpleModule A S]
+    [Module F M] [Module F N] [Module F S]
+    [IsScalarTower F A M] [IsScalarTower F A N] [IsScalarTower F A S]
+    [FiniteDimensional F M] [FiniteDimensional F N] [FiniteDimensional F S]
+    (h : Module.finrank F M = Module.finrank F N) :
+    Nonempty (M ≃ₗ[A] N) := by
+  letI : IsArtinianRing A := IsArtinianRing.of_finite F A
+  letI : Module.Finite A M := Module.Finite.of_restrictScalars_finite F A M
+  letI : Module.Finite A N := Module.Finite.of_restrictScalars_finite F A N
+  letI : Module.Finite F S := Module.Finite.trans A S
+  letI : IsSemisimpleRing A :=
+    IsSimpleRing.isSemisimpleRing_iff_isArtinianRing.mpr inferInstance
+  have hall : AllSimpleModulesIsomorphic A :=
+    (isIsotypic_self_iff_allSimpleModulesIsomorphic A).mp
+      (IsSimpleRing.isIsotypic A A)
+  have hM : IsIsotypicOfType A M S := by
+    intro I hI
+    exact hall I S hI inferInstance
+  have hN : IsIsotypicOfType A N S := by
+    intro I hI
+    exact hall I S hI inferInstance
+  obtain ⟨m, ⟨eM⟩⟩ := hM.linearEquiv_fun
+  obtain ⟨n, ⟨eN⟩⟩ := hN.linearEquiv_fun
+  have hm := (eM.restrictScalars F).finrank_eq
+  have hn := (eN.restrictScalars F).finrank_eq
+  rw [Module.finrank_pi_fintype] at hm
+  rw [Module.finrank_pi_fintype] at hn
+  simp [Finset.sum_const] at hm hn
+  letI : Nontrivial S := IsSimpleModule.nontrivial A S
+  have hmnprod : m * Module.finrank F S = n * Module.finrank F S := by
+    rw [← hm, ← hn, h]
+  have hmn : m = n := Nat.eq_of_mul_eq_mul_right
+    (Module.finrank_pos (R := F) (M := S)) hmnprod
+  let eMN : (Fin m → S) ≃ₗ[A] (Fin n → S) :=
+    LinearEquiv.piCongrLeft A (fun _ : Fin n => S) (finCongr hmn)
+  exact ⟨eM.trans (eMN.trans eN.symm)⟩
 
 /-- GT `r21`: for a semisimple algebra, simplicity, isotypicity of the
 regular module, and uniqueness of the simple-module type are equivalent. -/

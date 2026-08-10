@@ -12,6 +12,6 @@ Treat `lean-explore` result IDs as local to the current index and session. Do no
 
 ## Lean execution
 
-Pi loads the project-local Lean REPL extension by default. See [LEAN_REPL.md](LEAN_REPL.md).
+Pi loads the project-local Lean REPL extension by default. See [LEAN_REPL.md](LEAN_REPL.md). Use this repl and DO NOT build tmp files to be compiled with `lake build`. The repl is much faster! Of course, the target output files have to be checked with `cd lean && lake build ...`.  
 
 

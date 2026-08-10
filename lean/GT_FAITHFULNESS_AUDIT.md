@@ -32,6 +32,8 @@ Estimates assume the model reads `OVERVIEW.md` and `LEAN_REPL.md`, prototypes in
 
 ### F1 — `bd15`: divisibility conclusion of Lagrange
 
+**Status: closed** by `Subgroup.card_dvd_card'` in `lean/GT.lean`.
+
 **Source:** `test/GT/GT.tex:1300–1310` states the cardinality/index identity and
 then explicitly concludes that every subgroup order divides the group order.
 
@@ -53,6 +55,8 @@ theorem Subgroup.card_dvd_card' [Finite G] (H : Subgroup G) :
 ---
 
 ### F2 — `bd27`: uniqueness of the quotient group structure
+
+**Status: closed, with a representation caveat.** `QuotientGroup.unique_group_operations` proves pointwise uniqueness of multiplication and inversion. Existence is supplied by Mathlib's quotient instance; the identity is not quantified explicitly, but it is uniquely determined by multiplication in any candidate group structure.
 
 **Source:** `test/GT/GT.tex:1598–1603` says that there is a unique group
 structure on the coset set for which the quotient map is a homomorphism.
@@ -80,6 +84,8 @@ surjectivity proofs. Estimated 10–20 iterations.
 
 ### F3 — `it01`: explicit factorization equation
 
+**Status: closed** by `QuotientGroup.quotientKerMulEquivRange_comp_mk` in `lean/GT.lean`.
+
 **Source:** `test/GT/GT.tex:1696–1711` exposes the complete factorization
 
 ```text
@@ -102,6 +108,11 @@ coercions. Good small-model task; 2–5 REPL calls.
 ---
 
 ### F4 — `ga08`: number of conjugates of a subgroup
+
+**Status: closed.** `Subgroup.conjugationOrbitEquivNormalizerQuotient` gives an
+explicit equivalence with the normalizer quotient, and
+`Subgroup.mk_conjugation_orbit_eq_mk_normalizer_quotient` gives the corresponding
+`Cardinal.mk` statement. The finite `Nat.card` specialization remains available.
 
 **Source:** `test/GT/GT.tex:4807–4815` includes both orbit–stabilizer and the
 specialization that the number of conjugates of `H` is `(G : N_G(H))`.
@@ -127,6 +138,8 @@ fixed; 4–8 iterations.
 
 ### F5 — `st8`: the stated Sylow corollary
 
+**Status: closed** by `Sylow.eq_of_le_normalizer` in `lean/GT.lean`.
+
 **Source:** `test/GT/GT.tex:6199–6204` additionally says that no Sylow
 `p`-subgroup other than `P` normalizes `P`.
 
@@ -144,6 +157,8 @@ maximality/cardinality or the Sylow API to turn `Q ≤ P` into equality.
 ---
 
 ### F6 — `r16`: division-algebra conclusion of Schur's lemma
+
+**Status: closed** by `Module.End.divisionRingOfIsSimple` in `lean/GT.lean`.
 
 **Source:** `test/GT/GT.tex:8442–8445`, under the chapter's standing
 finite-dimensional `F`-algebra/module conventions, says
@@ -175,6 +190,8 @@ Good small-model task if the required `classical` step is stated in the prompt.
 
 ### F7 — `r20`: direct sum of minimal left ideals
 
+**Status: closed** by `simpleRing_exists_dfinsupp_simpleSubmodule` in `lean/GT.lean`.
+
 **Source:** `test/GT/GT.tex:8538–8550` has two clauses: minimal left ideals are
 mutually isomorphic, and `A` is a direct sum of minimal left ideals.
 
@@ -199,6 +216,8 @@ Suitable for a smaller model after fixing the desired signature.
 ---
 
 ### F8 — `r22`: all modules are sums of one simple type
+
+**Status: closed** by `simpleRing_exists_linearEquiv_finsupp_of_isSimpleModule` in `lean/GT.lean`.
 
 **Source:** `test/GT/GT.tex:8552–8560` says every `A`-module is a direct sum of
 copies of a chosen simple module `S`.
@@ -227,6 +246,8 @@ Suitable for a smaller model with the route supplied.
 ---
 
 ### F9 — `r22`: equal `F`-dimension implies module isomorphism
+
+**Status: closed** by `simpleAlgebra_nonempty_linearEquiv_of_finrank_eq`. The declaration now uses the chapter-facing finite-dimensional hypotheses and derives the Artinian and relative finite-generation instances internally.
 
 **Source:** the second sentence of `r22` says two `A`-modules of equal
 `F`-dimension are isomorphic.
@@ -302,3 +323,15 @@ That matrix is mostly reading and classification. Estimate **6–12 model-hours*
 for a smaller model in batches of 10–15 labels, followed by a stronger-model
 review. It should be completed before treating the 129 labels in non-theorem
 environments as formalization tasks.
+
+## Post-handoff review
+
+The integrated target builds successfully. F1–F9 are now closed under the
+source-facing criterion: F2 uses the documented pointwise-operation encoding,
+F4 has an infinite-cardinal-safe orbit/normalizer equivalence, F6 is marked
+`@[reducible]`, and F9 derives its Artinian and relative finite-generation
+instances from finite-dimensional hypotheses.
+
+The historical `lean/GT_EXPLORATION.md` edit is intentionally left as-is per
+handoff instructions. Temporary scratch files used during prototyping have
+been removed.
