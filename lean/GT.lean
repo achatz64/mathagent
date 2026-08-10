@@ -3225,6 +3225,64 @@ noncomputable def FDRep.simpleCharacterBasisOfMatrixFactors
     MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
     Nat.card_eq_fintype_card]
 
+/-- GT `r35` and `r39`, complete-enumeration form: any finite family
+which enumerates every simple group-algebra module exactly once has its
+characters as a basis.  The matrix presentation and the cardinality equality
+are obtained internally. -/
+theorem FDRep.exists_simpleCharacterBasis_of_completeEnumeration
+    {H : Type u} [Group H] [Fintype H] [Invertible (Fintype.card H : k)]
+    [IsAlgClosed k] [CharZero k]
+    {ι : Type*} [Fintype ι] [Nonempty ι]
+    (V : ι → FDRep k H) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    (hsimple : ∀ i,
+      IsSimpleModule (MonoidAlgebra k H) (Representation.asModule (V i).ρ))
+    (hcomplete : ∀ (M : Type u) [AddCommGroup M]
+      [Module (MonoidAlgebra k H) M] [IsSimpleModule (MonoidAlgebra k H) M],
+      ∃! i, Nonempty
+        (M ≃ₗ[MonoidAlgebra k H] Representation.asModule (V i).ρ)) :
+    ∃ B : Module.Basis ι k (ClassFunction (k := k) (G := H)),
+      ∀ i, B i = FDRep.characterClassFunction (V i) := by
+  classical
+  obtain ⟨n, d, hd, ⟨e⟩⟩ :=
+    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+  letI : ∀ i, NeZero (d i) := hd
+  letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+  letI : ∀ i, IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+    RingEquiv.isSimpleModule_piFactor
+      (A := MonoidAlgebra k H)
+      (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
+      (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) i
+  have hcomp (j : Fin n) := hcomplete (Fin (d j) → k)
+  choose c hc using hcomp
+  have hc_injective : Function.Injective c := by
+    intro a b hab
+    by_contra hne
+    apply RingEquiv.piFactor_not_linearEquiv
+      (A := MonoidAlgebra k H)
+      (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
+      (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) hne
+    exact ⟨(hc a).1.some.trans (hab ▸ (hc b).1.some.symm)⟩
+  have hc_surjective : Function.Surjective c := by
+    intro i
+    letI : IsSimpleModule (MonoidAlgebra k H)
+        (Representation.asModule (V i).ρ) := hsimple i
+    obtain ⟨j, hj, _⟩ :=
+      (MonoidAlgebra.matrixFactor_simpleModule_classification d e
+        (Representation.asModule (V i).ρ)).1
+    have hci : i = c j := (hc j).2 i ⟨hj.some.symm⟩
+    exact ⟨j, hci.symm⟩
+  let ci : Fin n ≃ ι := Equiv.ofBijective c ⟨hc_injective, hc_surjective⟩
+  have hcard : Fintype.card ι = Fintype.card (ConjClasses H) := by
+    rw [← Fintype.card_congr ci, Fintype.card_fin,
+      MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
+      Nat.card_eq_fintype_card]
+  let B := FDRep.simpleCharacterBasisOfCardEq V hiso hcard
+  exact ⟨B, fun i => FDRep.simpleCharacterBasisOfCardEq_apply V hiso hcard i⟩
+
 @[simp]
 theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
     [IsAlgClosed k] {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
