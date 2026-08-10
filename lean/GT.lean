@@ -26,6 +26,7 @@ import Mathlib.GroupTheory.Torsion
 import Mathlib.RepresentationTheory.Character
 import Mathlib.RepresentationTheory.Maschke
 import Mathlib.RingTheory.FiniteLength
+import Mathlib.RingTheory.Length
 import Mathlib.RingTheory.SimpleModule.IsAlgClosed
 import Mathlib.RingTheory.SimpleModule.Isotypic
 
@@ -1584,6 +1585,229 @@ theorem Submodule.exists_compositionSeries_and_unique
     CompositionSeries.jordan_holder s t (hshead.trans hthead.symm)
       (hslast.trans htlast.symm)⟩
 
+/-- The prefix submodule containing exactly coordinates below `k`. -/
+private def finiteDirectSumPrefix {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    (k : ℕ) : Submodule R ((i : Fin n) → V i) where
+  carrier := {x | ∀ i, k ≤ i.val → x i = 0}
+  zero_mem' := by simp
+  add_mem' := by
+    intro x y hx hy i hi
+    simp [hx i hi, hy i hi]
+  smul_mem' := by
+    intro a x hx i hi
+    simp [hx i hi]
+
+/-- The initial and terminal prefix submodules. -/
+private theorem finiteDirectSumPrefix_zero {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)] :
+    finiteDirectSumPrefix (R := R) V 0 = ⊥ := by
+  apply le_bot_iff.mp
+  intro x hx
+  ext i
+  exact hx i (Nat.zero_le _)
+
+private theorem finiteDirectSumPrefix_top {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)] :
+    finiteDirectSumPrefix (R := R) V n = ⊤ := by
+  apply top_unique
+  intro x _ i hi
+  exact False.elim (Nat.not_le_of_lt i.isLt hi)
+
+/-- The successive quotient of prefix submodules is its newly added coordinate. -/
+private theorem finiteDirectSumPrefix_factor_equiv {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    (k : ℕ) (hk : k < n) :
+    Nonempty ((finiteDirectSumPrefix (R := R) V (k + 1) ⧸
+      Submodule.comap (finiteDirectSumPrefix (R := R) V (k + 1)).subtype
+        (finiteDirectSumPrefix (R := R) V k)) ≃ₗ[R] V ⟨k, hk⟩) := by
+  let P := finiteDirectSumPrefix (R := R) V k
+  let Q := finiteDirectSumPrefix (R := R) V (k + 1)
+  let i : Fin n := ⟨k, hk⟩
+  let f : Q →ₗ[R] V i := (LinearMap.proj i).domRestrict Q
+  have hsurj : Function.Surjective f := by
+    intro v
+    refine ⟨⟨Pi.single i v, ?_⟩, ?_⟩
+    · intro j hj
+      by_cases hji : j = i
+      · subst j
+        exact False.elim (Nat.not_succ_le_self k hj)
+      · rw [Pi.single_eq_of_ne hji]
+    · simp [f]
+  have hker : f.ker = Submodule.comap Q.subtype P := by
+    ext x
+    constructor
+    · intro hx j hj
+      by_cases hji : j = i
+      · subst j
+        exact hx
+      · exact x.property j (Nat.succ_le_iff.mpr
+          (Nat.lt_of_le_of_ne hj fun h => hji (Fin.ext h.symm)))
+    · intro hx
+      exact hx i (Nat.le_refl k)
+  have hrange : f.range = ⊤ := LinearMap.range_eq_top.mpr hsurj
+  exact ⟨(Submodule.quotEquivOfEq f.ker (Submodule.comap Q.subtype P) hker).symm.trans
+    ((LinearMap.quotKerEquivRange f).trans (LinearEquiv.ofTop f.range hrange))⟩
+
+/-- Adjacent prefix submodules differ by one simple coordinate. -/
+private theorem finiteDirectSumPrefix_covBy {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    [∀ i, IsSimpleModule R (V i)]
+    (k : ℕ) (hk : k < n) :
+    finiteDirectSumPrefix (R := R) V k ⋖ finiteDirectSumPrefix (R := R) V (k + 1) := by
+  let P := finiteDirectSumPrefix (R := R) V k
+  let Q := finiteDirectSumPrefix (R := R) V (k + 1)
+  let i : Fin n := ⟨k, hk⟩
+  have hPQ : P ≤ Q := by
+    intro x hx j hj
+    exact hx j (Nat.le_trans (Nat.le_succ _) hj)
+  let f : Q →ₗ[R] V i := (LinearMap.proj i).domRestrict Q
+  have hsurj : Function.Surjective f := by
+    intro v
+    refine ⟨⟨Pi.single i v, ?_⟩, ?_⟩
+    · intro j hj
+      by_cases hji : j = i
+      · subst j
+        exact False.elim (Nat.not_succ_le_self k hj)
+      · rw [Pi.single_eq_of_ne hji]
+    · simp [f]
+  have hker : f.ker = Submodule.comap Q.subtype P := by
+    ext x
+    constructor
+    · intro hx j hj
+      by_cases hji : j = i
+      · subst j
+        exact hx
+      · exact x.property j (Nat.succ_le_iff.mpr
+          (Nat.lt_of_le_of_ne hj fun h => hji (Fin.ext h.symm)))
+    · intro hx
+      exact hx i (Nat.le_refl k)
+  have hrange : f.range = ⊤ := LinearMap.range_eq_top.mpr hsurj
+  let e : (Q ⧸ Submodule.comap Q.subtype P) ≃ₗ[R] V i :=
+    (Submodule.quotEquivOfEq f.ker (Submodule.comap Q.subtype P) hker).symm.trans
+      ((LinearMap.quotKerEquivRange f).trans (LinearEquiv.ofTop f.range hrange))
+  apply (covBy_iff_quot_is_simple hPQ).mpr
+  exact e.isSimpleModule_iff.mpr inferInstance
+
+/-- A linear equivalence transports the quotient of nested submodules to the
+quotient of their images. -/
+theorem Submodule.quotientEquiv_map_linearEquiv {X Y : Type*}
+    [AddCommGroup X] [Module R X] [AddCommGroup Y] [Module R Y]
+    (e : X ≃ₗ[R] Y) (P Q : Submodule R X) :
+    Nonempty ((Q ⧸ Submodule.comap Q.subtype P) ≃ₗ[R]
+      ((Submodule.map e.toLinearMap Q) ⧸
+        Submodule.comap (Submodule.map e.toLinearMap Q).subtype
+          (Submodule.map e.toLinearMap P))) := by
+  let P' := Submodule.map e.toLinearMap P
+  let Q' := Submodule.map e.toLinearMap Q
+  let l : Q ≃ₗ[R] Q' := e.submoduleMap Q
+  let A := Submodule.comap Q.subtype P
+  let B := Submodule.comap Q'.subtype P'
+  have hab : A ≤ Submodule.comap l.toLinearMap B := by
+    intro x hx
+    change (l x : Y) ∈ P'
+    exact ⟨x, hx, rfl⟩
+  let q := A.mapQ B l.toLinearMap hab
+  have hsurj : Function.Surjective q := by
+    intro z
+    obtain ⟨y, rfl⟩ := Submodule.Quotient.mk_surjective B z
+    refine ⟨Submodule.Quotient.mk (l.symm y), ?_⟩
+    simp [q, l]
+  have hinj : Function.Injective q := by
+    rw [← LinearMap.ker_eq_bot]
+    apply le_bot_iff.mp
+    intro z hz
+    obtain ⟨x, rfl⟩ := Submodule.Quotient.mk_surjective A z
+    change q (Submodule.Quotient.mk x) = 0 at hz
+    change Submodule.Quotient.mk x = 0
+    rw [show q (Submodule.Quotient.mk x) = 0 ↔ _ from ?_] at hz
+    · rw [Submodule.Quotient.mk_eq_zero]
+      change x.val ∈ P
+      change (l x : Y) ∈ P' at hz
+      obtain ⟨p, hp, heq⟩ := hz
+      change e (p : X) = e x.val at heq
+      have : (p : X) = x.val := e.injective heq
+      simpa [this] using hp
+    · simp only [q, Submodule.mapQ_apply, Submodule.Quotient.mk_eq_zero]
+      rfl
+  exact ⟨LinearEquiv.ofBijective q ⟨hinj, hsurj⟩⟩
+
+/-- The composition series obtained by adding finite direct-sum coordinates in
+order.  Its factors are the displayed simple summands. -/
+private def finiteDirectSumCompositionSeries {n : ℕ} (V : Fin n → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    [∀ i, IsSimpleModule R (V i)] :
+    CompositionSeries (Submodule R ((i : Fin n) → V i)) where
+  length := n
+  toFun := fun i => finiteDirectSumPrefix (R := R) V i.val
+  step := by
+    intro i
+    change finiteDirectSumPrefix (R := R) V i.val ⋖
+      finiteDirectSumPrefix (R := R) V (i.val + 1)
+    exact finiteDirectSumPrefix_covBy (R := R) V i.val i.isLt
+
+/-- The cardinality half of GT `r10c`: linearly equivalent finite direct sums
+of simple modules have equally many summands.  The remaining factor-matching
+half is supplied by the composition-series bridge tracked below. -/
+theorem finite_directSum_simple_card_eq {s t : ℕ}
+    (V : Fin s → Type*) (W : Fin t → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    [∀ j, AddCommGroup (W j)] [∀ j, Module R (W j)]
+    [∀ i, IsSimpleModule R (V i)] [∀ j, IsSimpleModule R (W j)]
+    (e : (∀ i, V i) ≃ₗ[R] (∀ j, W j)) : s = t := by
+  have h : (s : ℕ∞) = t := by
+    calc
+      (s : ℕ∞) = ∑ i : Fin s, Module.length R (V i) := by simp
+      _ = Module.length R (∀ i, V i) := (Module.length_pi_of_fintype R V).symm
+      _ = Module.length R (∀ j, W j) := e.length_eq
+      _ = ∑ j : Fin t, Module.length R (W j) := Module.length_pi_of_fintype R W
+      _ = t := by simp
+  exact_mod_cast h
+
+/-- GT `r10c`: two finite direct sums of simple modules are linearly equivalent
+only if their summands agree up to a permutation. -/
+theorem finite_directSum_simple_equiv {s t : ℕ}
+    (V : Fin s → Type*) (W : Fin t → Type*)
+    [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
+    [∀ j, AddCommGroup (W j)] [∀ j, Module R (W j)]
+    [∀ i, IsSimpleModule R (V i)] [∀ j, IsSimpleModule R (W j)]
+    (e : (∀ i, V i) ≃ₗ[R] (∀ j, W j)) :
+    ∃ σ : Fin s ≃ Fin t, ∀ i, Nonempty (V i ≃ₗ[R] W (σ i)) := by
+  let sv := finiteDirectSumCompositionSeries (R := R) V
+  let sw := finiteDirectSumCompositionSeries (R := R) W
+  let sm : CompositionSeries (Submodule R (∀ j, W j)) :=
+    { length := s
+      toFun := fun i => Submodule.map e.toLinearMap
+        (finiteDirectSumPrefix (R := R) V i.val)
+      step := by
+        intro i
+        exact Submodule.map_covBy_of_injective e.injective
+          (finiteDirectSumPrefix_covBy (R := R) V i.val i.isLt) }
+  have hsmHead : sm.head = ⊥ := by
+    change Submodule.map e.toLinearMap (finiteDirectSumPrefix (R := R) V 0) = ⊥
+    rw [finiteDirectSumPrefix_zero, Submodule.map_bot]
+  have hsmLast : sm.last = ⊤ := by
+    change Submodule.map e.toLinearMap (finiteDirectSumPrefix (R := R) V s) = ⊤
+    rw [finiteDirectSumPrefix_top, Submodule.map_top, LinearEquiv.range]
+  have hswHead : sw.head = ⊥ := by
+    change finiteDirectSumPrefix (R := R) W 0 = ⊥
+    exact finiteDirectSumPrefix_zero (R := R) W
+  have hswLast : sw.last = ⊤ := by
+    change finiteDirectSumPrefix (R := R) W t = ⊤
+    exact finiteDirectSumPrefix_top (R := R) W
+  have hj : CompositionSeries.Equivalent sm sw :=
+    CompositionSeries.jordan_holder sm sw
+      (hsmHead.trans hswHead.symm) (hsmLast.trans hswLast.symm)
+  refine ⟨hj.choose, fun i => ?_⟩
+  let ev := (finiteDirectSumPrefix_factor_equiv (R := R) V i.val i.isLt).some
+  let em := (Submodule.quotientEquiv_map_linearEquiv (R := R) e
+    (finiteDirectSumPrefix (R := R) V i.val)
+    (finiteDirectSumPrefix (R := R) V (i.val + 1))).some
+  let eh := (hj.choose_spec i).some
+  let ew := (finiteDirectSumPrefix_factor_equiv (R := R) W
+    (hj.choose i).val (hj.choose i).isLt).some
+  exact ⟨ev.symm.trans (em.trans (eh.trans ew))⟩
+
 /-- GT `r9d`: fully invariant submodules of a semisimple module are precisely
 sums of isotypic components. -/
 theorem Submodule.isFullyInvariant_iff_sSup_isotypicComponents
@@ -1693,6 +1917,73 @@ theorem isIsotypic_self_iff_allSimpleModulesIsomorphic
     exact ⟨eM.trans ((h I J).some.symm.trans eN.symm)⟩
   · intro h I hI J hJ
     exact ⟨(h I J hI hJ).some.symm⟩
+
+/-- A nonzero map out of a direct sum is nonzero on one summand. -/
+private theorem exists_component_ne_zero [DecidableEq ι]
+    {S : ι → Type u} {M : Type u} [∀ i, AddCommGroup (S i)]
+    [∀ i, Module A (S i)] [AddCommGroup M] [Module A M]
+    (f : (Π₀ i, S i) →ₗ[A] M) (hf : f ≠ 0) :
+    ∃ i, f.comp (DFinsupp.lsingle i) ≠ 0 := by
+  by_contra h
+  apply hf
+  have hzero : ∀ i, f.comp (DFinsupp.lsingle i) = 0 := by
+    intro i
+    by_contra hi
+    exact h ⟨i, hi⟩
+  apply LinearMap.ext
+  intro x
+  induction x using DFinsupp.induction with
+  | h0 => simp
+  | ha i b x hxi hb ih =>
+    rw [map_add, ih]
+    have hz' := LinearMap.congr_fun (hzero i) b
+    simpa using hz'
+
+/-- GT `r29(a)`, direct-sum form: if the regular module is a direct sum of
+pairwise nonisomorphic simple modules, these are exactly all simple modules.
+This is the source proof's reusable core; product factors supply the displayed
+regular-module equivalence in the matrix-algebra application. -/
+theorem simpleModule_classification_of_regular_dfinsupp
+    [DecidableEq ι] {S : ι → Type u}
+    [∀ i, AddCommGroup (S i)] [∀ i, Module A (S i)]
+    (e : A ≃ₗ[A] (Π₀ i, S i))
+    (hS : ∀ i, IsSimpleModule A (S i))
+    (hne : ∀ i j, Nonempty (S i ≃ₗ[A] S j) → i = j)
+    (M : Type u) [AddCommGroup M] [Module A M] [IsSimpleModule A M] :
+    ∃! i, Nonempty (M ≃ₗ[A] S i) := by
+  classical
+  letI : Nontrivial M := IsSimpleModule.nontrivial A M
+  obtain ⟨x, hx⟩ := exists_ne (0 : M)
+  let f : A →ₗ[A] M :=
+    { toFun := fun a => a • x
+      map_add' := by intro a b; simp [add_smul]
+      map_smul' := by intro a b; simp [mul_smul] }
+  have hf : Function.Surjective f := by
+    rw [← LinearMap.range_eq_top]
+    apply le_antisymm le_top
+    have hr : f.range ≠ ⊥ := by
+      intro hr
+      have hz : f = 0 := LinearMap.range_eq_bot.mp hr
+      exact hx (by simpa [f] using LinearMap.congr_fun hz 1)
+    rcases (isSimpleModule_iff A M).mp inferInstance |>.eq_bot_or_eq_top
+      (f.range) with hbot | htop
+    · exact False.elim (hr hbot)
+    · rw [htop]
+  let fcomp : (Π₀ i, S i) →ₗ[A] M := f.comp e.symm.toLinearMap
+  have hfcomp : fcomp ≠ 0 := by
+    intro hz
+    have hz1 := LinearMap.congr_fun hz (e 1)
+    change f (e.symm (e 1)) = 0 at hz1
+    exact hx (by simpa [f] using hz1)
+  obtain ⟨i, hi⟩ := exists_component_ne_zero (A := A) (f := fcomp) hfcomp
+  letI : IsSimpleModule A (S i) := hS i
+  have hbij : Function.Bijective (fcomp.comp (DFinsupp.lsingle i)) :=
+    (LinearMap.bijective_or_eq_zero
+      (fcomp.comp (DFinsupp.lsingle i))).resolve_right hi
+  refine ⟨i, ⟨(LinearEquiv.ofBijective _ hbij).symm⟩, ?_⟩
+  intro j hj
+  obtain ⟨ei⟩ := hj
+  exact (hne i j ⟨(LinearEquiv.ofBijective _ hbij).trans ei⟩).symm
 
 /-- GT `r20`: over an Artinian simple ring, any two simple modules are
 linearly equivalent. In particular, this applies to any two minimal nonzero
@@ -1881,6 +2172,9 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
   (AlgEquiv.ofBijective (Algebra.ofId F D)
     IsAlgClosed.algebraMap_bijective_of_isIntegral).symm
 
+/- AUDIT-GAP `r29`: the direct-sum classification core is checked above, but
+an explicit product-of-simple-algebras/factorwise wrapper is still needed. -/
+
 /-- GT `r31m`: in characteristic zero, the group algebra of a finite group
 over an algebraically closed field is a finite product of full matrix
 algebras over that field. -/
@@ -2055,7 +2349,7 @@ unproved proposition has been established.
   `ns24`, `ns25`, `ns26`, and `ns29` have no direct matching
   Mathlib declarations at this import frontier.  The module Jordan--Hölder
   result is formalized separately as `r10`.
-* AUDIT-DEFERRED: the remaining representation results `r10c`, `r17`, `r23`, `r28`, `r29`,
+* AUDIT-DEFERRED: the remaining representation results `r17`, `r23`, `r28`,
   `r30`, `r32`, `r34`, `r34a`, `r36`, and `r9e` require interfaces for finite
   semisimple decompositions, regular
   characters, or centralizers that are not exposed as statement-compatible
