@@ -1,4 +1,5 @@
 import Mathlib.Algebra.Group.Subgroup.Pointwise
+import Mathlib.Algebra.Central.Basic
 import Mathlib.Algebra.Central.Matrix
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
@@ -2129,13 +2130,13 @@ theorem simpleAlgebra_nonempty_linearEquiv_of_finrank_eq
   exact ⟨eM.trans (eMN.trans eN.symm)⟩
 
 /-- The action homomorphism from a product presentation to its `i`th factor. -/
-def RingEquiv.piFactorHom {ι : Type u} (B : ι → Type u) [∀ i, Ring (B i)]
+def RingEquiv.piFactorHom {ι : Type*} (B : ι → Type u) [∀ i, Ring (B i)]
     (e : A ≃+* ∀ i, B i) (i : ι) : A →+* B i :=
   (Pi.evalRingHom B i).comp e.toRingHom
 
 /-- A simple module over one factor of a finite product is simple for the
 whole product acting through the factor projection. -/
-theorem RingEquiv.isSimpleModule_piFactor {ι : Type u} [Fintype ι] [DecidableEq ι]
+theorem RingEquiv.isSimpleModule_piFactor {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
     (hS : ∀ i, IsSimpleModule (B i) (S i)) (i : ι) :
@@ -2155,7 +2156,7 @@ theorem RingEquiv.isSimpleModule_piFactor {ι : Type u} [Fintype ι] [DecidableE
 
 /-- Modules induced from distinct factors of a finite product are not
 isomorphic. -/
-theorem RingEquiv.piFactor_not_linearEquiv {ι : Type u} [Fintype ι]
+theorem RingEquiv.piFactor_not_linearEquiv {ι : Type*} [Fintype ι]
     [DecidableEq ι] (B : ι → Type u) [∀ i, Ring (B i)]
     (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -2185,7 +2186,7 @@ theorem RingEquiv.piFactor_not_linearEquiv {ι : Type u} [Fintype ι]
 /-- The regular module of a finite product of Artinian simple rings is the
 direct sum of repeated copies of one chosen simple module from each factor. -/
 theorem RingEquiv.exists_regular_linearEquiv_piFactor_dfinsupp
-    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -2302,7 +2303,7 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
 modules induced from chosen simple factor modules are pairwise nonisomorphic
 and exhaust all simple modules. -/
 theorem RingEquiv.piFactor_simpleModule_classification
-    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -2329,7 +2330,7 @@ theorem RingEquiv.piFactor_simpleModule_classification
 Artinian simple rings is a finite direct sum of the chosen factor modules.
 The fibre cardinality of `c : Fin n → ι` over `i` is the source's `rᵢ`. -/
 theorem RingEquiv.piFactor_exists_linearEquiv_fun
-    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -2356,7 +2357,7 @@ theorem RingEquiv.piFactor_exists_linearEquiv_fun
 isomorphic exactly when their factor labels agree up to a permutation.  This
 is equivalent to equality of every multiplicity `rᵢ`. -/
 theorem RingEquiv.piFactor_decomposition_unique
-    {ι : Type u} [Fintype ι] [DecidableEq ι]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
     (hS : ∀ i, IsSimpleModule (B i) (S i))
@@ -2414,6 +2415,50 @@ theorem MonoidAlgebra.coeff_eq_of_mem_center
   have hv := congrArg (fun x : MonoidAlgebra k G => x (c * a)) hc
   simpa [MonoidAlgebra.single_mul_apply, MonoidAlgebra.mul_single_apply] using hv
 
+/-- An algebra equivalence restricts to a linear equivalence of centres. -/
+def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
+    [Ring B] [Algebra k B] (e : A ≃ₐ[k] B) :
+    Subalgebra.center k A ≃ₗ[k] Subalgebra.center k B where
+  toFun z := ⟨e z, by
+    rw [Subalgebra.mem_center_iff]
+    intro b
+    obtain ⟨a, rfl⟩ := e.surjective b
+    exact (map_mul e a (z : A)).symm.trans
+      ((congrArg e (Subalgebra.mem_center_iff.mp z.property a)).trans
+        (map_mul e (z : A) a))⟩
+  invFun z := ⟨e.symm z, by
+    rw [Subalgebra.mem_center_iff]
+    intro a
+    obtain ⟨b, rfl⟩ := e.symm.surjective a
+    exact (map_mul e.symm b (z : B)).symm.trans
+      ((congrArg e.symm (Subalgebra.mem_center_iff.mp z.property b)).trans
+        (map_mul e.symm (z : B) b))⟩
+  left_inv := by intro z; ext; simp
+  right_inv := by intro z; ext; simp
+  map_add' := by intros; ext; simp
+  map_smul' := by intros; ext; simp
+
+/-- The centre of a finite product is the product of the centres. -/
+def Subalgebra.centerPiLinearEquiv {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (B : ι → Type*) [∀ i, Ring (B i)] [∀ i, Algebra k (B i)] :
+    Subalgebra.center k (∀ i, B i) ≃ₗ[k] ∀ i, Subalgebra.center k (B i) where
+  toFun z i := ⟨z.val i, by
+    rw [Subalgebra.mem_center_iff]
+    intro b
+    let y : ∀ i, B i := Function.update 0 i b
+    have h := Subalgebra.mem_center_iff.mp z.property y
+    have hi := congrArg (fun x : ∀ i, B i => x i) h
+    simpa [y] using hi⟩
+  invFun z := ⟨fun i => z i, by
+    rw [Subalgebra.mem_center_iff]
+    intro b
+    funext i
+    exact Subalgebra.mem_center_iff.mp (z i).property (b i)⟩
+  left_inv := by intro z; ext i; rfl
+  right_inv := by intro z; ext i; rfl
+  map_add' := by intros; ext i; rfl
+  map_smul' := by intros; ext i; rfl
+
 /-- GT `r30` / `e20`: the centre of a finite group algebra is linearly
 isomorphic to the class functions, via coefficients on conjugacy classes. -/
 noncomputable def MonoidAlgebra.centerEquivClassFunction [Fintype G] :
@@ -2466,6 +2511,85 @@ theorem MonoidAlgebra.finrank_center_eq_card_conjClasses [Fintype G] :
   letI := Fintype.ofFinite (ConjClasses G)
   rw [LinearEquiv.finrank_eq MonoidAlgebra.centerEquivClassFunction,
     Module.finrank_fintype_fun_eq_card, Nat.card_eq_fintype_card]
+
+/-- The standard column module of a nonzero full matrix algebra over a field
+is simple. -/
+theorem Matrix.isSimpleModule_pi {n : ℕ} [NeZero n] :
+    IsSimpleModule (Matrix (Fin n) (Fin n) k) (Fin n → k) := by
+  rw [isSimpleModule_iff_toSpanSingleton_surjective]
+  refine ⟨inferInstance, fun v hv w => ?_⟩
+  obtain ⟨j, hj⟩ : ∃ j, v j ≠ 0 := by
+    by_contra h
+    apply hv
+    funext i
+    simp_all
+  let A : Matrix (Fin n) (Fin n) k :=
+    fun i j' => if j' = j then w i / v j else 0
+  refine ⟨A, ?_⟩
+  ext i
+  change ∑ j', A i j' * v j' = w i
+  simp [A, hj]
+
+/-- The centre of a finite product of nonzero full matrix algebras over a
+field has dimension equal to the number of factors. -/
+theorem Matrix.finrank_center_pi_matrix {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (d : ι → ℕ) [∀ i, NeZero (d i)] :
+    Module.finrank k
+      (Subalgebra.center k (∀ i, Matrix (Fin (d i)) (Fin (d i)) k)) =
+        Fintype.card ι := by
+  let ec (i : ι) :
+      Subalgebra.center k (Matrix (Fin (d i)) (Fin (d i)) k) ≃ₗ[k] k :=
+    ((Subalgebra.equivOfEq _ _
+      (Algebra.IsCentral.center_eq_bot k (Matrix (Fin (d i)) (Fin (d i)) k))).trans
+        (Algebra.botEquiv k (Matrix (Fin (d i)) (Fin (d i)) k))).toLinearEquiv
+  let ecenter := (Subalgebra.centerPiLinearEquiv (k := k)
+    (fun i => Matrix (Fin (d i)) (Fin (d i)) k)).trans
+      (LinearEquiv.piCongrRight ec)
+  rw [LinearEquiv.finrank_eq ecenter, Module.finrank_fintype_fun_eq_card]
+
+/-- GT `r32(a)`, factor-count form: every matrix-product presentation of a
+finite group algebra has one factor per conjugacy class. -/
+theorem MonoidAlgebra.card_matrixFactors_eq_card_conjClasses [Fintype G]
+    {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
+    (e : MonoidAlgebra k G ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
+    n = Nat.card (ConjClasses G) := by
+  calc
+    n = Module.finrank k
+        (Subalgebra.center k
+          (∀ i, Matrix (Fin (d i)) (Fin (d i)) k)) :=
+      by simpa using (Matrix.finrank_center_pi_matrix (k := k) d).symm
+    _ = Module.finrank k
+        (Subalgebra.center k (MonoidAlgebra k G)) :=
+      (AlgEquiv.centerLinearEquiv e).finrank_eq.symm
+    _ = Nat.card (ConjClasses G) :=
+      MonoidAlgebra.finrank_center_eq_card_conjClasses
+
+/-- GT `r32(a)`, classification form: the standard modules of the matrix
+factors in a group-algebra presentation are exactly the simple modules, and
+the factor index has the cardinality of the conjugacy-class set. -/
+theorem MonoidAlgebra.matrixFactor_simpleModule_classification
+    {H : Type u} [Group H] [Fintype H]
+    {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
+    (e : MonoidAlgebra k H ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k)
+    (M : Type u) [AddCommGroup M] [Module (MonoidAlgebra k H) M]
+    [IsSimpleModule (MonoidAlgebra k H) M] :
+    letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+      Module.compHom (Fin (d i) → k)
+        (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+          (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+    (∃! i, Nonempty (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k))) ∧
+      n = Nat.card (ConjClasses H) := by
+  letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+  refine ⟨RingEquiv.piFactor_simpleModule_classification
+    (A := MonoidAlgebra k H)
+    (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
+    (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) M,
+    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e⟩
 
 end GroupAlgebraCenter
 
