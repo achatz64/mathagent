@@ -543,6 +543,49 @@ theorem CommGroup.exists_mulEquiv_free_prod_primePower
           ((i : ι) → Multiplicative (ZMod (p i ^ e i)))) :=
   CommGroup.equiv_free_prod_prod_multiplicative_zmod G
 
+/-- Remove the trivial `p⁰` factors from a product of cyclic prime-power
+groups. -/
+noncomputable def CommGroup.piPrimePowerNeZeroMulEquiv {ι : Type*}
+    [DecidableEq ι] (p e : ι → ℕ) :
+    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
+      ((i : {i : ι // e i ≠ 0}) →
+        Multiplicative (ZMod (p i.1 ^ e i.1))) where
+  toFun f i := f i.1
+  invFun f i := if h : e i ≠ 0 then f ⟨i, h⟩ else 1
+  left_inv := by
+    intro f
+    funext i
+    by_cases h : e i ≠ 0
+    · simp [h]
+    · simp only [h, ↓reduceDIte]
+      have he : e i = 0 := not_ne_iff.mp h
+      haveI : Subsingleton (ZMod (p i ^ e i)) := by
+        rw [he, pow_zero]
+        infer_instance
+      exact Subsingleton.elim _ _
+  right_inv := by intro f; funext i; simp [i.2]
+  map_mul' := by intro f g; funext i; rfl
+
+/-- GT `it21` / `e6`, normalized elementary-divisor existence: a finitely
+generated commutative group is a product of `r` infinite cyclic groups and
+nontrivial cyclic prime-power groups. -/
+theorem CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (r : ℕ) (ι : Type) (_ : Fintype ι) (p : ι → ℕ)
+      (_ : ∀ i, Nat.Prime (p i)) (e : ι → ℕ),
+      (∀ i, 0 < e i) ∧
+        Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
+          ((i : ι) → Multiplicative (ZMod (p i ^ e i)))) := by
+  classical
+  obtain ⟨ι, j, fι, fj, p, hp, e, ⟨h⟩⟩ :=
+    CommGroup.equiv_free_prod_prod_multiplicative_zmod G
+  let ι' := {i : ι // e i ≠ 0}
+  let efree : (j → Multiplicative ℤ) ≃* (Fin (Fintype.card j) → Multiplicative ℤ) :=
+    MulEquiv.arrowCongr (Fintype.equivFin j) (MulEquiv.refl _)
+  refine ⟨Fintype.card j, ι', inferInstance, fun i => p i.1,
+    fun i => hp i.1, fun i => e i.1, fun i => Nat.pos_of_ne_zero i.2, ?_⟩
+  exact ⟨h.trans (efree.prodCongr (CommGroup.piPrimePowerNeZeroMulEquiv p e))⟩
+
 /-- GT `it21(a)`, canonical rank interface: the free rank is invariant under
 commutative-group isomorphism. -/
 theorem CommGroup.freeRank_eq_of_mulEquiv
@@ -550,9 +593,10 @@ theorem CommGroup.freeRank_eq_of_mulEquiv
     (e : G ≃* H) : CommGroup.freeRank G = CommGroup.freeRank H :=
   CommGroup.freeRank_congr e
 
-/- AUDIT-GAP `it21` / `e6`: expose the source's nontrivial torsion-factor
-normalization and invariant-factor/elementary-divisor uniqueness. If the
-current API is insufficient, leave this marker and report the blocker. -/
+/- AUDIT-GAP `it21`: normalized elementary-divisor existence and free-rank
+uniqueness are checked above.  The remaining source clauses are uniqueness of
+the invariant factors and of the elementary divisors; Mathlib's PID/finite-
+abelian structure theorems currently expose existence but no uniqueness API. -/
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
@@ -2299,7 +2343,7 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
   (AlgEquiv.ofBijective (Algebra.ofId F D)
     IsAlgClosed.algebraMap_bijective_of_isIntegral).symm
 
-/-- GT `r29(a)`: for a finite product of Artinian simple rings, the simple
+/-- GT `r29`, part (a): for a finite product of Artinian simple rings, the simple
 modules induced from chosen simple factor modules are pairwise nonisomorphic
 and exhaust all simple modules. -/
 theorem RingEquiv.piFactor_simpleModule_classification
@@ -2547,7 +2591,7 @@ theorem Matrix.finrank_center_pi_matrix {ι : Type*} [Fintype ι] [DecidableEq �
       (LinearEquiv.piCongrRight ec)
   rw [LinearEquiv.finrank_eq ecenter, Module.finrank_fintype_fun_eq_card]
 
-/-- GT `r32(a)`, factor-count form: every matrix-product presentation of a
+/-- GT `r32`, part (a), factor-count form: every matrix-product presentation of a
 finite group algebra has one factor per conjugacy class. -/
 theorem MonoidAlgebra.card_matrixFactors_eq_card_conjClasses [Fintype G]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
@@ -2765,15 +2809,13 @@ unproved proposition has been established.
   Mathlib declarations at this import frontier.  The module Jordan--Hölder
   result is formalized separately as `r10`.
 * AUDIT-DEFERRED: the remaining representation results `r17`, `r23`, `r28`,
-  `r30`, `r32`, `r34`, `r34a`, `r36`, and `r9e` require interfaces for finite
-  semisimple decompositions, regular
-  characters, or centralizers that are not exposed as statement-compatible
-  theorems by the imported Mathlib modules.  Their stronger structural
-  backbone—semisimplicity, Schur, density, Wedderburn--Artin, and character
-  orthogonality—is checked above.  In particular, the `r39` basis constructor
-  above makes the final linear-algebra step explicit, but the `r32(a)`
-  enumeration/cardinality theorem needed to instantiate it remains in this
-  ledger.
+  `r32(b,c)`, `r34`, `r34a`, `r36`, and `r9e` require interfaces for regular
+  characters, multiplicities, or centralizers that are not exposed as
+  statement-compatible theorems by the imported Mathlib modules. Their
+  structural backbone—semisimplicity, Schur, density, Wedderburn--Artin, and
+  character orthogonality—is checked above. The factor enumeration `r32(a)`,
+  centre calculation `r30`, and character-basis conclusions `r35` and `r39`
+  are now checked explicitly.
 -/
 
 end GT
