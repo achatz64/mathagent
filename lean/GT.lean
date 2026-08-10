@@ -968,12 +968,65 @@ theorem CommGroup.invariantFactors_unique
   · rw [Nat.factorization_eq_zero_of_not_prime _ hp,
       Nat.factorization_eq_zero_of_not_prime _ hp]
 
-/- AUDIT-GAP `it21`: `invariantFactors_unique` proves uniqueness once two
-finite divisibility-ordered torsion decompositions are supplied, but the source
-also asserts existence of such an invariant-factor decomposition.  Moreover,
-the rank and torsion uniqueness clauses should be exposed for two full
-decompositions of the same finitely generated group, including their free
-factors, rather than assuming an equivalence of the finite torsion products. -/
+/-- The torsion subgroup of a product of a torsion-free commutative group
+and a torsion commutative group is canonically the second factor. -/
+def CommGroup.torsionProdEquivRight (A B : Type*) [CommGroup A] [CommGroup B]
+    [IsMulTorsionFree A] (hB : Monoid.IsTorsion B) :
+    CommGroup.torsion (A × B) ≃* B where
+  toFun x := x.1.2
+  invFun b := ⟨(1, b), (CommGroup.mem_torsion _).mpr
+    ((isOfFinOrder_iff_eq_one (1 : A)).mpr rfl |>.prod_mk (hB b))⟩
+  left_inv x := by
+    apply Subtype.ext
+    apply Prod.ext
+    · exact ((isOfFinOrder_iff_eq_one x.1.1).mp x.2.fst).symm
+    · rfl
+  right_inv _ := rfl
+  map_mul' _ _ := rfl
+
+/-- A decomposition into a torsion-free factor and a torsion factor identifies
+the latter with the intrinsic torsion subgroup. -/
+def CommGroup.torsionFactorMulEquiv
+    (G A B : Type*) [CommGroup G] [CommGroup A] [CommGroup B]
+    [IsMulTorsionFree A] (hB : Monoid.IsTorsion B) (e : G ≃* A × B) :
+    CommGroup.torsion G ≃* B :=
+  ((e.subgroupMap (CommGroup.torsion G)).trans
+      (MulEquiv.subgroupCongr e.map_torsion)).trans
+    (CommGroup.torsionProdEquivRight A B hB)
+
+/-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
+of the same finitely generated commutative group include their free factors,
+the invariant factors of their finite torsion factors agree. -/
+theorem CommGroup.invariantFactors_unique_of_full_decompositions
+    (G : Type*) [CommGroup G] [Group.FG G]
+    {r₁ r₂ s t : ℕ} (n : Fin s → ℕ) (m : Fin t → ℕ)
+    (hn₂ : ∀ i, 1 < n i) (hm₂ : ∀ j, 1 < m j)
+    (hn_dvd : ∀ i j, i ≤ j → n i ∣ n j)
+    (hm_dvd : ∀ i j, i ≤ j → m i ∣ m j)
+    (e₁ : G ≃* (Fin r₁ → Multiplicative ℤ) ×
+      ((i : Fin s) → Multiplicative (ZMod (n i))))
+    (e₂ : G ≃* (Fin r₂ → Multiplicative ℤ) ×
+      ((j : Fin t) → Multiplicative (ZMod (m j)))) :
+    ∃ hst : s = t, ∀ i, n i = m (Fin.cast hst i) := by
+  letI : ∀ i, NeZero (n i) := fun i => ⟨ne_of_gt (zero_lt_one.trans (hn₂ i))⟩
+  letI : ∀ j, NeZero (m j) := fun j => ⟨ne_of_gt (zero_lt_one.trans (hm₂ j))⟩
+  let hT₁ : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
+    isTorsion_of_finite
+  let hT₂ : Monoid.IsTorsion ((j : Fin t) → Multiplicative (ZMod (m j))) :=
+    isTorsion_of_finite
+  let f₁ := CommGroup.torsionFactorMulEquiv G
+    (Fin r₁ → Multiplicative ℤ)
+    ((i : Fin s) → Multiplicative (ZMod (n i))) hT₁ e₁
+  let f₂ := CommGroup.torsionFactorMulEquiv G
+    (Fin r₂ → Multiplicative ℤ)
+    ((j : Fin t) → Multiplicative (ZMod (m j))) hT₂ e₂
+  exact CommGroup.invariantFactors_unique n m hn₂ hm₂ hn_dvd hm_dvd
+    (f₁.symm.trans f₂)
+
+/- AUDIT-GAP `it21`: full-decomposition torsion uniqueness is now exposed.
+It remains to construct a divisibility-ordered invariant-factor decomposition
+and to identify the displayed number of infinite cyclic factors with the
+intrinsic free rank. -/
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
