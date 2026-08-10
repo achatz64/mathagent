@@ -26,6 +26,7 @@ import Mathlib.GroupTheory.SpecificGroups.Alternating.Simple
 import Mathlib.GroupTheory.SpecificGroups.Cyclic
 import Mathlib.GroupTheory.Sylow
 import Mathlib.GroupTheory.Torsion
+import Mathlib.Order.Interval.Finset.Fin
 import Mathlib.RepresentationTheory.Character
 import Mathlib.RepresentationTheory.Maschke
 import Mathlib.RingTheory.FiniteLength
@@ -556,6 +557,19 @@ theorem Nat.gcd_primePow_primePow {p q e k : ℕ} (hp : p.Prime)
   · exact (Nat.coprime_iff_gcd_eq_one.mp
       ((Nat.coprime_primes hq hp).mpr h |>.pow e k))
 
+/-- The gcd with a prime power is controlled by the corresponding
+prime valuation. -/
+theorem Nat.gcd_primePow_eq_pow_min_factorization {n p k : ℕ}
+    (hn : n ≠ 0) (hp : p.Prime) :
+    n.gcd (p ^ k) = p ^ min (n.factorization p) k := by
+  apply Nat.eq_of_factorization_eq
+  · exact Nat.gcd_ne_zero_left hn
+  · exact pow_ne_zero _ hp.ne_zero
+  intro q
+  rw [Nat.factorization_gcd hn (pow_ne_zero _ hp.ne_zero),
+    Nat.Prime.factorization_pow hp, Nat.Prime.factorization_pow hp]
+  by_cases hq : q = p <;> simp [hq]
+
 /-- Taking `d`-th roots of one commutes with a finite product of
 commutative groups. -/
 def CommGroup.powEqOnePiEquiv {ι : Type*} (A : ι → Type*)
@@ -610,6 +624,35 @@ theorem CommGroup.card_powEqOne_pi_primePower {ι : Type*} [Fintype ι]
   rw [Finset.prod_ite, Finset.prod_const_one, mul_one,
     Finset.prod_pow_eq_pow_sum]
 
+/-- The root-count profile of a product of arbitrary nontrivial cyclic
+groups, expressed through prime valuations. -/
+theorem CommGroup.card_powEqOne_pi_cyclic_factorization {ι : Type*}
+    [Fintype ι] (n : ι → ℕ) (hn : ∀ i, n i ≠ 0)
+    (p : ℕ) (hp : p.Prime) (k : ℕ) :
+    Nat.card {x : ∀ i, Multiplicative (ZMod (n i)) // x ^ (p ^ k) = 1} =
+      p ^ ∑ i, min ((n i).factorization p) k := by
+  letI (i : ι) : NeZero (n i) := ⟨hn i⟩
+  rw [CommGroup.card_powEqOne_pi_cyclic _ (p ^ k)]
+  have hcard (i : ι) : Nat.card (Multiplicative (ZMod (n i))) = n i :=
+    (Nat.card_congr Multiplicative.toAdd).trans (Nat.card_zmod _)
+  simp_rw [hcard, Nat.gcd_primePow_eq_pow_min_factorization (hn _) hp]
+  rw [Finset.prod_pow_eq_pow_sum]
+
+/-- Isomorphic products of nontrivial cyclic groups have identical truncated
+prime-valuation profiles. -/
+theorem CommGroup.sum_min_factorization_eq_of_cyclic_pi_mulEquiv
+    {ι κ : Type*} [Fintype ι] [Fintype κ]
+    (n : ι → ℕ) (m : κ → ℕ) (hn : ∀ i, n i ≠ 0) (hm : ∀ j, m j ≠ 0)
+    (h : ((i : ι) → Multiplicative (ZMod (n i))) ≃*
+      ((j : κ) → Multiplicative (ZMod (m j))))
+    (p : ℕ) (hp : p.Prime) (k : ℕ) :
+    (∑ i, min ((n i).factorization p) k) =
+      ∑ j, min ((m j).factorization p) k := by
+  have hc := Nat.card_congr (CommGroup.powEqOneEquiv h (p ^ k))
+  rw [CommGroup.card_powEqOne_pi_cyclic_factorization n hn p hp k,
+    CommGroup.card_powEqOne_pi_cyclic_factorization m hm p hp k] at hc
+  exact Nat.pow_right_injective hp.two_le hc
+
 /-- Successive differences of the sum of truncated natural numbers count
 how many entries lie above the truncation point. -/
 theorem Finset.sum_min_succ (s : Finset ι) (a : ι → ℕ) (k : ℕ) :
@@ -649,6 +692,53 @@ theorem Finset.card_filter_eq_add_card_filter_gt (s : Finset ι)
     · exact Or.inl ⟨h.1, hik⟩
     · exact Or.inr ⟨h.1, by omega⟩
   · rintro (h | h) <;> exact ⟨h.1, by omega⟩
+
+/-- A nondecreasing finite sequence is determined by the cardinalities of
+all of its strict upper level sets. -/
+theorem Fin.eq_of_monotone_of_card_filter_gt_eq {s : ℕ}
+    (a b : Fin s → ℕ) (ha : Monotone a) (hb : Monotone b)
+    (hcard : ∀ k,
+      (Finset.univ.filter fun i => k < a i).card =
+        (Finset.univ.filter fun i => k < b i).card) :
+    a = b := by
+  funext i
+  apply le_antisymm
+  · by_contra h
+    have hlt : b i < a i := Nat.lt_of_not_ge h
+    let sa := Finset.univ.filter fun j => b i < a j
+    let sb := Finset.univ.filter fun j => b i < b j
+    have hlow : Finset.Ici i ⊆ sa := by
+      intro j hj
+      simp only [sa, Finset.mem_filter, Finset.mem_univ, true_and]
+      exact hlt.trans_le (ha (Finset.mem_Ici.mp hj))
+    have hupp : sb ⊆ Finset.Ioi i := by
+      intro j hj
+      simp only [sb, Finset.mem_filter, Finset.mem_univ, true_and] at hj
+      exact Finset.mem_Ioi.mpr (lt_of_not_ge fun hji => (not_lt_of_ge (hb hji)) hj)
+    have hc1 := Finset.card_le_card hlow
+    have hc2 := Finset.card_le_card hupp
+    have hab := hcard (b i)
+    change sa.card = sb.card at hab
+    simp only [Fin.card_Ici, Fin.card_Ioi] at hc1 hc2
+    omega
+  · by_contra h
+    have hlt : a i < b i := Nat.lt_of_not_ge h
+    let sa := Finset.univ.filter fun j => a i < a j
+    let sb := Finset.univ.filter fun j => a i < b j
+    have hupp : sa ⊆ Finset.Ioi i := by
+      intro j hj
+      simp only [sa, Finset.mem_filter, Finset.mem_univ, true_and] at hj
+      exact Finset.mem_Ioi.mpr (lt_of_not_ge fun hji => (not_lt_of_ge (ha hji)) hj)
+    have hlow : Finset.Ici i ⊆ sb := by
+      intro j hj
+      simp only [sb, Finset.mem_filter, Finset.mem_univ, true_and]
+      exact hlt.trans_le (hb (Finset.mem_Ici.mp hj))
+    have hc1 := Finset.card_le_card hupp
+    have hc2 := Finset.card_le_card hlow
+    have hab := hcard (a i)
+    change sa.card = sb.card at hab
+    simp only [Fin.card_Ioi, Fin.card_Ici] at hc1 hc2
+    omega
 
 /-- Isomorphic products of nontrivial cyclic prime-power groups have the same
 root-count exponent profile at every prime and exponent. -/
@@ -785,10 +875,98 @@ theorem CommGroup.freeRank_eq_of_mulEquiv
     (e : G ≃* H) : CommGroup.freeRank G = CommGroup.freeRank H :=
   CommGroup.freeRank_congr e
 
-/- AUDIT-GAP `it21(b)`: normalized existence, free-rank uniqueness, and
-elementary-divisor uniqueness are checked above.  It remains to recombine the
-canonical prime-power factors, right-aligned by prime valuation, to prove
-uniqueness of a divisibility-ordered invariant-factor decomposition. -/
+/-- GT `it21(b)`: a divisibility-ordered decomposition into nontrivial
+finite cyclic groups has unique invariant factors.  The conclusion includes
+the number of factors and pointwise equality after transporting along that
+equality. -/
+theorem CommGroup.invariantFactors_unique
+    {s t : ℕ} (n : Fin s → ℕ) (m : Fin t → ℕ)
+    (hn₂ : ∀ i, 1 < n i) (hm₂ : ∀ j, 1 < m j)
+    (hn_dvd : ∀ i j, i ≤ j → n i ∣ n j)
+    (hm_dvd : ∀ i j, i ≤ j → m i ∣ m j)
+    (h : ((i : Fin s) → Multiplicative (ZMod (n i))) ≃*
+      ((j : Fin t) → Multiplicative (ZMod (m j)))) :
+    ∃ hst : s = t, ∀ i, n i = m (Fin.cast hst i) := by
+  classical
+  have hn0 (i : Fin s) : n i ≠ 0 := ne_of_gt (zero_lt_one.trans (hn₂ i))
+  have hm0 (j : Fin t) : m j ≠ 0 := ne_of_gt (zero_lt_one.trans (hm₂ j))
+  have hprofile (p : ℕ) (hp : p.Prime) (k : ℕ) :=
+    CommGroup.sum_min_factorization_eq_of_cyclic_pi_mulEquiv n m hn0 hm0 h p hp k
+  have hst_le : s ≤ t := by
+    by_cases hs : s = 0
+    · omega
+    have hspos : 0 < s := Nat.pos_of_ne_zero hs
+    let i0 : Fin s := ⟨0, hspos⟩
+    obtain ⟨p, hp, hpn⟩ := Nat.exists_prime_and_dvd (ne_of_gt (hn₂ i0))
+    have hpall (i : Fin s) : p ∣ n i :=
+      hpn.trans (hn_dvd i0 i (by change 0 ≤ i.val; omega))
+    have hvpos (i : Fin s) : 0 < (n i).factorization p :=
+      hp.factorization_pos_of_dvd (hn0 i) (hpall i)
+    have hsumeq : (∑ i : Fin s, min ((n i).factorization p) 1) = s := by
+      calc
+        (∑ i : Fin s, min ((n i).factorization p) 1) = ∑ _i : Fin s, 1 := by
+          apply Finset.sum_congr rfl
+          intro i _
+          have := hvpos i
+          omega
+        _ = s := by simp
+    calc
+      s = ∑ i : Fin s, min ((n i).factorization p) 1 := hsumeq.symm
+      _ = ∑ j : Fin t, min ((m j).factorization p) 1 := hprofile p hp 1
+      _ ≤ ∑ _j : Fin t, 1 := Finset.sum_le_sum fun j _ => min_le_right _ _
+      _ = t := by simp
+  have hts_le : t ≤ s := by
+    by_cases ht : t = 0
+    · omega
+    have htpos : 0 < t := Nat.pos_of_ne_zero ht
+    let j0 : Fin t := ⟨0, htpos⟩
+    obtain ⟨p, hp, hpm⟩ := Nat.exists_prime_and_dvd (ne_of_gt (hm₂ j0))
+    have hpall (j : Fin t) : p ∣ m j :=
+      hpm.trans (hm_dvd j0 j (by change 0 ≤ j.val; omega))
+    have hvpos (j : Fin t) : 0 < (m j).factorization p :=
+      hp.factorization_pos_of_dvd (hm0 j) (hpall j)
+    have hsumeq : (∑ j : Fin t, min ((m j).factorization p) 1) = t := by
+      calc
+        (∑ j : Fin t, min ((m j).factorization p) 1) = ∑ _j : Fin t, 1 := by
+          apply Finset.sum_congr rfl
+          intro j _
+          have := hvpos j
+          omega
+        _ = t := by simp
+    calc
+      t = ∑ j : Fin t, min ((m j).factorization p) 1 := hsumeq.symm
+      _ = ∑ i : Fin s, min ((n i).factorization p) 1 := (hprofile p hp 1).symm
+      _ ≤ ∑ _i : Fin s, 1 := Finset.sum_le_sum fun i _ => min_le_right _ _
+      _ = s := by simp
+  have hst : s = t := Nat.le_antisymm hst_le hts_le
+  subst t
+  refine ⟨rfl, ?_⟩
+  intro i
+  apply Nat.eq_of_factorization_eq (hn0 i) (hm0 i)
+  intro p
+  by_cases hp : p.Prime
+  · have hnmono : Monotone (fun i : Fin s => (n i).factorization p) := by
+      intro a b hab
+      exact ((Nat.factorization_le_iff_dvd (hn0 a) (hn0 b)).mpr (hn_dvd a b hab)) p
+    have hmmono : Monotone (fun i : Fin s => (m i).factorization p) := by
+      intro a b hab
+      exact ((Nat.factorization_le_iff_dvd (hm0 a) (hm0 b)).mpr (hm_dvd a b hab)) p
+    have htail (k : ℕ) :
+        (Finset.univ.filter fun i : Fin s => k < (n i).factorization p).card =
+          (Finset.univ.filter fun i : Fin s => k < (m i).factorization p).card := by
+      have hn_succ := Finset.sum_min_succ Finset.univ
+        (fun i : Fin s => (n i).factorization p) k
+      have hm_succ := Finset.sum_min_succ Finset.univ
+        (fun i : Fin s => (m i).factorization p) k
+      have h0 := hprofile p hp k
+      have h1 := hprofile p hp (k + 1)
+      omega
+    have hvals := Fin.eq_of_monotone_of_card_filter_gt_eq
+      (fun i : Fin s => (n i).factorization p)
+      (fun i : Fin s => (m i).factorization p) hnmono hmmono htail
+    exact congrFun hvals i
+  · rw [Nat.factorization_eq_zero_of_not_prime _ hp,
+      Nat.factorization_eq_zero_of_not_prime _ hp]
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
