@@ -19,6 +19,7 @@ import Mathlib.GroupTheory.Perm.Cycle.Type
 import Mathlib.GroupTheory.Perm.Subgroup
 import Mathlib.GroupTheory.PresentedGroup
 import Mathlib.GroupTheory.QuotientGroup.Basic
+import Mathlib.GroupTheory.Schreier
 import Mathlib.GroupTheory.SchurZassenhaus
 import Mathlib.GroupTheory.SemidirectProduct
 import Mathlib.GroupTheory.Solvable
@@ -868,6 +869,88 @@ theorem CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower
     fun i => hp i.1, fun i => e i.1, fun i => Nat.pos_of_ne_zero i.2, ?_⟩
   exact ⟨h.trans (efree.prodCongr (CommGroup.piPrimePowerNeZeroMulEquiv p e))⟩
 
+/-- A finite product generated coordinatewise by one element per factor
+has group rank at most the number of factors. -/
+theorem Group.rank_pi_le_card_of_zpowers_eq_top {ι : Type*} [Fintype ι]
+    (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Group.FG (A i)]
+    (g : ∀ i, A i) (hg : ∀ i x, x ∈ Subgroup.zpowers (g i)) :
+    Group.rank (∀ i, A i) ≤ Fintype.card ι := by
+  classical
+  let S : Finset (∀ i, A i) := Finset.univ.image fun i => Pi.mulSingle i (g i)
+  have hclosure : Subgroup.closure (S : Set (∀ i, A i)) = ⊤ := by
+    rw [eq_top_iff]
+    intro x _
+    have hx : x = ∏ i, Pi.mulSingle i (x i) := by
+      ext j
+      simp
+    rw [hx]
+    apply Subgroup.prod_mem
+    intro i _
+    obtain ⟨z, hz⟩ := hg i (x i)
+    have hgi : Pi.mulSingle i (g i) ∈ Subgroup.closure (S : Set (∀ i, A i)) :=
+      Subgroup.subset_closure (Finset.mem_coe.mpr
+        (Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩))
+    have := (Subgroup.closure (S : Set (∀ i, A i))).zpow_mem hgi z
+    convert this using 1
+    ext j
+    by_cases hji : j = i
+    · subst j
+      simpa using hz.symm
+    · simp [Pi.mulSingle, hji]
+  exact (Group.rank_le hclosure).trans
+    (Finset.card_image_le.trans_eq Finset.card_univ)
+
+/-- The elementary abelian `2`-group of dimension `r` needs exactly `r`
+generators. -/
+theorem Group.rank_pi_multiplicative_zmod_two (r : ℕ) :
+    Group.rank (Fin r → Multiplicative (ZMod 2)) = r := by
+  apply le_antisymm
+  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
+      (fun _ : Fin r => Multiplicative (ZMod 2))
+      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
+        ⟨(x.toAdd.val : ℤ), by
+          apply Multiplicative.toAdd.injective
+          simp⟩)
+    simpa using hle
+  · by_cases hr : r = 0
+    · omega
+    haveI : Nonempty (Fin r) := Fin.pos_iff_nonempty.mp (Nat.pos_of_ne_zero hr)
+    have hd := card_dvd_exponent_pow_rank (Fin r → Multiplicative (ZMod 2))
+    have hcard : Nat.card (Fin r → Multiplicative (ZMod 2)) = 2 ^ r := by
+      rw [Nat.card_pi]
+      simp_rw [Nat.card_congr Multiplicative.toAdd, Nat.card_zmod]
+      simp
+    have hexponent : Monoid.exponent (Fin r → Multiplicative (ZMod 2)) = 2 := by
+      rw [Monoid.exponent_pi]
+      simp_rw [show Monoid.exponent (Multiplicative (ZMod 2)) = 2 by
+        exact ZMod.exponent 2]
+      apply Nat.dvd_antisymm
+      · exact Finset.lcm_dvd fun _ _ => dvd_rfl
+      · exact Finset.dvd_lcm (Finset.mem_univ (Classical.choice this))
+    rw [hcard, hexponent, Nat.pow_dvd_pow_iff_le_right (by omega)] at hd
+    exact hd
+
+/-- The free abelian group of rank `r` needs exactly `r` generators. -/
+theorem Group.rank_pi_multiplicative_int (r : ℕ) :
+    Group.rank (Fin r → Multiplicative ℤ) = r := by
+  apply le_antisymm
+  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
+      (fun _ : Fin r => Multiplicative ℤ)
+      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
+        ⟨x.toAdd, by
+          apply Multiplicative.toAdd.injective
+          simp⟩)
+    simpa using hle
+  · let f : (Fin r → Multiplicative ℤ) →* (Fin r → Multiplicative (ZMod 2)) :=
+      MonoidHom.piMap fun i : Fin r => (Int.castAddHom (ZMod 2)).toMultiplicative
+    apply (Group.rank_pi_multiplicative_zmod_two r).ge.trans
+    apply Group.rank_le_of_surjective f
+    intro x
+    refine ⟨fun i => Multiplicative.ofAdd (x i).toAdd.val, ?_⟩
+    ext i
+    apply Multiplicative.toAdd.injective
+    simp [f]
+
 /-- GT `it21(a)`, canonical rank interface: the free rank is invariant under
 commutative-group isomorphism. -/
 theorem CommGroup.freeRank_eq_of_mulEquiv
@@ -984,6 +1067,21 @@ def CommGroup.torsionProdEquivRight (A B : Type*) [CommGroup A] [CommGroup B]
   right_inv _ := rfl
   map_mul' _ _ := rfl
 
+/-- Quotienting a product of a torsion-free group and a torsion group by
+its torsion subgroup recovers the first factor. -/
+noncomputable def CommGroup.quotientTorsionProdEquivLeft
+    (A B : Type*) [CommGroup A] [CommGroup B] [IsMulTorsionFree A]
+    (hB : Monoid.IsTorsion B) :
+    (A × B) ⧸ CommGroup.torsion (A × B) ≃* A := by
+  let fst : A × B →* A := MonoidHom.fst A B
+  have hker : CommGroup.torsion (A × B) = fst.ker := by
+    ext x
+    simp only [CommGroup.mem_torsion, IsOfFinOrder.prod_iff,
+      isOfFinOrder_iff_eq_one, MonoidHom.mem_ker, fst]
+    exact and_iff_left (hB x.2)
+  exact (QuotientGroup.quotientMulEquivOfEq hker).trans
+    (QuotientGroup.quotientKerEquivOfSurjective fst fun a => ⟨(a, 1), rfl⟩)
+
 /-- A decomposition into a torsion-free factor and a torsion factor identifies
 the latter with the intrinsic torsion subgroup. -/
 def CommGroup.torsionFactorMulEquiv
@@ -993,6 +1091,27 @@ def CommGroup.torsionFactorMulEquiv
   ((e.subgroupMap (CommGroup.torsion G)).trans
       (MulEquiv.subgroupCongr e.map_torsion)).trans
     (CommGroup.torsionProdEquivRight A B hB)
+
+/-- The torsion quotient associated to a full decomposition is its free
+factor. -/
+noncomputable def CommGroup.freeFactorMulEquiv
+    (G A B : Type*) [CommGroup G] [CommGroup A] [CommGroup B]
+    [IsMulTorsionFree A] (hB : Monoid.IsTorsion B) (e : G ≃* A × B) :
+    G ⧸ CommGroup.torsion G ≃* A :=
+  (QuotientGroup.congr (CommGroup.torsion G) (CommGroup.torsion (A × B))
+    e e.map_torsion).trans (CommGroup.quotientTorsionProdEquivLeft A B hB)
+
+/-- A displayed free factor in a finitely generated commutative-group
+decomposition has the intrinsic free rank. -/
+theorem CommGroup.freeRank_eq_of_free_prod_torsion
+    (G : Type*) [CommGroup G] [Group.FG G] {r : ℕ} (T : Type*)
+    [CommGroup T] (hT : Monoid.IsTorsion T)
+    (e : G ≃* (Fin r → Multiplicative ℤ) × T) :
+    CommGroup.freeRank G = r := by
+  rw [CommGroup.freeRank_def]
+  exact (Group.rank_congr
+    (CommGroup.freeFactorMulEquiv G (Fin r → Multiplicative ℤ) T hT e)).trans
+      (Group.rank_pi_multiplicative_int r)
 
 /-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
 of the same finitely generated commutative group include their free factors,
@@ -1007,7 +1126,7 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
       ((i : Fin s) → Multiplicative (ZMod (n i))))
     (e₂ : G ≃* (Fin r₂ → Multiplicative ℤ) ×
       ((j : Fin t) → Multiplicative (ZMod (m j)))) :
-    ∃ hst : s = t, ∀ i, n i = m (Fin.cast hst i) := by
+    r₁ = r₂ ∧ ∃ hst : s = t, ∀ i, n i = m (Fin.cast hst i) := by
   letI : ∀ i, NeZero (n i) := fun i => ⟨ne_of_gt (zero_lt_one.trans (hn₂ i))⟩
   letI : ∀ j, NeZero (m j) := fun j => ⟨ne_of_gt (zero_lt_one.trans (hm₂ j))⟩
   let hT₁ : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
@@ -1020,8 +1139,10 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
   let f₂ := CommGroup.torsionFactorMulEquiv G
     (Fin r₂ → Multiplicative ℤ)
     ((j : Fin t) → Multiplicative (ZMod (m j))) hT₂ e₂
-  exact CommGroup.invariantFactors_unique n m hn₂ hm₂ hn_dvd hm_dvd
-    (f₁.symm.trans f₂)
+  refine ⟨?_, CommGroup.invariantFactors_unique n m hn₂ hm₂ hn_dvd hm_dvd
+    (f₁.symm.trans f₂)⟩
+  exact (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
+    (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂)
 
 /- AUDIT-GAP `it21`: full-decomposition torsion uniqueness is now exposed.
 It remains to construct a divisibility-ordered invariant-factor decomposition
