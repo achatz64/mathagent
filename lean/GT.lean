@@ -123,8 +123,8 @@ theorem Subgroup.mem_leftCoset_iff_eq_leftCoset (H : Subgroup G) (a b : G) :
     a ∈ b • (H : Set G) ↔ b • (H : Set G) = a • H := by
   constructor
   · intro ha
-    apply (leftCoset_eq_iff H).2
-    exact (mem_leftCoset_iff b).1 ha
+    apply (leftCoset_eq_iff H).mpr
+    exact (mem_leftCoset_iff b).mp ha
   · intro h
     rw [h]
     exact ⟨1, H.one_mem, by simp⟩
