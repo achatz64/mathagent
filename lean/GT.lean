@@ -968,6 +968,13 @@ theorem CommGroup.invariantFactors_unique
   · rw [Nat.factorization_eq_zero_of_not_prime _ hp,
       Nat.factorization_eq_zero_of_not_prime _ hp]
 
+/- AUDIT-GAP `it21`: `invariantFactors_unique` proves uniqueness once two
+finite divisibility-ordered torsion decompositions are supplied, but the source
+also asserts existence of such an invariant-factor decomposition.  Moreover,
+the rank and torsion uniqueness clauses should be exposed for two full
+decompositions of the same finitely generated group, including their free
+factors, rather than assuming an equivalence of the finite torsion products. -/
+
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
 groups. -/
@@ -2916,6 +2923,42 @@ noncomputable def MonoidAlgebra.centerEquivClassFunction [Fintype G] :
     change f (ConjClasses.mk (ConjClasses.representative C)) = f C
     rw [ConjClasses.mk_representative]
 
+/-- GT `e20`: the conjugacy-class sum belonging to `C`, defined as the
+central element corresponding to the delta function at `C`. -/
+noncomputable def MonoidAlgebra.conjClassSum [Fintype G] (C : ConjClasses G) :
+    Subalgebra.center k (MonoidAlgebra k G) := by
+  classical
+  exact MonoidAlgebra.centerEquivClassFunction.symm
+    (Pi.single (M := fun _ : ConjClasses G => k) C (1 : k))
+
+/-- The coefficient of a conjugacy-class sum is one precisely on that class. -/
+theorem MonoidAlgebra.conjClassSum_apply [Fintype G]
+    [DecidableEq (ConjClasses G)] (C : ConjClasses G) (g : G) :
+    (MonoidAlgebra.conjClassSum (k := k) C : MonoidAlgebra k G) g =
+      if ConjClasses.mk g = C then 1 else 0 := by
+  classical
+  simp [MonoidAlgebra.conjClassSum,
+    MonoidAlgebra.centerEquivClassFunction, Pi.single_apply, eq_comm]
+
+/-- GT `e20`: conjugacy-class sums form a basis of the centre of the group
+algebra. -/
+noncomputable def MonoidAlgebra.conjClassSumBasis [Fintype G] :
+    Module.Basis (ConjClasses G) k
+      (Subalgebra.center k (MonoidAlgebra k G)) :=
+  (Pi.basisFun k (ConjClasses G)).map
+    MonoidAlgebra.centerEquivClassFunction.symm
+
+@[simp]
+theorem MonoidAlgebra.conjClassSumBasis_apply [Fintype G]
+    (C : ConjClasses G) :
+    MonoidAlgebra.conjClassSumBasis (k := k) (G := G) C =
+      MonoidAlgebra.conjClassSum (k := k) C := by
+  classical
+  change (MonoidAlgebra.centerEquivClassFunction (k := k) (G := G)).symm
+      ((Pi.basisFun k (ConjClasses G)) C) = _
+  rw [Pi.basisFun_apply]
+  rfl
+
 /-- GT `r30`: the dimension of the centre of a finite group algebra is the
 number of conjugacy classes. -/
 theorem MonoidAlgebra.finrank_center_eq_card_conjClasses [Fintype G] :
@@ -3004,6 +3047,12 @@ theorem MonoidAlgebra.matrixFactor_simpleModule_classification
     (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
     (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) M,
     MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e⟩
+
+/- AUDIT-GAP `r32(a)`: the factorwise classification above assumes a chosen
+matrix-product presentation.  Add a source-facing theorem under the chapter's
+algebraically closed characteristic-zero hypotheses which obtains that
+presentation and exposes the unconditional count and enumeration of simple
+`F[G]`-module isomorphism classes. -/
 
 end GroupAlgebraCenter
 
@@ -3141,6 +3190,12 @@ noncomputable def FDRep.simpleCharacterBasisOfMatrixFactors
   rw [Fintype.card_fin,
     MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
     Nat.card_eq_fintype_card]
+
+/- AUDIT-GAP `r35` / `r39`: the basis constructor's result type does not state
+that its basis vectors are `FDRep.characterClassFunction (V i)`, and it still
+requires a supplied matrix presentation and pairwise-nonisomorphic simple
+family.  Expose the basis-vector equation and a source-facing unconditional
+basis theorem from a complete enumeration of simple representations. -/
 
 end Characters
 
