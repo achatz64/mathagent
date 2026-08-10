@@ -398,21 +398,34 @@ Its final output is:
   "theorem_like_environments": 136,
   "source_labels": 142,
   "labels_mentioned_in_target": 142,
-  "unmentioned_labels": []
+  "unmentioned_labels": [],
+  "all_included_environments": 254,
+  "all_source_labels": 271,
+  "all_labels_mentioned_in_target": 142,
+  "all_unmentioned_labels": ["... 129 labels ..."]
 }
 ```
 
-This result is deliberately **not** called “142 proved theorems.”  It certifies
-that no labeled result silently disappeared.  A label is either attached to a
-checked declaration or appears in the explicit omission ledger at the end of
-the target.  The ledger records why the first experiment did not create a
+This result is deliberately **not** called “142 proved theorems.”  It only
+certifies coverage of labels in theorem-like environments.  A broader audit
+found 271 labels across all 254 included environments: only the same 142 are
+mentioned in the target, leaving 129 labels in definitions, examples, plain
+prose, remarks, summaries, and asides unaccounted for.  Some are merely
+constructions, examples, or historical notes, but many contain referenceable
+mathematical claims.  They must be classified explicitly rather than silently
+excluded by the theorem-like filter.
+
+For theorem-like environments, a label is either attached to a checked
+declaration or appears in the explicit omission ledger at the end of the
+target.  The ledger records why the first experiment did not create a
 statement-compatible wrapper: implementation-specific word encodings,
 paper-specific extension machinery, exact Coxeter results absent from the
 current library interface, or substantial new theory beyond a low-effort
 adapter.
 
-This negative-space audit is useful, but the semantic audit proved that it is
-only a first-line guard.  It prevents two common failure modes:
+This negative-space audit is useful, but the semantic and all-environment
+audits proved that it is only a first-line guard.  It prevents two common
+failure modes:
 
 1. silently ignoring hard results while reporting only famous successes;
 2. manufacturing proposition constants and counting them as proved facts.
@@ -489,7 +502,8 @@ The final audit includes all of the following:
 3. the sole project-level assumption is the documented Feit--Thompson
    dependency; no paper-proved result is axiomatized;
 4. inventory counts regenerate from `tools/gt_inventory.py`;
-5. all theorem-like labels are accounted for by `tools/gt_coverage.py`;
+5. all theorem-like labels are accounted for by `tools/gt_coverage.py`, while
+   its all-environment fields expose the 129 labels still requiring classification;
 6. wrapper comments retain stable TeX labels while declarations use
    Mathlib-style names;
 7. `git diff --check` reports no whitespace errors in the experiment files.
@@ -514,9 +528,10 @@ rg -n '^axiom ' GT.lean
    textbook proofs into auditable declarations with almost no custom proof.
 4. Lean REPL import latency must be treated as a resource with a hard failure
    boundary; module-frontier batching is safer than chapter-frontier batching.
-5. A mechanical inventory prevents silent disappearance, but semantic
-   statement fidelity requires a clause-level audit; label coverage alone is
-   not evidence of formalization.
+5. A mechanical inventory prevents silent disappearance only when every
+   relevant environment kind is included; semantic statement fidelity still
+   requires a clause-level audit, and label coverage alone is not evidence of
+   formalization.
 6. The most honest completion metric is multi-valued: reused construction,
    checked wrapper, explicit dependency axiom, proved partial interface, or
    explicit omission.
