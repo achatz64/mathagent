@@ -1,4 +1,5 @@
 import Mathlib.Algebra.Group.Subgroup.Pointwise
+import Mathlib.Algebra.Central.Matrix
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
 import Mathlib.FieldTheory.Finiteness
@@ -2396,6 +2397,77 @@ theorem groupAlgebra_exists_algEquiv_pi_matrix
   exact IsSemisimpleRing.exists_algEquiv_pi_matrix_of_isAlgClosed F (MonoidAlgebra F G)
 
 end AlgebraicallyClosedWedderburnArtin
+
+section GroupAlgebraCenter
+
+universe u v
+
+variable {k : Type u} [Field k] {G : Type v} [Group G]
+
+/-- Central group-algebra elements have equal coefficients on conjugate group
+elements. -/
+theorem MonoidAlgebra.coeff_eq_of_mem_center
+    (z : Subalgebra.center k (MonoidAlgebra k G)) {a b : G} (h : IsConj a b) :
+    (z : MonoidAlgebra k G) a = (z : MonoidAlgebra k G) b := by
+  obtain ⟨c, rfl⟩ := isConj_iff.mp h
+  have hc := Subalgebra.mem_center_iff.mp z.property (MonoidAlgebra.single c 1)
+  have hv := congrArg (fun x : MonoidAlgebra k G => x (c * a)) hc
+  simpa [MonoidAlgebra.single_mul_apply, MonoidAlgebra.mul_single_apply] using hv
+
+/-- GT `r30` / `e20`: the centre of a finite group algebra is linearly
+isomorphic to the class functions, via coefficients on conjugacy classes. -/
+noncomputable def MonoidAlgebra.centerEquivClassFunction [Fintype G] :
+    Subalgebra.center k (MonoidAlgebra k G) ≃ₗ[k] (ConjClasses G → k) where
+  toFun z C := (z : MonoidAlgebra k G) (ConjClasses.representative C)
+  map_add' := by intros; rfl
+  map_smul' := by intros; rfl
+  invFun f := by
+    let x : MonoidAlgebra k G :=
+      (Finsupp.linearEquivFunOnFinite k k G).symm (fun g => f (ConjClasses.mk g))
+    have hx (g : G) : x g = f (ConjClasses.mk g) := by
+      change (Finsupp.linearEquivFunOnFinite k k G
+        ((Finsupp.linearEquivFunOnFinite k k G).symm
+          (fun g => f (ConjClasses.mk g)))) g = _
+      exact congrFun ((Finsupp.linearEquivFunOnFinite k k G).apply_symm_apply _) g
+    refine ⟨x, Subalgebra.mem_center_iff.mpr ?_⟩
+    intro y
+    induction y using MonoidAlgebra.induction_on with
+    | hM g =>
+        ext a
+        simp only [MonoidAlgebra.of_apply, MonoidAlgebra.single_mul_apply,
+          MonoidAlgebra.mul_single_apply, one_mul, mul_one]
+        rw [hx, hx]
+        apply congrArg f
+        rw [ConjClasses.mk_eq_mk_iff_isConj, isConj_iff]
+        exact ⟨g, by simp⟩
+    | hadd y z hy hz => rw [add_mul, mul_add, hy, hz]
+    | hsmul r y hy =>
+        simpa [smul_mul_assoc, mul_smul_comm] using congrArg (r • ·) hy
+  left_inv := by
+    intro z
+    apply Subtype.ext
+    ext g
+    change (z : MonoidAlgebra k G) (ConjClasses.representative (ConjClasses.mk g)) =
+      (z : MonoidAlgebra k G) g
+    apply MonoidAlgebra.coeff_eq_of_mem_center z
+    rw [← ConjClasses.mk_eq_mk_iff_isConj, ConjClasses.mk_representative]
+  right_inv := by
+    intro f
+    ext C
+    change f (ConjClasses.mk (ConjClasses.representative C)) = f C
+    rw [ConjClasses.mk_representative]
+
+/-- GT `r30`: the dimension of the centre of a finite group algebra is the
+number of conjugacy classes. -/
+theorem MonoidAlgebra.finrank_center_eq_card_conjClasses [Fintype G] :
+    Module.finrank k (Subalgebra.center k (MonoidAlgebra k G)) =
+      Nat.card (ConjClasses G) := by
+  classical
+  letI := Fintype.ofFinite (ConjClasses G)
+  rw [LinearEquiv.finrank_eq MonoidAlgebra.centerEquivClassFunction,
+    Module.finrank_fintype_fun_eq_card, Nat.card_eq_fintype_card]
+
+end GroupAlgebraCenter
 
 section Characters
 
