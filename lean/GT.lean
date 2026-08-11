@@ -3,6 +3,8 @@ import Mathlib.Algebra.Central.Basic
 import Mathlib.Algebra.Central.Matrix
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
+import Mathlib.Data.List.NodupEquivFin
+import Mathlib.Data.Finset.Sort
 import Mathlib.Data.ZMod.QuotientRing
 import Mathlib.FieldTheory.Finiteness
 import Mathlib.GroupTheory.FreeGroup.NielsenSchreier
@@ -849,6 +851,435 @@ noncomputable def CommGroup.piPrimePowerNeZeroMulEquiv {ι : Type*}
   right_inv := by intro f; funext i; simp [i.2]
   map_mul' := by intro f g; funext i; rfl
 
+/-- Enumerate a finite type so that a specified natural-valued function
+is nondecreasing. -/
+noncomputable def Finite.sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
+    {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
+  let tie := Fintype.equivFin α
+  letI : LinearOrder α := LinearOrder.lift' (fun x => toLex (f x, tie x))
+    (fun x y h => tie.injective (congrArg (fun z => (ofLex z).2) h))
+  let O := (Finset.univ : Finset α).orderIsoOfFin
+    (k := Fintype.card α) (by simp)
+  let U : (Finset.univ : Finset α) ≃ α :=
+    { toFun := (↑)
+      invFun := fun x => ⟨x, Finset.mem_univ x⟩
+      left_inv := fun _ => rfl
+      right_inv := fun _ => rfl }
+  let E := O.toEquiv.trans U
+  refine ⟨E, ?_⟩
+  intro i j hij
+  have h := O.monotone hij
+  change toLex (f (E i), tie (E i)) ≤ toLex (f (E j), tie (E j)) at h
+  rcases (Prod.lex_def.mp h) with h | h
+  · exact h.le
+  · exact h.1.le
+
+/-- The monotone enumeration underlying `Finite.sortedEquivData`. -/
+noncomputable def Finite.sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Fin (Fintype.card α) ≃ α :=
+  (Finite.sortedEquivData f).1
+
+theorem Finite.monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Monotone (fun j => f (Finite.sortedEquiv f j)) :=
+  (Finite.sortedEquivData f).2
+
+/-- The finite set of primes occurring in elementary-divisor data. -/
+abbrev CommGroup.elementaryPrimes {ι : Type*} [Fintype ι] (p : ι → ℕ) :=
+  {q : ℕ // q ∈ Finset.univ.image p}
+
+/-- The indices of elementary divisors belonging to a fixed prime. -/
+abbrev CommGroup.primeFiber {ι : Type*} (p : ι → ℕ) (q : ℕ) :=
+  {i : ι // p i = q}
+
+/-- Number of occurrences of a prime in elementary-divisor data. -/
+def CommGroup.primeMultiplicity {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)]
+    (q : CommGroup.elementaryPrimes p) : ℕ :=
+  Fintype.card (CommGroup.primeFiber p q.1)
+
+/-- Number of invariant-factor columns obtained by right-aligning all the
+prime-power exponent lists. -/
+def CommGroup.invariantFactorCount {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)] : ℕ :=
+  Finset.univ.sup (CommGroup.primeMultiplicity p)
+
+theorem CommGroup.primeMultiplicity_le_invariantFactorCount
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)]
+    (q : CommGroup.elementaryPrimes p) :
+    CommGroup.primeMultiplicity p q ≤ CommGroup.invariantFactorCount p := by
+  exact Finset.le_sup (f := CommGroup.primeMultiplicity p) (Finset.mem_univ q)
+
+/-- The sorted exponent list for one prime, left-padded with zeros to the
+maximum multiplicity. -/
+noncomputable def CommGroup.paddedExponent {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p)
+    (j : Fin (CommGroup.invariantFactorCount p)) : ℕ :=
+  let c := CommGroup.primeMultiplicity p q
+  let s := CommGroup.invariantFactorCount p
+  if h : s - c ≤ j.1 then
+    e (Finite.sortedEquiv (fun i : CommGroup.primeFiber p q.1 => e i.1)
+      ⟨j.1 - (s - c), by
+        change j.1 - (s - c) < c
+        have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+        omega⟩).1
+  else 0
+
+/-- Regard the prime attached to an elementary divisor as an element of
+the finite set of occurring primes. -/
+def CommGroup.elementaryPrime {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → ℕ) (i : ι) : CommGroup.elementaryPrimes p :=
+  ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
+
+/-- Monotone enumeration of the elementary divisors over one prime. -/
+noncomputable def CommGroup.sortedPrimeFiberEquiv {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
+    Fin (CommGroup.primeMultiplicity p q) ≃ CommGroup.primeFiber p q.1 :=
+  Finite.sortedEquiv fun i : CommGroup.primeFiber p q.1 => e i.1
+
+/-- Column occupied by an elementary divisor after its prime fibre has been
+sorted and right-aligned. -/
+noncomputable def CommGroup.elementaryColumn {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ) (i : ι) :
+    Fin (CommGroup.invariantFactorCount p) := by
+  let q := CommGroup.elementaryPrime p i
+  let c := CommGroup.primeMultiplicity p q
+  let s := CommGroup.invariantFactorCount p
+  let k := (CommGroup.sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  exact ⟨s - c + k.1, by
+    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+    omega⟩
+
+theorem CommGroup.paddedExponent_elementaryColumn {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ) (i : ι) :
+    CommGroup.paddedExponent p e (CommGroup.elementaryPrime p i)
+      (CommGroup.elementaryColumn p e i) = e i := by
+  let q := CommGroup.elementaryPrime p i
+  let c := CommGroup.primeMultiplicity p q
+  let s := CommGroup.invariantFactorCount p
+  let k := (CommGroup.sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+  change (if h : s - c ≤ s - c + k.1 then
+      e (Finite.sortedEquiv (fun x : CommGroup.primeFiber p q.1 => e x.1)
+        ⟨s - c + k.1 - (s - c), by
+          change s - c + k.1 - (s - c) < c
+          omega⟩).1 else 0) = e i
+  rw [dif_pos (show s - c ≤ s - c + k.1 by omega)]
+  congr 1
+  change (CommGroup.sortedPrimeFiberEquiv p e q
+    ⟨s - c + k.1 - (s - c), _⟩).1 = i
+  have harg : (⟨s - c + k.1 - (s - c), by
+      omega⟩ : Fin c) = k := Fin.ext (Nat.add_sub_cancel_left _ _)
+  rw [harg]
+  exact congrArg Subtype.val
+    ((CommGroup.sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
+
+/-- Nontrivial cells in the right-aligned prime-exponent table. -/
+abbrev CommGroup.invariantCells {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) :=
+  {x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p) //
+    CommGroup.paddedExponent p e x.1 x.2 ≠ 0}
+
+/-- Group elementary-divisor indices by their prime. -/
+def CommGroup.indexEquivSigmaPrimeFiber {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → ℕ) :
+    ι ≃ Σ q : CommGroup.elementaryPrimes p, CommGroup.primeFiber p q.1 where
+  toFun i := ⟨CommGroup.elementaryPrime p i, ⟨i, rfl⟩⟩
+  invFun x := x.2.1
+  left_inv _ := rfl
+  right_inv x := by
+    rcases x with ⟨⟨q, hq⟩, ⟨i, hi⟩⟩
+    simp only at hi
+    subst q
+    rfl
+
+/-- The sorted prime fibres occupy exactly the nonzero cells of the
+right-aligned exponent table. -/
+noncomputable def CommGroup.sigmaPrimeFiberEquivInvariantCells
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    (Σ q : CommGroup.elementaryPrimes p,
+      Fin (CommGroup.primeMultiplicity p q)) ≃ CommGroup.invariantCells p e where
+  toFun x := by
+    rcases x with ⟨q, k⟩
+    let c := CommGroup.primeMultiplicity p q
+    let s := CommGroup.invariantFactorCount p
+    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+    let j : Fin s := ⟨s - c + k.1, by omega⟩
+    refine ⟨(q, j), ?_⟩
+    rw [CommGroup.paddedExponent, dif_pos (show s - c ≤ j.1 by
+      change s - c ≤ s - c + k.1
+      omega)]
+    have harg : (⟨j.1 - (s - c), by
+        change s - c + k.1 - (s - c) < c
+        omega⟩ : Fin c) = k := by
+      apply Fin.ext
+      simp [j]
+    change e (CommGroup.sortedPrimeFiberEquiv p e q
+      ⟨j.1 - (s - c), _⟩).1 ≠ 0
+    rw [harg]
+    exact ne_of_gt (he (CommGroup.sortedPrimeFiberEquiv p e q k).1)
+  invFun x := by
+    let q := x.1.1
+    let j := x.1.2
+    let c := CommGroup.primeMultiplicity p q
+    let s := CommGroup.invariantFactorCount p
+    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+    have hj : s - c ≤ j.1 := by
+      by_contra h
+      apply x.2
+      rw [CommGroup.paddedExponent, dif_neg h]
+    exact ⟨q, ⟨j.1 - (s - c), by omega⟩⟩
+  left_inv x := by
+    rcases x with ⟨q, k⟩
+    change (⟨q, ⟨CommGroup.invariantFactorCount p -
+      CommGroup.primeMultiplicity p q + k.1 -
+      (CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q), by
+        omega⟩⟩ : Σ q, Fin (CommGroup.primeMultiplicity p q)) = ⟨q, k⟩
+    rw [Sigma.ext_iff]
+    refine ⟨rfl, heq_of_eq ?_⟩
+    apply Fin.ext
+    change CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q + k.1 -
+      (CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q) = k.1
+    exact Nat.add_sub_cancel_left _ _
+  right_inv x := by
+    apply Subtype.ext
+    apply Prod.ext
+    · rfl
+    · apply Fin.ext
+      simp only
+      let q := x.1.1
+      let j := x.1.2
+      let c := CommGroup.primeMultiplicity p q
+      let s := CommGroup.invariantFactorCount p
+      have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
+      have hj : s - c ≤ j.1 := by
+        by_contra h
+        apply x.2
+        rw [CommGroup.paddedExponent, dif_neg h]
+      change s - c + (j.1 - (s - c)) = j.1
+      omega
+
+/-- Elementary divisors are in bijection with the nonzero cells of the
+right-aligned exponent table. -/
+noncomputable def CommGroup.elementaryIndexEquivInvariantCells
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    ι ≃ CommGroup.invariantCells p e :=
+  (CommGroup.indexEquivSigmaPrimeFiber p).trans <|
+    (Equiv.sigmaCongrRight fun q => (CommGroup.sortedPrimeFiberEquiv p e q).symm).trans
+      (CommGroup.sigmaPrimeFiberEquivInvariantCells p e he)
+
+@[simp]
+theorem CommGroup.elementaryIndexEquivInvariantCells_prime
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i := by
+  rfl
+
+theorem CommGroup.elementaryIndexEquivInvariantCells_apply
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (CommGroup.elementaryIndexEquivInvariantCells p e he i).1 =
+      (CommGroup.elementaryPrime p i, CommGroup.elementaryColumn p e i) := by
+  apply Prod.ext
+  · rfl
+  · apply Fin.ext
+    rfl
+
+@[simp]
+theorem CommGroup.elementaryIndexEquivInvariantCells_exponent
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    CommGroup.paddedExponent p e
+      (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.1
+      (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.2 = e i := by
+  rw [CommGroup.elementaryIndexEquivInvariantCells_apply]
+  exact CommGroup.paddedExponent_elementaryColumn p e i
+
+/-- Reindex a dependent product of multiplicative types while transporting
+each fibre by a multiplicative equivalence. -/
+def CommGroup.piCongrMulEquiv {α β : Type*} (A : α → Type*) (B : β → Type*)
+    [∀ i, Mul (A i)] [∀ j, Mul (B j)] (h : α ≃ β)
+    (e : ∀ i, A i ≃* B (h i)) : ((i : α) → A i) ≃* ((j : β) → B j) := by
+  let E := Equiv.piCongr h fun i => (e i).toEquiv
+  refine { E with map_mul' := ?_ }
+  intro f g
+  funext j
+  obtain ⟨i, rfl⟩ := h.surjective j
+  change (h.piCongr (fun i => (e i).toEquiv) (f * g)) (h i) =
+    (h.piCongr (fun i => (e i).toEquiv) f) (h i) *
+      (h.piCongr (fun i => (e i).toEquiv) g) (h i)
+  rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply,
+    Equiv.piCongr_apply_apply]
+  exact map_mul (e i) (f i) (g i)
+
+/-- The invariant factor obtained by multiplying one right-aligned
+prime-power column. -/
+noncomputable def CommGroup.invariantFactor {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ)
+    (j : Fin (CommGroup.invariantFactorCount p)) : ℕ :=
+  ∏ q : CommGroup.elementaryPrimes p, q.1 ^ CommGroup.paddedExponent p e q j
+
+/-- Transpose a dependent multiplicative product indexed by a Cartesian
+product. -/
+def CommGroup.piProdSwapMulEquiv {ι κ : Type*} (A : ι → κ → Type*)
+    [∀ i j, Mul (A i j)] :
+    ((x : ι × κ) → A x.1 x.2) ≃* ((j : κ) → (i : ι) → A i j) where
+  toFun f j i := f (i, j)
+  invFun f x := f x.2 x.1
+  left_inv _ := rfl
+  right_inv _ := rfl
+  map_mul' _ _ := rfl
+
+/-- Reindex elementary-divisor cyclic groups by the nonzero cells of the
+right-aligned exponent table. -/
+noncomputable def CommGroup.piElementaryEquivInvariantCells
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
+      ((x : CommGroup.invariantCells p e) → Multiplicative
+        (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2))) :=
+  CommGroup.piCongrMulEquiv
+    (fun i => Multiplicative (ZMod (p i ^ e i)))
+    (fun x : CommGroup.invariantCells p e => Multiplicative
+      (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2)))
+    (CommGroup.elementaryIndexEquivInvariantCells p e he) fun i =>
+      (ZMod.ringEquivCongr (by simp)).toAddEquiv.toMultiplicative
+
+/-- Reinsert the trivial cells in the rectangular prime-exponent table. -/
+noncomputable def CommGroup.piInvariantCellsEquivPiRectangle
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) :
+    ((x : CommGroup.invariantCells p e) → Multiplicative
+      (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2))) ≃*
+    ((x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p)) →
+      Multiplicative (ZMod (x.1.1 ^ CommGroup.paddedExponent p e x.1 x.2))) :=
+  (CommGroup.piPrimePowerNeZeroMulEquiv
+    (fun x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p) => x.1.1)
+    (fun x => CommGroup.paddedExponent p e x.1 x.2)).symm
+
+/-- Columnwise CRT combines the right-aligned prime powers into invariant
+factors. -/
+noncomputable def CommGroup.piRectangleEquivInvariantFactors
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i)) :
+    ((x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p)) →
+      Multiplicative (ZMod (x.1.1 ^ CommGroup.paddedExponent p e x.1 x.2))) ≃*
+    ((j : Fin (CommGroup.invariantFactorCount p)) →
+      Multiplicative (ZMod (CommGroup.invariantFactor p e j))) :=
+  (CommGroup.piProdSwapMulEquiv fun (q : CommGroup.elementaryPrimes p)
+      (j : Fin (CommGroup.invariantFactorCount p)) =>
+      Multiplicative (ZMod (q.1 ^ CommGroup.paddedExponent p e q j))).trans <|
+    MulEquiv.piCongrRight fun j =>
+      ((ZMod.prodEquivPi
+        (fun q : CommGroup.elementaryPrimes p =>
+          q.1 ^ CommGroup.paddedExponent p e q j) (by
+          intro q r hqr
+          have hqprime : q.1.Prime := by
+            rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+            rw [← hi]
+            exact hp i
+          have hrprime : r.1.Prime := by
+            rcases Finset.mem_image.mp r.2 with ⟨i, _, hi⟩
+            rw [← hi]
+            exact hp i
+          exact Nat.Coprime.pow _ _ <|
+            (Nat.coprime_primes hqprime hrprime).mpr fun h => hqr (Subtype.ext h))).toAddEquiv.toMultiplicative).symm
+
+/-- Recombine elementary divisors into divisibility-ordered invariant
+factors, following the construction in GT `it21(b)`. -/
+noncomputable def CommGroup.piPrimePowerEquivInvariantFactors
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i)) (he : ∀ i, 0 < e i) :
+    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
+      ((j : Fin (CommGroup.invariantFactorCount p)) →
+        Multiplicative (ZMod (CommGroup.invariantFactor p e j))) :=
+  (CommGroup.piElementaryEquivInvariantCells p e he).trans <|
+    (CommGroup.piInvariantCellsEquivPiRectangle p e).trans <|
+      CommGroup.piRectangleEquivInvariantFactors p e hp
+
+theorem CommGroup.monotone_paddedExponent {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
+    Monotone (CommGroup.paddedExponent p e q) := by
+  intro j k hjk
+  let c := CommGroup.primeMultiplicity p q
+  let s := CommGroup.invariantFactorCount p
+  by_cases hj : s - c ≤ j.1
+  · have hk : s - c ≤ k.1 := hj.trans hjk
+    rw [CommGroup.paddedExponent, dif_pos hj, CommGroup.paddedExponent, dif_pos hk]
+    apply Finite.monotone_sortedEquiv (fun i : CommGroup.primeFiber p q.1 => e i.1)
+    exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
+  · rw [CommGroup.paddedExponent, dif_neg hj]
+    exact Nat.zero_le _
+
+theorem CommGroup.one_lt_invariantFactor {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i))
+    (he : ∀ i, 0 < e i) (j : Fin (CommGroup.invariantFactorCount p)) :
+    1 < CommGroup.invariantFactor p e j := by
+  have hs : 0 < CommGroup.invariantFactorCount p := Nat.zero_lt_of_lt j.2
+  haveI : Nonempty ι := by
+    cases isEmpty_or_nonempty ι with
+    | inl h =>
+        exfalso
+        have : CommGroup.invariantFactorCount p = 0 := by
+          simp [CommGroup.invariantFactorCount]
+        omega
+    | inr h => exact h
+  let i₀ := Classical.choice (inferInstance : Nonempty ι)
+  have hP : (Finset.univ : Finset (CommGroup.elementaryPrimes p)).Nonempty :=
+    ⟨CommGroup.elementaryPrime p i₀, Finset.mem_univ _⟩
+  obtain ⟨q, _, hq⟩ := Finset.exists_mem_eq_sup
+    (Finset.univ : Finset (CommGroup.elementaryPrimes p)) hP
+    (CommGroup.primeMultiplicity p)
+  have hmult : CommGroup.primeMultiplicity p q =
+      CommGroup.invariantFactorCount p := hq.symm
+  have hE : 0 < CommGroup.paddedExponent p e q j := by
+    rw [CommGroup.paddedExponent]
+    have hzero : CommGroup.invariantFactorCount p -
+        CommGroup.primeMultiplicity p q = 0 := by omega
+    rw [dif_pos (by omega)]
+    exact he _
+  have hqprime : q.1.Prime := by
+    rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+    rw [← hi]
+    exact hp i
+  have hpow : 1 < q.1 ^ CommGroup.paddedExponent p e q j :=
+    Nat.one_lt_pow (ne_of_gt hE) hqprime.one_lt
+  have hle : q.1 ^ CommGroup.paddedExponent p e q j ≤
+      CommGroup.invariantFactor p e j := by
+    rw [CommGroup.invariantFactor]
+    calc
+      q.1 ^ CommGroup.paddedExponent p e q j =
+          ∏ r : CommGroup.elementaryPrimes p,
+            if r = q then r.1 ^ CommGroup.paddedExponent p e r j else 1 := by simp
+      _ ≤ ∏ r : CommGroup.elementaryPrimes p,
+          r.1 ^ CommGroup.paddedExponent p e r j := by
+        apply Finset.prod_le_prod
+        · intro r _
+          exact Nat.zero_le _
+        · intro r _
+          split_ifs with hr
+          · exact le_rfl
+          · exact Nat.one_le_iff_ne_zero.mpr
+              (pow_ne_zero _ (by
+                have hrprime : r.1.Prime := by
+                  rcases Finset.mem_image.mp r.2 with ⟨i, _, hi⟩
+                  rw [← hi]
+                  exact hp i
+                exact hrprime.ne_zero))
+  exact hpow.trans_le hle
+
+theorem CommGroup.invariantFactor_dvd_succ {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p e : ι → ℕ)
+    (j : Fin (CommGroup.invariantFactorCount p - 1)) :
+    CommGroup.invariantFactor p e ⟨j.1, by omega⟩ ∣
+      CommGroup.invariantFactor p e ⟨j.1 + 1, by omega⟩ := by
+  apply Finset.prod_dvd_prod_of_dvd
+  intro q _
+  exact Nat.pow_dvd_pow q.1
+    (CommGroup.monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
+
 /-- GT `it21` / `e6`, normalized elementary-divisor existence: a finitely
 generated commutative group is a product of `r` infinite cyclic groups and
 nontrivial cyclic prime-power groups. -/
@@ -868,6 +1299,28 @@ theorem CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower
   refine ⟨Fintype.card j, ι', inferInstance, fun i => p i.1,
     fun i => hp i.1, fun i => e i.1, fun i => Nat.pos_of_ne_zero i.2, ?_⟩
   exact ⟨h.trans (efree.prodCongr (CommGroup.piPrimePowerNeZeroMulEquiv p e))⟩
+
+/-- GT `it21(b)`, invariant-factor existence: the torsion factors can
+be chosen nontrivial and ordered by divisibility. -/
+theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (r s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  classical
+  obtain ⟨r, ι, fι, p, hp, e, he, ⟨h⟩⟩ :=
+    CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower G
+  letI : Fintype ι := fι
+  let s := CommGroup.invariantFactorCount p
+  let n : Fin s → ℕ := CommGroup.invariantFactor p e
+  refine ⟨r, s, n, ?_, ?_, ?_⟩
+  · exact CommGroup.one_lt_invariantFactor p e hp he
+  · exact CommGroup.invariantFactor_dvd_succ p e
+  · exact ⟨h.trans ((MulEquiv.refl _).prodCongr
+      (CommGroup.piPrimePowerEquivInvariantFactors p e hp he))⟩
 
 /-- A finite product generated coordinatewise by one element per factor
 has group rank at most the number of factors. -/
@@ -1113,6 +1566,27 @@ theorem CommGroup.freeRank_eq_of_free_prod_torsion
     (CommGroup.freeFactorMulEquiv G (Fin r → Multiplicative ℤ) T hT e)).trans
       (Group.rank_pi_multiplicative_int r)
 
+/-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
+number of infinite cyclic factors is the intrinsic free rank, while the finite
+cyclic factors are nontrivial and divisibility ordered. -/
+theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin (CommGroup.freeRank G) → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  obtain ⟨r, s, n, hn, hdvd, ⟨h⟩⟩ :=
+    CommGroup.exists_mulEquiv_free_prod_invariantFactors G
+  letI : ∀ i, NeZero (n i) := fun i =>
+    ⟨ne_of_gt (zero_lt_one.trans (hn i))⟩
+  let hT : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
+    isTorsion_of_finite
+  have hr := CommGroup.freeRank_eq_of_free_prod_torsion G _ hT h
+  subst r
+  exact ⟨s, n, hn, hdvd, ⟨h⟩⟩
+
 /-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
 of the same finitely generated commutative group include their free factors,
 the invariant factors of their finite torsion factors agree. -/
@@ -1143,11 +1617,6 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
     (f₁.symm.trans f₂)⟩
   exact (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
     (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂)
-
-/- AUDIT-GAP `it21`: full-decomposition uniqueness, including equality of
-free ranks, is now exposed. It remains to construct a divisibility-ordered
-invariant-factor decomposition from the available elementary-divisor
-(prime-power cyclic factor) decomposition. -/
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
