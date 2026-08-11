@@ -334,6 +334,20 @@ split when Mathlib exposes independent reusable interfaces, and kept bundled
 when one equivalence or order isomorphism already packages the result.  This
 avoids label-driven declaration design while still permitting coverage audits.
 
+## Context discipline and delegation
+
+Keep only the active source clause, its nearby Lean declarations, the exact
+Mathlib APIs they use, repository rules, and current validation state in the
+main working context. Historical timings, completed milestone narratives,
+commit lists, full-file dumps, and unrelated Mathlib source are useful records
+but should be retrieved on demand rather than carried through every proof.
+
+Good subagent tasks are bounded and independently checkable: extract a source
+claim clause-by-clause, search one Mathlib API family, inspect an upstream
+issue, audit a declaration against its source label, or run mechanical
+coverage/forbidden-token checks. The integrating agent should retain statement
+design, dependency choices, edits to `GT.lean`, and final semantic review.
+
 ## Process observations
 
 The host-visible process inspection found exactly one configured LeanExplore
