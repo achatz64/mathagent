@@ -3947,6 +3947,44 @@ theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
 end Characters
 
 /-!
+## Improvements for Mathlib
+
+The development above exposes the following plausible upstream improvements.
+They are recorded here separately from source-faithfulness obligations; each
+item names the present API and a checked proof route or concrete extension.
+
+* `Module.Basis.SmithNormalForm` and `Submodule.smithNormalForm` in
+  `Mathlib.LinearAlgebra.FreeModule.PID` currently package diagonal bases but
+  do not expose the standard divisibility chain on diagonal coefficients.
+  The PID induction in `Submodule.basis_of_pid_aux` could be strengthened to
+  preserve that chain.  Over `ℤ`, `Submodule.quotientEquivPiZMod` could then
+  return canonical invariant factors rather than an arbitrary diagonal cyclic
+  decomposition.
+* `CommGroup.equiv_free_prod_prod_multiplicative_zmod` supplies the
+  elementary-divisor side of the finitely generated abelian-group structure
+  theorem.  A divisibility-ordered invariant-factor companion can follow the
+  source proof in GT `it21`: sort each prime's exponents, right-align them,
+  insert trivial `ZMod 1` cells, and apply `ZMod.prodEquivPi` columnwise.  The
+  checked implementation is
+  `CommGroup.piPrimePowerEquivInvariantFactors` together with
+  `CommGroup.exists_mulEquiv_free_prod_invariantFactors`.
+* The reusable rank facts `Group.rank_pi_le_card_of_zpowers_eq_top`,
+  `Group.rank_pi_multiplicative_zmod_two`, and
+  `Group.rank_pi_multiplicative_int` could complement
+  `Mathlib.GroupTheory.Schreier`.  Their proofs use coordinate generators for
+  the upper bounds and reduction modulo two plus
+  `card_dvd_exponent_pow_rank` for the lower bound.
+* `Submodule.quotientEquiv_map_linearEquiv` is a general quotient-transport
+  equivalence that could live with Mathlib's quotient linear-equivalence API;
+  it is not specific to GT.  It transports both the ambient module and the
+  submodule along a `LinearEquiv` and is used above in the finite direct-sum
+  Jordan--Hölder argument.
+* `MonoidAlgebra.centerEquivClassFunction` and the conjugacy-class-sum basis
+  provide a reusable group-algebra interface not currently exposed by the
+  representation-theory imports.  The proof is coefficient extensionality:
+  centrality is equivalent to conjugacy invariance, and class sums map to the
+  delta-function basis on `ConjClasses`.
+
 ## Explicit omission ledger
 
 The following stable labels are intentionally not separate declarations.  This

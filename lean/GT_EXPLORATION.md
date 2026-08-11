@@ -163,12 +163,11 @@ type exposes exactly which structure is preserved.
 
 ### Proof compression by interface selection
 
-After the semantic-audit correction pass and its follow-up retrieval batch,
-the file contains 144 top-level declaration commands in 1,839 lines. Most
-proofs remain a direct application,
-instance synthesis, or a small adapter around a stronger library object, but
-the audit demonstrated that wrapper count is not a useful proxy for statement
-fidelity.  Several adapters replace a whole textbook proof:
+After the semantic-audit correction pass and the subsequent theorem-development
+batches, the file has grown to roughly 4,000 lines. Many proofs remain a direct
+application, instance synthesis, or a small adapter around a stronger library
+object, but the audit demonstrated that declaration count is not a useful proxy
+for statement fidelity.  Several adapters replace a whole textbook proof:
 
 - a multiplication bijection plus normality becomes an internal direct-product
   `MulEquiv`;
@@ -281,14 +280,15 @@ signature, and the proof temporarily installs the finite dual supplied by the
 roots-of-unity hypothesis. This is both closer to the mathematical indexing
 and more robust as a reusable API.
 
-Two high-cost semantic gaps remain explicit rather than hidden. Mathlib has a
-canonical isomorphism-invariant `CommGroup.freeRank`, which is enough to expose
-the right invariant for the rank clause of `it21`, but it does not currently
-provide uniqueness of the invariant-factor or elementary-divisor lists. In
-representation theory, character orthogonality and the final basis-from-cardinal
-linear algebra are checked, but the enumeration theorem `r32(a)` is still
-needed to instantiate the basis with a complete set of simple representations.
-These are theorem-development tasks, not wrapper-discovery tasks.
+Two initially high-cost semantic gaps required theorem development rather than
+wrapper discovery. For `it21`, the target now proves elementary-divisor
+uniqueness by root counts, constructs invariant factors by sorting and
+right-aligning prime-power exponent lists, and identifies the free factor with
+`CommGroup.freeRank`. In representation theory, the target now derives the
+`r32(a)` simple-module enumeration from the matrix-factor decomposition and
+uses it to instantiate the character basis. These closures reinforce the rule
+that missing Mathlib wrappers are not blockers when the source proof can be
+formalized against lower-level APIs.
 
 ### Lean REPL versus integrated builds
 
@@ -457,8 +457,8 @@ explicit omission are both preferable to a mislabeled theorem.
 
 The final audit includes all of the following:
 
-1. `lake build GT` succeeds from the `lean` project (2424 jobs after the added
-   `ZMod` field frontier);
+1. `lake build GT` succeeds from the `lean` project (2429 jobs at the current
+   import frontier);
 2. the canonical file contains none of the forbidden incomplete-proof tokens;
 3. the sole project-level assumption is the documented Feit--Thompson
    dependency; no paper-proved result is axiomatized;
@@ -481,7 +481,18 @@ rg -n '^axiom ' GT.lean
 
 ## Obligations to Mathlib
 
-When a theorem in Mathlib can be extended to a stronger version, then note it with possible proofs and references in the output Lean file under section "Improvements for Mathlib".
+When development exposes a reusable strengthening of a Mathlib theorem or a
+missing general-purpose interface, record it in the output Lean file under
+`Improvements for Mathlib`. Each entry should identify:
+
+1. the existing Mathlib declaration and source file;
+2. the proposed stronger statement or API;
+3. a plausible proof route, distinguishing checked project code from a sketch;
+4. relevant project declarations or source references.
+
+Do not treat these upstream suggestions as source-faithfulness gaps, and do not
+overstate a speculative proof as checked. Project-specific wrappers do not need
+an entry merely because they are absent from Mathlib.
 
 ## Current conclusions
 
