@@ -47,9 +47,13 @@ keyed by the resolved Lean project directory. Consequently:
 
 Lean elaboration itself is serialized. Agents can reason concurrently, but one
 long Lean request delays every queued request. Prefer bounded exploratory
-commands and branch from known-good environments. A request timeout or framing
-failure closes the shared process because continuing would be unsafe; all old
-environment handles then become stale.
+commands and branch from known-good environments. A request timeout or framing failure closes that process because continuing
+would be unsafe. The service immediately starts a new generation before
+releasing the FIFO queue, so requests still waiting in the queue can continue
+against a healthy process. The request that detected the failure receives an
+error naming the replacement generation and must retry from the new root.
+All environments and generation tokens from the terminated process are stale;
+retry without them and re-elaborate any required local declarations.
 
 The PID reported by the tool is the `lake env` owner. The operating system may
 also show its actual REPL child; this pair represents one logical shared REPL.

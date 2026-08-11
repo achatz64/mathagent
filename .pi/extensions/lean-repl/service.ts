@@ -112,7 +112,11 @@ class SharedRepl {
   }
 }
 
-type RegistryEntry = { repl: SharedRepl; references: number };
+type RegistryEntry = {
+  repl: SharedRepl;
+  references: number;
+  serial: Promise<void>;
+};
 type Registry = { generation: number; entries: Map<string, RegistryEntry> };
 const registryKey = Symbol.for("mathagent.shared-lean-repl.registry");
 const globals = globalThis as typeof globalThis & { [registryKey]?: Registry };
@@ -129,22 +133,50 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
   const key = resolve(cwd);
   let entry = registry.entries.get(key);
   if (!entry) {
-    entry = { repl: new SharedRepl(key, ++registry.generation), references: 0 };
+    entry = {
+      repl: new SharedRepl(key, ++registry.generation),
+      references: 0,
+      serial: Promise.resolve(),
+    };
     registry.entries.set(key, entry);
   }
   entry.references++;
   const acquired = entry;
   let released = false;
-  return {
-    id: acquired.repl.id,
-    pid: acquired.repl.pid,
-    async request(cmd, env, replId) {
+
+  async function request(cmd: string, env?: number, replId?: string): Promise<ReplResponse> {
+    const previous = acquired.serial;
+    let release!: () => void;
+    acquired.serial = new Promise<void>((resolveSerial) => { release = resolveSerial; });
+    await previous;
+    try {
       if (released) throw new Error("Lean REPL lease has been released");
-      if (replId !== undefined && replId !== acquired.repl.id) {
-        throw new Error(`Stale Lean REPL handle ${replId}; current process is ${acquired.repl.id}`);
+      const current = acquired.repl;
+      if (replId !== undefined && replId !== current.id) {
+        throw new Error(`Stale Lean REPL handle ${replId}; current process is ${current.id}`);
       }
-      return acquired.repl.request(cmd, env);
-    },
+      try {
+        return await current.request(cmd, env);
+      } catch (error) {
+        if (acquired.repl === current && acquired.references > 0) {
+          await current.close();
+          acquired.repl = new SharedRepl(key, ++registry.generation);
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `${message}; Lean REPL restarted as ${acquired.repl.id}. Retry from the new root`,
+          );
+        }
+        throw error;
+      }
+    } finally {
+      release();
+    }
+  }
+
+  return {
+    get id() { return acquired.repl.id; },
+    get pid() { return acquired.repl.pid; },
+    request,
     async release() {
       if (released) return;
       released = true;
