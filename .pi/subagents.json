@@ -1,5 +1,5 @@
 {
-  "maxWorkers": 2,
+  "maxWorkers": 4,
   "profiles": {
     "research": {
       "tools": ["read"]
