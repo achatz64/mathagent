@@ -220,11 +220,26 @@ main working context. Historical timings, completed milestone narratives,
 commit lists, full-file dumps, and unrelated Mathlib source are useful records
 but should be retrieved on demand rather than carried through every proof.
 
-Good subagent tasks are bounded and independently checkable: extract a source
-claim clause-by-clause, search one Mathlib API family, inspect an upstream
-issue, audit a declaration against its source label, or run mechanical
-coverage/forbidden-token checks. The integrating agent should retain statement
-design, dependency choices, edits to `GT.lean`, and final semantic review.
+Prioritize subagent work by how much bulky material it keeps out of the main
+context:
+
+1. **Source-clause extraction.** Read only the relevant region of `GT.tex` and
+   return its assumptions, conclusions, equations, converses, and conventions.
+   This avoids loading the full source chapter into the integrating context.
+2. **Mathlib API search.** Search one named theorem family, inspect neighboring
+   declarations, and return exact signatures and file references. Do not return
+   broad search dumps or unrelated source files.
+3. **Independent semantic pre-audit.** Compare one Lean declaration or a small
+   label cluster with the extracted source clauses and report only concrete
+   mismatches. Final disposition remains with the integrating agent.
+4. **Upstream issue inspection.** Search Mathlib issues, pull requests, and
+   relevant history for one proposed improvement, returning links and a short
+   status summary rather than web payloads.
+5. **Mechanical validation.** Run build, coverage, forbidden-token, whitespace,
+   and `AUDIT-GAP` checks and return only failures plus a compact summary.
+
+The integrating agent should retain statement design, dependency choices,
+edits to `GT.lean`, proof integration, and final semantic review.
 
 ## Coverage as executable negative space
 
