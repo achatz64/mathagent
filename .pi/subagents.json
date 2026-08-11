@@ -5,8 +5,9 @@
       "tools": ["read"]
     },
     "lean": {
-      "tools": ["read", "lean_repl"],
-      "thinkingLevel": "high"
+      "tools": ["read", "grep", "lean_repl"],
+      "model": "openai-codex/gpt-5.6-luna",
+      "thinkingLevel": "medium"
     }
   }
 }

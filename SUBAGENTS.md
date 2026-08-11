@@ -8,8 +8,8 @@ Pi loads the project-local managed-subagent extension from
 
 The main agent owns source interpretation, theorem statement design, integration,
 semantic review, builds, and commits. Lean proof workers are read-only helpers:
-use the `lean` profile, which grants only `read` and `lean_repl`. Do not give them
-Bash, editing, writing, worktrees, or builds.
+use the `lean` profile, which grants only `read`, `grep`, and `lean_repl`. Do not
+give them Bash, editing, writing, worktrees, or builds.
 
 A proof-worker prompt must be self-contained. Include:
 
@@ -19,7 +19,9 @@ A proof-worker prompt must be self-contained. Include:
 4. semantic requirements for the final theorem type;
 5. instructions to prefer reusable general APIs, avoid axioms, check every final
    declaration in `lean_repl`, and return paste-ready code;
-6. a request to report the REPL PID, approximate call count, timeouts, and
+6. likely namespaces, declaration fragments, and Mathlib source paths so the
+   worker can search narrowly rather than rediscovering the whole API;
+7. a request to report the REPL PID, approximate call count, timeouts, and
    perceived latency when testing infrastructure.
 
 Do not ask a worker to decide whether an actionable audit gap may be deferred.
@@ -61,3 +63,21 @@ its `env` and `repl` values. Workers may otherwise omit `env` to branch from the
 shared Mathlib root. One slow elaboration blocks the queue, so split exploratory
 checks into bounded commands and avoid submitting known heartbeat-heavy commands
 from several workers at once.
+
+## Safe Mathlib discovery
+
+Never use Lean's `#find` in the shared REPL. Broad `#find` searches can exceed
+the transport timeout and terminate the process for every worker. Proof-worker
+prompts should explicitly prohibit it and direct workers to this sequence:
+
+1. use `grep` narrowly in `lean/.lake/packages/mathlib/Mathlib` for guessed
+   declaration fragments, carrier types, or interface words such as `ker`,
+   `quotient`, `centralizer`, and `finrank`;
+2. use `read` on the matching file to inspect neighboring declarations and the
+   intended namespace;
+3. verify exact candidates with targeted `#check`, `#print`, or `#synth`;
+4. test candidates in small examples before checking a full proof block.
+
+The main agent should supply likely APIs and source paths whenever known. Search
+output must remain narrow; do not replace `#find` with an unbounded repository
+regular expression.
