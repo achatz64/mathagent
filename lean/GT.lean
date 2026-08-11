@@ -523,9 +523,352 @@ noncomputable def Subgroup.prodMulEquivOfIsComplement'
 
 end InternalDirectProducts
 
+section SemidirectProductComparisons
+
+open scoped Pointwise
+
+variable {N Q : Type*} [Group N] [Group Q]
+
+/-- GT `it15`: an action gives the displayed group law on pairs; the canonical
+copies of both factors form an internal semidirect product with that action. -/
+theorem SemidirectProduct.canonical_factor_properties
+    (N Q : Type*) [Group N] [Group Q] (θ : Q →* MulAut N) :
+    let G := N ⋊[θ] Q
+    let iN : N →* G := _root_.SemidirectProduct.inl
+    let iQ : Q →* G := _root_.SemidirectProduct.inr
+    (∀ n q n' q', (⟨n, q⟩ : G) * ⟨n', q'⟩ = ⟨n * θ q n', q * q'⟩) ∧
+      (∀ n, iN n = ⟨n, 1⟩) ∧ (∀ q, iQ q = ⟨1, q⟩) ∧
+      Function.Injective iN ∧ Function.Injective iQ ∧ iN.range.Normal ∧
+      iN.range ⊓ iQ.range = ⊥ ∧
+      (iN.range : Set G) * (iQ.range : Set G) = Set.univ ∧
+      (∀ q n, iQ q * iN n * (iQ q)⁻¹ = iN (θ q n)) := by
+  dsimp
+  refine ⟨?_, ?_, ?_, _root_.SemidirectProduct.inl_injective,
+    _root_.SemidirectProduct.inr_injective, ?_, ?_, ?_, ?_⟩
+  · intro n q n' q'; rfl
+  · intro n; rfl
+  · intro q; rfl
+  · rw [_root_.SemidirectProduct.range_inl_eq_ker_rightHom]
+    exact MonoidHom.normal_ker _
+  · rw [Subgroup.eq_bot_iff_forall]
+    intro x hx
+    rw [Subgroup.mem_inf] at hx
+    rcases hx.1 with ⟨n, hn⟩
+    rcases hx.2 with ⟨q, hq⟩
+    rw [← hn]
+    apply _root_.SemidirectProduct.ext
+    · have h := congrArg _root_.SemidirectProduct.left (hn.trans hq.symm)
+      simpa using h
+    · simp
+  · ext g
+    constructor
+    · intro _; exact Set.mem_univ g
+    · intro _
+      rw [Set.mem_mul]
+      exact ⟨_root_.SemidirectProduct.inl g.left, ⟨g.left, rfl⟩,
+        _root_.SemidirectProduct.inr g.right, ⟨g.right, rfl⟩,
+        _root_.SemidirectProduct.inl_left_mul_inr_right g⟩
+  · intro q n
+    simpa using (_root_.SemidirectProduct.inl_aut q n).symm
+
+/-- GT `st14`: conjugating an action on `N` gives an isomorphic semidirect
+product via `(n,q) ↦ (α(n),q)`. -/
+def SemidirectProduct.conjugateActionMulEquiv
+    (θ θ' : Q →* MulAut N) (α : MulAut N)
+    (h : ∀ q : Q, θ' q = α * θ q * α⁻¹) :
+    N ⋊[θ] Q ≃* N ⋊[θ'] Q :=
+  SemidirectProduct.congr α (MulEquiv.refl Q) fun q => by
+    apply MulEquiv.ext
+    intro n
+    have hn := DFunLike.congr_fun (h q) (α n)
+    simpa using hn.symm
+
+@[simp]
+theorem SemidirectProduct.conjugateActionMulEquiv_apply
+    (θ θ' : Q →* MulAut N) (α : MulAut N)
+    (h : ∀ q : Q, θ' q = α * θ q * α⁻¹) (n : N) (q : Q) :
+    SemidirectProduct.conjugateActionMulEquiv θ θ' α h
+      (SemidirectProduct.mk n q) = SemidirectProduct.mk (α n) q :=
+  rfl
+
+/-- GT `st15`: precomposing an action by an automorphism of `Q` gives an
+isomorphic semidirect product via `(n,q) ↦ (n,α(q))`. -/
+def SemidirectProduct.precompActionMulEquiv
+    (θ θ' : Q →* MulAut N) (α : MulAut Q)
+    (h : θ = θ'.comp α.toMonoidHom) :
+    N ⋊[θ] Q ≃* N ⋊[θ'] Q :=
+  SemidirectProduct.congr (MulEquiv.refl N) α fun q => by
+    apply MulEquiv.ext
+    intro n
+    rw [h]
+    rfl
+
+@[simp]
+theorem SemidirectProduct.precompActionMulEquiv_apply
+    (θ θ' : Q →* MulAut N) (α : MulAut Q)
+    (h : θ = θ'.comp α.toMonoidHom) (n : N) (q : Q) :
+    SemidirectProduct.precompActionMulEquiv θ θ' α h
+      (SemidirectProduct.mk n q) = SemidirectProduct.mk n (α q) :=
+  rfl
+
+end SemidirectProductComparisons
+
 section FinitelyGeneratedCommutativeGroups
 
 open scoped DirectSum
+
+private lemma gcd_univ_fin_succ (n : ℕ) (c : Fin (n + 1) → ℕ) :
+    Finset.univ.gcd c = Nat.gcd (c 0)
+      (Finset.univ.gcd (fun i : Fin n => c i.succ)) := by
+  rw [Fin.univ_succ, Finset.gcd_cons]
+  congr 1
+  induction (Finset.univ : Finset (Fin n)) using Finset.induction_on with
+  | empty => simp
+  | @insert a s ha ih => simp [Finset.map_insert, ih]
+
+private lemma gcd_comp_equiv {ι κ : Type*} [Fintype ι] [Fintype κ]
+    (e : ι ≃ κ) (c : κ → ℕ) :
+    Finset.univ.gcd (c ∘ e) = Finset.univ.gcd c := by
+  apply Nat.dvd_antisymm
+  · rw [Finset.dvd_gcd_iff]
+    intro b hb
+    obtain ⟨a, rfl⟩ := e.surjective b
+    exact Finset.gcd_dvd (Finset.mem_univ a)
+  · rw [Finset.dvd_gcd_iff]
+    intro a ha
+    exact Finset.gcd_dvd (Finset.mem_univ (e a))
+
+private lemma recover_left {M : Type*} [AddCommGroup M]
+    (a d A B : ℤ) (x z : M) (h : a * A + d * B = 1) :
+    A • (a • x + d • z) - d • ((-B) • x + A • z) = x := by
+  calc
+    _ = (A * a + d * B) • x := by module
+    _ = x := by
+      rw [show A * a + d * B = 1 by simpa [mul_comm] using h]
+      simp
+
+private lemma recover_right {M : Type*} [AddCommGroup M]
+    (a d A B : ℤ) (x z : M) (h : a * A + d * B = 1) :
+    B • (a • x + d • z) + a • ((-B) • x + A • z) = z := by
+  calc
+    _ = (B * d + a * A) • z := by module
+    _ = z := by
+      rw [show B * d + a * A = 1 by
+        simpa [mul_comm, add_comm] using h]
+      simp
+
+private lemma exists_fin_family_span_eq
+    (M : Type*) [AddCommGroup M] : ∀ n : ℕ,
+    ∀ (x : Fin (n + 1) → M) (c : Fin (n + 1) → ℕ),
+      Finset.univ.gcd c = 1 →
+      ∃ y : Fin (n + 1) → M,
+        Submodule.span ℤ (Set.range y) =
+          Submodule.span ℤ (Set.range x) ∧
+        y 0 = ∑ i, (c i : ℤ) • x i := by
+  intro n
+  induction n with
+  | zero =>
+      intro x c hc
+      have hc0 : c 0 = 1 := by
+        simpa [gcd_univ_fin_succ] using hc
+      refine ⟨x, rfl, ?_⟩
+      rw [Fin.sum_univ_succ]
+      simp [hc0]
+  | succ n ih =>
+      intro x c hc
+      let d : ℕ :=
+        Finset.univ.gcd (fun i : Fin (n + 1) => c i.succ)
+      have hac : Nat.gcd (c 0) d = 1 := by
+        simpa [d, gcd_univ_fin_succ] using hc
+      by_cases hd : d = 0
+      · have hc0 : c 0 = 1 := by
+          simpa [hd] using hac
+        have hctail : ∀ i : Fin (n + 1), c i.succ = 0 := by
+          have h := Finset.gcd_eq_zero_iff.mp hd
+          exact fun i => h i (Finset.mem_univ i)
+        refine ⟨x, rfl, ?_⟩
+        rw [Fin.sum_univ_succ]
+        simp [hc0, hctail]
+      · obtain ⟨g, hfac, hg⟩ := Finset.extract_gcd
+          (fun i : Fin (n + 1) => c i.succ)
+          (Finset.univ_nonempty :
+            (Finset.univ : Finset (Fin (n + 1))).Nonempty)
+        have hfac' : ∀ i : Fin (n + 1), c i.succ = d * g i := by
+          intro i
+          exact hfac i (Finset.mem_univ i)
+        obtain ⟨z, hzspan, hz0⟩ := ih (Fin.tail x) g hg
+        let A : ℤ := (c 0).gcdA d
+        let B : ℤ := (c 0).gcdB d
+        have hbez : (c 0 : ℤ) * A + (d : ℤ) * B = 1 := by
+          symm
+          simpa [A, B, hac] using Nat.gcd_eq_gcd_ab (c 0) d
+        let t : M := (c 0 : ℤ) • x 0 + (d : ℤ) • z 0
+        let w : M := (-B) • x 0 + A • z 0
+        let y : Fin (n + 2) → M :=
+          Fin.cons t (Fin.cons w (Fin.tail z))
+        have ht : t = ∑ i, (c i : ℤ) • x i := by
+          rw [Fin.sum_univ_succ]
+          simp only [t]
+          congr 1
+          rw [hz0, Finset.smul_sum]
+          apply Finset.sum_congr rfl
+          intro i hi
+          rw [hfac' i, Nat.cast_mul, mul_smul]
+          rfl
+        have htail_mono :
+            Set.range (Fin.tail x) ⊆ Set.range x := by
+          rintro _ ⟨i, rfl⟩
+          exact ⟨i.succ, rfl⟩
+        have hz0_mem_x :
+            z 0 ∈ Submodule.span ℤ (Set.range x) := by
+          have hz0z :
+              z 0 ∈ Submodule.span ℤ (Set.range z) :=
+            Submodule.subset_span (Set.mem_range_self 0)
+          rw [hzspan] at hz0z
+          exact Submodule.span_mono htail_mono hz0z
+        have hy_le_x :
+            Submodule.span ℤ (Set.range y) ≤
+              Submodule.span ℤ (Set.range x) := by
+          rw [Submodule.span_le]
+          rintro _ ⟨i, rfl⟩
+          refine Fin.cases ?_
+            (fun j => Fin.cases ?_ (fun k => ?_) j) i
+          · change t ∈ Submodule.span ℤ (Set.range x)
+            simp only [t]
+            exact (Submodule.span ℤ (Set.range x)).add_mem
+              ((Submodule.span ℤ (Set.range x)).smul_mem _
+                (Submodule.subset_span (Set.mem_range_self 0)))
+              ((Submodule.span ℤ (Set.range x)).smul_mem _
+                hz0_mem_x)
+          · change w ∈ Submodule.span ℤ (Set.range x)
+            simp only [w]
+            exact (Submodule.span ℤ (Set.range x)).add_mem
+              ((Submodule.span ℤ (Set.range x)).smul_mem _
+                (Submodule.subset_span (Set.mem_range_self 0)))
+              ((Submodule.span ℤ (Set.range x)).smul_mem _
+                hz0_mem_x)
+          · change z k.succ ∈
+              Submodule.span ℤ (Set.range x)
+            have hzk :
+                z k.succ ∈ Submodule.span ℤ (Set.range z) :=
+              Submodule.subset_span
+                (Set.mem_range_self k.succ)
+            rw [hzspan] at hzk
+            exact Submodule.span_mono htail_mono hzk
+        have hx0_mem_y :
+            x 0 ∈ Submodule.span ℤ (Set.range y) := by
+          have htmem :
+              t ∈ Submodule.span ℤ (Set.range y) :=
+            Submodule.subset_span ⟨0, by simp [y]⟩
+          have hwmem :
+              w ∈ Submodule.span ℤ (Set.range y) :=
+            Submodule.subset_span ⟨1, by simp [y]⟩
+          have hcalc : A • t - (d : ℤ) • w = x 0 := by
+            exact recover_left (c 0 : ℤ) d A B
+              (x 0) (z 0) hbez
+          rw [← hcalc]
+          exact (Submodule.span ℤ (Set.range y)).sub_mem
+            ((Submodule.span ℤ (Set.range y)).smul_mem _
+              htmem)
+            ((Submodule.span ℤ (Set.range y)).smul_mem _
+              hwmem)
+        have hz0_mem_y :
+            z 0 ∈ Submodule.span ℤ (Set.range y) := by
+          have htmem :
+              t ∈ Submodule.span ℤ (Set.range y) :=
+            Submodule.subset_span ⟨0, by simp [y]⟩
+          have hwmem :
+              w ∈ Submodule.span ℤ (Set.range y) :=
+            Submodule.subset_span ⟨1, by simp [y]⟩
+          have hcalc :
+              B • t + (c 0 : ℤ) • w = z 0 := by
+            exact recover_right (c 0 : ℤ) d A B
+              (x 0) (z 0) hbez
+          rw [← hcalc]
+          exact (Submodule.span ℤ (Set.range y)).add_mem
+            ((Submodule.span ℤ (Set.range y)).smul_mem _
+              htmem)
+            ((Submodule.span ℤ (Set.range y)).smul_mem _
+              hwmem)
+        have hz_le_y :
+            Submodule.span ℤ (Set.range z) ≤
+              Submodule.span ℤ (Set.range y) := by
+          rw [Submodule.span_le]
+          rintro _ ⟨j, rfl⟩
+          refine Fin.cases hz0_mem_y (fun k => ?_) j
+          exact Submodule.subset_span
+            ⟨k.succ.succ, by simp [y, Fin.tail]⟩
+        have hx_le_y :
+            Submodule.span ℤ (Set.range x) ≤
+              Submodule.span ℤ (Set.range y) := by
+          rw [Submodule.span_le]
+          rintro _ ⟨i, rfl⟩
+          refine Fin.cases hx0_mem_y (fun j => ?_) i
+          have hxj :
+              x j.succ ∈ Submodule.span ℤ (Set.range z) := by
+            rw [hzspan]
+            exact Submodule.subset_span ⟨j, rfl⟩
+          exact hz_le_y hxj
+        exact
+          ⟨y, le_antisymm hy_le_x hx_le_y,
+            by simpa [y] using ht⟩
+
+private theorem exists_family_span_eq_with_eq_zsum
+    {ι M : Type*} [Fintype ι] [AddCommGroup M]
+    (i₀ : ι) (x : ι → M) (c : ι → ℕ)
+    (hc : Finset.univ.gcd c = 1) :
+    ∃ y : ι → M,
+      Submodule.span ℤ (Set.range y) =
+        Submodule.span ℤ (Set.range x) ∧
+      y i₀ = ∑ i, (c i : ℤ) • x i := by
+  classical
+  have hcard : 0 < Fintype.card ι :=
+    Fintype.card_pos_iff.mpr ⟨i₀⟩
+  obtain ⟨n, hn⟩ :=
+    Nat.exists_eq_succ_of_ne_zero hcard.ne'
+  let q : ι ≃ Fin (n + 1) :=
+    Fintype.equivFinOfCardEq hn
+  let e : Fin (n + 1) ≃ ι :=
+    (Equiv.swap 0 (q i₀)).trans q.symm
+  have he0 : e 0 = i₀ := by
+    simp [e, q]
+  have hc' : Finset.univ.gcd (c ∘ e) = 1 := by
+    rw [gcd_comp_equiv e c, hc]
+  obtain ⟨z, hzspan, hz0⟩ :=
+    exists_fin_family_span_eq M n (x ∘ e) (c ∘ e) hc'
+  let y : ι → M := z ∘ e.symm
+  have hyrange : Set.range y = Set.range z := by
+    apply Set.Subset.antisymm
+    · rintro _ ⟨i, rfl⟩
+      exact ⟨e.symm i, rfl⟩
+    · rintro _ ⟨j, rfl⟩
+      exact ⟨e j, by simp [y]⟩
+  have hxrange : Set.range (x ∘ e) = Set.range x := by
+    apply Set.Subset.antisymm
+    · rintro _ ⟨j, rfl⟩
+      exact ⟨e j, rfl⟩
+    · rintro _ ⟨i, rfl⟩
+      exact ⟨e.symm i, by simp⟩
+  refine ⟨y, by rw [hyrange, hzspan, hxrange], ?_⟩
+  have heinv : e.symm i₀ = 0 := by
+    rw [← he0]
+    simp
+  rw [show y i₀ = z 0 by simp [y, heinv], hz0]
+  simpa only [Function.comp_apply] using
+    Equiv.sum_comp e (fun i => (c i : ℤ) • x i)
+
+/-- GT `it19`, finite-family span-preserving form. -/
+theorem exists_family_span_eq_with_eq_nsmul_sum
+    {ι M : Type*} [Fintype ι] [AddCommGroup M]
+    (i₀ : ι) (x : ι → M) (c : ι → ℕ)
+    (hc : Finset.univ.gcd c = 1) :
+    ∃ y : ι → M,
+      Submodule.span ℤ (Set.range y) =
+        Submodule.span ℤ (Set.range x) ∧
+      y i₀ = ∑ i, c i • x i := by
+  obtain ⟨y, hspan, hy⟩ :=
+    exists_family_span_eq_with_eq_zsum i₀ x c hc
+  exact ⟨y, hspan, by simpa using hy⟩
 
 /-- GT `it20a`: a finite group is cyclic if, for every positive `n`, at most
 `n` of its elements have order dividing `n`. Mathlib's theorem does not need
@@ -2591,6 +2934,64 @@ theorem QuotientGroup.isNilpotent [Group.IsNilpotent G]
     (N : Subgroup G) [N.Normal] : Group.IsNilpotent (G ⧸ N) := by
   infer_instance
 
+open commutatorElement
+
+private def leftNormedCommutatorList {G : Type*} [Group G] (g : G) : List G → G
+  | [] => g
+  | x :: xs => leftNormedCommutatorList ⁅g, x⁆ xs
+
+/-- The left-normed commutator `[...[g 0, g 1], ... , g m]`. -/
+def leftNormedCommutator {G : Type*} [Group G] {m : ℕ}
+    (g : Fin (m + 1) → G) : G :=
+  leftNormedCommutatorList (g 0) (List.ofFn (Fin.tail g))
+
+private lemma mem_upperCentralSeries_iff_leftNormedCommutatorList_eq_one
+    (m : ℕ) (x : G) :
+    x ∈ Subgroup.upperCentralSeries G m ↔
+      ∀ gs : List G, gs.length = m → leftNormedCommutatorList x gs = 1 := by
+  induction m generalizing x with
+  | zero => simp [leftNormedCommutatorList]
+  | succ m ih =>
+      rw [Subgroup.mem_upperCentralSeries_succ_iff]
+      constructor
+      · intro hx gs hgs
+        cases gs with
+        | nil => simp at hgs
+        | cons y ys =>
+            simp only [leftNormedCommutatorList]
+            apply (ih ⁅x, y⁆).mp (hx y) ys
+            simpa using hgs
+      · intro h y
+        apply (ih ⁅x, y⁆).mpr
+        intro ys hys
+        exact h (y :: ys) (by simp [hys])
+
+/-- GT `ns14`: a group is nilpotent of class at most `m` iff every
+left-normed commutator of `m + 1` elements is trivial. -/
+theorem Group.isNilpotent_and_nilpotencyClass_le_iff_leftNormedCommutator_eq_one
+    (m : ℕ) :
+    (Group.IsNilpotent G ∧ Group.nilpotencyClass G ≤ m) ↔
+      ∀ g : Fin (m + 1) → G, leftNormedCommutator g = 1 := by
+  have hclass :
+      (Group.IsNilpotent G ∧ Group.nilpotencyClass G ≤ m) ↔
+        Subgroup.upperCentralSeries G m = ⊤ := by
+    constructor
+    · rintro ⟨hG, hm⟩
+      letI : Group.IsNilpotent G := hG
+      exact Subgroup.upperCentralSeries_eq_top_iff_nilpotencyClass_le.mpr hm
+    · intro htop
+      letI : Group.IsNilpotent G := ⟨m, htop⟩
+      exact ⟨inferInstance,
+        Subgroup.upperCentralSeries_eq_top_iff_nilpotencyClass_le.mp htop⟩
+  rw [hclass, Subgroup.eq_top_iff']
+  simp_rw [mem_upperCentralSeries_iff_leftNormedCommutatorList_eq_one]
+  constructor
+  · intro h g
+    exact h (g 0) (List.ofFn (Fin.tail g)) (by simp)
+  · intro h g₁ gs hgs
+    subst m
+    simpa [leftNormedCommutator] using h (Fin.cons g₁ gs.get)
+
 /-- GT `ns15`: quotienting by a central subgroup can lower the nilpotency
 class by at most one.  This formulation names the quotient's actual class,
 and therefore implies the book's version with an arbitrary bound `m`. -/
@@ -4080,17 +4481,16 @@ unproved proposition has been established.
   `fg17`, and `fg18`, including the exact-order and faithfulness conclusions;
   the existing Coxeter presentation and power relations are only partial
   prerequisites.
-* AUDIT-GAP: formalize the isolated existence theorem `bd3m`, the
-  generator-replacement lemma `it19`, and the finite-family direct-product
-  criterion `it07`; absence of direct library interfaces is not a deferral
-  reason.
+* AUDIT-GAP: formalize the isolated existence theorem `bd3m` and the
+  finite-family direct-product criterion `it07`; absence of direct library
+  interfaces is not a deferral reason.
 * AUDIT-GAP: formalize the complete order-`2p` classification refinement
   `ga13m`, not only the currently available consequences.
 * AUDIT-GAP: introduce a source-faithful extension interface and prove the
-  semidirect-product comparison results `it15`, `st14`, `st15`, and `st16`,
-  together with the complete-group splitting result `it18`.
+  semidirect-product result `st16`, together with the
+  complete-group splitting result `it18`.
 * AUDIT-GAP: formalize the group-theoretic Jordan--Hölder theorem `ns02` and
-  the operator-group results `ns14`, `ns24`, `ns25`, `ns26`, and `ns29`.
+  the operator-group results `ns24`, `ns25`, `ns26`, and `ns29`.
   The module theorem `r10` does not cover these group-theoretic statements.
 * AUDIT-GAP: formalize the remaining representation results `r17`, `r23`,
   `r28`, `r32(b,c)`, `r34`, `r34a`, `r36`, and `r9e`, exposing the source's
