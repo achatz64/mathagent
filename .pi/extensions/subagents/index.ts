@@ -38,12 +38,14 @@ const defaultConfig: Required<Config> = {
   },
 };
 
-const leanWorkerPreamble = `Lean worker protocol:
+const leanWorkerProtocol = `You are a Lean proof implementer, not an API scout or theorem-search reporter.
+- The mathematical source proof supplied by the main agent is authoritative and is your required construction plan. Translate it independently into Lean, including every intermediate lemma it requires.
+- Searching Mathlib is only for low-level proof plumbing. If no packaged theorem or bridge exists, implement the missing bridge yourself from the supplied proof. The size or absence of such a lemma is never a reason to stop.
+- Do not return a survey of available APIs, a list of missing lemmas, or a recommendation for future work. Continue constructing and testing code. A blocker is valid only if the source statement is false or missing an essential hypothesis, or the REPL itself becomes unavailable.
 - The shared lean_repl root already imports Mathlib. Never send an import command.
 - Never use #find. Discover APIs with narrow grep in the checked-out Mathlib source, read nearby declarations, then use targeted #check/#print/#synth.
-- The source proof supplied in the task is the required construction plan. If no packaged Mathlib theorem exists, formalize that proof from lower-level APIs. Missing an exact library theorem is not a blocker and must not end the task.
 - Only claim REPL verification for dependencies from Mathlib or declarations explicitly elaborated in your REPL branch. Read project-local prerequisites and paste the minimal required declarations into the branch.
-- Return paste-ready code, or a concrete blocker found after attempting the supplied proof.`;
+- Your deliverable is paste-ready, REPL-checked Lean code implementing the supplied proof.`;
 
 async function loadConfig(cwd: string): Promise<Required<Config>> {
   try {
@@ -121,7 +123,11 @@ export default function (pi: ExtensionAPI) {
       const profile = config.profiles[profileName];
       if (!profile) throw new Error(`Unknown profile ${profileName}`);
 
-      const loader = new DefaultResourceLoader({ cwd: ctx.cwd, agentDir: getAgentDir() });
+      const loader = new DefaultResourceLoader({
+        cwd: ctx.cwd,
+        agentDir: getAgentDir(),
+        appendSystemPrompt: profileName === "lean" ? [leanWorkerProtocol] : [],
+      });
       await loader.reload();
       const model = profile.model
         ? ctx.modelRegistry.find(...(profile.model.includes("/")
@@ -163,10 +169,7 @@ export default function (pi: ExtensionAPI) {
         notify(worker);
       });
 
-      const initialPrompt = profileName === "lean"
-        ? `${leanWorkerPreamble}\n\n${params.task}`
-        : params.task;
-      worker.run = session.prompt(initialPrompt).then(() => {
+      worker.run = session.prompt(params.task).then(() => {
         worker.finalText = assistantText(session.messages);
         worker.latestText = worker.finalText;
         worker.state = "done";

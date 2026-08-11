@@ -24,14 +24,19 @@ A proof-worker prompt must be self-contained. Include:
 7. a request to report the REPL PID, approximate call count, timeouts, and
    perceived latency when testing infrastructure.
 
-The supplied source proof is an implementation plan, not optional background.
-The worker must follow it down to lower-level Mathlib APIs when no packaged
-version of the theorem exists. Failure to find an exact library theorem is not
-a blocker and must not end the task. Search is for proof plumbing; after search,
-the worker constructs the argument given in the prompt. A valid blocker must
-identify a false or missing hypothesis, circular dependency, or a concrete Lean
-obstacle remaining after attempting the supplied construction—not merely say
-that Mathlib lacks the result or that an additional lemma must be proved.
+The supplied source proof is authoritative and is the worker's required
+implementation plan, not optional background. The worker must translate it
+independently down to lower-level Mathlib APIs and prove every intermediate
+bridge it requires. Failure to find an exact library theorem, the size of a
+missing lemma, or the absence of a project-local bridge is not a blocker and
+must not end the task. Search is only for proof plumbing; after search, the
+worker constructs and tests the argument given in the prompt.
+
+A Lean worker must not return an API survey, a list of missing lemmas, or a
+recommendation for future work. A valid blocker is limited to a false statement,
+a genuinely missing essential hypothesis or circular source argument, or loss
+of the REPL process itself. Ordinary elaboration errors and substantial helper
+lemmas are proof work, not blockers.
 
 Do not ask a worker to decide whether an actionable audit gap may be deferred.
 It may return a proof or a precise blocker under the standard above. The main
