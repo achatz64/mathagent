@@ -1,0 +1,12 @@
+{
+  "maxWorkers": 2,
+  "profiles": {
+    "research": {
+      "tools": ["read"]
+    },
+    "lean": {
+      "tools": ["read", "lean_repl"],
+      "thinkingLevel": "high"
+    }
+  }
+}
