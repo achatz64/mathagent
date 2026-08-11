@@ -6484,6 +6484,145 @@ theorem matrixPresentation_unique_sizes
   have hsquares : n * n = m * m := Nat.mul_right_cancel hpos hA
   exact Nat.mul_self_inj.mp hsquares
 
+/-- Transport endomorphisms along an algebra presentation while leaving
+the underlying additive maps unchanged. -/
+private noncomputable def matrixEndTransportAlgEquiv
+    {F A B X : Type*} [Field F] [Ring A] [Ring B]
+    [Algebra F A] [Algebra F B]
+    [AddCommGroup X] [Module B X] [Module F X]
+    [SMulCommClass B F X] [IsScalarTower F B X]
+    (e : A ≃ₐ[F] B) :
+    letI : Module A X := Module.compHom X e.toRingEquiv.toRingHom
+    letI : SMulCommClass A F X := ⟨by
+      intro a c x
+      change (e a) • (c • x) = c • ((e a) • x)
+      exact smul_comm (e a) c x⟩
+    letI : IsScalarTower F A X := IsScalarTower.of_algebraMap_smul (by
+      intro c x
+      change (e (algebraMap F A c)) • x = c • x
+      rw [e.commutes]
+      exact IsScalarTower.algebraMap_smul B c x)
+    Module.End A X ≃ₐ[F] Module.End B X := by
+  letI : Module A X := Module.compHom X e.toRingEquiv.toRingHom
+  letI : SMulCommClass A F X := ⟨by
+    intro a c x
+    change (e a) • (c • x) = c • ((e a) • x)
+    exact smul_comm (e a) c x⟩
+  letI : IsScalarTower F A X := IsScalarTower.of_algebraMap_smul (by
+    intro c x
+    change (e (algebraMap F A c)) • x = c • x
+    rw [e.commutes]
+    exact IsScalarTower.algebraMap_smul B c x)
+  let f : Module.End A X →ₐ[F] Module.End B X :=
+    { toFun := fun g =>
+        { toFun := g
+          map_add' := by intro x y; exact g.map_add x y
+          map_smul' := by
+            intro b x
+            have hh := g.map_smul (e.symm b) x
+            change g ((e (e.symm b)) • x) = (e (e.symm b)) • g x at hh
+            simpa [RingHom.id_apply, e.apply_symm_apply] using hh }
+      map_one' := by ext x; rfl
+      map_mul' := by intro g h; ext x; rfl
+      map_zero' := by ext x; rfl
+      map_add' := by intro g h; ext x; rfl
+      commutes' := by intro c; ext x; rfl }
+  apply AlgEquiv.ofBijective f
+  constructor
+  · intro g h hgh
+    apply LinearMap.ext
+    intro x
+    exact congrArg (fun q => q x) hgh
+  · intro g
+    let h : Module.End A X :=
+      { toFun := g
+        map_add' := by intro x y; exact g.map_add x y
+        map_smul' := by
+          intro a x
+          change g ((e a) • x) = (e a) • g x
+          exact g.map_smul (e a) x }
+    refine ⟨h, ?_⟩
+    ext x
+    rfl
+
+/-- GT `r23`: both the matrix size and the coefficient division algebra in a
+matrix presentation of a finite-dimensional simple algebra are unique. -/
+theorem matrixPresentation_unique
+    {F A D E : Type u} [Field F] [Ring A] [Algebra F A]
+    [IsSimpleRing A] [DivisionRing D] [Algebra F D]
+    [DivisionRing E] [Algebra F E]
+    {n m : ℕ} [NeZero n] [NeZero m] [FiniteDimensional F A]
+    (eD : A ≃ₐ[F] Matrix (Fin n) (Fin n) D)
+    (eE : A ≃ₐ[F] Matrix (Fin m) (Fin m) E) :
+    n = m ∧ Nonempty (D ≃ₐ[F] E) := by
+  letI : IsArtinianRing A := IsArtinianRing.of_finite F A
+  letI : Module A (Fin n → D) :=
+    Module.compHom (Fin n → D) eD.toRingEquiv.toRingHom
+  letI : SMulCommClass A F (Fin n → D) := ⟨by
+    intro a c x
+    change (eD a) • (c • x) = c • ((eD a) • x)
+    exact smul_comm (eD a) c x⟩
+  letI : IsScalarTower F A (Fin n → D) :=
+    IsScalarTower.of_algebraMap_smul (by
+      intro c x
+      change (eD (algebraMap F A c)) • x = c • x
+      rw [eD.commutes]
+      exact IsScalarTower.algebraMap_smul
+        (Matrix (Fin n) (Fin n) D) c x)
+  letI : Module A (Fin m → E) :=
+    Module.compHom (Fin m → E) eE.toRingEquiv.toRingHom
+  letI : SMulCommClass A F (Fin m → E) := ⟨by
+    intro a c x
+    change (eE a) • (c • x) = c • ((eE a) • x)
+    exact smul_comm (eE a) c x⟩
+  letI : IsScalarTower F A (Fin m → E) :=
+    IsScalarTower.of_algebraMap_smul (by
+      intro c x
+      change (eE (algebraMap F A c)) • x = c • x
+      rw [eE.commutes]
+      exact IsScalarTower.algebraMap_smul
+        (Matrix (Fin m) (Fin m) E) c x)
+  have hsimpleD : IsSimpleModule A (Fin n → D) := by
+    rw [isSimpleModule_iff_toSpanSingleton_surjective]
+    refine ⟨?_, ?_⟩
+    · exact (isSimpleModule_iff_toSpanSingleton_surjective.mp
+          (Matrix.isSimpleModule_column (D := D) (n := n))).1
+    · intro x hx y
+      obtain ⟨b, hb⟩ :=
+        (isSimpleModule_iff_toSpanSingleton_surjective.mp
+          (Matrix.isSimpleModule_column (D := D) (n := n))).2 x hx y
+      refine ⟨eD.symm b, ?_⟩
+      change (eD (eD.symm b)) • x = y
+      simpa using hb
+  have hsimpleE : IsSimpleModule A (Fin m → E) := by
+    rw [isSimpleModule_iff_toSpanSingleton_surjective]
+    refine ⟨?_, ?_⟩
+    · exact (isSimpleModule_iff_toSpanSingleton_surjective.mp
+          (Matrix.isSimpleModule_column (D := E) (n := m))).1
+    · intro x hx y
+      obtain ⟨b, hb⟩ :=
+        (isSimpleModule_iff_toSpanSingleton_surjective.mp
+          (Matrix.isSimpleModule_column (D := E) (n := m))).2 x hx y
+      refine ⟨eE.symm b, ?_⟩
+      change (eE (eE.symm b)) • x = y
+      simpa using hb
+  letI : IsSimpleModule A (Fin n → D) := hsimpleD
+  letI : IsSimpleModule A (Fin m → E) := hsimpleE
+  obtain ⟨u⟩ := simpleRing_nonempty_linearEquiv_of_isSimpleModule
+    (A := A) (Fin n → D) (Fin m → E)
+  let tD : Module.End A (Fin n → D) ≃ₐ[F]
+      Module.End (Matrix (Fin n) (Fin n) D) (Fin n → D) :=
+    matrixEndTransportAlgEquiv eD
+  let tE : Module.End A (Fin m → E) ≃ₐ[F]
+      Module.End (Matrix (Fin m) (Fin m) E) (Fin m → E) :=
+    matrixEndTransportAlgEquiv eE
+  let q : Dᵐᵒᵖ ≃ₐ[F] Eᵐᵒᵖ :=
+    ((Matrix.columnModuleEndAlgEquiv (F := F) (D := D) n).trans
+      (tD.symm.trans ((u.conjAlgEquiv F).trans tE))).trans
+      (Matrix.columnModuleEndAlgEquiv (F := F) (D := E) m).symm
+  refine ⟨matrixPresentation_unique_sizes eD eE ⟨AlgEquiv.unop q⟩, ?_⟩
+  exact ⟨AlgEquiv.unop q⟩
+
 /-- The finite direct sum of finite-dimensional representations, constructed
 through their modules over the group algebra. -/
 noncomputable def FDRep.dfinsuppOf
@@ -6583,8 +6722,8 @@ unproved proposition has been established.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the remaining operator-group result `ns29`.
-* AUDIT-GAP: formalize the remaining representation results `r23`, `r34`,
-  `r34a`, and `r36`, exposing the source's
+* AUDIT-GAP: formalize the remaining representation results `r34`, `r34a`,
+  and `r36`, exposing the source's
   regular-character, multiplicity, centralizer, and inner-product clauses in
   declaration types.  Their structural prerequisites and the neighboring
   results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
