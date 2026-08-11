@@ -34,9 +34,16 @@ const defaultConfig: Required<Config> = {
   maxWorkers: 2,
   profiles: {
     research: { tools: ["read"] },
-    lean: { tools: ["read", "lean_repl"], thinkingLevel: "high" },
+    lean: { tools: ["read", "grep", "lean_repl"], thinkingLevel: "high" },
   },
 };
+
+const leanWorkerPreamble = `Lean worker protocol:
+- The shared lean_repl root already imports Mathlib. Never send an import command.
+- Never use #find. Discover APIs with narrow grep in the checked-out Mathlib source, read nearby declarations, then use targeted #check/#print/#synth.
+- The source proof supplied in the task is the required construction plan. If no packaged Mathlib theorem exists, formalize that proof from lower-level APIs. Missing an exact library theorem is not a blocker and must not end the task.
+- Only claim REPL verification for dependencies from Mathlib or declarations explicitly elaborated in your REPL branch. Read project-local prerequisites and paste the minimal required declarations into the branch.
+- Return paste-ready code, or a concrete blocker found after attempting the supplied proof.`;
 
 async function loadConfig(cwd: string): Promise<Required<Config>> {
   try {
@@ -156,7 +163,10 @@ export default function (pi: ExtensionAPI) {
         notify(worker);
       });
 
-      worker.run = session.prompt(params.task).then(() => {
+      const initialPrompt = profileName === "lean"
+        ? `${leanWorkerPreamble}\n\n${params.task}`
+        : params.task;
+      worker.run = session.prompt(initialPrompt).then(() => {
         worker.finalText = assistantText(session.messages);
         worker.latestText = worker.finalText;
         worker.state = "done";

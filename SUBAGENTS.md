@@ -24,9 +24,19 @@ A proof-worker prompt must be self-contained. Include:
 7. a request to report the REPL PID, approximate call count, timeouts, and
    perceived latency when testing infrastructure.
 
+The supplied source proof is an implementation plan, not optional background.
+The worker must follow it down to lower-level Mathlib APIs when no packaged
+version of the theorem exists. Failure to find an exact library theorem is not
+a blocker and must not end the task. Search is for proof plumbing; after search,
+the worker constructs the argument given in the prompt. A valid blocker must
+identify a false or missing hypothesis, circular dependency, or a concrete Lean
+obstacle remaining after attempting the supplied construction—not merely say
+that Mathlib lacks the result or that an additional lemma must be proved.
+
 Do not ask a worker to decide whether an actionable audit gap may be deferred.
-It may return a proof or a precise blocker. The main agent reviews whether the
-returned declaration actually exposes all source clauses.
+It may return a proof or a precise blocker under the standard above. The main
+agent reviews whether the returned declaration actually exposes all source
+clauses.
 
 ## Tool sequence
 
@@ -77,6 +87,16 @@ prompts should explicitly prohibit it and direct workers to this sequence:
    intended namespace;
 3. verify exact candidates with targeted `#check`, `#print`, or `#synth`;
 4. test candidates in small examples before checking a full proof block.
+
+The shared REPL root has already executed `import Mathlib`. Never send an
+`import` command through `lean_repl`: imports are only legal at the beginning of
+a Lean input file, whereas tool calls elaborate within an existing environment.
+The persistent target (for example `GT.lean`) is not imported into that root.
+A worker using project-local prerequisites must read them from the target and
+paste the smallest relevant declarations into its branch, renaming a declaration
+when necessary to avoid testing the theorem against its previously compiled
+version. A worker may only claim REPL verification for dependencies available
+from Mathlib or explicitly elaborated in its returned environment.
 
 The main agent should supply likely APIs and source paths whenever known. Search
 output must remain narrow; do not replace `#find` with an unbounded repository

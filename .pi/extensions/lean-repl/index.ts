@@ -8,7 +8,10 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl",
     label: "Lean REPL",
-    description: "Execute Lean in the project-wide shared Mathlib REPL. Pass env from an earlier result to continue or branch. Also pass repl when retaining handles across turns so stale handles are rejected.",
+    description: "Execute Lean in the project-wide shared Mathlib REPL. Mathlib is already imported; do not send import commands or use #find. Pass env from an earlier result to continue or branch, and repl when retaining handles across turns.",
+    promptGuidelines: [
+      "The lean_repl root already imports Mathlib. Never send import commands or use #find; use narrow source grep and targeted #check/#print/#synth instead.",
+    ],
     parameters: Type.Object({
       cmd: Type.String({ description: "Lean commands to elaborate" }),
       env: Type.Optional(Type.Integer({ description: "Environment returned by an earlier lean_repl call" })),

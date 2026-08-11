@@ -21,6 +21,14 @@ Passing an environment continues from it. Reusing an earlier environment
 creates a branch; elaboration does not mutate that earlier environment.
 Omitting `env` starts from the shared Mathlib root.
 
+The root has already executed `import Mathlib`. Do not send `import` commands
+through the tool: later REPL calls elaborate inside an existing environment,
+not at the beginning of a Lean file. The persistent project target is not loaded
+into the root; paste any required project-local prerequisites into a branch.
+Never use broad `#find` commands in the shared process. Search checked-out
+Mathlib source narrowly, then verify exact names with `#check`, `#print`, or
+`#synth`.
+
 Always retain and pass `repl` together with an `env` that crosses turns or is
 handed to another agent. Bare integer environments remain accepted for
 compatibility, but cannot detect that the REPL has restarted. A stale
