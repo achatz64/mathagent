@@ -47,6 +47,23 @@ worker continues in its existing session. A true blocker remains limited to a
 false statement, a missing essential hypothesis or circular source argument, or
 loss of the REPL process.
 
+Workers can forget this distinction after several follow-ups and regress to
+progress reports about routine elaboration. Review every intermediate response
+immediately. If a worker labels ordinary coercion plumbing, missing project-local
+imports, an absent packaged theorem, a failed tactic, or an unfinished helper as
+a blocker, reply in the same session with an explicit `INVALID STOP` reminder:
+identify why it is proof work, restate the relevant protocol rule, narrow the
+next deliverable when useful, and require continued REPL checking. Do not accept
+or collect an invalid stop merely because the worker accurately described its
+residual goal. Conversely, do not reject a genuine representation choice: the
+main agent must decide that interface and send exact signatures before asking
+the worker to continue.
+
+Reminders are not durable across later worker turns. Repeat them immediately
+whenever the behavior recurs. A productive pattern is: accept the newly checked
+fragment, reject only the attempted stop, provide the next concrete construction,
+and keep the same session alive.
+
 Do not ask a worker to decide whether an actionable audit gap may be deferred.
 It may return a proof or a precise blocker under the standard above. The main
 agent reviews whether the returned declaration actually exposes all source
@@ -56,9 +73,12 @@ clauses.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
 - Use profile name `lean` exactly. The tested limit is four concurrent workers.
-- Use `subagent_send` to steer a live worker without restarting it.
+- Use `subagent_send` to steer a live worker without restarting it. Include an
+  immediate protocol reminder when the previous response was an invalid stop.
 - Use `subagent_status` for nonblocking inspection.
 - Use `subagent_wait` for event-driven completion; never poll through Bash.
+  After every `subagent_send`, register another wait before ending the turn;
+  completion events are not delivered across turns without an active wait.
 - After a first completion, inspect whether the result is final code or an
   `INTERFACE REQUEST`. For a request, use `subagent_send` and continue the same
   worker; do not collect it yet.
