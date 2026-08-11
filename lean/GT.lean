@@ -6018,6 +6018,130 @@ theorem complete_splits_and_isInternalDirectProduct
 
 end ExactExtension
 
+def IsMinimalTwoSidedIdeal {A : Type*} [Ring A] (I : Ideal A) : Prop :=
+  I.IsTwoSided ∧ (I : Submodule A A) ≠ ⊥ ∧
+    ∀ J : Submodule A A, J.IsFullyInvariant → J < I → J = ⊥
+
+theorem minimalTwoSidedIdeal_iff_mem_isotypicComponents
+    {A : Type*} [Ring A] [IsSemisimpleRing A] (I : Ideal A) :
+    IsMinimalTwoSidedIdeal I ↔ I ∈ isotypicComponents A A := by
+  constructor
+  · rintro ⟨hts, hne, hmin⟩
+    have hI : (I : Submodule A A).IsFullyInvariant :=
+      isFullyInvariant_iff_isTwoSided.mpr hts
+    obtain ⟨S, hSI, hsimple⟩ :=
+      (IsSemisimpleModule.eq_bot_or_exists_simple_le
+        (I : Submodule A A)).resolve_left hne
+    have hcomp : isotypicComponent A A S ≤ I :=
+      (isFullyInvariant_iff_le_imp_isotypicComponent_le.mp hI) S hSI
+    have heq : (I : Submodule A A) = isotypicComponent A A S := by
+      rcases eq_or_lt_of_le hcomp with heq | hlt
+      · exact heq.symm
+      · exact False.elim
+          ((bot_lt_isotypicComponent S).ne'
+            (hmin _ (.isotypicComponent A A S) hlt))
+    exact ⟨S, hsimple, heq⟩
+  · rintro ⟨S, hsimple, rfl⟩
+    refine ⟨isFullyInvariant_iff_isTwoSided.mp
+        (.isotypicComponent A A S),
+      (bot_lt_isotypicComponent S).ne', ?_⟩
+    intro J hJinv hJ
+    by_contra hne
+    obtain ⟨T, hTJ, hTsimple⟩ :=
+      (IsSemisimpleModule.eq_bot_or_exists_simple_le J).resolve_left hne
+    have hcomp : isotypicComponent A A T ≤ J :=
+      (isFullyInvariant_iff_le_imp_isotypicComponent_le.mp hJinv) T hTJ
+    have hcompS :
+        isotypicComponent A A T ≤ isotypicComponent A A S :=
+      hcomp.trans hJ.le
+    have heq :
+        isotypicComponent A A S = isotypicComponent A A T :=
+      eq_isotypicComponent_of_le ⟨S, hsimple, rfl⟩
+        (hTJ.trans hJ.le)
+    exact hJ.2 (heq ▸ hcomp)
+
+theorem twoSidedIdeal_eq_sSup_isotypicComponents
+    {A : Type*} [Ring A] [IsSemisimpleRing A]
+    (I : Ideal A) (hI : I.IsTwoSided) :
+    ∃ S ⊆ isotypicComponents A A, (I : Submodule A A) = sSup S := by
+  apply isFullyInvariant_iff_sSup_isotypicComponents.mp
+  exact isFullyInvariant_iff_isTwoSided.mpr hI
+
+theorem regular_isotypicComponents_internalDirectSum
+    {A : Type*} [Ring A] [IsSemisimpleRing A] :
+    ∃ e : A ≃ₗ[A] (Π₀ c : isotypicComponents A A, c.1),
+      (⨆ c : isotypicComponents A A, (c.1 : Submodule A A)) = ⊤ := by
+  let ind : iSupIndep (fun c : isotypicComponents A A => c.1) :=
+    (sSupIndep_iff (isotypicComponents A A)).mp
+      (sSupIndep_isotypicComponents A A)
+  have htop :
+      (⨆ c : isotypicComponents A A, (c.1 : Submodule A A)) = ⊤ := by
+    rw [← sSup_eq_iSup']
+    exact sSup_isotypicComponents A A
+  exact ⟨(ind.linearEquiv htop).symm, htop⟩
+
+/-- GT `r28`: the centralizer of a semisimple finite-dimensional action is a
+finite product of simple matrix algebras, hence semisimple. -/
+theorem centralizer_isFiniteProduct_simple
+    {F : Type uF} {A : Type uA} {V : Type uV}
+    [Field F] [Ring A] [Algebra F A]
+    [AddCommGroup V] [Module F V] [Module A V]
+    [IsScalarTower F A V] [IsSemisimpleModule A V]
+    [FiniteDimensional F V] :
+    let C :=
+      Subalgebra.centralizer F
+        ((Algebra.lsmul F F V : A →ₐ[F] Module.End F V).range :
+          Set (Module.End F V))
+    ∃ (n : ℕ) (D : Fin n → Type uV) (d : Fin n → ℕ)
+      (_ : ∀ i, DivisionRing (D i)) (_ : ∀ i, Algebra F (D i))
+      (_ : ∀ i, NeZero (d i)),
+      (∀ i, IsSimpleRing (Matrix (Fin (d i)) (Fin (d i)) (D i))) ∧
+      Nonempty
+        (C ≃ₐ[F] ∀ i, Matrix (Fin (d i)) (Fin (d i)) (D i)) ∧
+      IsSemisimpleRing C := by
+  classical
+  let C :=
+    Subalgebra.centralizer F
+      ((Algebra.lsmul F F V : A →ₐ[F] Module.End F V).range :
+        Set (Module.End F V))
+  let φ := Module.End.restrictScalarsAlgHom F A V
+  have hφ : φ.range = C := by
+    simpa [C] using
+      (Module.End.range_restrictScalarsAlgHom_eq_centralizer F A V)
+  let ψ : Module.End A V →ₐ[F] C :=
+    φ.codRestrict C (by
+      intro x
+      rw [← hφ]
+      exact ⟨x, rfl⟩)
+  have hψ : Function.Bijective ψ := by
+    constructor
+    · intro x y hxy
+      apply LinearMap.ext
+      intro v
+      exact congrArg (fun z : C => z.1 v) hxy
+    · intro z
+      have hz : z.1 ∈ φ.range := by
+        rw [hφ]
+        exact z.property
+      rcases hz with ⟨x, hx⟩
+      refine ⟨x, ?_⟩
+      apply Subtype.ext
+      exact hx
+  let eC : Module.End A V ≃ₐ[F] C := AlgEquiv.ofBijective ψ hψ
+  letI : Module.Finite A V :=
+    Module.Finite.of_restrictScalars_finite F A V
+  letI : IsSemisimpleRing (Module.End A V) :=
+    IsSemisimpleRing.moduleEnd A V
+  letI : IsSemisimpleRing C := eC.isSemisimpleRing
+  obtain ⟨n, D, d, hD, hAlg, hd, ⟨e⟩⟩ :=
+    IsSemisimpleRing.exists_algEquiv_pi_matrix_divisionRing F C
+  have hsimple :
+      ∀ i, IsSimpleRing (Matrix (Fin (d i)) (Fin (d i)) (D i)) := by
+    intro i
+    letI : NeZero (d i) := hd i
+    infer_instance
+  exact ⟨n, D, d, hD, hAlg, hd, hsimple, ⟨e⟩, inferInstance⟩
+
 /-!
 ## Improvements for Mathlib
 
@@ -6083,8 +6207,8 @@ unproved proposition has been established.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the remaining operator-group result `ns29`.
-* AUDIT-GAP: formalize the remaining representation results `r23`, `r28`,
-  `r34`, `r34a`, `r36`, and `r9e`, exposing the source's
+* AUDIT-GAP: formalize the remaining representation results `r23`, `r34`,
+  `r34a`, `r36`, and `r9e`, exposing the source's
   regular-character, multiplicity, centralizer, and inner-product clauses in
   declaration types.  Their structural prerequisites and the neighboring
   results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
