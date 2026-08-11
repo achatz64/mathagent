@@ -44,8 +44,11 @@ A vague API survey, list of missing lemmas, or recommendation for future work is
 not an interface request. The main agent reviews the boundary, supplies exact
 signatures and representation decisions with `subagent_send`, and the same
 worker continues in its existing session. A true blocker remains limited to a
-false statement, a missing essential hypothesis or circular source argument, or
-loss of the REPL process.
+false statement, a missing essential hypothesis, or a circular source argument.
+Loss of one REPL generation is not a blocker: retry from the replacement root
+and re-elaborate the required local
+declarations. Report an infrastructure blocker only after reproducible recovery
+failure.
 
 Workers can forget this distinction after several follow-ups and regress to
 progress reports about routine elaboration. Review every intermediate response
@@ -101,6 +104,38 @@ reports REPL success. The main agent must:
 6. run coverage and `git diff --check`, then commit.
 
 Never report worker output as integrated before completing these steps.
+
+## Verification and consolidation discipline
+
+A worker's statement that code was “REPL-checked” is an untrusted report, not a
+validation artifact. Scratch environments can contain undeclared aliases,
+earlier experimental axioms, stale versions of project declarations, or
+prerequisites omitted from the returned text. A successful `#print axioms` also
+checks only the elaborated declaration's logical dependencies; it does not show
+that the returned chunk is self-contained or semantically faithful.
+
+For every substantial returned proof:
+
+1. reject fabricated witnesses, placeholder choices, aliases to scratch names,
+   and any declaration whose construction is not visible in the returned code;
+2. require declarations in dependency order, with no forward references and no
+   reliance on the compiled target theorem being replaced;
+3. replay the complete returned chunk from the shared Mathlib root, explicitly
+   re-elaborating the minimal project-local prerequisites;
+4. inspect `#print axioms` for each final public result and important helper;
+5. only then integrate it and run the target build.
+
+When a worker has accumulated a large scratch branch, ask for a scratch-free
+replay in small, dependency-ordered chunks rather than a final alias. Each chunk
+must state which previous returned chunk it depends on and must be checked by
+continuing from that returned environment. If consolidation repeatedly diverges
+from the scratch proof, preserve the last known-good target and hand the
+mathematical construction—not the claimed final status—to another worker.
+
+Lean declaration kinds matter during review: use `theorem` only for
+propositions. Constructions returning data such as equivalences, bases, or
+representations must be `def`/`noncomputable def` (or an appropriately typed
+`let`), even if a worker presents them as theorem-like helpers.
 
 ## Shared Lean REPL
 

@@ -281,6 +281,29 @@ the read-only worker the complete source statement and proof, require
 paste-ready REPL-checked code, and do not mark a label closed until the main
 agent has integrated, reviewed, and built it.
 
+### Scratch proofs are evidence, not completion
+
+The long `bd3m`, Coxeter, and character-theory developments exposed a distinct
+failure mode: a worker can reach the desired final proposition in a large REPL
+branch while being unable to reproduce it from the returned declarations.
+Scratch success is useful mathematical evidence, but it does not close an audit
+gap. In particular, do not integrate:
+
+- aliases to generated scratch names;
+- a final theorem without all of its construction lemmas in dependency order;
+- code reported as axiom-clean when the returned replay has not itself been
+  checked from a clean root;
+- witnesses synthesized by unrelated `Classical.choice` calls merely to make a
+  wrapper typecheck.
+
+For large source proofs, consolidation is a separate required phase. Request
+small scratch-free chunks, replay each chunk from the clean shared root, retain
+the resulting environment, and verify the final public declaration with
+`#print axioms`. An integrated `lake build GT` remains the only completion gate.
+If a candidate chunk fails that gate, restore the last known-good target before
+continuing; do not leave the canonical audit file in a broken intermediate
+state.
+
 ## Coverage as executable negative space
 
 `tools/gt_coverage.py` currently accounts for all 142 labels in the 136
@@ -342,8 +365,7 @@ explicit omission are both preferable to a mislabeled theorem.
 
 The final audit includes all of the following:
 
-1. `lake build GT` succeeds from the `lean` project (2429 jobs at the current
-   import frontier);
+1. `lake build GT` succeeds from the `lean` project;
 2. the canonical file contains none of the forbidden incomplete-proof tokens;
 3. the sole project-level assumption is the documented Feit--Thompson
    dependency; no paper-proved result is axiomatized;
