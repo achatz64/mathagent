@@ -6,6 +6,7 @@ import Mathlib.Algebra.Module.ZMod
 import Mathlib.Data.List.NodupEquivFin
 import Mathlib.Data.Finset.Sort
 import Mathlib.Data.ZMod.QuotientRing
+import Mathlib.Data.ZMod.Units
 import Mathlib.FieldTheory.Finiteness
 import Mathlib.GroupTheory.FreeGroup.NielsenSchreier
 import Mathlib.GroupTheory.ClassEquation
@@ -521,6 +522,330 @@ noncomputable def Subgroup.prodMulEquivOfIsComplement'
           _ = _ := by simp [mul_assoc] }
   exact MulEquiv.ofBijective f h
 
+/-- The ordered pointwise product of a list of subgroups. -/
+def Subgroup.orderedProduct {ι : Type*} (H : ι → Subgroup G)
+    (l : List ι) : Set G :=
+  (l.map fun i => (H i : Set G)).prod
+
+/-- The ordered multiplication map on a `Fin`-indexed family of subgroups. -/
+def Subgroup.piMul {n : ℕ} (H : Fin n → Subgroup G)
+    (x : (i : Fin n) → H i) : G :=
+  (List.finRange n |>.map fun i => (x i : G)).prod
+
+/-- Multiplication identifies the external product of a finite ordered family
+of subgroups with the ambient group. -/
+def Subgroup.IsInternalDirectProductFamily {n : ℕ}
+    (H : Fin n → Subgroup G) : Prop :=
+  ∃ e : ((i : Fin n) → H i) ≃* G,
+    ∀ x, e x = Subgroup.piMul H x
+
+private theorem Subgroup.mem_orderedProduct_iff {ι : Type*} [DecidableEq ι]
+    (H : ι → Subgroup G) {l : List ι} (hl : l.Nodup) (g : G) :
+    g ∈ Subgroup.orderedProduct H l ↔
+      ∃ x : (i : ι) → H i,
+        (l.map fun i => (x i : G)).prod = g := by
+  induction l generalizing g with
+  | nil =>
+      constructor
+      · intro hg
+        have hg' : g = 1 := by simpa [Subgroup.orderedProduct] using hg
+        exact ⟨fun i => 1, by simp [hg']⟩
+      · rintro ⟨x, rfl⟩
+        simp [Subgroup.orderedProduct]
+  | cons a l ih =>
+      rw [List.nodup_cons] at hl
+      simp only [Subgroup.orderedProduct, List.map_cons, List.prod_cons,
+        Set.mem_mul]
+      constructor
+      · rintro ⟨u, hu, v, hv, rfl⟩
+        rw [show (l.map fun i => (H i : Set G)).prod =
+          Subgroup.orderedProduct H l from rfl] at hv
+        obtain ⟨x, hx⟩ := (ih hl.2 v).mp hv
+        let y : (i : ι) → H i := Function.update x a ⟨u, hu⟩
+        refine ⟨y, ?_⟩
+        change (y a : G) * (l.map fun i => (y i : G)).prod = u * v
+        have hmap : (l.map fun i => (y i : G)) =
+            l.map fun i => (x i : G) := by
+          apply List.map_congr_left
+          intro i hi
+          simp [y, ne_of_mem_of_not_mem hi hl.1]
+        simp [y, hmap, hx]
+      · rintro ⟨x, rfl⟩
+        refine ⟨(x a : G), (x a).2,
+          (l.map fun i => (x i : G)).prod, ?_, rfl⟩
+        change (l.map fun i => (x i : G)).prod ∈
+          Subgroup.orderedProduct H l
+        exact (ih hl.2 _).mpr ⟨x, rfl⟩
+
+private theorem list_prod_eq_single {ι M : Type*} [DecidableEq ι]
+    [Monoid M] (f : ι → M) {l : List ι} (hl : l.Nodup) {j : ι}
+    (hj : j ∈ l) (hone : ∀ i ∈ l, i ≠ j → f i = 1) :
+    (l.map f).prod = f j := by
+  induction l with
+  | nil => simp at hj
+  | cons a l ih =>
+      rw [List.nodup_cons] at hl
+      by_cases h : a = j
+      · subst a
+        have htail : (l.map f).prod = 1 := by
+          apply List.prod_eq_one
+          intro z hz
+          obtain ⟨i, hi, rfl⟩ := List.mem_map.mp hz
+          exact hone i (by simp [hi]) (fun hij => hl.1 (hij ▸ hi))
+        simp [htail]
+      · have hjl : j ∈ l := (List.mem_cons.mp hj).resolve_left (Ne.symm h)
+        rw [List.map_cons, List.prod_cons, ih hl.2 hjl]
+        simp [hone a (by simp) h]
+        intro i hi hij
+        exact hone i (by simp [hi]) hij
+
+private theorem list_prod_eq_mul_prod_erase {ι M : Type*} [DecidableEq ι]
+    [Monoid M] (f : ι → M) {l : List ι} {j : ι} (hj : j ∈ l)
+    (hcomm : ∀ i ∈ l, i ≠ j → Commute (f i) (f j)) :
+    (l.map f).prod = f j * ((l.erase j).map f).prod := by
+  induction l with
+  | nil => simp at hj
+  | cons a l ih =>
+      by_cases h : a = j
+      · subst a
+        simp
+      · have hjl : j ∈ l := (List.mem_cons.mp hj).resolve_left (Ne.symm h)
+        rw [List.map_cons, List.prod_cons, ih hjl]
+        · rw [show (a :: l).erase j = a :: l.erase j by simp [h]]
+          simp only [List.map_cons, List.prod_cons]
+          calc
+            f a * (f j * ((l.erase j).map f).prod) =
+                (f a * f j) * ((l.erase j).map f).prod := by
+              simp [mul_assoc]
+            _ = (f j * f a) * ((l.erase j).map f).prod := by
+              rw [(hcomm a (by simp) h).eq]
+            _ = f j * (f a * ((l.erase j).map f).prod) := by
+              simp [mul_assoc]
+        · intro i hi hij
+          exact hcomm i (by simp [hi]) hij
+
+private theorem list_prod_mul_eq {ι M : Type*} [DecidableEq ι] [Monoid M]
+    (x y : ι → M) {l : List ι} (hl : l.Nodup)
+    (hcomm : ∀ i ∈ l, ∀ j ∈ l, i ≠ j → Commute (y i) (x j)) :
+    (l.map fun i => x i * y i).prod =
+      (l.map x).prod * (l.map y).prod := by
+  induction l with
+  | nil => simp
+  | cons a l ih =>
+      rw [List.nodup_cons] at hl
+      simp only [List.map_cons, List.prod_cons]
+      rw [ih hl.2]
+      · have hc : Commute (y a) ((l.map x).prod) :=
+          Commute.list_prod_right (l.map x) (y a) (by
+            intro z hz
+            obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hz
+            exact hcomm a (by simp) j (by simp [hj])
+              (fun haj => hl.1 (haj ▸ hj)))
+        calc
+          (x a * y a) * ((l.map x).prod * (l.map y).prod) =
+              x a * (y a * (l.map x).prod) * (l.map y).prod := by
+            simp [mul_assoc]
+          _ = x a * ((l.map x).prod * y a) * (l.map y).prod := by
+            rw [hc.eq]
+          _ = (x a * (l.map x).prod) * (y a * (l.map y).prod) := by
+            simp [mul_assoc]
+      · intro i hi j hj hij
+        exact hcomm i (by simp [hi]) j (by simp [hj]) hij
+
+/-- GT `it07`: an ordered finite family is an internal direct product exactly
+when its ordered pointwise product is all of `G`, each factor meets the ordered
+product of all the other factors only in `1`, and every factor is normal. -/
+theorem Subgroup.isInternalDirectProductFamily_iff {n : ℕ}
+    (H : Fin n → Subgroup G) :
+    Subgroup.IsInternalDirectProductFamily H ↔
+      Subgroup.orderedProduct H (List.finRange n) = Set.univ ∧
+      (∀ j, (H j : Set G) ∩
+        Subgroup.orderedProduct H ((List.finRange n).erase j) = {1}) ∧
+      ∀ i, (H i).Normal := by
+  classical
+  constructor
+  · rintro ⟨e, he⟩
+    have hfull : Subgroup.orderedProduct H (List.finRange n) = Set.univ := by
+      ext g
+      constructor
+      · intro _
+        exact Set.mem_univ g
+      · intro _
+        let x := e.symm g
+        apply (Subgroup.mem_orderedProduct_iff H
+          (List.nodup_finRange n) g).mpr
+        refine ⟨x, ?_⟩
+        exact (he x).symm.trans (e.apply_symm_apply g)
+    refine ⟨hfull, ?_, ?_⟩
+    · intro j
+      ext g
+      constructor
+      · rintro ⟨hgj, hgo⟩
+        have herase : ((List.finRange n).erase j).Nodup :=
+          (List.nodup_finRange n).erase j
+        obtain ⟨x, hx⟩ :=
+          (Subgroup.mem_orderedProduct_iff H herase g).mp hgo
+        let x' : (i : Fin n) → H i := Function.update x j 1
+        let z : (i : Fin n) → H i :=
+          Function.update (fun _ => 1) j ⟨g, hgj⟩
+        have hjmem : j ∈ List.finRange n := List.mem_finRange j
+        have hzprod : Subgroup.piMul H z = g := by
+          change (List.finRange n |>.map fun i => (z i : G)).prod = g
+          calc
+            _ = (z j : G) := list_prod_eq_single (fun i => (z i : G))
+              (List.nodup_finRange n) hjmem (by
+                intro i hi hij
+                simp [z, hij])
+            _ = g := by simp [z]
+        have hxprod : Subgroup.piMul H x' = g := by
+          change (List.finRange n |>.map fun i => (x' i : G)).prod = g
+          rw [list_prod_eq_mul_prod_erase (fun i => (x' i : G)) hjmem]
+          · rw [show (x' j : G) = 1 by simp [x'], one_mul, ← hx]
+            apply congrArg List.prod
+            apply List.map_congr_left
+            intro i hi
+            have hij : i ≠ j := by
+              intro h
+              subst i
+              exact (List.nodup_finRange n).not_mem_erase hi
+            simp [x', hij]
+          · intro i hi hij
+            simp [x']
+        have hzx : z = x' :=
+          e.injective (by rw [he, he, hzprod, hxprod])
+        have hjcoord := congrFun hzx j
+        have : g = 1 := by
+          simpa [z, x'] using congrArg Subtype.val hjcoord
+        simpa [this]
+      · intro hg
+        have hg1 : g = 1 := by simpa using hg
+        subst g
+        refine ⟨(H j).one_mem, ?_⟩
+        apply (Subgroup.mem_orderedProduct_iff H
+          ((List.nodup_finRange n).erase j) 1).mpr
+        exact ⟨fun _ => 1, by simp⟩
+    · intro j
+      constructor
+      intro h hh g
+      let x := e.symm g
+      let z : (i : Fin n) → H i :=
+        Function.update (fun _ => 1) j ⟨h, hh⟩
+      have hjmem : j ∈ List.finRange n := List.mem_finRange j
+      have hzprod : Subgroup.piMul H z = h := by
+        change (List.finRange n |>.map fun i => (z i : G)).prod = h
+        calc
+          _ = (z j : G) := list_prod_eq_single (fun i => (z i : G))
+            (List.nodup_finRange n) hjmem (by
+              intro i hi hij
+              simp [z, hij])
+          _ = h := by simp [z]
+      have hxprod : Subgroup.piMul H x = g :=
+        (he x).symm.trans (e.apply_symm_apply g)
+      let w : (i : Fin n) → H i := x * z * x⁻¹
+      have hwprod : Subgroup.piMul H w = (w j : G) := by
+        change (List.finRange n |>.map fun i => (w i : G)).prod =
+          (w j : G)
+        apply list_prod_eq_single (fun i => (w i : G))
+          (List.nodup_finRange n) hjmem
+        intro i hi hij
+        simp [w, z, hij]
+      have hew : e w = g * h * g⁻¹ := by
+        calc
+          e w = e x * e z * (e x)⁻¹ := by simp [w]
+          _ = g * h * g⁻¹ := by rw [he x, he z, hxprod, hzprod]
+      rw [← hew, he w, hwprod]
+      exact (w j).2
+  · rintro ⟨hfull, hinter, hnormal⟩
+    have hdis : ∀ i j, i ≠ j → Disjoint (H i) (H j) := by
+      intro i j hij
+      rw [Subgroup.disjoint_def]
+      intro g hgi hgj
+      have herase : ((List.finRange n).erase i).Nodup :=
+        (List.nodup_finRange n).erase i
+      let x : (k : Fin n) → H k :=
+        Function.update (fun _ => 1) j ⟨g, hgj⟩
+      have hjmem : j ∈ (List.finRange n).erase i := by
+        simpa [Ne.symm hij]
+      have hxprod :
+          (((List.finRange n).erase i).map fun k => (x k : G)).prod = g := by
+        calc
+          _ = (x j : G) := list_prod_eq_single (fun k => (x k : G))
+            herase hjmem (by
+              intro k hk hkj
+              simp [x, hkj])
+          _ = g := by simp [x]
+      have hgo :
+          g ∈ Subgroup.orderedProduct H ((List.finRange n).erase i) :=
+        (Subgroup.mem_orderedProduct_iff H herase g).mpr ⟨x, hxprod⟩
+      have hginter : g ∈ (H i : Set G) ∩
+          Subgroup.orderedProduct H ((List.finRange n).erase i) :=
+        ⟨hgi, hgo⟩
+      rw [hinter i] at hginter
+      simpa using hginter
+    have hcomm : ∀ i j, i ≠ j →
+        ∀ (x : H i) (y : H j), Commute (x : G) (y : G) := by
+      intro i j hij x y
+      exact Subgroup.commute_of_normal_of_disjoint (H i) (H j)
+        (hnormal i) (hnormal j) (hdis i j hij) x y x.2 y.2
+    let f : ((i : Fin n) → H i) →* G :=
+      { toFun := Subgroup.piMul H
+        map_one' := by simp [Subgroup.piMul]
+        map_mul' := by
+          intro x y
+          apply list_prod_mul_eq (fun i => (x i : G))
+            (fun i => (y i : G)) (List.nodup_finRange n)
+          intro i hi j hj hij
+          exact hcomm i j hij (y i) (x j) }
+    have hsurj : Function.Surjective f := by
+      intro g
+      have hg : g ∈ Subgroup.orderedProduct H (List.finRange n) := by
+        rw [hfull]
+        exact Set.mem_univ g
+      obtain ⟨x, hx⟩ :=
+        (Subgroup.mem_orderedProduct_iff H
+          (List.nodup_finRange n) g).mp hg
+      exact ⟨x, hx⟩
+    have hinj : Function.Injective f := by
+      intro x y hxy
+      let z : (i : Fin n) → H i := x * y⁻¹
+      have hzprod : Subgroup.piMul H z = 1 := by
+        change f z = 1
+        change f (x * y⁻¹) = 1
+        rw [map_mul, map_inv, hxy]
+        simp
+      funext j
+      let p : G :=
+        (((List.finRange n).erase j).map fun i => (z i : G)).prod
+      have hfactor : Subgroup.piMul H z = (z j : G) * p := by
+        apply list_prod_eq_mul_prod_erase (fun i => (z i : G))
+          (List.mem_finRange j)
+        intro i hi hij
+        exact hcomm i j hij (z i) (z j)
+      have hp_eq : p = (z j : G)⁻¹ := by
+        have : (z j : G) * p = 1 := by rw [← hfactor, hzprod]
+        exact (mul_eq_one_iff_eq_inv').mp this
+      have hpother :
+          p ∈ Subgroup.orderedProduct H ((List.finRange n).erase j) := by
+        apply (Subgroup.mem_orderedProduct_iff H
+          ((List.nodup_finRange n).erase j) p).mpr
+        exact ⟨z, rfl⟩
+      have hpH : p ∈ H j := by
+        rw [hp_eq]
+        exact (H j).inv_mem (z j).2
+      have hpinter : p ∈ (H j : Set G) ∩
+          Subgroup.orderedProduct H ((List.finRange n).erase j) :=
+        ⟨hpH, hpother⟩
+      rw [hinter j] at hpinter
+      have hpone : p = 1 := by simpa using hpinter
+      have hzj : (z j : G) = 1 := by
+        rw [hp_eq] at hpone
+        simpa using hpone
+      apply Subtype.ext
+      change (x j : G) = (y j : G)
+      change (x j : G) * (y j : G)⁻¹ = 1 at hzj
+      exact mul_inv_eq_one.mp hzj
+    exact ⟨MulEquiv.ofBijective f ⟨hinj, hsurj⟩, fun _ => rfl⟩
+
 end InternalDirectProducts
 
 section SemidirectProductComparisons
@@ -610,6 +935,147 @@ theorem SemidirectProduct.precompActionMulEquiv_apply
     SemidirectProduct.precompActionMulEquiv θ θ' α h
       (SemidirectProduct.mk n q) = SemidirectProduct.mk n (α q) :=
   rfl
+
+private lemma range_eq_zpowers_image_of_generator
+    {C A : Type*} [Group C] [Group A] (f : C →* A) {a : C}
+    (ha : ∀ q : C, q ∈ Subgroup.zpowers a) :
+    f.range = Subgroup.zpowers (f a) := by
+  rw [MonoidHom.range_eq_map, ← (Subgroup.eq_top_iff' _).2 ha,
+    MonoidHom.map_zpowers]
+
+private lemma orderOf_image_generator_eq_card_range
+    {C A : Type*} [Group C] [Group A] (f : C →* A) {a : C}
+    (ha : ∀ q : C, q ∈ Subgroup.zpowers a) :
+    orderOf (f a) = Nat.card f.range := by
+  rw [← Nat.card_zpowers, ← range_eq_zpowers_image_of_generator f ha]
+
+private lemma cyclic_hom_eq_comp_mulAut_of_range_eq
+    {C A : Type*} [Group C] [Group A] [Finite C] [IsCyclic C]
+    (f g : C →* A) (hrange : f.range = g.range) :
+    ∃ β : MulAut C, f = g.comp β.toMonoidHom := by
+  obtain ⟨a, ha⟩ := IsCyclic.exists_generator (α := C)
+  have hfa : f a ∈ g.range := by
+    rw [← hrange]
+    exact ⟨a, rfl⟩
+  obtain ⟨b, hb⟩ := hfa
+  have horder : orderOf (g b) = orderOf (g a) := by
+    rw [hb, orderOf_image_generator_eq_card_range f ha,
+      orderOf_image_generator_eq_card_range g ha, hrange]
+  let n := Nat.card C
+  have hga_fin : IsOfFinOrder (g a) :=
+    g.isOfFinOrder (isOfFinOrder_of_finite a)
+  let d := orderOf (g a)
+  letI : NeZero n := ⟨by
+    simpa [n] using (Nat.card_pos (α := C)).ne'⟩
+  letI : NeZero d := ⟨by
+    simpa [d] using hga_fin.orderOf_pos.ne'⟩
+  have hdn : d ∣ n := by
+    dsimp [d, n]
+    rw [← orderOf_eq_card_of_forall_mem_zpowers ha]
+    exact orderOf_map_dvd g a
+  let e : Multiplicative (ZMod n) ≃* C :=
+    zmodMulEquivOfGenerator ha (n := n) (by rfl)
+  let z : ZMod n := Multiplicative.toAdd (e.symm b)
+  have hbpow : b = a ^ z.val := by
+    have hez : e (Multiplicative.ofAdd z) = b := by
+      simp [z, e]
+    have hz : ((z.val : ℤ) : ZMod n) = z := by
+      exact_mod_cast ZMod.natCast_zmod_val z
+    have hpow : e (Multiplicative.ofAdd z) = a ^ z.val := by
+      calc
+        e (Multiplicative.ofAdd z) =
+            e (Multiplicative.ofAdd ((z.val : ℤ) : ZMod n)) := by
+              rw [hz]
+        _ = a ^ (z.val : ℤ) := by
+          simpa only [e] using
+            (zmodMulEquivOfGenerator_apply_ofAdd_intCast
+              ha (by rfl) (z.val : ℤ))
+        _ = a ^ z.val := zpow_natCast a z.val
+    exact hez.symm.trans hpow
+  have hcop : z.val.Coprime d := by
+    have hdiv : d / d.gcd z.val = d := by
+      rw [← hga_fin.orderOf_pow (g a) z.val, ← map_pow,
+        ← hbpow, horder]
+    have hgcd : d.gcd z.val = 1 :=
+      (Nat.div_eq_self.mp hdiv).resolve_left (NeZero.ne d)
+    exact (Nat.coprime_iff_gcd_eq_one.mpr hgcd).symm
+  let zd : ZMod d := (ZMod.castHom hdn (ZMod d)) z
+  have hzd : zd = (z.val : ZMod d) := by
+    dsimp [zd]
+    exact (ZMod.natCast_val z).symm
+  have hizd : IsUnit zd := by
+    rw [hzd, ZMod.isUnit_iff_coprime]
+    exact hcop
+  let v : (ZMod d)ˣ := hizd.unit
+  obtain ⟨u, hu⟩ := ZMod.unitsMap_surjective hdn v
+  let μ : MulAut (Multiplicative (ZMod n)) :=
+    AddEquiv.toMultiplicative
+      (Multiplicative.toAdd (AddAut.mulLeft u))
+  let β : MulAut C := e.symm.trans (μ.trans e)
+  refine ⟨β, ?_⟩
+  apply (MonoidHom.eq_iff_eq_on_generator ha _ _).2
+  have hea : e.symm a = Multiplicative.ofAdd (1 : ZMod n) := by
+    exact e.symm_apply_eq.mpr
+      (zmodMulEquivOfGenerator_apply_ofAdd_one ha (by rfl)).symm
+  have hmu : μ (Multiplicative.ofAdd (1 : ZMod n)) =
+      Multiplicative.ofAdd (u : ZMod n) := by
+    change (Multiplicative.toAdd (AddAut.mulLeft u)) 1 = (u : ZMod n)
+    change (u : ZMod n) * 1 = (u : ZMod n)
+    simp
+  have hau : β a = e (Multiplicative.ofAdd (u : ZMod n)) := by
+    change e (μ (e.symm a)) = _
+    rw [hea, hmu]
+  have huz : ((u : ZMod n).val : ZMod d) = (z.val : ZMod d) := by
+    calc
+      ((u : ZMod n).val : ZMod d) =
+          (ZMod.castHom hdn (ZMod d)) (u : ZMod n) := by
+            exact ZMod.natCast_val (u : ZMod n)
+      _ = (v : ZMod d) := congrArg Units.val hu
+      _ = zd := hizd.unit_spec
+      _ = (z.val : ZMod d) := hzd
+  have hpows : (g a) ^ (u : ZMod n).val = (g a) ^ z.val := by
+    rw [pow_eq_pow_iff_modEq]
+    exact (ZMod.natCast_eq_natCast_iff _ _ d).mp huz
+  change f a = g (β a)
+  rw [hau]
+  have heupow : e (Multiplicative.ofAdd (u : ZMod n)) =
+      a ^ (u : ZMod n).val := by
+    have huval :
+        (((u : ZMod n).val : ℤ) : ZMod n) = (u : ZMod n) := by
+      exact_mod_cast ZMod.natCast_zmod_val (u : ZMod n)
+    calc
+      e (Multiplicative.ofAdd (u : ZMod n)) =
+          e (Multiplicative.ofAdd
+            (((u : ZMod n).val : ℤ) : ZMod n)) := by
+              rw [huval]
+      _ = a ^ ((u : ZMod n).val : ℤ) := by
+        simpa only [e] using
+          (zmodMulEquivOfGenerator_apply_ofAdd_intCast
+            ha (by rfl) ((u : ZMod n).val : ℤ))
+      _ = a ^ (u : ZMod n).val := zpow_natCast _ _
+  rw [heupow, map_pow, hpows, ← map_pow, ← hbpow, hb]
+
+/-- GT `st16`: semidirect products by a finite cyclic group are isomorphic
+when the ranges of their actions are conjugate in `MulAut N`. -/
+theorem SemidirectProduct.nonempty_mulEquiv_of_finite_isCyclic_of_range_conjugate
+    [Finite Q] [IsCyclic Q] (θ θ' : Q →* MulAut N)
+    (hconj : ∃ α : MulAut N,
+      θ'.range = θ.range.map (MulAut.conj α).toMonoidHom) :
+    Nonempty (N ⋊[θ] Q ≃* N ⋊[θ'] Q) := by
+  obtain ⟨α, hα⟩ := hconj
+  let θc : Q →* MulAut N :=
+    (MulAut.conj α).toMonoidHom.comp θ
+  have hθc : ∀ q : Q, θc q = α * θ q * α⁻¹ := by
+    intro q
+    exact MulAut.conj_apply α (θ q)
+  have hrange : θc.range = θ'.range := by
+    change ((MulAut.conj α).toMonoidHom.comp θ).range = θ'.range
+    rw [MonoidHom.range_comp, ← hα]
+  obtain ⟨β, hβ⟩ :=
+    cyclic_hom_eq_comp_mulAut_of_range_eq θc θ' hrange
+  exact
+    ⟨(SemidirectProduct.conjugateActionMulEquiv θ θc α hθc).trans
+      (SemidirectProduct.precompActionMulEquiv θc θ' β hβ)⟩
 
 end SemidirectProductComparisons
 
@@ -4481,13 +4947,11 @@ unproved proposition has been established.
   `fg17`, and `fg18`, including the exact-order and faithfulness conclusions;
   the existing Coxeter presentation and power relations are only partial
   prerequisites.
-* AUDIT-GAP: formalize the isolated existence theorem `bd3m` and the
-  finite-family direct-product criterion `it07`; absence of direct library
-  interfaces is not a deferral reason.
+* AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
+  direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the complete order-`2p` classification refinement
   `ga13m`, not only the currently available consequences.
 * AUDIT-GAP: introduce a source-faithful extension interface and prove the
-  semidirect-product result `st16`, together with the
   complete-group splitting result `it18`.
 * AUDIT-GAP: formalize the group-theoretic Jordan--Hölder theorem `ns02` and
   the operator-group results `ns24`, `ns25`, `ns26`, and `ns29`.
