@@ -34,6 +34,7 @@ import Mathlib.GroupTheory.Torsion
 import Mathlib.LinearAlgebra.DirectSum.Finite
 import Mathlib.Order.Interval.Finset.Fin
 import Mathlib.RepresentationTheory.Character
+import Mathlib.RepresentationTheory.FinGroupCharZero
 import Mathlib.RepresentationTheory.Maschke
 import Mathlib.RingTheory.FiniteLength
 import Mathlib.RingTheory.Length
@@ -6633,6 +6634,360 @@ noncomputable def FDRep.dfinsuppOf
     fun i => inferInstance
   letI : Module.Finite k M := inferInstance
   exact FDRep.of (Representation.ofModule' M)
+
+/-- The trace of a pointwise endomorphism of a finite dependent product is the
+sum of the traces of its components. -/
+theorem trace_piMap_fin
+    {k : Type*} [Field k] {n : ℕ} (U : Fin n → Type*)
+    [∀ i, AddCommGroup (U i)] [∀ i, Module k (U i)]
+    [∀ i, FiniteDimensional k (U i)]
+    (f : ∀ i, U i →ₗ[k] U i) :
+    LinearMap.trace k (∀ i, U i) (LinearMap.piMap f) =
+      ∑ i, LinearMap.trace k (U i) (f i) := by
+  induction n with
+  | zero =>
+      letI : Subsingleton (∀ i : Fin 0, U i) :=
+        ⟨by
+          intro x y
+          funext i
+          exact Fin.elim0 i⟩
+      have hz : LinearMap.piMap f = 0 := by
+        apply LinearMap.ext
+        intro x
+        funext i
+        exact Fin.elim0 i
+      rw [hz]
+      simp
+  | succ n ih =>
+      let ce :
+          (U 0 × (∀ i : Fin n, U i.succ)) ≃ₗ[k]
+            (∀ i : Fin (n + 1), U i) :=
+        { toFun := fun x => Fin.cons x.1 x.2
+          invFun := fun x => (x 0, fun i => x i.succ)
+          left_inv := by intro x; ext <;> rfl
+          right_inv := by
+            intro x
+            funext i
+            refine Fin.cases ?_ (fun j => ?_) i <;> rfl
+          map_add' := by
+            intro x y
+            funext i
+            refine Fin.cases ?_ (fun j => ?_) i <;> rfl
+          map_smul' := by
+            intro a x
+            funext i
+            refine Fin.cases ?_ (fun j => ?_) i <;> rfl }
+      let ft : ∀ i : Fin n, U i.succ →ₗ[k] U i.succ :=
+        fun i => f i.succ
+      have hconj :
+          ce.symm.conj (LinearMap.piMap f) =
+            (f 0).prodMap (LinearMap.piMap ft) := by
+        apply LinearMap.ext
+        rintro ⟨x, y⟩
+        apply Prod.ext
+        · rfl
+        · funext i
+          rfl
+      rw [← LinearMap.trace_conj' (LinearMap.piMap f) ce.symm]
+      rw [hconj, LinearMap.trace_prodMap']
+      rw [ih (f := ft)]
+      simp only [Fin.sum_univ_succ]
+      rfl
+
+private theorem ofModule'_pointwise_action
+    {k G : Type*} [Field k] [Group G] [Fintype G]
+    {n : ℕ} (U : Fin n → Type*)
+    [∀ i, AddCommGroup (U i)] [∀ i, Module k (U i)]
+    (W : ∀ i, Representation k G (U i)) (g : G)
+    (x : Π₀ i, Representation.asModule (W i)) (i : Fin n) :
+    ((Representation.ofModule' (k := k) (G := G)
+        (Π₀ i, Representation.asModule (W i))) g x) i =
+      (Representation.asModuleEquiv (W i)).symm
+        ((W i) g ((Representation.asModuleEquiv (W i)) (x i))) := by
+  dsimp [Representation.ofModule']
+  apply (Representation.asModuleEquiv (W i)).injective
+  rw [Representation.asModuleEquiv_map_smul]
+  rw [← MonoidAlgebra.of_apply, (W i).asAlgebraHom_of]
+  rfl
+
+private theorem ofModule'_fun_conj
+    {k G : Type*} [Field k] [Group G] [Fintype G]
+    {n : ℕ} (U : Fin n → Type*)
+    [∀ i, AddCommGroup (U i)] [∀ i, Module k (U i)]
+    (W : ∀ i, Representation k G (U i)) (g : G) :
+    let M := Π₀ i, Representation.asModule (W i)
+    let E := DFinsupp.linearEquivFunOnFintype
+      (R := k) (M := fun i => Representation.asModule (W i))
+    E.conj (Representation.ofModule' (k := k) (G := G) M g) =
+      LinearMap.piMap
+        (fun i => (Representation.asModuleEquiv (W i)).symm.conj
+          ((W i) g)) := by
+  dsimp
+  apply LinearMap.ext
+  intro x
+  funext i
+  simp only [LinearEquiv.conj_apply, LinearMap.comp_apply]
+  exact ofModule'_pointwise_action U W g _ i
+
+private theorem ofModule'_trace_add
+    {k G : Type*} [Field k] [Group G] [Fintype G]
+    {n : ℕ} (U : Fin n → Type*)
+    [∀ i, AddCommGroup (U i)] [∀ i, Module k (U i)]
+    [∀ i, FiniteDimensional k (U i)]
+    (W : ∀ i, Representation k G (U i)) (g : G) :
+    LinearMap.trace k (Π₀ i, Representation.asModule (W i))
+        ((Representation.ofModule' (k := k) (G := G)
+          (Π₀ i, Representation.asModule (W i))) g) =
+      ∑ i, LinearMap.trace k (Representation.asModule (W i))
+        ((W i).asModuleEquiv.symm.conj ((W i) g)) := by
+  let M := Π₀ i, Representation.asModule (W i)
+  let E := DFinsupp.linearEquivFunOnFintype
+    (R := k) (M := fun i => Representation.asModule (W i))
+  rw [← LinearMap.trace_conj'
+    (Representation.ofModule' (k := k) (G := G) M g) E]
+  rw [ofModule'_fun_conj]
+  exact trace_piMap_fin
+    (fun i => Representation.asModule (W i))
+    (fun i => (W i).asModuleEquiv.symm.conj ((W i) g))
+
+/-- Character additivity for the finite direct sum constructed through modules
+of the group algebra. -/
+theorem FDRep.character_dfinsuppOf_apply
+    {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
+    {n : ℕ} (W : Fin n → FDRep k G) (g : G) :
+    (FDRep.dfinsuppOf W).character g = ∑ i, (W i).character g := by
+  classical
+  unfold FDRep.dfinsuppOf
+  change LinearMap.trace k
+      (Π₀ i, Representation.asModule (W i).ρ)
+      ((Representation.ofModule' (k := k) (G := G)
+        (Π₀ i, Representation.asModule (W i).ρ)) g) =
+    ∑ i, (W i).character g
+  rw [ofModule'_trace_add]
+  apply Finset.sum_congr rfl
+  intro i hi
+  rw [LinearMap.trace_conj' ((W i).ρ g)
+    (Representation.asModuleEquiv ((W i).ρ)).symm]
+  rfl
+
+/-- The character of a finite direct sum is the sum of the characters of its
+summands. -/
+theorem FDRep.characterClassFunction_dfinsuppOf
+    {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
+    {n : ℕ} (W : Fin n → FDRep k G) :
+    FDRep.characterClassFunction (FDRep.dfinsuppOf W) =
+      ∑ i, FDRep.characterClassFunction (W i) := by
+  funext C
+  induction C using Quotient.inductionOn with
+  | _ g =>
+      simp only [FDRep.characterClassFunction, Quotient.lift_mk]
+      change (FDRep.dfinsuppOf W).character g =
+        (∑ i : Fin n, FDRep.characterClassFunction (W i)) ⟦g⟧
+      rw [Finset.sum_apply]
+      exact FDRep.character_dfinsuppOf_apply W g
+
+/-- The module associated to a representation constructed by `ofModule'` is
+canonically the original group-algebra module. -/
+noncomputable def Representation.asModule_ofModule'LinearEquiv
+    {k G M : Type*} [Field k] [Group G]
+    [AddCommGroup M] [Module k M]
+    [Module (MonoidAlgebra k G) M]
+    [IsScalarTower k (MonoidAlgebra k G) M] :
+    Representation.asModule
+        (Representation.ofModule' (k := k) (G := G) M) ≃ₗ[MonoidAlgebra k G] M := by
+  let ρ := Representation.ofModule' (k := k) (G := G) M
+  let e : ρ.asModule ≃ₗ[MonoidAlgebra k G] M :=
+    { ρ.asModuleEquiv with
+      map_smul' := by
+        intro a x
+        change ρ.asModuleEquiv (a • x) = a • ρ.asModuleEquiv x
+        rw [ρ.asModuleEquiv_map_smul]
+        have ha : ∀ b : MonoidAlgebra k G, ∀ y : M,
+            ρ.asAlgebraHom b y = b • y := by
+          intro b y
+          induction b using MonoidAlgebra.induction_on with
+          | hM g =>
+              rw [ρ.asAlgebraHom_of]
+              rfl
+          | hadd a b ha hb =>
+              rw [map_add, LinearMap.add_apply, add_smul, ha, hb]
+          | hsmul r b hb =>
+              rw [map_smul, LinearMap.smul_apply, hb,
+                IsScalarTower.smul_assoc]
+        exact ha a (ρ.asModuleEquiv x) }
+  exact e
+
+/-- A group-algebra-module equivalence from a representation to `M` induces
+an equivalence with the representation constructed from `M`. -/
+theorem Representation.nonempty_equiv_of_asModule_linearEquiv_ofModule'
+    {k G V M : Type*} [Field k] [Group G]
+    [AddCommGroup V] [Module k V]
+    [AddCommGroup M] [Module k M]
+    (ρ : Representation k G V)
+    [Module (MonoidAlgebra k G) M]
+    [IsScalarTower k (MonoidAlgebra k G) M]
+    (e : Representation.asModule ρ ≃ₗ[MonoidAlgebra k G] M) :
+    Nonempty
+      (ρ.Equiv (Representation.ofModule' (k := k) (G := G) M)) := by
+  let f : V ≃ₗ[k] M :=
+    ρ.asModuleEquiv.symm.trans (e.restrictScalars k)
+  refine ⟨Representation.Equiv.mk f ?_⟩
+  intro g
+  apply LinearMap.ext
+  intro x
+  change f (ρ g x) =
+    (Representation.ofModule' (k := k) (G := G) M) g (f x)
+  dsimp [f]
+  rw [ρ.asModuleEquiv_symm_map_rho]
+  change e ((MonoidAlgebra.of k G) g • ρ.asModuleEquiv.symm x) =
+    (MonoidAlgebra.of k G) g • e (ρ.asModuleEquiv.symm x)
+  exact e.map_smul _ _
+
+/-- A simple group-algebra module yields a categorically simple finite
+representation after applying `ofModule'`. -/
+theorem FDRep.simple_of_simpleModule_ofModule'
+    {k G M : Type u} [Field k] [Group G] [Fintype G]
+    [Invertible (Fintype.card G : k)] [IsAlgClosed k]
+    [AddCommGroup M] [Module k M]
+    [Module (MonoidAlgebra k G) M]
+    [IsScalarTower k (MonoidAlgebra k G) M]
+    [Module.Finite k M]
+    [IsSimpleModule (MonoidAlgebra k G) M] :
+    CategoryTheory.Simple
+      (FDRep.of (R := k)
+        (Representation.ofModule' (k := k) (G := G) M)) := by
+  let ρ := Representation.ofModule' (k := k) (G := G) M
+  let e : ρ.asModule ≃ₗ[MonoidAlgebra k G] M :=
+    Representation.asModule_ofModule'LinearEquiv
+      (k := k) (G := G) (M := M)
+  letI : IsSimpleModule (MonoidAlgebra k G) ρ.asModule :=
+    e.isSimpleModule_iff.mpr inferInstance
+  letI : NeZero (Nat.card G : k) := ⟨by
+    rw [← @Fintype.card_eq_nat_card G inferInstance]
+    exact Invertible.ne_zero _⟩
+  rw [FDRep.simple_iff_end_is_rank_one]
+  let eHom :
+      (FDRep.of (R := k) ρ ⟶ FDRep.of (R := k) ρ) ≃ₗ[k]
+        Module.End (MonoidAlgebra k G) (Representation.asModule ρ) :=
+    (FDRep.forget₂HomLinearEquiv
+      (FDRep.of (R := k) ρ) (FDRep.of (R := k) ρ)).symm
+      |>.trans (Rep.homLinearEquiv _ _)
+      |>.trans
+        (Representation.IntertwiningMap.equivLinearMapAsModule ρ ρ)
+  rw [eHom.finrank_eq]
+  let eSchur :
+      k ≃ₗ[k] Module.End (MonoidAlgebra k G) (Representation.asModule ρ) :=
+    LinearEquiv.ofBijective
+      (Algebra.linearMap k
+        (Module.End (MonoidAlgebra k G) (Representation.asModule ρ)))
+      (IsSimpleModule.algebraMap_end_bijective_of_isAlgClosed k)
+  rw [← eSchur.finrank_eq]
+  exact CommSemiring.finrank_self k
+
+/-- Maschke decomposition, reconstructed as an isomorphism to an actual finite
+DFinsupp representation from a complete family of simple modules. -/
+theorem FDRep.exists_simple_decomposition_iso
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G] [Fintype G]
+    [Invertible (Fintype.card G : k)] [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G)
+    (hcomplete :
+      ∀ (M : Type u) [AddCommGroup M]
+        [Module (MonoidAlgebra k G) M]
+        [IsSimpleModule (MonoidAlgebra k G) M],
+        ∃! i, Nonempty
+          (M ≃ₗ[MonoidAlgebra k G]
+            Representation.asModule ((V i).ρ)))
+    (X : FDRep k G) :
+    ∃ (n : ℕ) (c : Fin n → ι),
+      Nonempty (X ≅ FDRep.dfinsuppOf (fun j => V (c j))) := by
+  let A := MonoidAlgebra k G
+  letI : NeZero (Nat.card G : k) := ⟨by
+    rw [← @Fintype.card_eq_nat_card G inferInstance]
+    exact Invertible.ne_zero _⟩
+  letI : IsSemisimpleRing A := groupAlgebra_isSemisimple k G
+  letI : Module.Finite A (Representation.asModule X.ρ) :=
+    Module.Finite.of_restrictScalars_finite k A _
+  obtain ⟨n, T, eM, hT⟩ :=
+    IsSemisimpleModule.exists_linearEquiv_fin_dfinsupp A
+      (Representation.asModule X.ρ)
+  choose c hc using fun j => hcomplete (T j)
+  let ec (j : Fin n) : T j ≃ₗ[A]
+      Representation.asModule ((V (c j)).ρ) :=
+    (hc j).1.some
+  let eM' : Representation.asModule X.ρ ≃ₗ[A]
+      (Π₀ j : Fin n, Representation.asModule ((V (c j)).ρ)) :=
+    eM.trans (DFinsupp.mapRange.linearEquiv ec)
+  let ρZ : Representation k G
+      (Π₀ j : Fin n, Representation.asModule ((V (c j)).ρ)) :=
+    Representation.ofModule' _
+  obtain ⟨φ⟩ :=
+    Representation.nonempty_equiv_of_asModule_linearEquiv_ofModule'
+      X.ρ eM'
+  have hi : Nonempty (X ≅ FDRep.of ρZ) := by
+    let q := LinearEquiv.toFGModuleCatIso φ.toLinearEquiv
+    refine ⟨Action.mkIso q ?_⟩
+    intro g
+    apply CategoryTheory.ConcreteCategory.hom_ext
+    intro x
+    change φ.toLinearEquiv (X.ρ g x) = ρZ g (φ.toLinearEquiv x)
+    exact LinearMap.congr_fun
+      (φ.toIntertwiningMap.isIntertwining' g) x
+  refine ⟨n, c, ?_⟩
+  simpa [FDRep.dfinsuppOf, ρZ] using hi
+
+/-- Reindex a finite dependent direct sum while changing each summand by a
+linear equivalence. -/
+noncomputable def dfinsuppReindexLinearEquiv
+    {R ι κ : Type*} [Semiring R]
+    {B : ι → Type*} {C : κ → Type*}
+    [∀ i, AddCommMonoid (B i)] [∀ i, Module R (B i)]
+    [∀ i, AddCommMonoid (C i)] [∀ i, Module R (C i)]
+    (e : ι ≃ κ)
+    (ec : ∀ j, B (e.symm j) ≃ₗ[R] C j) :
+    (Π₀ i, B i) ≃ₗ[R] (Π₀ j, C j) := by
+  let q : (Π₀ i, B i) ≃ₗ[R] (Π₀ j, B (e.symm j)) :=
+    DFinsupp.domLCongr e
+  exact q.trans (DFinsupp.mapRange.linearEquiv ec)
+
+/-- A group-algebra-linear equivalence induces an isomorphism between the
+corresponding finite representations. -/
+theorem fdrep_ofModule'_iso_of_linearEquiv
+    {k : Type u} {G : Type v} {M N : Type u}
+    [Field k] [Group G]
+    [AddCommGroup M] [Module k M]
+    [Module (MonoidAlgebra k G) M]
+    [IsScalarTower k (MonoidAlgebra k G) M]
+    [Module.Finite k M]
+    [AddCommGroup N] [Module k N]
+    [Module (MonoidAlgebra k G) N]
+    [IsScalarTower k (MonoidAlgebra k G) N]
+    [Module.Finite k N]
+    (e : M ≃ₗ[MonoidAlgebra k G] N) :
+    Nonempty
+      (FDRep.of (R := k)
+          (Representation.ofModule' (k := k) (G := G) M) ≅
+        FDRep.of (R := k)
+          (Representation.ofModule' (k := k) (G := G) N)) := by
+  let ρ := Representation.ofModule' (k := k) (G := G) M
+  let σ := Representation.ofModule' (k := k) (G := G) N
+  let f : M ≃ₗ[k] N := e.restrictScalars k
+  let φ : ρ.Equiv σ :=
+    Representation.Equiv.mk f (by
+      intro g
+      apply LinearMap.ext
+      intro x
+      change e ((MonoidAlgebra.of k G) g • x) =
+        (MonoidAlgebra.of k G) g • e x
+      exact e.map_smul _ _)
+  refine ⟨Action.mkIso (LinearEquiv.toFGModuleCatIso φ.toLinearEquiv) ?_⟩
+  intro g
+  apply CategoryTheory.ConcreteCategory.hom_ext
+  intro x
+  change φ.toLinearEquiv (ρ g x) = σ g (φ.toLinearEquiv x)
+  exact LinearMap.congr_fun
+    (φ.toIntertwiningMap.isIntertwining' g) x
 
 theorem Representation.nonempty_equiv_of_asModule_linearEquiv
     {k G V W : Type*} [Field k] [Group G]
