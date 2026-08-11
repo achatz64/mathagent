@@ -204,16 +204,25 @@ and inferred module instances had to be named explicitly to avoid a scalar-
 structure diamond.  The successful local check took about four seconds after
 the import base was warm.
 
-The Zorn proof for the specified-family complement exceeded the REPL's fixed
-60-second request limit.  Moving it to the integrated target was more
-effective. Batch imports and declarations by module frontier rather than by
-chapter, and use this routing rule:
+The earlier isolated REPL design made concurrent proof workers expensive:
+each worker started another process and imported Mathlib, causing memory
+contention and startup timeouts.  The project extension now uses one
+reference-counted REPL shared by the main SDK session and all managed workers.
+Environment handles can cross sessions when both `env` and the generation token
+`repl` are supplied.  Requests are FIFO-serialized, so this improves startup
+and memory use rather than providing parallel Lean elaboration.
 
-1. REPL for statements small enough to elaborate well inside the timeout;
-2. project build for long tactic terms, Zorn arguments, or proofs that exercise
-   a large cumulative environment;
-3. after any failed build, isolate the problematic code in the REPL before
-   rebuilding; never retry a timed-out large REPL term unchanged.
+A four-worker trial completed substantial independent proofs with one shared
+PID.  Ordinary perceived request latency was generally subsecond to a few
+seconds; there were no transport timeouts.  One exploratory command reached
+Lean's heartbeat limit, which correctly affected only that command.  Use this
+routing rule:
+
+1. use the shared REPL for API probes and bounded proof development;
+2. split known heartbeat-heavy terms before placing them on the shared queue;
+3. use a project build only to validate persistent integrated targets;
+4. after any failed build, isolate the problematic code in the REPL before
+   rebuilding; never retry an unchanged timed-out command.
 
 A useful general REPL workflow for locating an existing action is: search the
 Mathlib source for the mathematical operation and its likely carrier type;
@@ -266,7 +275,11 @@ context:
    and `AUDIT-GAP` checks and return only failures plus a compact summary.
 
 The integrating agent should retain statement design, dependency choices,
-edits to `GT.lean`, proof integration, and final semantic review.
+edits to `GT.lean`, proof integration, and final semantic review.  For bounded
+proof assistance, follow the repository-wide protocol in `SUBAGENTS.md`: give
+the read-only worker the complete source statement and proof, require
+paste-ready REPL-checked code, and do not mark a label closed until the main
+agent has integrated, reviewed, and built it.
 
 ## Coverage as executable negative space
 

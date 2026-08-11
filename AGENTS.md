@@ -12,6 +12,18 @@ Treat `lean-explore` result IDs as local to the current index and session. Do no
 
 ## Lean execution
 
-Pi loads the project-local Lean REPL extension by default. See [LEAN_REPL.md](LEAN_REPL.md). Use this repl and DO NOT build tmp files to be compiled with `lake build`. The repl is much faster! Of course, the target output files have to be checked with `cd lean && lake build ...`. However, if a lake build fails, then you must take the problematic code to repl again for fixing.    
+Pi loads the project-local Lean REPL extension by default. Read and follow
+[LEAN_REPL.md](LEAN_REPL.md). Use this REPL and DO NOT build temporary files with
+`lake build`. Target files still require a final `cd lean && lake build ...`.
+If that build fails, isolate and fix the problematic code in the REPL before
+building again.
+
+## Managed proof workers
+
+Before delegating work, read and follow [SUBAGENTS.md](SUBAGENTS.md). In
+particular, Lean workers are read-only, receive the complete source statement
+and proof, and return proof fragments for main-agent review and integration.
+Use event-driven subagent tools rather than Bash polling. The main agent remains
+responsible for semantic review, integration, validation, and commits.
 
 
