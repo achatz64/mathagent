@@ -130,6 +130,24 @@ through `ConjClasses` and derives linear independence from the character
 pairing.  These are useful counterexamples to the first-pass assumption that
 all important results would be available as direct Mathlib wrappers.
 
+## Missing APIs and source proofs
+
+Search Mathlib thoroughly, including neighboring declarations and stronger or
+differently bundled formulations. If no faithful construction exists,
+implement it from the source semantics. If no theorem exists, formalize the
+source proof using prior faithful translations and lower-level Mathlib APIs,
+closing routine omitted steps yourself. Search failure, proof plumbing, and
+implementation cost are not blockers.
+
+Flag an `AUDIT-GAP` only for an essential defect such as a false statement,
+missing hypothesis, circular argument, or semantics that cannot be recovered.
+An external theorem not proved in the source may instead be a named dependency
+axiom when its exact assumptions and conclusion are recoverable from the text,
+an unambiguous well-known formulation, or an identifiable reference. Document
+the provenance, state only what is needed, and keep it visible to
+`#print axioms`; vague dependencies remain gaps, and source-proved results must
+not be axiomatized.
+
 ## Semantic-audit correction pass
 
 ### Semantic faithfulness
