@@ -150,7 +150,11 @@ not be axiomatized.
 
 ## Semantic-audit correction pass
 
-This is done by a separate agent, likely to be implemented as extension. How do we add source hooks?
+This is done by a separate agent, likely to be implemented as extension. 
+[
+  How do we add source hooks? 
+  How can we make sure the token budget for audits is low? To avoid many audits handoff to audit only when all gaps are closed or classified as deferred.  
+]
 
 ### Semantic faithfulness
 
