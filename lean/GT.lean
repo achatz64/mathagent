@@ -28,6 +28,7 @@ import Mathlib.GroupTheory.SemidirectProduct
 import Mathlib.GroupTheory.Solvable
 import Mathlib.GroupTheory.SpecificGroups.Alternating.Simple
 import Mathlib.GroupTheory.SpecificGroups.Cyclic
+import Mathlib.GroupTheory.SpecificGroups.Dihedral
 import Mathlib.GroupTheory.Sylow
 import Mathlib.GroupTheory.Torsion
 import Mathlib.Order.Interval.Finset.Fin
@@ -3912,6 +3913,106 @@ theorem jacobsonDensity [IsSemisimpleModule R M]
 
 end SimpleModules
 
+universe uF uA uV uι
+
+/-- Restriction of scalars embeds the algebra of `R`-linear endomorphisms
+into the algebra of `F`-linear endomorphisms. -/
+noncomputable def Module.End.restrictScalarsAlgHom
+    (F : Type uF) (R : Type uA) (V : Type uV)
+    [Field F] [Ring R] [Algebra F R]
+    [AddCommGroup V] [Module F V] [Module R V] [IsScalarTower F R V] :
+    Module.End R V →ₐ[F] Module.End F V where
+  toFun f := f.restrictScalars F
+  map_one' := by ext v; rfl
+  map_mul' f g := by ext v; rfl
+  map_zero' := by ext v; rfl
+  map_add' f g := by ext v; rfl
+  commutes' c := by ext v; simp
+
+/-- The `R`-linear endomorphisms are exactly the `F`-linear endomorphisms
+commuting with the image of the `R`-action. -/
+theorem Module.End.range_restrictScalarsAlgHom_eq_centralizer
+    (F : Type uF) (R : Type uA) (V : Type uV)
+    [Field F] [Ring R] [Algebra F R]
+    [AddCommGroup V] [Module F V] [Module R V] [IsScalarTower F R V] :
+    (Module.End.restrictScalarsAlgHom F R V).range =
+      Subalgebra.centralizer F
+        ((Algebra.lsmul F F V : R →ₐ[F] Module.End F V).range :
+          Set (Module.End F V)) := by
+  ext x
+  constructor
+  · rintro ⟨d, rfl⟩
+    rw [Subalgebra.mem_centralizer_iff]
+    rintro g ⟨a, rfl⟩
+    ext v
+    exact (d.map_smul a v).symm
+  · intro hx
+    rw [Subalgebra.mem_centralizer_iff] at hx
+    let d : Module.End R V :=
+      { x.toAddHom with
+        map_smul' := by
+          intro a v
+          have h := hx ((Algebra.lsmul F F V) a) ⟨a, rfl⟩
+          exact (LinearMap.congr_fun h v).symm }
+    refine ⟨d, ?_⟩
+    ext v
+    rfl
+
+/-- GT `r19`, reusable finite-family form of Jacobson density. -/
+theorem jacobsonDensity_finiteFamily
+    {R : Type uA} {V : Type uV} [Ring R]
+    [AddCommGroup V] [Module R V] [IsSemisimpleModule R V]
+    (b : Module.End (Module.End R V) V)
+    {ι : Type uι} [Fintype ι] (v : ι → V) :
+    ∃ a : R, ∀ i, b (v i) = a • v i := by
+  classical
+  obtain ⟨a, ha⟩ := jacobson_density b (Finset.univ.image v)
+  exact ⟨a, fun i ↦
+    ha (v i) (Finset.mem_image.mpr ⟨i, Finset.mem_univ i, rfl⟩)⟩
+
+/-- The `Module.End` form of GT `r17`: the abstract bicommutant acts through
+exactly the image of `A`. -/
+theorem bicommutantModuleEnd_range_eq_action_range
+    {F : Type uF} {A : Type uA} {V : Type uV}
+    [Field F] [Ring A] [Algebra F A]
+    [AddCommGroup V] [Module F V] [Module A V] [IsScalarTower F A V]
+    [IsSemisimpleModule A V] [FiniteDimensional F V] [FaithfulSMul A V] :
+    (Module.End.restrictScalarsAlgHom F (Module.End A V) V).range =
+      (Algebra.lsmul F F V : A →ₐ[F] Module.End F V).range := by
+  apply le_antisymm
+  · rintro x ⟨b, rfl⟩
+    obtain ⟨a, ha⟩ :=
+      jacobsonDensity_finiteFamily b (Module.finBasis F V)
+    refine ⟨a, ?_⟩
+    apply (Module.finBasis F V).ext
+    intro i
+    change a • (Module.finBasis F V) i =
+      b ((Module.finBasis F V) i)
+    exact (ha i).symm
+  · rintro x ⟨a, rfl⟩
+    exact ⟨(Algebra.lsmul F (Module.End A V) V) a, rfl⟩
+
+/-- GT `r17`: if `V` is a faithful finite-dimensional semisimple `A`-module,
+then the bicommutant of the image of `A` in `End_F(V)` is that image. -/
+theorem bicommutant_eq_action_range
+    {F : Type uF} {A : Type uA} {V : Type uV}
+    [Field F] [Ring A] [Algebra F A]
+    [AddCommGroup V] [Module F V] [Module A V] [IsScalarTower F A V]
+    [IsSemisimpleModule A V] [FiniteDimensional F V] [FaithfulSMul A V] :
+    Subalgebra.centralizer F
+        (Subalgebra.centralizer F
+          ((Algebra.lsmul F F V : A →ₐ[F] Module.End F V).range :
+            Set (Module.End F V)) : Set (Module.End F V)) =
+      (Algebra.lsmul F F V : A →ₐ[F] Module.End F V).range := by
+  rw [← Module.End.range_restrictScalarsAlgHom_eq_centralizer F A V]
+  change Subalgebra.centralizer F
+      ((Algebra.lsmul F F V :
+          Module.End A V →ₐ[F] Module.End F V).range :
+        Set (Module.End F V)) = _
+  rw [← Module.End.range_restrictScalarsAlgHom_eq_centralizer
+    F (Module.End A V) V]
+  exact bicommutantModuleEnd_range_eq_action_range
+
 section WedderburnArtin
 
 universe u
@@ -4658,6 +4759,186 @@ theorem MonoidAlgebra.exists_matrixFactor_simpleModule_classification
   letI : ∀ i, NeZero (d i) := hd
   exact (MonoidAlgebra.matrixFactor_simpleModule_classification d e M).1
 
+/-- A full matrix algebra, as a regular left module, is the direct sum of its
+column modules. -/
+noncomputable def Matrix.leftRegularLinearEquivColumns (n : ℕ) :
+    Matrix (Fin n) (Fin n) k ≃ₗ[Matrix (Fin n) (Fin n) k]
+      (Fin n → (Fin n → k)) where
+  toFun X j i := X i j
+  invFun X i j := X j i
+  left_inv X := rfl
+  right_inv X := rfl
+  map_add' X Y := rfl
+  map_smul' A X := by
+    ext j i
+    simp [Matrix.mul_apply, Matrix.mulVec, dotProduct]
+
+/-- The regular module of a finite product of full matrix algebras is the
+finite direct sum of the column modules, with exactly `d i` copies from the
+`i`th factor. -/
+theorem RingEquiv.regular_linearEquiv_piFactor_columns
+    {A : Type u} [Ring A]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (d : ι → ℕ)
+    (e : A ≃+* ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
+    letI : ∀ i, Module A (Fin (d i) → k) := fun i =>
+      Module.compHom (Fin (d i) → k)
+        (RingEquiv.piFactorHom (A := A)
+          (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e i)
+    Nonempty (A ≃ₗ[A]
+      Π₀ p : Σ i, Fin (d i), (Fin (d p.1) → k)) := by
+  letI : ∀ i, Module A (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := A)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e i)
+  letI : ∀ i, Module A (Matrix (Fin (d i)) (Fin (d i)) k) := fun i =>
+    Module.compHom (Matrix (Fin (d i)) (Fin (d i)) k)
+      (RingEquiv.piFactorHom (A := A)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e i)
+  let eProd : A ≃ₗ[A] (∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :=
+    { e.toAddEquiv with
+      map_smul' := by
+        intro a x
+        ext i r c
+        change e (a * x) i r c =
+          (RingEquiv.piFactorHom (A := A)
+            (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e i a * e x i) r c
+        simp [RingEquiv.piFactorHom] }
+  let eFactor (i : ι) :
+      Matrix (Fin (d i)) (Fin (d i)) k ≃ₗ[A]
+        (Fin (d i) → (Fin (d i) → k)) :=
+    { (Matrix.leftRegularLinearEquivColumns (k := k) (d i)).toAddEquiv with
+      map_smul' := by
+        intro a x
+        exact (Matrix.leftRegularLinearEquivColumns (k := k) (d i)).map_smul
+          (RingEquiv.piFactorHom (A := A)
+            (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e i a) x }
+  exact ⟨eProd.trans ((LinearEquiv.piCongrRight eFactor).trans
+    ((LinearEquiv.piCurry A
+      (fun i (_ : Fin (d i)) => Fin (d i) → k)).symm.trans
+        DFinsupp.linearEquivFunOnFintype.symm))⟩
+
+/-- GT `r32(b)`: in a matrix-factor presentation, the `i`th simple column
+module has dimension `d i` and occurs exactly `d i` times in the regular
+module. The `DFinsupp` target is an actual finite direct-sum decomposition. -/
+theorem MonoidAlgebra.matrixFactor_regular_decomposition
+    {H : Type u} [Group H] [Fintype H]
+    {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
+    (e : MonoidAlgebra k H ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
+    letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+      Module.compHom (Fin (d i) → k)
+        (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+          (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+    (∀ i, Module.finrank k (Fin (d i) → k) = d i) ∧
+      Nonempty (MonoidAlgebra k H ≃ₗ[MonoidAlgebra k H]
+        Π₀ p : Σ i, Fin (d i), (Fin (d p.1) → k)) := by
+  letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+  refine ⟨fun i => ?_, ?_⟩
+  · rw [Module.finrank_fintype_fun_eq_card, Fintype.card_fin]
+  · exact RingEquiv.regular_linearEquiv_piFactor_columns d e.toRingEquiv
+
+/-- Dimension form of GT `r32(c)` for the matrix degrees. -/
+theorem MonoidAlgebra.sum_sq_matrixFactors_eq_card
+    {H : Type u} [Group H] [Fintype H]
+    {n : ℕ} (d : Fin n → ℕ)
+    (e : MonoidAlgebra k H ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
+    ∑ i, (d i) ^ 2 = Fintype.card H := by
+  have h := e.toLinearEquiv.finrank_eq
+  rw [Module.finrank_pi_fintype] at h
+  simp only [Module.finrank_matrix, Fintype.card_fin,
+    Module.finrank_self, mul_one] at h
+  have hleft :
+      Module.finrank k (MonoidAlgebra k H) = Fintype.card H :=
+    Module.finrank_eq_card_basis (MonoidAlgebra.basis H k)
+  rw [hleft] at h
+  simpa [pow_two] using h.symm
+
+/-- GT `r32(c)`, with `fᵢ` written literally as the dimension of the `i`th
+simple module. -/
+theorem MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card
+    {H : Type u} [Group H] [Fintype H]
+    {n : ℕ} (d : Fin n → ℕ)
+    (e : MonoidAlgebra k H ≃ₐ[k]
+      ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
+    ∑ i, (Module.finrank k (Fin (d i) → k)) ^ 2 =
+      Fintype.card H := by
+  simp only [Module.finrank_fintype_fun_eq_card, Fintype.card_fin]
+  exact MonoidAlgebra.sum_sq_matrixFactors_eq_card d e
+
+/-- GT `r32(b,c)`, source-facing form: a complete finite pairwise
+nonisomorphic family of simples is produced internally; its `i`th member has
+dimension `d i`, occurs exactly `d i` times in the regular module, and the
+squares of the dimensions sum to the group order. -/
+theorem MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
+    {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
+    ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
+      ∃ e : MonoidAlgebra k H ≃ₐ[k]
+        ∀ i, Matrix (Fin (d i)) (Fin (d i)) k,
+        letI : ∀ i, NeZero (d i) := fun i => ⟨(hd i).ne'⟩
+        letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+          Module.compHom (Fin (d i) → k)
+            (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+              (fun i => Matrix (Fin (d i)) (Fin (d i)) k)
+              e.toRingEquiv i)
+        (∀ i, IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k)) ∧
+        (∀ i j, Nonempty ((Fin (d i) → k) ≃ₗ[MonoidAlgebra k H]
+            (Fin (d j) → k)) ↔ i = j) ∧
+        (∀ (M : Type u) [AddCommGroup M] [Module (MonoidAlgebra k H) M]
+            [IsSimpleModule (MonoidAlgebra k H) M],
+          ∃! i, Nonempty
+            (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k))) ∧
+        (∀ i, Module.finrank k (Fin (d i) → k) = d i) ∧
+        Nonempty (MonoidAlgebra k H ≃ₗ[MonoidAlgebra k H]
+          Π₀ p : Σ i, Fin (d i), (Fin (d p.1) → k)) ∧
+        ∑ i, (Module.finrank k (Fin (d i) → k)) ^ 2 =
+          Fintype.card H := by
+  obtain ⟨n, d, hd, ⟨e⟩⟩ :=
+    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+  have hdpos (i : Fin n) : 0 < d i := (hd i).out.pos
+  refine ⟨n, d, hdpos, e, ?_⟩
+  letI : ∀ i, NeZero (d i) := hd
+  letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
+  have hcomplete : ∀ (M : Type u) [AddCommGroup M]
+      [Module (MonoidAlgebra k H) M]
+      [IsSimpleModule (MonoidAlgebra k H) M],
+      ∃! i, Nonempty
+        (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k)) := by
+    intro M _ _ _
+    exact
+      (MonoidAlgebra.matrixFactor_simpleModule_classification d e M).1
+  have hsimple (i : Fin n) :
+      IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) := by
+    letI : IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) :=
+      RingEquiv.isSimpleModule_piFactor
+        (A := MonoidAlgebra k H)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
+        (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) i
+    infer_instance
+  have hpair (i j : Fin n) :
+      Nonempty ((Fin (d i) → k) ≃ₗ[MonoidAlgebra k H]
+        (Fin (d j) → k)) ↔ i = j := by
+    constructor
+    · intro hij
+      letI : IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) :=
+        hsimple i
+      obtain ⟨a, ha, hua⟩ := hcomplete (Fin (d i) → k)
+      exact
+        (hua i ⟨LinearEquiv.refl _ _⟩).trans (hua j hij).symm
+    · rintro rfl
+      exact ⟨LinearEquiv.refl _ _⟩
+  have hdecomp :=
+    MonoidAlgebra.matrixFactor_regular_decomposition d e
+  exact ⟨hsimple, hpair, hcomplete, hdecomp.1, hdecomp.2,
+    MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card d e⟩
+
 end GroupAlgebraCenter
 
 section Characters
@@ -5101,6 +5382,642 @@ theorem FDRep.simpleVirtualCharacterBasis_apply
 
 end Characters
 
+private theorem nonempty_mulEquiv_dihedral_of_generators
+    {G : Type*} [Group G] [Fintype G] {p : ℕ} [NeZero p]
+    (r s : G) (hr : orderOf r = p) (hs : orderOf s = 2)
+    (hneg : s * r * s⁻¹ = r⁻¹)
+    (hgenerate : Subgroup.closure ({r, s} : Set G) = ⊤)
+    (hcard : Fintype.card G = 2 * p) :
+    Nonempty (G ≃* DihedralGroup p) := by
+  let H : Subgroup G := Subgroup.zpowers r
+  let rH : H := ⟨r, Subgroup.mem_zpowers r⟩
+  have hHcard : Nat.card H = p := by
+    simpa [H, hr] using Nat.card_zpowers r
+  have hrH : (rH : G) = r := rfl
+  have hgenH : ∀ x : H, x ∈ Subgroup.zpowers rH := by
+    intro x
+    rw [Subgroup.mem_zpowers_iff]
+    obtain ⟨z, hz⟩ := Subgroup.mem_zpowers_iff.mp x.property
+    exact ⟨z, Subtype.ext hz⟩
+  let eH : Multiplicative (ZMod p) ≃* H :=
+    zmodMulEquivOfGenerator hgenH hHcard
+  let rot : ZMod p → G :=
+    fun a => (eH (Multiplicative.ofAdd a) : H)
+
+  have hrot_int (z : ℤ) : rot (z : ZMod p) = r ^ z := by
+    change ((eH (Multiplicative.ofAdd (z : ZMod p)) : H) : G) = r ^ z
+    rw [show eH (Multiplicative.ofAdd (z : ZMod p)) = rH ^ z by
+      exact zmodMulEquivOfGenerator_apply_ofAdd_intCast hgenH hHcard z]
+    simp [hrH]
+
+  have hrot_zero : rot 0 = 1 := by
+    change ((eH 1 : H) : G) = 1
+    simp
+
+  have hrot_add (a b : ZMod p) :
+      rot (a + b) = rot a * rot b := by
+    change ((eH (Multiplicative.ofAdd (a + b)) : H) : G) =
+      ((eH (Multiplicative.ofAdd a) : H) : G) *
+        ((eH (Multiplicative.ofAdd b) : H) : G)
+    exact congrArg Subtype.val
+      (map_mul eH (Multiplicative.ofAdd a) (Multiplicative.ofAdd b))
+
+  have hrot_neg (a : ZMod p) :
+      rot (-a) = (rot a)⁻¹ := by
+    change ((eH (Multiplicative.ofAdd (-a)) : H) : G) =
+      (((eH (Multiplicative.ofAdd a) : H) : G))⁻¹
+    exact congrArg Subtype.val (map_inv eH (Multiplicative.ofAdd a))
+
+  have hrot_one : rot 1 = r := by
+    change ((eH (Multiplicative.ofAdd 1) : H) : G) = r
+    rw [show eH (Multiplicative.ofAdd 1) = rH by
+      exact zmodMulEquivOfGenerator_apply_ofAdd_one hgenH hHcard]
+
+  have hconj_rot (a : ZMod p) :
+      s * rot a * s⁻¹ = rot (-a) := by
+    rw [← ZMod.intCast_zmod_cast a, hrot_int, hrot_neg, hrot_int]
+    rw [← conj_zpow, hneg, inv_zpow]
+
+  have hss : s * s = 1 := by
+    have h := pow_orderOf_eq_one s
+    simpa [hs, pow_two] using h
+
+  have hsinv : s⁻¹ = s :=
+    inv_eq_iff_mul_eq_one.mpr hss
+
+  have hrot_mul_s (a : ZMod p) :
+      rot a * s = s * rot (-a) := by
+    calc
+      rot a * s = (s * s) * (rot a * s) := by rw [hss, one_mul]
+      _ = s * (s * rot a * s) := by simp [mul_assoc]
+      _ = s * (s * rot a * s⁻¹) := by rw [hsinv]
+      _ = s * rot (-a) := by rw [hconj_rot]
+
+  let f : DihedralGroup p →* G :=
+    { toFun := fun x =>
+        match x with
+        | DihedralGroup.r a => rot a
+        | DihedralGroup.sr a => s * rot a
+      map_one' := hrot_zero
+      map_mul' := by
+        rintro (a | a) (b | b)
+        · simp only [DihedralGroup.r_mul_r]
+          exact hrot_add a b
+        · simp only [DihedralGroup.r_mul_sr]
+          calc
+            s * rot (b - a) = s * (rot (-a) * rot b) := by
+              rw [← hrot_add]
+              congr 2
+              abel
+            _ = (s * rot (-a)) * rot b := by group
+            _ = (rot a * s) * rot b := by rw [hrot_mul_s]
+            _ = rot a * (s * rot b) := by group
+        · simp only [DihedralGroup.sr_mul_r]
+          rw [mul_assoc, ← hrot_add]
+        · simp only [DihedralGroup.sr_mul_sr]
+          calc
+            rot (b - a) = rot (-a) * rot b := by
+              rw [← hrot_add]
+              congr 1
+              abel
+            _ = (s * rot a) * (s * rot b) := by
+              calc
+                rot (-a) * rot b =
+                    (s * s) * (rot (-a) * rot b) := by
+                      rw [hss, one_mul]
+                _ = s * (s * rot (-a)) * rot b := by group
+                _ = s * (rot a * s) * rot b := by rw [hrot_mul_s]
+                _ = (s * rot a) * (s * rot b) := by group }
+
+  have hfr : f (DihedralGroup.r 1) = r :=
+    hrot_one
+  have hfs : f (DihedralGroup.sr 0) = s := by
+    change s * rot 0 = s
+    rw [hrot_zero, mul_one]
+
+  have hsurj : Function.Surjective f := by
+    apply MonoidHom.range_eq_top.mp
+    apply top_unique
+    rw [← hgenerate]
+    apply (Subgroup.closure_le f.range).mpr
+    exact Set.pair_subset
+      ⟨DihedralGroup.r 1, hfr⟩
+      ⟨DihedralGroup.sr 0, hfs⟩
+
+  have hbij : Function.Bijective f :=
+    (Fintype.bijective_iff_surjective_and_card f).mpr
+      ⟨hsurj, by rw [DihedralGroup.card, hcard]⟩
+  exact ⟨(MulEquiv.ofBijective f hbij).symm⟩
+
+/-- GT `ga13m`: every finite group of order `2p`, for `p` an odd prime,
+is cyclic or isomorphic to the dihedral group of order `2p`.
+
+Mathlib's `DihedralGroup p` has cardinality `2 * p`; its elements are
+`r a` and `sr a` for `a : ZMod p`. -/
+theorem isCyclic_or_nonempty_mulEquiv_dihedral_of_card_eq_two_mul_prime
+    {G : Type*} [Group G] [Fintype G] {p : ℕ}
+    (hp : p.Prime) (hp2 : p ≠ 2)
+    (hcard : Fintype.card G = 2 * p) :
+    IsCyclic G ∨ Nonempty (G ≃* DihedralGroup p) := by
+  letI : Fact p.Prime := ⟨hp⟩
+  letI : NeZero p := ⟨hp.ne_zero⟩
+
+  have hp_dvd : p ∣ Fintype.card G := by
+    rw [hcard]
+    exact dvd_mul_left p 2
+  obtain ⟨r, hr⟩ :=
+    exists_prime_orderOf_dvd_card p hp_dvd
+
+  have h2_dvd : 2 ∣ Fintype.card G := by
+    rw [hcard]
+    exact dvd_mul_right 2 p
+  obtain ⟨s, hs⟩ :=
+    exists_prime_orderOf_dvd_card 2 h2_dvd
+
+  let H : Subgroup G := Subgroup.zpowers r
+  have hHcard : Nat.card H = p := by
+    simpa [H, hr] using Nat.card_zpowers r
+
+  have hHindex : H.index = 2 := by
+    apply Nat.eq_of_mul_eq_mul_left hp.pos
+    calc
+      p * H.index = Nat.card H * H.index := by rw [hHcard]
+      _ = Nat.card G := H.card_mul_index
+      _ = 2 * p := by simpa using hcard
+      _ = p * 2 := Nat.mul_comm 2 p
+
+  have hHnormal : H.Normal :=
+    Subgroup.normal_of_index_eq_two hHindex
+  have hconj_mem : s * r * s⁻¹ ∈ H :=
+    hHnormal.conj_mem r (by exact Subgroup.mem_zpowers r) s
+  obtain ⟨i : ℤ, hi⟩ :=
+    Subgroup.mem_zpowers_iff.mp hconj_mem
+
+  have hss : s * s = 1 := by
+    have h := pow_orderOf_eq_one s
+    simpa [hs, pow_two] using h
+  have hsinv : s⁻¹ = s :=
+    inv_eq_iff_mul_eq_one.mpr hss
+
+  have hi_sq : r ^ (i * i) = r ^ (1 : ℤ) := by
+    calc
+      r ^ (i * i) = (r ^ i) ^ i := zpow_mul r i i
+      _ = (s * r * s⁻¹) ^ i := by rw [hi]
+      _ = s * r ^ i * s⁻¹ := conj_zpow
+      _ = s * (s * r * s⁻¹) * s⁻¹ := by rw [hi]
+      _ = (s * s) * r * (s * s) := by
+        rw [hsinv]
+        group
+      _ = r := by rw [hss]; simp
+      _ = r ^ (1 : ℤ) := by simp
+
+  have hi_mod : i * i ≡ 1 [ZMOD (p : ℤ)] := by
+    rw [← hr]
+    exact zpow_eq_zpow_iff_modEq.mp hi_sq
+
+  have hi_cast_sq : (i : ZMod p) * (i : ZMod p) = 1 := by
+    simpa only [Int.cast_mul, Int.cast_one] using
+      (ZMod.intCast_eq_intCast_iff (i * i) 1 p).mpr hi_mod
+
+  have hi_cases :
+      i ≡ 1 [ZMOD (p : ℤ)] ∨ i ≡ -1 [ZMOD (p : ℤ)] := by
+    rcases mul_self_eq_one_iff.mp hi_cast_sq with h | h
+    · exact Or.inl
+        ((ZMod.intCast_eq_intCast_iff i 1 p).mp (by simpa using h))
+    · exact Or.inr
+        ((ZMod.intCast_eq_intCast_iff i (-1) p).mp (by simpa using h))
+
+  have hconj_cases :
+      s * r * s⁻¹ = r ∨ s * r * s⁻¹ = r⁻¹ := by
+    rcases hi_cases with h | h
+    · left
+      rw [← hi]
+      have hz : r ^ i = r ^ (1 : ℤ) :=
+        zpow_eq_zpow_iff_modEq.mpr (by simpa [hr] using h)
+      simpa using hz
+    · right
+      rw [← hi]
+      have hz : r ^ i = r ^ (-1 : ℤ) :=
+        zpow_eq_zpow_iff_modEq.mpr (by simpa [hr] using h)
+      simpa using hz
+
+  have hs_not_mem : s ∉ H := by
+    intro hsH
+    have hdvd : 2 ∣ p := by
+      rw [← hs, ← hHcard]
+      exact H.orderOf_dvd_natCard hsH
+    have h2p : 2 = p :=
+      (Nat.dvd_prime_two_le hp (by omega)).mp hdvd
+    exact hp2 h2p.symm
+
+  let K : Subgroup G :=
+    Subgroup.closure ({r, s} : Set G)
+  have hHK : H ≤ K := by
+    apply Subgroup.zpowers_le.mpr
+    exact Subgroup.subset_closure (by simp)
+  have hsK : s ∈ K :=
+    Subgroup.subset_closure (by simp)
+
+  have hrel_ne_one : H.relIndex K ≠ 1 := by
+    intro hrel
+    exact hs_not_mem (Subgroup.relIndex_eq_one.mp hrel hsK)
+
+  have hrel_mul : H.relIndex K * K.index = 2 := by
+    simpa [hHindex] using Subgroup.relIndex_mul_index hHK
+
+  have hrel_ne_zero : H.relIndex K ≠ 0 := by
+    intro hrel
+    rw [hrel] at hrel_mul
+    omega
+
+  have hrel_two : H.relIndex K = 2 := by
+    apply (Nat.dvd_prime_two_le Nat.prime_two (by omega)).mp
+    exact ⟨K.index, hrel_mul.symm⟩
+
+  rw [hrel_two] at hrel_mul
+  have hKindex : K.index = 1 := by omega
+  have hgenerate :
+      Subgroup.closure ({r, s} : Set G) = ⊤ := by
+    change K = ⊤
+    exact Subgroup.index_eq_one.mp hKindex
+
+  rcases hconj_cases with hcomm | hneg
+  · left
+    have hrs : Commute r s := by
+      rw [Commute, SemiconjBy]
+      symm
+      calc
+        s * r = (s * r * s⁻¹) * s := by simp
+        _ = r * s := by rw [hcomm]
+    have hcop : (orderOf r).Coprime (orderOf s) := by
+      rw [hr, hs]
+      exact Nat.coprime_two_right.mpr (hp.odd_of_ne_two hp2)
+    have horder :
+        orderOf (r * s) = orderOf r * orderOf s :=
+      hrs.orderOf_mul_eq_mul_orderOf_of_coprime hcop
+    apply isCyclic_of_orderOf_eq_card (r * s)
+    rw [horder, hr, hs]
+    simpa [hcard, Nat.mul_comm]
+  · right
+    exact nonempty_mulEquiv_dihedral_of_generators
+      r s hr hs hneg hgenerate hcard
+
+/-- A group is complete when its center is trivial and every automorphism is
+inner. -/
+def IsCompleteGroup (A : Type*) [Group A] : Prop :=
+  Subgroup.center A = ⊥ ∧
+    ∀ α : MulAut A, ∃ a : A, α = MulAut.conj a
+
+/-- Completeness is invariant under group equivalence. -/
+theorem IsCompleteGroup.mulEquiv {A B : Type*} [Group A] [Group B]
+    (e : A ≃* B) (h : IsCompleteGroup A) :
+    IsCompleteGroup B := by
+  constructor
+  · rw [Subgroup.eq_bot_iff_forall]
+    intro z hz
+    have hz' : e.symm z ∈ Subgroup.center A := by
+      rw [Subgroup.mem_center_iff]
+      intro a
+      apply e.injective
+      simpa using (Subgroup.mem_center_iff.mp hz (e a))
+    have : e.symm z = 1 := by
+      rw [h.1] at hz'
+      simpa using hz'
+    exact e.symm.injective (by simpa using this)
+  · intro β
+    let α : MulAut A := e.trans (β.trans e.symm)
+    obtain ⟨a, ha⟩ := h.2 α
+    refine ⟨e a, ?_⟩
+    apply MulEquiv.ext
+    intro b
+    obtain ⟨x, rfl⟩ := e.surjective b
+    have hx := DFunLike.congr_fun ha x
+    apply e.symm.injective
+    simpa [α, MulAut.conj_apply] using hx
+
+/-- An exact group extension
+`1 → N → G → Q → 1`, without identifying `N` with its image. -/
+structure ExactExtension (N G Q : Type*) [Group N] [Group G] [Group Q] where
+  inclusion : N →* G
+  projection : G →* Q
+  inclusion_injective : Function.Injective inclusion
+  projection_surjective : Function.Surjective projection
+  exact : projection.ker = inclusion.range
+
+namespace ExactExtension
+
+variable {N G Q : Type*} [Group N] [Group G] [Group Q]
+
+/-- An exact extension splits when its projection has a homomorphic section. -/
+def Splits (E : ExactExtension N G Q) : Prop :=
+  ∃ s : Q →* G, E.projection.comp s = MonoidHom.id Q
+
+/-- The section and subgroup-complement formulations of splitting are
+equivalent. -/
+theorem splits_iff_exists_subgroup_bijective_projection
+    (E : ExactExtension N G Q) :
+    E.Splits ↔ ∃ H : Subgroup G,
+      Function.Bijective (E.projection.comp H.subtype) := by
+  constructor
+  · rintro ⟨s, hs⟩
+    refine ⟨s.range, ?_⟩
+    constructor
+    · intro x y hxy
+      obtain ⟨a, ha⟩ := x.property
+      obtain ⟨b, hb⟩ := y.property
+      have hsa := DFunLike.congr_fun hs a
+      have hsb := DFunLike.congr_fun hs b
+      change E.projection (s a) = a at hsa
+      change E.projection (s b) = b at hsb
+      have hp : E.projection (x : G) = E.projection (y : G) := hxy
+      have hab : a = b := by
+        simpa [← ha, ← hb, hsa, hsb] using hp
+      apply Subtype.ext
+      calc
+        (x : G) = s a := ha.symm
+        _ = s b := congrArg s hab
+        _ = (y : G) := hb
+    · intro q
+      refine ⟨⟨s q, ⟨q, rfl⟩⟩, ?_⟩
+      exact DFunLike.congr_fun hs q
+  · rintro ⟨H, hH⟩
+    let e : H ≃* Q :=
+      MulEquiv.ofBijective (E.projection.comp H.subtype) hH
+    let s : Q →* G := H.subtype.comp e.symm.toMonoidHom
+    refine ⟨s, ?_⟩
+    ext q
+    change E.projection (e.symm q : G) = q
+    change e (e.symm q) = q
+    exact e.apply_symm_apply q
+
+/-- The image of a complete kernel and its centralizer are complementary and
+commute elementwise. This is the reusable core of GT `it18`. -/
+theorem complete_range_centralizer_complement
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    E.inclusion.range.IsComplement'
+        (Subgroup.centralizer (E.inclusion.range : Set G)) ∧
+      ∀ r : E.inclusion.range,
+        ∀ h : Subgroup.centralizer (E.inclusion.range : Set G),
+          Commute (r : G) (h : G) := by
+  let R := E.inclusion.range
+  let H := Subgroup.centralizer (R : Set G)
+  letI : R.Normal := by
+    change E.inclusion.range.Normal
+    rw [← E.exact]
+    infer_instance
+  let eR : N ≃* R :=
+    MulEquiv.ofBijective E.inclusion.rangeRestrict
+      ⟨by
+        intro a b hab
+        exact E.inclusion_injective (congrArg Subtype.val hab), by
+        intro r
+        obtain ⟨n, hn⟩ := r.property
+        exact ⟨n, Subtype.ext hn⟩⟩
+  have hR : IsCompleteGroup R := IsCompleteGroup.mulEquiv eR hN
+  have hfactor :
+      ∀ g : G, ∃ r : R, ∃ h : H, (r : G) * (h : G) = g := by
+    intro g
+    obtain ⟨γ, hγ⟩ := hR.2 (MulAut.conjNormal g)
+    have hc : (γ : G)⁻¹ * g ∈ H := by
+      rw [Subgroup.mem_centralizer_iff]
+      intro r hr
+      let r' : R := ⟨r, hr⟩
+      have heq :=
+        congrArg Subtype.val (DFunLike.congr_fun hγ r')
+      change g * r * g⁻¹ =
+        (γ : G) * r * (γ : G)⁻¹ at heq
+      calc
+        r * ((γ : G)⁻¹ * g) =
+            (γ : G)⁻¹ *
+              ((γ : G) * r * (γ : G)⁻¹) * g := by
+                simp [mul_assoc]
+        _ = (γ : G)⁻¹ * (g * r * g⁻¹) * g := by
+              rw [← heq]
+        _ = ((γ : G)⁻¹ * g) * r := by
+              simp [mul_assoc]
+    exact ⟨γ, ⟨(γ : G)⁻¹ * g, hc⟩, by simp⟩
+  have hdis : Disjoint R H := by
+    rw [Subgroup.disjoint_def]
+    intro x hxR hxH
+    let xR : R := ⟨x, hxR⟩
+    have hxc : xR ∈ Subgroup.center R := by
+      rw [Subgroup.mem_center_iff]
+      intro r
+      apply Subtype.ext
+      exact Subgroup.mem_centralizer_iff.mp hxH
+        (r : G) r.property
+    rw [hR.1] at hxc
+    change (xR : G) = 1
+    exact congrArg Subtype.val
+      (show xR = 1 by simpa using hxc)
+  have hcomp : R.IsComplement' H := by
+    change Function.Bijective
+      (fun x : R × H => (x.1 : G) * (x.2 : G))
+    constructor
+    · intro x y hxy
+      change (x.1 : G) * x.2 =
+        (y.1 : G) * y.2 at hxy
+      have hz :
+          (y.1 : G)⁻¹ * x.1 =
+            (y.2 : G) * (x.2 : G)⁻¹ := by
+        calc
+          (y.1 : G)⁻¹ * x.1 =
+              (y.1 : G)⁻¹ *
+                ((x.1 : G) * x.2) *
+                  (x.2 : G)⁻¹ := by
+                    simp [mul_assoc]
+          _ = (y.1 : G)⁻¹ *
+                ((y.1 : G) * y.2) *
+                  (x.2 : G)⁻¹ := by
+                    rw [hxy]
+          _ = (y.2 : G) * (x.2 : G)⁻¹ := by simp
+      have hzbot :
+          (y.1 : G)⁻¹ * x.1 ∈ (⊥ : Subgroup G) :=
+        hdis.le_bot
+          ⟨R.mul_mem (R.inv_mem y.1.2) x.1.2,
+            hz.symm ▸
+              H.mul_mem y.2.2 (H.inv_mem x.2.2)⟩
+      have hxy₁ : x.1 = y.1 :=
+        Subtype.ext ((inv_mul_eq_one.mp hzbot).symm)
+      have hxy₂ : x.2 = y.2 := by
+        apply Subtype.ext
+        simpa [hxy₁] using hxy
+      exact Prod.ext hxy₁ hxy₂
+    · intro g
+      obtain ⟨r, h, rh⟩ := hfactor g
+      exact ⟨(r, h), rh⟩
+  refine ⟨hcomp, ?_⟩
+  intro r h
+  exact Subgroup.mem_centralizer_iff.mp h.property
+    (r : G) r.property
+
+/-- The canonical multiplication equivalence supplied by GT `it18`. -/
+noncomputable def directProductEquivOfComplete
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    (E.inclusion.range ×
+      Subgroup.centralizer (E.inclusion.range : Set G)) ≃* G := by
+  let R := E.inclusion.range
+  let H := Subgroup.centralizer (R : Set G)
+  have hc := complete_range_centralizer_complement E hN
+  let f : R × H →* G :=
+    { toFun := fun x => (x.1 : G) * (x.2 : G)
+      map_one' := by simp
+      map_mul' := by
+        intro x y
+        have hcomm := hc.2 y.1 x.2
+        change
+          ((x.1 : G) * y.1) *
+              ((x.2 : G) * y.2) =
+            ((x.1 : G) * x.2) *
+              ((y.1 : G) * y.2)
+        calc
+          _ = (x.1 : G) *
+                ((y.1 : G) * x.2) *
+                  (y.2 : G) := by
+                    simp [mul_assoc]
+          _ = (x.1 : G) *
+                ((x.2 : G) * y.1) *
+                  (y.2 : G) := by
+                    rw [hcomm.eq]
+          _ = _ := by simp [mul_assoc] }
+  exact MulEquiv.ofBijective f hc.1
+
+@[simp]
+theorem directProductEquivOfComplete_apply
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N)
+    (x : E.inclusion.range ×
+      Subgroup.centralizer (E.inclusion.range : Set G)) :
+    directProductEquivOfComplete E hN x =
+      (x.1 : G) * (x.2 : G) := by
+  rfl
+
+/-- The restriction of the extension projection to the centralizer. -/
+def centralizerProjection (E : ExactExtension N G Q) :
+    Subgroup.centralizer
+      (E.inclusion.range : Set G) →* Q :=
+  E.projection.comp
+    (Subgroup.centralizer
+      (E.inclusion.range : Set G)).subtype
+
+theorem centralizerProjection_bijective_of_complete
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    Function.Bijective (centralizerProjection E) := by
+  have hc := complete_range_centralizer_complement E hN
+  have hdis :
+      Disjoint E.inclusion.range
+        (Subgroup.centralizer
+          (E.inclusion.range : Set G)) :=
+    hc.1.disjoint
+  constructor
+  · intro x y hxy
+    have hxy' :
+        E.projection (x : G) =
+          E.projection (y : G) := hxy
+    have hp :
+        E.projection ((x : G) * (y : G)⁻¹) = 1 := by
+      rw [map_mul, map_inv, hxy']
+      simp
+    have hzker :
+        (x : G) * (y : G)⁻¹ ∈ E.projection.ker :=
+      MonoidHom.mem_ker.mpr hp
+    have hr :
+        (x : G) * (y : G)⁻¹ ∈ E.inclusion.range :=
+      (le_of_eq E.exact) hzker
+    have hh :
+        (x : G) * (y : G)⁻¹ ∈
+          Subgroup.centralizer
+            (E.inclusion.range : Set G) :=
+      (Subgroup.centralizer
+          (E.inclusion.range : Set G)).mul_mem
+        x.property
+        ((Subgroup.centralizer
+            (E.inclusion.range : Set G)).inv_mem
+          y.property)
+    have hone :
+        (x : G) * (y : G)⁻¹ = 1 :=
+      (Subgroup.disjoint_def.mp hdis) hr hh
+    exact Subtype.ext (mul_inv_eq_one.mp hone)
+  · intro q
+    obtain ⟨g, hg⟩ :=
+      E.projection_surjective q
+    obtain ⟨x, hx⟩ := hc.1.2 g
+    refine ⟨x.2, ?_⟩
+    change E.projection (x.2 : G) = q
+    have hrker :
+        (x.1 : G) ∈ E.projection.ker := by
+      rw [E.exact]
+      exact x.1.property
+    have hpr :
+        E.projection (x.1 : G) = 1 :=
+      MonoidHom.mem_ker.mp hrker
+    have hprod := congrArg E.projection hx
+    change
+      E.projection
+          ((x.1 : G) * (x.2 : G)) =
+        E.projection g at hprod
+    simpa [hpr, hg] using hprod
+
+/-- On a complete kernel, the projection induces the promised isomorphism
+from the centralizer onto the quotient. -/
+noncomputable def centralizerProjectionMulEquivOfComplete
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    Subgroup.centralizer
+      (E.inclusion.range : Set G) ≃* Q :=
+  MulEquiv.ofBijective
+    (centralizerProjection E)
+    (centralizerProjection_bijective_of_complete E hN)
+
+@[simp]
+theorem centralizerProjectionMulEquivOfComplete_apply
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N)
+    (h : Subgroup.centralizer
+      (E.inclusion.range : Set G)) :
+    centralizerProjectionMulEquivOfComplete E hN h =
+      E.projection (h : G) := by
+  rfl
+
+/-- The explicit homomorphic section obtained by inverting the projection on
+the centralizer. -/
+noncomputable def sectionOfComplete
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    Q →* G :=
+  (Subgroup.centralizer
+      (E.inclusion.range : Set G)).subtype.comp
+    (centralizerProjectionMulEquivOfComplete E hN).symm.toMonoidHom
+
+@[simp]
+theorem projection_sectionOfComplete
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    E.projection.comp (sectionOfComplete E hN) =
+      MonoidHom.id Q := by
+  ext q
+  change
+    centralizerProjectionMulEquivOfComplete E hN
+        ((centralizerProjectionMulEquivOfComplete E hN).symm q) =
+      q
+  exact
+    (centralizerProjectionMulEquivOfComplete E hN).apply_symm_apply q
+
+/-- GT `it18`: an exact extension with complete kernel splits, and the
+canonical multiplication map identifies the kernel image times its
+centralizer with the middle group. -/
+theorem complete_splits_and_isInternalDirectProduct
+    (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
+    E.Splits ∧
+      Subgroup.IsInternalDirectProduct
+        E.inclusion.range
+        (Subgroup.centralizer
+          (E.inclusion.range : Set G)) := by
+  constructor
+  · exact
+      ⟨sectionOfComplete E hN,
+        projection_sectionOfComplete E hN⟩
+  · exact
+      ⟨directProductEquivOfComplete E hN,
+        directProductEquivOfComplete_apply E hN⟩
+
+end ExactExtension
+
 /-!
 ## Improvements for Mathlib
 
@@ -5165,18 +6082,658 @@ unproved proposition has been established.
   prerequisites.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
-* AUDIT-GAP: formalize the complete order-`2p` classification refinement
-  `ga13m`, not only the currently available consequences.
-* AUDIT-GAP: introduce a source-faithful extension interface and prove the
-  complete-group splitting result `it18`.
-* AUDIT-GAP: formalize the group-theoretic Jordan--Hölder theorem `ns02` and
-  the operator-group results `ns24`, `ns25`, `ns26`, and `ns29`.
-  The module theorem `r10` does not cover these group-theoretic statements.
-* AUDIT-GAP: formalize the remaining representation results `r17`, `r23`,
-  `r28`, `r32(b,c)`, `r34`, `r34a`, `r36`, and `r9e`, exposing the source's
+* AUDIT-GAP: formalize the remaining operator-group result `ns29`.
+* AUDIT-GAP: formalize the remaining representation results `r23`, `r28`,
+  `r34`, `r34a`, `r36`, and `r9e`, exposing the source's
   regular-character, multiplicity, centralizer, and inner-product clauses in
   declaration types.  Their structural prerequisites and the neighboring
   results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
 -/
 
+end GT
+
+namespace GT.GroupJordanHolder
+
+variable {G : Type*} [Group G]
+
+/-- `H` is a maximal proper normal subgroup of `K`, expressed by simplicity
+of the relative quotient. -/
+structure IsMaximalNormal (H K : Subgroup G) : Prop where
+  le : H ≤ K
+  normal : (H.subgroupOf K).Normal
+  simple : letI := normal; IsSimpleGroup (K ⧸ H.subgroupOf K)
+
+theorem IsMaximalNormal.lt {H K : Subgroup G}
+    (h : IsMaximalNormal H K) : H < K := by
+  refine lt_of_le_of_ne h.le ?_
+  intro heq
+  have htop : H.subgroupOf K = ⊤ :=
+    Subgroup.subgroupOf_eq_top.mpr (by simpa [heq])
+  letI := h.normal
+  haveI : IsSimpleGroup (K ⧸ H.subgroupOf K) := h.simple
+  have hn : H.subgroupOf K ≠ ⊤ :=
+    QuotientGroup.nontrivial_iff.mp inferInstance
+  exact hn htop
+
+theorem IsMaximalNormal.eq_or_eq {H K L : Subgroup G}
+    (h : IsMaximalNormal H K) (hLK : L ≤ K)
+    (hLN : (L.subgroupOf K).Normal) (hHL : H ≤ L) :
+    L = H ∨ L = K := by
+  letI := h.normal
+  haveI : IsSimpleGroup (K ⧸ H.subgroupOf K) := h.simple
+  let q := QuotientGroup.mk' (H.subgroupOf K)
+  have hq : Function.Surjective q := QuotientGroup.mk'_surjective _
+  have hmapN : ((L.subgroupOf K).map q).Normal := hLN.map q hq
+  rcases IsSimpleGroup.eq_bot_or_eq_top_of_normal _ hmapN with hbot | htop
+  · left
+    have hle : L.subgroupOf K ≤ H.subgroupOf K := by
+      rw [← QuotientGroup.ker_mk' (H.subgroupOf K),
+        ← Subgroup.map_eq_bot_iff]
+      exact hbot
+    apply le_antisymm
+    · intro x hx
+      have hx' : (⟨x, hLK hx⟩ : K) ∈ L.subgroupOf K := hx
+      exact hle hx'
+    · exact hHL
+  · right
+    have hkerle : q.ker ≤ L.subgroupOf K := by
+      rw [QuotientGroup.ker_mk']
+      intro x hx
+      exact hHL hx
+    have heq : L.subgroupOf K = ⊤ := by
+      calc
+        L.subgroupOf K = ((L.subgroupOf K).map q).comap q :=
+          (Subgroup.comap_map_eq_self hkerle).symm
+        _ = ⊤ := by rw [htop]; simp
+    exact le_antisymm hLK (Subgroup.subgroupOf_eq_top.mp heq)
+
+lemma sup_subgroupOf_normal {H K Z : Subgroup G}
+    (hH : H ≤ Z) (hK : K ≤ Z)
+    (hHN : (H.subgroupOf Z).Normal)
+    (hKN : (K.subgroupOf Z).Normal) :
+    ((H ⊔ K).subgroupOf Z).Normal := by
+  letI := hHN
+  letI := hKN
+  rw [Subgroup.subgroupOf_sup hH hK]
+  infer_instance
+
+theorem sup_eq_of_maximal {H K Z : Subgroup G}
+    (hH : IsMaximalNormal H Z) (hK : IsMaximalNormal K Z)
+    (hne : H ≠ K) :
+    H ⊔ K = Z := by
+  have hn : ((H ⊔ K).subgroupOf Z).Normal :=
+    sup_subgroupOf_normal hH.le hK.le hH.normal hK.normal
+  rcases hH.eq_or_eq (sup_le hH.le hK.le) hn le_sup_left with hs | hs
+  · have hKH : K ≤ H := by
+      rw [← hs]
+      exact le_sup_right
+    rcases hK.eq_or_eq hH.le hH.normal hKH with heq | htop
+    · exact (hne heq).elim
+    · exact (hH.lt.ne htop).elim
+  · exact hs
+
+lemma inf_subgroupOf_left_normal {x y : Subgroup G}
+    (h : (y.subgroupOf (x ⊔ y)).Normal) :
+    ((x ⊓ y).subgroupOf x).Normal := by
+  letI := h
+  have hn :=
+    Subgroup.inf_subgroupOf_inf_normal_of_left
+      (A' := y) (A := x ⊔ y) x
+  rw [show (x ⊔ y) ⊓ x = x from inf_eq_right.mpr le_sup_left] at hn
+  simpa [inf_comm] using hn
+
+noncomputable def secondIso (x y : Subgroup G)
+    (h : (y.subgroupOf (x ⊔ y)).Normal) :
+    letI := h
+    letI := inf_subgroupOf_left_normal h
+    ((x ⊔ y : Subgroup G) ⧸ y.subgroupOf (x ⊔ y)) ≃*
+      (x ⧸ (x ⊓ y).subgroupOf x) := by
+  letI := h
+  let hinf := inf_subgroupOf_left_normal h
+  letI := hinf
+  have heq : y.subgroupOf x = (x ⊓ y).subgroupOf x := by
+    ext z
+    simp
+  have hyx : (y.subgroupOf x).Normal := by
+    rw [heq]
+    exact hinf
+  letI := hyx
+  have hsup : x ⊔ y ≤ Subgroup.normalizer (y : Set G) :=
+    (Subgroup.normal_subgroupOf_iff_le_normalizer le_sup_right).mp h
+  exact
+    (QuotientGroup.quotientInfEquivProdNormalizerQuotient x y
+      (le_sup_left.trans hsup)).symm |>.trans
+        (QuotientGroup.quotientMulEquivOfEq heq)
+
+theorem inf_maximal_of_sup_maximal {x y : Subgroup G}
+    (_hx : IsMaximalNormal x (x ⊔ y))
+    (hy : IsMaximalNormal y (x ⊔ y)) :
+    IsMaximalNormal (x ⊓ y) x := by
+  let hn := inf_subgroupOf_left_normal hy.normal
+  refine ⟨inf_le_left, hn, ?_⟩
+  letI := hy.normal
+  letI := hn
+  haveI :
+      IsSimpleGroup
+        ((x ⊔ y : Subgroup G) ⧸ y.subgroupOf (x ⊔ y)) :=
+    hy.simple
+  exact (secondIso x y hy.normal).isSimpleGroup_congr.mp inferInstance
+
+/-- The factors represented by two adjacent subgroup pairs are isomorphic. -/
+def FactorsMulEquiv (p q : Subgroup G × Subgroup G) : Prop :=
+  ∃ hp : (p.1.subgroupOf p.2).Normal,
+    ∃ hq : (q.1.subgroupOf q.2).Normal,
+      letI := hp
+      letI := hq
+      Nonempty
+        ((p.2 ⧸ p.1.subgroupOf p.2) ≃*
+          (q.2 ⧸ q.1.subgroupOf q.2))
+
+lemma factorsMulEquiv_symm {p q : Subgroup G × Subgroup G} :
+    FactorsMulEquiv p q → FactorsMulEquiv q p := by
+  rintro ⟨hp, hq, ⟨e⟩⟩
+  exact ⟨hq, hp, ⟨e.symm⟩⟩
+
+lemma factorsMulEquiv_trans {p q r : Subgroup G × Subgroup G} :
+    FactorsMulEquiv p q → FactorsMulEquiv q r →
+      FactorsMulEquiv p r := by
+  rintro ⟨hp, hq, ⟨e⟩⟩ ⟨hq', hr, ⟨f⟩⟩
+  exact ⟨hp, hr, ⟨e.trans f⟩⟩
+
+noncomputable def quotientCongrUpper
+    (N : Subgroup G) {A B : Subgroup G}
+    (h : A = B) (hA : (N.subgroupOf A).Normal)
+    (hB : (N.subgroupOf B).Normal) :
+    letI := hA
+    letI := hB
+    (A ⧸ N.subgroupOf A) ≃* (B ⧸ N.subgroupOf B) := by
+  subst B
+  exact MulEquiv.refl _
+
+noncomputable def quotientCongrLower
+    (A : Subgroup G) {N M : Subgroup G}
+    (h : N = M) (hN : (N.subgroupOf A).Normal)
+    (hM : (M.subgroupOf A).Normal) :
+    letI := hN
+    letI := hM
+    (A ⧸ N.subgroupOf A) ≃* (A ⧸ M.subgroupOf A) := by
+  subst M
+  exact MulEquiv.refl _
+
+lemma factorsMulEquiv_secondIso {x y : Subgroup G}
+    (hx : IsMaximalNormal x (x ⊔ y)) :
+    FactorsMulEquiv (x, x ⊔ y) (x ⊓ y, y) := by
+  have hx' : (x.subgroupOf (y ⊔ x)).Normal := by
+    rw [sup_comm]
+    exact hx.normal
+  let hn := inf_subgroupOf_left_normal (x := y) (y := x) hx'
+  have hn' : ((x ⊓ y).subgroupOf y).Normal := by
+    simpa [inf_comm] using hn
+  refine ⟨hx.normal, hn', ?_⟩
+  letI := hx.normal
+  letI := hn'
+  let eA := quotientCongrUpper x (sup_comm y x) hx' hx.normal
+  let eB := quotientCongrLower y (inf_comm y x) hn hn'
+  exact ⟨eA.symm.trans ((secondIso y x hx').trans eB)⟩
+
+/-- The Jordan–Hölder lattice structure for relative normal subgroup factors. -/
+@[reducible] noncomputable def jordanHolderLattice
+    (G : Type*) [Group G] :
+    JordanHolderLattice (Subgroup G) where
+  IsMaximal := IsMaximalNormal
+  lt_of_isMaximal := IsMaximalNormal.lt
+  sup_eq_of_isMaximal := sup_eq_of_maximal
+  isMaximal_inf_left_of_isMaximal_sup :=
+    inf_maximal_of_sup_maximal
+  Iso := FactorsMulEquiv
+  iso_symm := factorsMulEquiv_symm
+  iso_trans := factorsMulEquiv_trans
+  second_iso := factorsMulEquiv_secondIso
+
+/-- A group composition series, indexed from its least subgroup to its greatest. -/
+abbrev Series (G : Type*) [Group G] :=
+  @CompositionSeries (Subgroup G) inferInstance
+    (jordanHolderLattice G)
+
+/-- GT `ns02` (Jordan–Hölder): two composition series with endpoints `⊥, ⊤`
+have equal length and isomorphic quotient factors up to a permutation. -/
+theorem jordan_holder (s t : Series G)
+    (hshead : s.head = ⊥) (hstail : s.last = ⊤)
+    (hthead : t.head = ⊥) (httail : t.last = ⊤) :
+    s.length = t.length ∧
+      ∃ σ : Fin s.length ≃ Fin t.length,
+        ∀ i : Fin s.length,
+          letI := (s.step i).normal
+          letI := (t.step (σ i)).normal
+          Nonempty
+            ((s i.succ ⧸
+                (s i.castSucc).subgroupOf (s i.succ)) ≃*
+              (t (σ i).succ ⧸
+                (t (σ i).castSucc).subgroupOf
+                  (t (σ i).succ))) := by
+  letI := jordanHolderLattice G
+  have h : CompositionSeries.Equivalent s t :=
+    CompositionSeries.jordan_holder s t
+      (hshead.trans hthead.symm)
+      (hstail.trans httail.symm)
+  refine
+    ⟨CompositionSeries.Equivalent.length_eq h, h.choose, ?_⟩
+  intro i
+  exact (h.choose_spec i).choose_spec.choose_spec
+
+end GT.GroupJordanHolder
+
+
+namespace GT
+namespace OperatorGroup
+
+open scoped Pointwise
+
+variable {A G G' G'' : Type*}
+  [Group A] [Group G] [Group G'] [Group G'']
+  [MulDistribMulAction A G] [MulDistribMulAction A G']
+  [MulDistribMulAction A G'']
+
+/-- A subgroup preserved by all operators. -/
+def IsInvariant (H : Subgroup G) : Prop :=
+  ∀ (a : A) {x : G}, x ∈ H → a • x ∈ H
+
+namespace IsInvariant
+
+protected theorem bot : IsInvariant (A := A) (⊥ : Subgroup G) := by
+  intro a x hx
+  rw [Subgroup.mem_bot] at hx ⊢
+  rw [hx]
+  exact map_one (MulDistribMulAction.toMonoidEnd A G a)
+
+protected theorem top : IsInvariant (A := A) (⊤ : Subgroup G) := by
+  simp [IsInvariant]
+
+theorem inf {H K : Subgroup G} (hH : IsInvariant (A := A) H)
+    (hK : IsInvariant (A := A) K) :
+    IsInvariant (A := A) (H ⊓ K) := by
+  intro a x hx
+  exact ⟨hH a hx.1, hK a hx.2⟩
+
+theorem sup {H K : Subgroup G} (hH : IsInvariant (A := A) H)
+    (hK : IsInvariant (A := A) K) :
+    IsInvariant (A := A) (H ⊔ K) := by
+  intro a x hx
+  have haH : a • H ≤ H := by
+    rintro _ ⟨y, hy, rfl⟩
+    exact hH a hy
+  have haK : a • K ≤ K := by
+    rintro _ ⟨y, hy, rfl⟩
+    exact hK a hy
+  have ha : a • (H ⊔ K) ≤ H ⊔ K := by
+    rw [Subgroup.smul_sup]
+    exact sup_le (haH.trans le_sup_left) (haK.trans le_sup_right)
+  exact ha (Subgroup.smul_mem_pointwise_smul x a (H ⊔ K) hx)
+
+/-- The action restricted to an invariant subgroup. -/
+@[reducible] protected def subgroupMulDistribMulAction (H : Subgroup G)
+    (hH : IsInvariant (A := A) H) : MulDistribMulAction A H where
+  smul a x := ⟨a • (x : G), hH a x.2⟩
+  one_smul x := Subtype.ext (one_smul A (x : G))
+  mul_smul a b x := Subtype.ext (mul_smul a b (x : G))
+  smul_one a :=
+    Subtype.ext (map_one (MulDistribMulAction.toMonoidEnd A G a))
+  smul_mul a x y :=
+    Subtype.ext
+      (map_mul (MulDistribMulAction.toMonoidEnd A G a)
+        (x : G) (y : G))
+
+@[simp] theorem subgroup_smul_coe (H : Subgroup G)
+    (hH : IsInvariant (A := A) H) (a : A) (x : H) :
+    letI := hH.subgroupMulDistribMulAction H
+    ((a • x : H) : G) = a • (x : G) :=
+  rfl
+
+/-- Invariance supplies the quotient-action condition. -/
+@[reducible] protected def quotientAction (N : Subgroup G)
+    (hN : IsInvariant (A := A) N) :
+    MulAction.QuotientAction A N where
+  inv_mul_mem a x y hxy := by
+    have hi : (a • x)⁻¹ = a • x⁻¹ :=
+      (map_inv (MulDistribMulAction.toMonoidEnd A G a) x).symm
+    have hm : (a • x⁻¹) * (a • y) = a • (x⁻¹ * y) :=
+      (map_mul (MulDistribMulAction.toMonoidEnd A G a) x⁻¹ y).symm
+    rw [hi, hm]
+    exact hN a hxy
+
+/-- The action induced on a quotient by an invariant normal subgroup. -/
+@[reducible] protected def quotientMulDistribMulAction
+    (N : Subgroup G) [N.Normal] (hN : IsInvariant (A := A) N) :
+    MulDistribMulAction A (G ⧸ N) := by
+  letI : MulAction.QuotientAction A N := hN.quotientAction N
+  letI : MulAction A (G ⧸ N) := MulAction.quotient A N
+  exact
+    { smul_one := fun a => by
+        change QuotientGroup.mk' N (a • (1 : G)) =
+          QuotientGroup.mk' N 1
+        exact congrArg (QuotientGroup.mk' N)
+          (map_one (MulDistribMulAction.toMonoidEnd A G a))
+      smul_mul := fun a x y => by
+        induction x using QuotientGroup.induction_on with
+        | _ x =>
+          induction y using QuotientGroup.induction_on with
+          | _ y =>
+            change QuotientGroup.mk' N (a • (x * y)) =
+              QuotientGroup.mk' N (a • x) *
+                QuotientGroup.mk' N (a • y)
+            calc
+              _ = QuotientGroup.mk' N ((a • x) * (a • y)) :=
+                congrArg (QuotientGroup.mk' N)
+                  (map_mul (MulDistribMulAction.toMonoidEnd A G a) x y)
+              _ = _ := map_mul (QuotientGroup.mk' N) _ _ }
+
+@[simp] theorem quotient_smul_mk (N : Subgroup G) [N.Normal]
+    (hN : IsInvariant (A := A) N) (a : A) (x : G) :
+    letI := hN.quotientMulDistribMulAction N
+    a • QuotientGroup.mk' N x = QuotientGroup.mk' N (a • x) :=
+  rfl
+
+/-- The kernel of an equivariant group homomorphism is invariant. -/
+theorem ker (f : G →*[A] G') :
+    IsInvariant (A := A) f.toMonoidHom.ker := by
+  intro a x hx
+  rw [MonoidHom.mem_ker]
+  change f.toFun (a • x) = 1
+  rw [f.map_smul' a x]
+  change a • f.toFun x = 1
+  rw [show f.toFun x = 1 from MonoidHom.mem_ker.mp hx]
+  exact map_one (MulDistribMulAction.toMonoidEnd A G' a)
+
+/-- The range of an equivariant group homomorphism is invariant. -/
+theorem range (f : G →*[A] G') :
+    IsInvariant (A := A) f.toMonoidHom.range := by
+  intro a y
+  rintro ⟨x, rfl⟩
+  refine ⟨a • x, ?_⟩
+  change f.toFun (a • x) = a • f.toFun x
+  exact f.map_smul' a x
+
+/-- Inverse images of invariant subgroups are invariant. -/
+theorem comap (f : G →*[A] G') {K : Subgroup G'}
+    (hK : IsInvariant (A := A) K) :
+    IsInvariant (A := A) (K.comap f.toMonoidHom) := by
+  intro a x hx
+  change f.toFun (a • x) ∈ K
+  rw [f.map_smul' a x]
+  exact hK a hx
+
+/-- Direct images of invariant subgroups are invariant. -/
+theorem map (f : G →*[A] G') {H : Subgroup G}
+    (hH : IsInvariant (A := A) H) :
+    IsInvariant (A := A) (H.map f.toMonoidHom) := by
+  intro a y
+  rintro ⟨x, hx, rfl⟩
+  refine ⟨a • x, hH a hx, ?_⟩
+  change f.toFun (a • x) = a • f.toFun x
+  exact f.map_smul' a x
+
+/-- An invariant subgroup cuts out an invariant subgroup of every invariant subgroup. -/
+theorem subgroupOf {H N : Subgroup G}
+    (hH : IsInvariant (A := A) H)
+    (hN : IsInvariant (A := A) N) :
+    letI := hH.subgroupMulDistribMulAction H
+    IsInvariant (A := A) (N.subgroupOf H) := by
+  letI := hH.subgroupMulDistribMulAction H
+  intro a x hx
+  change a • (x : G) ∈ N
+  exact hN a hx
+
+end IsInvariant
+
+/-- A multiplicative equivalence commuting with an operator action. -/
+structure Equiv (A : Type*) (G : Type*) (G' : Type*)
+    [Group A] [Group G] [Group G']
+    [MulDistribMulAction A G] [MulDistribMulAction A G']
+    extends G ≃* G' where
+  map_smul' :
+    ∀ (a : A) (x : G), toMulEquiv (a • x) = a • toMulEquiv x
+
+namespace Equiv
+
+instance : CoeFun (Equiv A G G') (fun _ => G → G') :=
+  ⟨fun e => e.toMulEquiv⟩
+
+@[simp] theorem map_smul (e : Equiv A G G') (a : A) (x : G) :
+    e (a • x) = a • e x :=
+  e.map_smul' a x
+
+protected theorem bijective (e : Equiv A G G') :
+    Function.Bijective e :=
+  e.toMulEquiv.bijective
+
+/-- The equivariant homomorphism underlying an equivariant equivalence. -/
+def toHom (e : Equiv A G G') : G →*[A] G' where
+  toFun := e.toMulEquiv
+  map_smul' := e.map_smul'
+  map_one' := e.toMulEquiv.map_one
+  map_mul' := e.toMulEquiv.map_mul
+
+/-- The inverse of an equivariant multiplicative equivalence is equivariant. -/
+protected def symm (e : Equiv A G G') : Equiv A G' G where
+  toMulEquiv := e.toMulEquiv.symm
+  map_smul' := by
+    intro a y
+    apply e.toMulEquiv.injective
+    symm
+    rw [e.toMulEquiv.apply_symm_apply]
+    rw [map_smul, e.toMulEquiv.apply_symm_apply]
+
+/-- Composition of equivariant multiplicative equivalences. -/
+protected def trans (e : Equiv A G G') (e' : Equiv A G' G'') :
+    Equiv A G G'' where
+  toMulEquiv := e.toMulEquiv.trans e'.toMulEquiv
+  map_smul' := by
+    intro a x
+    change e' (e (a • x)) = a • e' (e x)
+    rw [map_smul, map_smul]
+
+end Equiv
+
+/-- The quotient projection as an equivariant homomorphism. -/
+def quotientHom (N : Subgroup G) [N.Normal]
+    (hN : IsInvariant (A := A) N) :
+    letI := hN.quotientMulDistribMulAction N
+    G →*[A] G ⧸ N := by
+  letI := hN.quotientMulDistribMulAction N
+  exact
+    { toFun := QuotientGroup.mk' N
+      map_smul' := by intro a x; rfl
+      map_one' := map_one (QuotientGroup.mk' N)
+      map_mul' := map_mul (QuotientGroup.mk' N) }
+
+/-- Inclusion of an invariant subgroup as an equivariant homomorphism. -/
+def subgroupSubtypeHom (H : Subgroup G)
+    (hH : IsInvariant (A := A) H) :
+    letI := hH.subgroupMulDistribMulAction H
+    H →*[A] G := by
+  letI := hH.subgroupMulDistribMulAction H
+  exact
+    { toFun := H.subtype
+      map_smul' := by intro a x; rfl
+      map_one' := rfl
+      map_mul' := by intros; rfl }
+
+/-- The equivariant first-isomorphism equivalence from the kernel quotient to the range. -/
+noncomputable def quotientKerEquivRange (f : G →*[A] G') :
+    let hker := IsInvariant.ker f
+    let hrange := IsInvariant.range f
+    letI : f.toMonoidHom.ker.Normal := MonoidHom.normal_ker _
+    letI := hker.quotientMulDistribMulAction f.toMonoidHom.ker
+    letI := hrange.subgroupMulDistribMulAction f.toMonoidHom.range
+    Equiv A (G ⧸ f.toMonoidHom.ker) f.toMonoidHom.range := by
+  let hker := IsInvariant.ker f
+  let hrange := IsInvariant.range f
+  letI : f.toMonoidHom.ker.Normal := MonoidHom.normal_ker _
+  letI := hker.quotientMulDistribMulAction f.toMonoidHom.ker
+  letI := hrange.subgroupMulDistribMulAction f.toMonoidHom.range
+  refine
+    { toMulEquiv :=
+        QuotientGroup.quotientKerEquivRange f.toMonoidHom
+      map_smul' := ?_ }
+  intro a q
+  induction q using QuotientGroup.induction_on with
+  | _ x =>
+    apply Subtype.ext
+    exact f.map_smul' a x
+
+/-- GT `ns24`: the equivariant first isomorphism theorem. -/
+theorem firstIsomorphism (f : G →*[A] G') :
+    let N := f.toMonoidHom.ker
+    let R := f.toMonoidHom.range
+    let hN := IsInvariant.ker f
+    let hR := IsInvariant.range f
+    letI : N.Normal := MonoidHom.normal_ker _
+    letI := hN.quotientMulDistribMulAction N
+    letI := hR.subgroupMulDistribMulAction R
+    N.Normal ∧
+      IsInvariant (A := A) N ∧
+      IsInvariant (A := A) R ∧
+      Function.Surjective (quotientHom N hN) ∧
+      Function.Bijective (quotientKerEquivRange f) ∧
+      Function.Injective (subgroupSubtypeHom R hR) ∧
+      ((subgroupSubtypeHom R hR).toMonoidHom.comp
+        (quotientKerEquivRange f).toMulEquiv.toMonoidHom).comp
+          (quotientHom N hN).toMonoidHom = f.toMonoidHom := by
+  dsimp only
+  letI : f.toMonoidHom.ker.Normal := MonoidHom.normal_ker _
+  let hN := IsInvariant.ker f
+  let hR := IsInvariant.range f
+  letI := hN.quotientMulDistribMulAction f.toMonoidHom.ker
+  letI := hR.subgroupMulDistribMulAction f.toMonoidHom.range
+  refine
+    ⟨inferInstance, hN, hR, QuotientGroup.mk'_surjective _,
+      (quotientKerEquivRange f).bijective,
+      Subgroup.subtype_injective _, ?_⟩
+  ext x
+  rfl
+
+/-- The equivariant canonical equivalence in the second isomorphism theorem. -/
+noncomputable def quotientInfEquivSupQuotient
+    (H N : Subgroup G) [N.Normal]
+    (hH : IsInvariant (A := A) H)
+    (hN : IsInvariant (A := A) N) :
+    let hI := hH.subgroupOf hN
+    let hS := hH.sup hN
+    let hNS := hS.subgroupOf hN
+    letI := hH.subgroupMulDistribMulAction H
+    letI : (N.subgroupOf H).Normal := Subgroup.normal_subgroupOf
+    letI := hI.quotientMulDistribMulAction (N.subgroupOf H)
+    letI := hS.subgroupMulDistribMulAction (H ⊔ N)
+    letI : (N.subgroupOf (H ⊔ N)).Normal :=
+      Subgroup.normal_subgroupOf
+    letI :=
+      hNS.quotientMulDistribMulAction (N.subgroupOf (H ⊔ N))
+    Equiv A (H ⧸ N.subgroupOf H)
+      ((H ⊔ N : Subgroup G) ⧸ N.subgroupOf (H ⊔ N)) := by
+  let hI := hH.subgroupOf hN
+  let hS := hH.sup hN
+  let hNS := hS.subgroupOf hN
+  letI := hH.subgroupMulDistribMulAction H
+  letI : (N.subgroupOf H).Normal := Subgroup.normal_subgroupOf
+  letI := hI.quotientMulDistribMulAction (N.subgroupOf H)
+  letI := hS.subgroupMulDistribMulAction (H ⊔ N)
+  letI : (N.subgroupOf (H ⊔ N)).Normal :=
+    Subgroup.normal_subgroupOf
+  letI :=
+    hNS.quotientMulDistribMulAction (N.subgroupOf (H ⊔ N))
+  refine
+    { toMulEquiv :=
+        QuotientGroup.quotientInfEquivProdNormalQuotient H N
+      map_smul' := ?_ }
+  intro a q
+  induction q using QuotientGroup.induction_on with
+  | _ x => rfl
+
+/-- GT `ns25`: the equivariant second isomorphism theorem. -/
+theorem secondIsomorphism (H N : Subgroup G) [N.Normal]
+    (hH : IsInvariant (A := A) H)
+    (hN : IsInvariant (A := A) N) :
+    let hI := hH.subgroupOf hN
+    let hS := hH.sup hN
+    let hNS := hS.subgroupOf hN
+    letI := hH.subgroupMulDistribMulAction H
+    letI : (N.subgroupOf H).Normal := Subgroup.normal_subgroupOf
+    letI := hI.quotientMulDistribMulAction (N.subgroupOf H)
+    letI := hS.subgroupMulDistribMulAction (H ⊔ N)
+    letI : (N.subgroupOf (H ⊔ N)).Normal :=
+      Subgroup.normal_subgroupOf
+    letI :=
+      hNS.quotientMulDistribMulAction (N.subgroupOf (H ⊔ N))
+    (N.subgroupOf H).Normal ∧
+      IsInvariant (A := A) (N.subgroupOf H) ∧
+      (N.subgroupOf H).map H.subtype = H ⊓ N ∧
+      IsInvariant (A := A) (H ⊔ N) ∧
+      (↑(H ⊔ N) : Set G) =
+        (H : Set G) * (N : Set G) ∧
+      Function.Bijective
+        (quotientInfEquivSupQuotient H N hH hN) ∧
+      ∀ h : H,
+        quotientInfEquivSupQuotient H N hH hN
+            (QuotientGroup.mk' (N.subgroupOf H) h) =
+          QuotientGroup.mk' (N.subgroupOf (H ⊔ N))
+            (⟨(h : G),
+              (show H ≤ H ⊔ N from le_sup_left) h.2⟩ :
+              (H ⊔ N : Subgroup G)) := by
+  dsimp only
+  let hI := hH.subgroupOf hN
+  let hS := hH.sup hN
+  let hNS := hS.subgroupOf hN
+  letI := hH.subgroupMulDistribMulAction H
+  letI : (N.subgroupOf H).Normal := Subgroup.normal_subgroupOf
+  letI := hI.quotientMulDistribMulAction (N.subgroupOf H)
+  letI := hS.subgroupMulDistribMulAction (H ⊔ N)
+  letI : (N.subgroupOf (H ⊔ N)).Normal :=
+    Subgroup.normal_subgroupOf
+  letI :=
+    hNS.quotientMulDistribMulAction (N.subgroupOf (H ⊔ N))
+  refine
+    ⟨inferInstance, hI, ?_, hS, Subgroup.mul_normal H N,
+      (quotientInfEquivSupQuotient H N hH hN).bijective, ?_⟩
+  · ext x
+    constructor
+    · rintro ⟨y, hy, rfl⟩
+      exact ⟨y.2, hy⟩
+    · intro hx
+      exact ⟨⟨x, hx.1⟩, hx.2, rfl⟩
+  · intro h
+    rfl
+
+/-- GT `ns26`: a surjective equivariant homomorphism carries the ordinary
+subgroup correspondence to the invariant-subgroup correspondence. -/
+theorem invariantSubgroupCorrespondenceOfSurjective
+    (f : G →*[A] G') (hf : Function.Surjective f) :
+    (∀ H : Subgroup G, f.toMonoidHom.ker ≤ H →
+      (H.map f.toMonoidHom).comap f.toMonoidHom = H) ∧
+    (∀ K : Subgroup G',
+      (K.comap f.toMonoidHom).map f.toMonoidHom = K) ∧
+    (∀ (H : Subgroup G) (_ : f.toMonoidHom.ker ≤ H),
+      IsInvariant (A := A) H ↔
+        IsInvariant (A := A) (H.map f.toMonoidHom)) ∧
+    (∀ K : Subgroup G',
+      IsInvariant (A := A) K ↔
+        IsInvariant (A := A) (K.comap f.toMonoidHom)) := by
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro H hker
+    exact Subgroup.comap_map_eq_self hker
+  · intro K
+    exact Subgroup.map_comap_eq_self_of_surjective hf K
+  · intro H hker
+    constructor
+    · exact IsInvariant.map f
+    · intro hm
+      have hc := IsInvariant.comap f hm
+      rwa [Subgroup.comap_map_eq_self hker] at hc
+  · intro K
+    constructor
+    · exact IsInvariant.comap f
+    · intro hc
+      have hm := IsInvariant.map f hc
+      rwa [Subgroup.map_comap_eq_self_of_surjective hf K] at hm
+
+end OperatorGroup
 end GT
