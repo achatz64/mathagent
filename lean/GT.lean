@@ -6142,6 +6142,60 @@ theorem centralizer_isFiniteProduct_simple
     infer_instance
   exact ⟨n, D, d, hD, hAlg, hd, hsimple, ⟨e⟩, inferInstance⟩
 
+/-- Every two-sided ideal is the internal direct sum of the minimal two-sided
+ideals it contains.  The summands are indexed canonically by the corresponding
+isotypic components. -/
+theorem twoSidedIdeal_linearEquiv_minimalComponents
+    {A : Type*} [Ring A] [IsSemisimpleRing A]
+    (I : Ideal A) (hI : I.IsTwoSided) :
+    ∃ S : Set (isotypicComponents A A),
+      (∀ c : S, IsMinimalTwoSidedIdeal (c.1 : Ideal A)) ∧
+      ∃ e :
+          (Π₀ c : S,
+            Submodule.comap (I : Submodule A A).subtype c.1.1) ≃ₗ[A]
+            (I : Submodule A A),
+        (∀ (c : S) (x :
+            Submodule.comap (I : Submodule A A).subtype c.1.1),
+          e (DFinsupp.single c x) = x) := by
+  classical
+  let S : Set (isotypicComponents A A) := {c | c.1 ≤ I}
+  have hS :
+      iSupIndep (fun c : S => (c.1 : Submodule A A)) :=
+    ((sSupIndep_iff _).mp
+      (sSupIndep_isotypicComponents A A)).comp Subtype.coe_injective
+  have htop :
+      (⨆ c : S, (c.1 : Submodule A A)) = (I : Submodule A A) := by
+    apply le_antisymm
+    · exact iSup_le fun c => c.2
+    · obtain ⟨T, hT, hTI⟩ :=
+        twoSidedIdeal_eq_sSup_isotypicComponents I hI
+      rw [hTI]
+      refine sSup_le ?_
+      intro c hc
+      have hcI : c ≤ (I : Submodule A A) := by
+        rw [hTI]
+        exact le_sSup hc
+      exact le_iSup_of_le ⟨⟨c, hT hc⟩, hcI⟩ le_rfl
+  let hds :=
+    DirectSum.isInternal_biSup_submodule_of_iSupIndep
+      (S : Set (isotypicComponents A A)) hS
+  rw [← iSup_subtype'' S
+    (fun c : isotypicComponents A A => (c.1 : Submodule A A)), htop] at hds
+  refine ⟨S, ?_, ?_⟩
+  · intro c
+    exact (minimalTwoSidedIdeal_iff_mem_isotypicComponents
+      (c.1 : Ideal A)).mpr c.1.2
+  · let p := fun c : S =>
+      Submodule.comap (I : Submodule A A).subtype c.1.1
+    let f := DirectSum.coeLinearMap p
+    let e := LinearEquiv.ofBijective f hds
+    refine ⟨e, ?_⟩
+    intro c x
+    change f (DFinsupp.single c x) = x
+    change DirectSum.coeLinearMap p
+      ((DirectSum.lof A S (fun i => p i) c) x) = (x : I)
+    exact DirectSum.toModule_lof (φ := fun i => (p i).subtype) A c x
+
 /-!
 ## Improvements for Mathlib
 
@@ -6208,7 +6262,7 @@ unproved proposition has been established.
   direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the remaining operator-group result `ns29`.
 * AUDIT-GAP: formalize the remaining representation results `r23`, `r34`,
-  `r34a`, `r36`, and `r9e`, exposing the source's
+  `r34a`, and `r36`, exposing the source's
   regular-character, multiplicity, centralizer, and inner-product clauses in
   declaration types.  Their structural prerequisites and the neighboring
   results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
