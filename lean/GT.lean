@@ -6196,6 +6196,41 @@ theorem twoSidedIdeal_linearEquiv_minimalComponents
       ((DirectSum.lof A S (fun i => p i) c) x) = (x : I)
     exact DirectSum.toModule_lof (φ := fun i => (p i).subtype) A c x
 
+universe u v
+
+variable {F : Type u} [Field F]
+variable {D : Type v} [DivisionRing D] [Algebra F D]
+
+/-- Matrix coordinates identify the opposite endomorphism ring of the
+standard column module. -/
+noncomputable def matrixColumnEndOpposite (n : ℕ) :
+    Matrix (Fin n) (Fin n) D ≃ₐ[F]
+      (Module.End D (Fin n → D))ᵐᵒᵖ :=
+  matrixAlgEquivEndVecMulOpposite F
+
+theorem Representation.nonempty_equiv_of_asModule_linearEquiv
+    {k G V W : Type*} [Field k] [Group G]
+    [AddCommGroup V] [Module k V]
+    [AddCommGroup W] [Module k W]
+    (ρ : Representation k G V) (σ : Representation k G W)
+    (e : Representation.asModule ρ ≃ₗ[MonoidAlgebra k G]
+      Representation.asModule σ) :
+    Nonempty (ρ.Equiv σ) := by
+  classical
+  let f : V ≃ₗ[k] W :=
+    (ρ.asModuleEquiv.symm.trans
+      (LinearEquiv.ofBijective (e.toLinearMap.restrictScalars k)
+        ⟨e.injective, e.surjective⟩)).trans σ.asModuleEquiv
+  refine ⟨Representation.Equiv.mk f ?_⟩
+  intro g
+  apply LinearMap.ext
+  intro x
+  change f (ρ g x) = σ g (f x)
+  dsimp [f]
+  rw [ρ.asModuleEquiv_symm_map_rho, e.map_smul]
+  rw [σ.asModuleEquiv_map_smul, σ.asAlgebraHom_of]
+
+
 /-!
 ## Improvements for Mathlib
 
