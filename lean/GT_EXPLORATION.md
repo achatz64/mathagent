@@ -150,6 +150,8 @@ not be axiomatized.
 
 ## Semantic-audit correction pass
 
+This is done by a separate agent, likely to be implemented as extension. How do we add source hooks?
+
 ### Semantic faithfulness
 
 - Source claims should be visible in Lean types, not only comments or proofs.
@@ -177,9 +179,10 @@ existence, equations, uniqueness, preserved structure, hypotheses, and
 corollaries. A source hook was kept on a declaration only when its type exposed
 the relevant obligation.
 The audit found both missing wrappers and claims requiring new proofs. The
-completed target now exposes all actionable clauses, including invariant-factor
-existence and uniqueness for `it21` and the simple-module enumeration and
-character basis for `r32(a)`, `r35`, and `r39`. No `AUDIT-GAP` remains.
+target now exposes invariant-factor existence and source-facing uniqueness
+from adjacent divisibility, full-decomposition elementary-divisor uniqueness,
+and the simple-module enumeration and character basis for `r32(a)`, `r35`, and
+`r39`. No `AUDIT-GAP` remains.
 
 The durable lesson is that absence of a statement-compatible Mathlib theorem is
 not itself a blocker: use lower-level APIs to formalize the source proof, while

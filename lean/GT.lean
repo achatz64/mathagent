@@ -1411,6 +1411,34 @@ theorem CommGroup.freeRank_eq_of_mulEquiv
     (e : G ≃* H) : CommGroup.freeRank G = CommGroup.freeRank H :=
   CommGroup.freeRank_congr e
 
+/-- Adjacent divisibility in a finite sequence implies divisibility of
+every earlier term into every later term. -/
+theorem Fin.dvd_of_adjacent {s : ℕ} (n : Fin s → ℕ)
+    (h : ∀ i : Fin (s - 1),
+      n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) :
+    ∀ i j, i ≤ j → n i ∣ n j := by
+  cases s with
+  | zero => intro i; exact Fin.elim0 i
+  | succ s =>
+      intro i j hij
+      induction j using Fin.induction generalizing i with
+      | zero =>
+          have hi : i = 0 := Fin.ext (Nat.eq_zero_of_le_zero hij)
+          subst i
+          exact Nat.dvd_refl _
+      | succ j ih =>
+          by_cases hieq : i = j.succ
+          · subst i
+            exact Nat.dvd_refl _
+          · have hile : i ≤ j.castSucc := by
+              apply Fin.mk_le_mk.mpr
+              have hvle : i.1 ≤ j.1 + 1 := hij
+              have hvne : i.1 ≠ j.1 + 1 := fun hv => hieq (Fin.ext hv)
+              omega
+            apply Nat.dvd_trans (ih i hile)
+            have hadj := h ⟨j.1, by omega⟩
+            convert hadj using 1 <;> congr 1
+
 /-- GT `it21(b)`: a divisibility-ordered decomposition into nontrivial
 finite cyclic groups has unique invariant factors.  The conclusion includes
 the number of factors and pointwise equality after transporting along that
@@ -1418,12 +1446,16 @@ equality. -/
 theorem CommGroup.invariantFactors_unique
     {s t : ℕ} (n : Fin s → ℕ) (m : Fin t → ℕ)
     (hn₂ : ∀ i, 1 < n i) (hm₂ : ∀ j, 1 < m j)
-    (hn_dvd : ∀ i j, i ≤ j → n i ∣ n j)
-    (hm_dvd : ∀ i j, i ≤ j → m i ∣ m j)
+    (hn_dvd : ∀ i : Fin (s - 1),
+      n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩)
+    (hm_dvd : ∀ i : Fin (t - 1),
+      m ⟨i.1, by omega⟩ ∣ m ⟨i.1 + 1, by omega⟩)
     (h : ((i : Fin s) → Multiplicative (ZMod (n i))) ≃*
       ((j : Fin t) → Multiplicative (ZMod (m j)))) :
     ∃ hst : s = t, ∀ i, n i = m (Fin.cast hst i) := by
   classical
+  have hn_dvd_all := Fin.dvd_of_adjacent n hn_dvd
+  have hm_dvd_all := Fin.dvd_of_adjacent m hm_dvd
   have hn0 (i : Fin s) : n i ≠ 0 := ne_of_gt (zero_lt_one.trans (hn₂ i))
   have hm0 (j : Fin t) : m j ≠ 0 := ne_of_gt (zero_lt_one.trans (hm₂ j))
   have hprofile (p : ℕ) (hp : p.Prime) (k : ℕ) :=
@@ -1435,7 +1467,7 @@ theorem CommGroup.invariantFactors_unique
     let i0 : Fin s := ⟨0, hspos⟩
     obtain ⟨p, hp, hpn⟩ := Nat.exists_prime_and_dvd (ne_of_gt (hn₂ i0))
     have hpall (i : Fin s) : p ∣ n i :=
-      hpn.trans (hn_dvd i0 i (by change 0 ≤ i.val; omega))
+      hpn.trans (hn_dvd_all i0 i (by change 0 ≤ i.val; omega))
     have hvpos (i : Fin s) : 0 < (n i).factorization p :=
       hp.factorization_pos_of_dvd (hn0 i) (hpall i)
     have hsumeq : (∑ i : Fin s, min ((n i).factorization p) 1) = s := by
@@ -1458,7 +1490,7 @@ theorem CommGroup.invariantFactors_unique
     let j0 : Fin t := ⟨0, htpos⟩
     obtain ⟨p, hp, hpm⟩ := Nat.exists_prime_and_dvd (ne_of_gt (hm₂ j0))
     have hpall (j : Fin t) : p ∣ m j :=
-      hpm.trans (hm_dvd j0 j (by change 0 ≤ j.val; omega))
+      hpm.trans (hm_dvd_all j0 j (by change 0 ≤ j.val; omega))
     have hvpos (j : Fin t) : 0 < (m j).factorization p :=
       hp.factorization_pos_of_dvd (hm0 j) (hpall j)
     have hsumeq : (∑ j : Fin t, min ((m j).factorization p) 1) = t := by
@@ -1483,10 +1515,10 @@ theorem CommGroup.invariantFactors_unique
   by_cases hp : p.Prime
   · have hnmono : Monotone (fun i : Fin s => (n i).factorization p) := by
       intro a b hab
-      exact ((Nat.factorization_le_iff_dvd (hn0 a) (hn0 b)).mpr (hn_dvd a b hab)) p
+      exact ((Nat.factorization_le_iff_dvd (hn0 a) (hn0 b)).mpr (hn_dvd_all a b hab)) p
     have hmmono : Monotone (fun i : Fin s => (m i).factorization p) := by
       intro a b hab
-      exact ((Nat.factorization_le_iff_dvd (hm0 a) (hm0 b)).mpr (hm_dvd a b hab)) p
+      exact ((Nat.factorization_le_iff_dvd (hm0 a) (hm0 b)).mpr (hm_dvd_all a b hab)) p
     have htail (k : ℕ) :
         (Finset.univ.filter fun i : Fin s => k < (n i).factorization p).card =
           (Finset.univ.filter fun i : Fin s => k < (m i).factorization p).card := by
@@ -1594,8 +1626,10 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
     (G : Type*) [CommGroup G] [Group.FG G]
     {r₁ r₂ s t : ℕ} (n : Fin s → ℕ) (m : Fin t → ℕ)
     (hn₂ : ∀ i, 1 < n i) (hm₂ : ∀ j, 1 < m j)
-    (hn_dvd : ∀ i j, i ≤ j → n i ∣ n j)
-    (hm_dvd : ∀ i j, i ≤ j → m i ∣ m j)
+    (hn_dvd : ∀ i : Fin (s - 1),
+      n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩)
+    (hm_dvd : ∀ i : Fin (t - 1),
+      m ⟨i.1, by omega⟩ ∣ m ⟨i.1 + 1, by omega⟩)
     (e₁ : G ≃* (Fin r₁ → Multiplicative ℤ) ×
       ((i : Fin s) → Multiplicative (ZMod (n i))))
     (e₂ : G ≃* (Fin r₂ → Multiplicative ℤ) ×
@@ -1617,6 +1651,44 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
     (f₁.symm.trans f₂)⟩
   exact (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
     (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂)
+
+/-- GT `it21(a,c)`, full-decomposition elementary-divisor uniqueness:
+two prime-power decompositions have the same free rank and the same
+multiplicity for every elementary divisor `q^k`. -/
+theorem CommGroup.elementaryDivisors_unique_of_full_decompositions
+    (G : Type*) [CommGroup G] [Group.FG G]
+    {r₁ r₂ : ℕ} {ι κ : Type*} [Fintype ι] [Fintype κ]
+    (p e : ι → ℕ) (q f : κ → ℕ)
+    (hp : ∀ i, Nat.Prime (p i)) (hq : ∀ j, Nat.Prime (q j))
+    (he : ∀ i, 0 < e i) (hf : ∀ j, 0 < f j)
+    (e₁ : G ≃* (Fin r₁ → Multiplicative ℤ) ×
+      ((i : ι) → Multiplicative (ZMod (p i ^ e i))))
+    (e₂ : G ≃* (Fin r₂ → Multiplicative ℤ) ×
+      ((j : κ) → Multiplicative (ZMod (q j ^ f j)))) :
+    r₁ = r₂ ∧ ∀ r k, r.Prime →
+      (Finset.univ.filter fun i => p i = r ∧ e i = k).card =
+        (Finset.univ.filter fun j => q j = r ∧ f j = k).card := by
+  letI : ∀ i, NeZero (p i ^ e i) := fun i =>
+    ⟨pow_ne_zero _ (hp i).ne_zero⟩
+  letI : ∀ j, NeZero (q j ^ f j) := fun j =>
+    ⟨pow_ne_zero _ (hq j).ne_zero⟩
+  let hT₁ : Monoid.IsTorsion
+      ((i : ι) → Multiplicative (ZMod (p i ^ e i))) :=
+    isTorsion_of_finite
+  let hT₂ : Monoid.IsTorsion
+      ((j : κ) → Multiplicative (ZMod (q j ^ f j))) :=
+    isTorsion_of_finite
+  let g₁ := CommGroup.torsionFactorMulEquiv G
+    (Fin r₁ → Multiplicative ℤ)
+    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) hT₁ e₁
+  let g₂ := CommGroup.torsionFactorMulEquiv G
+    (Fin r₂ → Multiplicative ℤ)
+    ((j : κ) → Multiplicative (ZMod (q j ^ f j))) hT₂ e₂
+  refine ⟨(CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
+    (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂), ?_⟩
+  intro r k hr
+  exact CommGroup.card_primePower_factors_eq_of_mulEquiv
+    p e q f hp hq he hf (g₁.symm.trans g₂) r k hr
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
 finite commutative group is a finite product of nontrivial finite cyclic
