@@ -479,6 +479,10 @@ rg -n '\b(sorry|admit|gap)\b' GT.lean
 rg -n '^axiom ' GT.lean
 ```
 
+## Obligations to Mathlib
+
+When a theorem in Mathlib can be extended to a stronger version, then note it with possible proofs and references in the output Lean file under section "Improvements for Mathlib".
+
 ## Current conclusions
 
 1. Semantic retrieval is most useful as a vocabulary bridge, not as the default
