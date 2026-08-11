@@ -6,10 +6,10 @@ Pi loads the project-local managed-subagent extension from
 
 ## Proof-worker workflow
 
-The main agent owns source interpretation, theorem statement design, integration,
-semantic review, builds, and commits. Lean proof workers are read-only helpers:
-use the `lean` profile, which grants only `read`, `grep`, and `lean_repl`. Do not
-give them Bash, editing, writing, worktrees, or builds.
+The main agent owns source interpretation, theorem and interface design,
+integration, semantic review, builds, and commits. Lean proof workers are
+read-only helpers: use the `lean` profile, which grants only `read`, `grep`, and
+`lean_repl`. Do not give them Bash, editing, writing, worktrees, or builds.
 
 A proof-worker prompt must be self-contained. Include:
 
@@ -25,18 +25,27 @@ A proof-worker prompt must be self-contained. Include:
    perceived latency when testing infrastructure.
 
 The supplied source proof is authoritative and is the worker's required
-implementation plan, not optional background. The worker must translate it
-independently down to lower-level Mathlib APIs and prove every intermediate
-bridge it requires. Failure to find an exact library theorem, the size of a
-missing lemma, or the absence of a project-local bridge is not a blocker and
-must not end the task. Search is only for proof plumbing; after search, the
-worker constructs and tests the argument given in the prompt.
+implementation plan, not optional background. The worker translates it
+independently within interfaces chosen by the main agent. Failure to find an
+exact library theorem is not a blocker: routine and representation-independent
+helper lemmas remain proof work.
 
-A Lean worker must not return an API survey, a list of missing lemmas, or a
-recommendation for future work. A valid blocker is limited to a false statement,
-a genuinely missing essential hypothesis or circular source argument, or loss
-of the REPL process itself. Ordinary elaboration errors and substantial helper
-lemmas are proof work, not blockers.
+When translation reaches a genuine architectural representation choice not
+fixed by the prompt, interface design returns to the main agent. The worker must
+return a structured `INTERFACE REQUEST` containing:
+
+1. the mathematical construction required by the source proof;
+2. the Lean objects and APIs already found;
+3. the exact type-level mismatch;
+4. the smallest declarations or operations requiring a design decision;
+5. all REPL-checked code completed before the boundary.
+
+A vague API survey, list of missing lemmas, or recommendation for future work is
+not an interface request. The main agent reviews the boundary, supplies exact
+signatures and representation decisions with `subagent_send`, and the same
+worker continues in its existing session. A true blocker remains limited to a
+false statement, a missing essential hypothesis or circular source argument, or
+loss of the REPL process.
 
 Do not ask a worker to decide whether an actionable audit gap may be deferred.
 It may return a proof or a precise blocker under the standard above. The main
@@ -50,8 +59,11 @@ clauses.
 - Use `subagent_send` to steer a live worker without restarting it.
 - Use `subagent_status` for nonblocking inspection.
 - Use `subagent_wait` for event-driven completion; never poll through Bash.
-- Use `subagent_collect` with disposal after completion to retrieve output and
-  release the worker session. Abort only genuinely obsolete work.
+- After a first completion, inspect whether the result is final code or an
+  `INTERFACE REQUEST`. For a request, use `subagent_send` and continue the same
+  worker; do not collect it yet.
+- Use `subagent_collect` with disposal only after successful final output or a
+  decision to abandon the task. Abort only genuinely obsolete work.
 
 Workers are read-only: returned code is not integrated merely because a worker
 reports REPL success. The main agent must:
