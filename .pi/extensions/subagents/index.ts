@@ -46,7 +46,9 @@ const leanWorkerProtocol = `You are a Lean proof implementer, not an API scout o
 - The shared lean_repl root already imports Mathlib. Never send an import command. If a request reports that the REPL automatically restarted, retry from the new root without stale env/repl values and re-elaborate the declarations needed by your branch; one terminated generation is not a blocker.
 - Never use #find. Discover APIs with narrow grep in the checked-out Mathlib source, read nearby declarations, then use targeted #check/#print/#synth.
 - Only claim REPL verification for dependencies from Mathlib or declarations explicitly elaborated in your REPL branch. Read project-local prerequisites and paste the minimal required declarations into the branch.
-- Your final deliverable is paste-ready, REPL-checked Lean code implementing the supplied proof.`;
+- Your read-only tool set is intentional. Never modify or build the repository: the main agent owns integration and builds. Lack of edit, write, Bash, or build tools is never a blocker. Your complete deliverable is paste-ready, REPL-checked Lean code implementing the supplied proof.`;
+
+const leanFollowupReminder = `LEAN WORKER REMINDER: Your read-only tools are intentional. Do not edit or build the repository; return paste-ready code checked in lean_repl. Missing edit/Bash/build tools, absent packaged theorems, and routine elaboration errors are not blockers. Only return INTERFACE REQUEST for a genuine architectural representation decision.\n\n`;
 
 async function loadConfig(cwd: string): Promise<Required<Config>> {
   try {
@@ -191,12 +193,15 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params) {
       const worker = workers.get(params.id);
       if (!worker) throw new Error(`Unknown worker ${params.id}`);
+      const message = worker.profile === "lean"
+        ? leanFollowupReminder + params.message
+        : params.message;
       if (worker.session.isStreaming) {
-        if (params.followUp) await worker.session.followUp(params.message);
-        else await worker.session.steer(params.message);
+        if (params.followUp) await worker.session.followUp(message);
+        else await worker.session.steer(message);
       } else {
         worker.state = "running";
-        worker.run = worker.session.prompt(params.message).then(() => {
+        worker.run = worker.session.prompt(message).then(() => {
           worker.finalText = assistantText(worker.session.messages);
           worker.latestText = worker.finalText;
           worker.state = "done";
@@ -238,6 +243,52 @@ export default function (pi: ExtensionAPI) {
       }
       if (worker.state === "failed") throw new Error(worker.error ?? "Subagent failed");
       return { content: [{ type: "text", text: worker.finalText || worker.latestText || "(no output)" }], details: snapshot(worker) };
+    },
+  });
+
+  pi.registerTool({
+    name: "subagent_wait_any",
+    label: "Wait for any subagent",
+    description: "Wait until the first selected helper finishes, without an all-workers barrier.",
+    parameters: Type.Object({
+      ids: Type.Optional(Type.Array(Type.String(), { description: "Workers to watch; defaults to all workers" })),
+    }),
+    async execute(_id, params, signal, onUpdate) {
+      const selected = params.ids
+        ? params.ids.map((id) => {
+            const worker = workers.get(id);
+            if (!worker) throw new Error(`Unknown worker ${id}`);
+            return worker;
+          })
+        : [...workers.values()];
+      if (selected.length === 0) throw new Error("No workers selected");
+      const update = () => {
+        const states = selected.map(snapshot);
+        onUpdate?.({ content: [{ type: "text", text: JSON.stringify(states, null, 2) }], details: states });
+      };
+      for (const worker of selected) worker.listeners.add(update);
+      let abortListener: (() => void) | undefined;
+      const aborted = new Promise<never>((_, reject) => {
+        abortListener = () => reject(new Error("Subagent wait cancelled"));
+        signal?.addEventListener("abort", abortListener, { once: true });
+      });
+      try {
+        const already = selected.find((worker) =>
+          worker.state === "done" || worker.state === "failed" || worker.state === "aborted");
+        const worker = already ?? await Promise.race([
+          ...selected.map((candidate) => candidate.run.then(() => candidate)),
+          aborted,
+        ]);
+        if (worker.state === "failed") throw new Error(`${worker.id}: ${worker.error ?? "Subagent failed"}`);
+        const text = worker.finalText || worker.latestText || worker.error || "(no output)";
+        return {
+          content: [{ type: "text", text: `${worker.id}\n${text}` }],
+          details: snapshot(worker),
+        };
+      } finally {
+        for (const worker of selected) worker.listeners.delete(update);
+        if (abortListener) signal?.removeEventListener("abort", abortListener);
+      }
     },
   });
 

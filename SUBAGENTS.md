@@ -76,7 +76,12 @@ clauses.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
 - Use `subagent_status` for nonblocking inspection.
-- Use `subagent_wait` for event-driven completion; never poll through Bash.
+- For multiple live workers, use `subagent_wait_any` with their IDs. It returns
+  as soon as one worker completes, allowing immediate review and follow-up;
+  remove that worker from the next watched set and wait again.
+- Use `subagent_wait` when watching one worker. Never wrap several waits in
+  `multi_tool_use.parallel`: that creates an all-workers barrier and delays
+  handling a worker that completed early. Never poll through Bash.
   After every `subagent_send`, register another wait before ending the turn;
   completion events are not delivered across turns without an active wait.
 - After a first completion, inspect whether the result is final code or an
