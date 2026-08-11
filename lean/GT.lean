@@ -4883,6 +4883,222 @@ theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
   unfold FDRep.simpleCharacterBasisOfMatrixFactors
   rw [FDRep.simpleCharacterBasisOfCardEq_apply]
 
+/-- Character equality induced by an isomorphism, after passage to class functions. -/
+theorem FDRep.characterClassFunction_eq_of_iso
+    {k : Type u} [Field k] {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    {X Y : FDRep k G} (i : X ≅ Y) :
+    FDRep.characterClassFunction X = FDRep.characterClassFunction Y := by
+  funext C
+  induction C using Quotient.inductionOn with
+  | _ g => exact congrFun (FDRep.char_iso i) g
+
+/-- Over characteristic zero, linear independence of simple characters over
+the ground field descends to genuine `ℤ`-linear independence. -/
+theorem FDRep.simple_characterClassFunction_intLinearIndependent
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j) :
+    LinearIndependent ℤ fun i ↦ FDRep.characterClassFunction (V i) := by
+  classical
+  rw [Fintype.linearIndependent_iff]
+  intro a ha i
+  have hk :
+      ∑ j, (a j : k) • FDRep.characterClassFunction (V j) = 0 := by
+    simpa only [Int.cast_smul_eq_zsmul] using ha
+  have hz : (a i : k) = 0 :=
+    (Fintype.linearIndependent_iff.mp
+      (FDRep.simple_characterClassFunction_linearIndependent V hiso)) _ hk i
+  exact Int.cast_eq_zero.mp hz
+
+/-- Multiplicity core for GT `r34`: equality of two finite sums of simple
+characters gives a permutation matching their simple constituents. -/
+theorem FDRep.exists_equiv_of_sum_simple_character_eq
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    {n m : ℕ} (c : Fin n → ι) (d : Fin m → ι)
+    (h :
+      (∑ j, FDRep.characterClassFunction (V (c j))) =
+        ∑ j, FDRep.characterClassFunction (V (d j))) :
+    ∃ e : Fin n ≃ Fin m, ∀ j, c j = d (e j) := by
+  classical
+  have hcard : ∀ i : ι,
+      Fintype.card {j : Fin n // c j = i} =
+        Fintype.card {j : Fin m // d j = i} := by
+    intro i
+    have hp := congrArg (FDRep.characterPairingRight (V i)) h
+    simp only [map_sum] at hp
+    have hpair : ∀ j : ι,
+        FDRep.characterPairingRight (V i)
+            (FDRep.characterClassFunction (V j)) =
+          if j = i then 1 else 0 := by
+      intro j
+      rw [show
+        FDRep.characterPairingRight (V i)
+            (FDRep.characterClassFunction (V j)) =
+          (if Nonempty (V j ≅ V i) then 1 else 0) by
+            exact FDRep.char_orthonormal (V j) (V i)]
+      rw [hiso]
+    simp_rw [hpair] at hp
+    have hc :
+        (∑ j : Fin n, if c j = i then (1 : k) else 0) =
+          (Fintype.card {j : Fin n // c j = i} : ℕ) := by
+      rw [← Finset.sum_filter]
+      simp only [Finset.sum_const, nsmul_eq_mul, mul_one]
+      rw [Fintype.card_subtype]
+    have hd :
+        (∑ j : Fin m, if d j = i then (1 : k) else 0) =
+          (Fintype.card {j : Fin m // d j = i} : ℕ) := by
+      rw [← Finset.sum_filter]
+      simp only [Finset.sum_const, nsmul_eq_mul, mul_one]
+      rw [Fintype.card_subtype]
+    rw [hc, hd] at hp
+    exact Nat.cast_injective hp
+  let ef : (i : ι) →
+      {j : Fin n // c j = i} ≃ {j : Fin m // d j = i} :=
+    fun i ↦ Fintype.equivOfCardEq (hcard i)
+  let e : Fin n ≃ Fin m := Equiv.ofFiberEquiv ef
+  refine ⟨e, ?_⟩
+  intro j
+  exact (Equiv.ofFiberEquiv_map ef j).symm
+
+/-- A finite simple-character decomposition of an actual character.  The map
+`c` records the nonnegative integral multiplicities by repetition. -/
+def FDRep.HasSimpleCharacterDecomposition
+    {k : Type u} [Field k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    {ι : Type*} (V : ι → FDRep k G) (X : FDRep k G) : Prop :=
+  ∃ (n : ℕ) (c : Fin n → ι),
+    FDRep.characterClassFunction X =
+      ∑ j, FDRep.characterClassFunction (V (c j))
+
+/-- Decomposition-facing reusable core for GT `r34`.  `hreconstruct` is exactly
+the finite direct-sum/Jordan--Hölder reconstruction bridge. -/
+theorem FDRep.nonempty_iso_iff_character_eq_of_simpleDecompositions
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    (X Y : FDRep k G)
+    {n m : ℕ} (c : Fin n → ι) (d : Fin m → ι)
+    (hX : FDRep.characterClassFunction X =
+      ∑ j, FDRep.characterClassFunction (V (c j)))
+    (hY : FDRep.characterClassFunction Y =
+      ∑ j, FDRep.characterClassFunction (V (d j)))
+    (hreconstruct : ∀ e : Fin n ≃ Fin m,
+      (∀ j, c j = d (e j)) → Nonempty (X ≅ Y)) :
+    Nonempty (X ≅ Y) ↔
+      FDRep.characterClassFunction X =
+        FDRep.characterClassFunction Y := by
+  constructor
+  · rintro ⟨i⟩
+    exact FDRep.characterClassFunction_eq_of_iso i
+  · intro hchar
+    have hsum :
+        (∑ j, FDRep.characterClassFunction (V (c j))) =
+          ∑ j, FDRep.characterClassFunction (V (d j)) :=
+      hX.symm.trans (hchar.trans hY)
+    obtain ⟨e, he⟩ :=
+      FDRep.exists_equiv_of_sum_simple_character_eq V hiso c d hsum
+    exact hreconstruct e he
+
+/-- Infrastructure for GT `r34a`: virtual characters are the integral span of all actual
+characters, equivalently finite integral combinations/differences of them. -/
+def FDRep.VirtualCharacter
+    {k : Type u} [Field k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)] :
+    Submodule ℤ (ClassFunction (k := k) (G := G)) :=
+  Submodule.span ℤ
+    (Set.range fun X : FDRep k G ↦ FDRep.characterClassFunction X)
+
+theorem FDRep.character_mem_simpleCharacterSpan_of_decomposition
+    {k : Type u} [Field k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    {ι : Type*} (V : ι → FDRep k G) (X : FDRep k G)
+    (hX : FDRep.HasSimpleCharacterDecomposition V X) :
+    FDRep.characterClassFunction X ∈
+      Submodule.span ℤ
+        (Set.range fun i ↦ FDRep.characterClassFunction (V i)) := by
+  obtain ⟨n, c, h⟩ := hX
+  rw [h]
+  exact Submodule.sum_mem _ fun j _ ↦
+    Submodule.subset_span ⟨c j, rfl⟩
+
+theorem FDRep.simpleCharacterSpan_eq_virtualCharacter
+    {k : Type u} [Field k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    {ι : Type*} (V : ι → FDRep k G)
+    (hcomplete : ∀ X : FDRep k G,
+      FDRep.HasSimpleCharacterDecomposition V X) :
+    Submodule.span ℤ
+        (Set.range fun i ↦ FDRep.characterClassFunction (V i)) =
+      FDRep.VirtualCharacter (k := k) (G := G) := by
+  apply le_antisymm
+  · rw [Submodule.span_le]
+    rintro _ ⟨i, rfl⟩
+    exact Submodule.subset_span ⟨V i, rfl⟩
+  · change Submodule.span ℤ
+      (Set.range fun X : FDRep k G ↦
+        FDRep.characterClassFunction X) ≤ _
+    rw [Submodule.span_le]
+    rintro _ ⟨X, rfl⟩
+    exact FDRep.character_mem_simpleCharacterSpan_of_decomposition
+      V X (hcomplete X)
+
+/-- For a complete family of pairwise nonisomorphic simples, the
+simple characters form a genuine `ℤ`-basis of the virtual characters. -/
+noncomputable def FDRep.simpleVirtualCharacterBasis
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    (hcomplete : ∀ X : FDRep k G,
+      FDRep.HasSimpleCharacterDecomposition V X) :
+    Module.Basis ι ℤ (FDRep.VirtualCharacter (k := k) (G := G)) :=
+  (Module.Basis.span
+      (FDRep.simple_characterClassFunction_intLinearIndependent V hiso)).map
+    (LinearEquiv.ofEq _ _
+      (FDRep.simpleCharacterSpan_eq_virtualCharacter V hcomplete))
+
+@[simp]
+theorem FDRep.simpleVirtualCharacterBasis_apply
+    {k : Type u} [Field k] [CharZero k]
+    {G : Type v} [Group G]
+    [Fintype G] [Invertible (Fintype.card G : k)]
+    [IsAlgClosed k]
+    {ι : Type*} [Fintype ι]
+    (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
+    (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
+    (hcomplete : ∀ X : FDRep k G,
+      FDRep.HasSimpleCharacterDecomposition V X)
+    (i : ι) :
+    FDRep.simpleVirtualCharacterBasis V hiso hcomplete i =
+      ⟨FDRep.characterClassFunction (V i), by
+        apply Submodule.subset_span
+        exact ⟨V i, rfl⟩⟩ := by
+  unfold FDRep.simpleVirtualCharacterBasis
+  rw [Module.Basis.map_apply, Module.Basis.span_apply]
+  rfl
+
 end Characters
 
 /-!
