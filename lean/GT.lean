@@ -4057,10 +4057,12 @@ item names the present API and a checked proof route or concrete extension.
   centrality is equivalent to conjugacy invariance, and class sums map to the
   delta-function basis on `ConjClasses`.
 
-## Explicit omission ledger
+## Explicit omission and gap ledger
 
-The following stable labels are intentionally not separate declarations.  This
-ledger makes those decisions machine-auditable without pretending that an
+The following stable labels are not separate declarations.  `AUDIT-DEFERRED`
+records intentional scope or representation decisions; `AUDIT-GAP` records
+source results that still require faithful declarations and proofs.  This
+ledger makes the distinction machine-auditable without pretending that an
 unproved proposition has been established.
 
 * AUDIT-DEFERRED `ns06` and `ns12` are split into their subgroup, quotient, and extension
@@ -4074,30 +4076,27 @@ unproved proposition has been established.
   implementation.  The canonical target deliberately uses Mathlib's quotient
   construction of `FreeGroup`; duplicating the private presentation would not
   expose additional mathematical structure.
-* AUDIT-DEFERRED: the exact Coxeter reflection-order results `fg16`, `fg17`, and `fg18` do not
-  currently have a matching proved Mathlib interface.  Mathlib supplies the
-  Coxeter presentation and the power relations, but not the exact-order and
-  faithfulness conclusion required by the text.
-* AUDIT-DEFERRED: the isolated existence theorem `bd3m`, generator-replacement lemma `it19`,
-  and finite-family direct-product criterion `it07` still require substantial
-  new development beyond the current library interfaces.
-* AUDIT-DEFERRED: the order-`2p` classification refinement `ga13m` remains beyond the direct
-  wrapper layer used in this experiment.
-* AUDIT-DEFERRED: the semidirect-product comparison results `it15`, `st14`, `st15`, `st16`,
-  and the complete-group splitting result `it18` require a paper-specific
-  encoding of extensions that was intentionally not introduced.
-* AUDIT-DEFERRED: the group-theoretic Jordan--Hölder and operator-group results `ns02`, `ns14`,
-  `ns24`, `ns25`, `ns26`, and `ns29` have no direct matching
-  Mathlib declarations at this import frontier.  The module Jordan--Hölder
-  result is formalized separately as `r10`.
-* AUDIT-DEFERRED: the remaining representation results `r17`, `r23`, `r28`,
-  `r32(b,c)`, `r34`, `r34a`, `r36`, and `r9e` require interfaces for regular
-  characters, multiplicities, or centralizers that are not exposed as
-  statement-compatible theorems by the imported Mathlib modules. Their
-  structural backbone—semisimplicity, Schur, density, Wedderburn--Artin, and
-  character orthogonality—is checked above. The factor enumeration `r32(a)`,
-  centre calculation `r30`, and character-basis conclusions `r35` and `r39`
-  are now checked explicitly.
+* AUDIT-GAP: formalize the exact Coxeter reflection-order results `fg16`,
+  `fg17`, and `fg18`, including the exact-order and faithfulness conclusions;
+  the existing Coxeter presentation and power relations are only partial
+  prerequisites.
+* AUDIT-GAP: formalize the isolated existence theorem `bd3m`, the
+  generator-replacement lemma `it19`, and the finite-family direct-product
+  criterion `it07`; absence of direct library interfaces is not a deferral
+  reason.
+* AUDIT-GAP: formalize the complete order-`2p` classification refinement
+  `ga13m`, not only the currently available consequences.
+* AUDIT-GAP: introduce a source-faithful extension interface and prove the
+  semidirect-product comparison results `it15`, `st14`, `st15`, and `st16`,
+  together with the complete-group splitting result `it18`.
+* AUDIT-GAP: formalize the group-theoretic Jordan--Hölder theorem `ns02` and
+  the operator-group results `ns14`, `ns24`, `ns25`, `ns26`, and `ns29`.
+  The module theorem `r10` does not cover these group-theoretic statements.
+* AUDIT-GAP: formalize the remaining representation results `r17`, `r23`,
+  `r28`, `r32(b,c)`, `r34`, `r34a`, `r36`, and `r9e`, exposing the source's
+  regular-character, multiplicity, centralizer, and inner-product clauses in
+  declaration types.  Their structural prerequisites and the neighboring
+  results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
 -/
 
 end GT

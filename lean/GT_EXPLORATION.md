@@ -186,7 +186,9 @@ The audit found both missing wrappers and claims requiring new proofs. The
 target now exposes invariant-factor existence and source-facing uniqueness
 from adjacent divisibility, full-decomposition elementary-divisor uniqueness,
 and the simple-module enumeration and character basis for `r32(a)`, `r35`, and
-`r39`. No `AUDIT-GAP` remains.
+`r39`.  The output ledger classifies the remaining source-proved omissions as
+`AUDIT-GAP`; only genuine scope or representation decisions remain
+`AUDIT-DEFERRED`.
 
 The durable lesson is that absence of a statement-compatible Mathlib theorem is
 not itself a blocker: use lower-level APIs to formalize the source proof, while
