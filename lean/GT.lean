@@ -6140,6 +6140,8 @@ def IsMinimalTwoSidedIdeal {A : Type*} [Ring A] (I : Ideal A) : Prop :=
   I.IsTwoSided ∧ (I : Submodule A A) ≠ ⊥ ∧
     ∀ J : Submodule A A, J.IsFullyInvariant → J < I → J = ⊥
 
+/-- GT `r9e`, first clause: the isotypic components of the semisimple
+regular module are exactly its minimal two-sided ideals. -/
 theorem minimalTwoSidedIdeal_iff_mem_isotypicComponents
     {A : Type*} [Ring A] [IsSemisimpleRing A] (I : Ideal A) :
     IsMinimalTwoSidedIdeal I ↔ I ∈ isotypicComponents A A := by
@@ -6260,9 +6262,9 @@ theorem centralizer_isFiniteProduct_simple
     infer_instance
   exact ⟨n, D, d, hD, hAlg, hd, hsimple, ⟨e⟩, inferInstance⟩
 
-/-- Every two-sided ideal is the internal direct sum of the minimal two-sided
-ideals it contains.  The summands are indexed canonically by the corresponding
-isotypic components. -/
+/-- GT `r9e`, second clause: every two-sided ideal is the internal direct
+sum of the minimal two-sided ideals it contains. The summands are indexed
+canonically by the corresponding isotypic components. -/
 theorem twoSidedIdeal_linearEquiv_minimalComponents
     {A : Type*} [Ring A] [IsSemisimpleRing A]
     (I : Ideal A) (hI : I.IsTwoSided) :
@@ -7890,6 +7892,8 @@ theorem bd3m_source_clean
 
 end Bd3mSource
 
+/-- GT `bd3m`: element orders impose no restriction on the order of their
+product in a suitable finite group. -/
 theorem bd3m
     {m n r : ℕ} (hm : 1 < m) (hn : 1 < n) (hr : 1 < r) :
     ∃ (G : Type) (_ : Group G) (_ : Finite G), ∃ a b : G,
