@@ -7,7 +7,7 @@ Pi loads the project-local managed-subagent extension from
 ## Proof-worker workflow
 
 The main agent owns source interpretation, theorem and interface design,
-integration, semantic review, builds, and commits. Lean proof workers are
+integration, builds, and commits. Lean proof workers are
 read-only helpers: use the `lean*` profile, which grants only `read`, `grep`, and
 `lean_repl`. Do not give them Bash, editing, writing, worktrees, or builds.
 
