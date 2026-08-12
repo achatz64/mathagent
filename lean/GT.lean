@@ -37,6 +37,7 @@ import Mathlib.GroupTheory.Torsion
 import Mathlib.LinearAlgebra.DirectSum.Finite
 import Mathlib.Order.Interval.Finset.Fin
 import Mathlib.RepresentationTheory.Character
+import Mathlib.RingTheory.RootsOfUnity.Complex
 import Mathlib.RepresentationTheory.FinGroupCharZero
 import Mathlib.RepresentationTheory.Maschke
 import Mathlib.RingTheory.FiniteLength
@@ -7267,6 +7268,695 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv
   dsimp [f]
   rw [ρ.asModuleEquiv_symm_map_rho, e.map_smul]
   rw [σ.asModuleEquiv_map_smul, σ.asAlgebraHom_of]
+
+
+namespace CoxeterReflection
+noncomputable section
+
+open scoped BigOperators
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+noncomputable def pairCoeff (M : CoxeterMatrix B) (s t : B) : ℝ :=
+  if M s t = 0 then -1 else -Real.cos (Real.pi / (M s t : ℝ))
+
+def pairForm (M : CoxeterMatrix B) (s t : B) (a b : ℝ) : ℝ :=
+  a^2 + b^2 + 2 * pairCoeff M s t * a * b
+
+lemma pairCoeff_bounds {M : CoxeterMatrix B} {s t : B} (hst : s ≠ t)
+    (hm : M s t ≠ 0) :
+    -1 < pairCoeff M s t ∧ pairCoeff M s t < 1 := by
+  have hne : M s t ≠ 1 := M.off_diagonal s t hst
+  have hge : 2 ≤ M s t := by omega
+  have hx0 : 0 < Real.pi / (M s t : ℝ) := by positivity
+  have hxpi : Real.pi / (M s t : ℝ) < Real.pi := by
+    have hcast : (2 : ℝ) ≤ (M s t : ℝ) := by exact_mod_cast hge
+    apply (div_lt_iff₀ (by positivity : (0 : ℝ) < M s t)).2
+    nlinarith [Real.pi_pos]
+  have hcupper : Real.cos (Real.pi / (M s t : ℝ)) < 1 := by
+    have h := Real.strictAntiOn_cos ⟨le_rfl, Real.pi_pos.le⟩
+      ⟨le_of_lt hx0, le_of_lt hxpi⟩ hx0
+    simpa using h
+  have hclower : -1 < Real.cos (Real.pi / (M s t : ℝ)) := by
+    have h := Real.strictAntiOn_cos ⟨le_of_lt hx0, le_of_lt hxpi⟩
+      ⟨Real.pi_pos.le, le_rfl⟩ hxpi
+    rw [Real.cos_pi] at h
+    linarith
+  constructor <;> rw [pairCoeff, if_neg hm] <;> linarith
+
+/-- GT `fg17`: the Coxeter form on the span of two distinct roots is
+positive definite for a finite Coxeter entry and positive semidefinite for an
+infinite entry. -/
+theorem fg17 (M : CoxeterMatrix B) (s t : B) (hst : s ≠ t) :
+    (M s t = 0 → ∀ a b, 0 ≤ pairForm M s t a b) ∧
+    (M s t ≠ 0 → ∀ a b, (a ≠ 0 ∨ b ≠ 0) → 0 < pairForm M s t a b) := by
+  constructor
+  · intro hm a b
+    rw [pairForm, pairCoeff, if_pos hm]
+    nlinarith [sq_nonneg (a - b)]
+  · intro hm a b hab
+    have hc := pairCoeff_bounds hst hm
+    have hform :
+        pairForm M s t a b =
+          (b + pairCoeff M s t * a)^2 +
+            (1 - pairCoeff M s t ^ 2) * a^2 := by
+      dsimp [pairForm]
+      ring
+    rw [hform]
+    have hdisc : 0 < 1 - pairCoeff M s t ^ 2 := by
+      nlinarith
+    have hsq : 0 ≤ (b + pairCoeff M s t * a)^2 := sq_nonneg _
+    rcases hab with ha0 | hb0
+    · have hap : 0 < a^2 := sq_pos_of_ne_zero ha0
+      have hp :
+          0 < (1 - pairCoeff M s t ^ 2) * a^2 :=
+        mul_pos hdisc hap
+      linarith
+    · by_cases ha' : a = 0
+      · subst a
+        simpa using sq_pos_of_ne_zero hb0
+      · have hap : 0 < a^2 := sq_pos_of_ne_zero ha'
+        have hp :
+            0 < (1 - pairCoeff M s t ^ 2) * a^2 :=
+          mul_pos hdisc hap
+        linarith
+
+noncomputable def coeff (M : CoxeterMatrix B) (i j : B) : ℝ :=
+  if i = j then 1 else pairCoeff M i j
+
+abbrev Space (B : Type*) := B →₀ ℝ
+
+noncomputable def form (M : CoxeterMatrix B) (x y : Space B) : ℝ :=
+  x.sum (fun i a => y.sum (fun j b => a * b * coeff M i j))
+
+noncomputable def root (s : B) : Space B :=
+  Finsupp.single s 1
+
+lemma form_root_root (M : CoxeterMatrix B) (s : B) :
+    form M (root s) (root s) = 1 := by
+  simp [form, root, coeff]
+
+lemma form_add_left (M : CoxeterMatrix B) (x z y : Space B) :
+    form M (x + z) y = form M x y + form M z y := by
+  unfold form
+  apply Finsupp.sum_add_index'
+  · intro i
+    simp
+  · intro i a b
+    calc
+      y.sum (fun j c => (a + b) * c * coeff M i j) =
+          y.sum (fun j c => a * c * coeff M i j + b * c * coeff M i j) := by
+        apply Finsupp.sum_congr
+        intro j hj
+        ring
+      _ = _ := by
+        rw [← Finsupp.sum_add]
+
+lemma form_smul_left (M : CoxeterMatrix B) (c : ℝ) (x y : Space B) :
+    form M (c • x) y = c * form M x y := by
+  unfold form
+  calc
+    (c • x).sum (fun i a => y.sum (fun j b => a * b * coeff M i j)) =
+        x.sum (fun i a => y.sum (fun j b => (c * a) * b * coeff M i j)) := by
+      rw [Finsupp.sum_smul_index']
+      · apply Finsupp.sum_congr
+        intro i hi
+        apply Finsupp.sum_congr
+        intro j hj
+        ring
+      · intro i
+        simp
+    _ = x.sum (fun i a => y.sum (fun j b => c * (a * b * coeff M i j))) := by
+      apply Finsupp.sum_congr
+      intro i hi
+      apply Finsupp.sum_congr
+      intro j hj
+      ring
+    _ = x.sum (fun i a => c * y.sum (fun j b => a * b * coeff M i j)) := by
+      apply Finsupp.sum_congr
+      intro i hi
+      symm
+      exact Finsupp.mul_sum c y
+    _ = c * x.sum (fun i a => y.sum (fun j b => a * b * coeff M i j)) := by
+      symm
+      exact Finsupp.mul_sum c x
+
+lemma form_neg_left (M : CoxeterMatrix B) (x y : Space B) :
+    form M (-x) y = -form M x y := by
+  simpa using form_smul_left M (-1) x y
+
+lemma form_sub_left (M : CoxeterMatrix B) (x z y : Space B) :
+    form M (x - z) y = form M x y - form M z y := by
+  rw [sub_eq_add_neg, form_add_left, form_neg_left]
+  ring
+
+noncomputable def reflection (M : CoxeterMatrix B) (s : B) :
+    Space B →ₗ[ℝ] Space B :=
+  { toFun := fun x => x - (2 * form M x (root s)) • root s
+    map_add' := by
+      intro x y
+      rw [form_add_left]
+      module
+    map_smul' := by
+      intro c x
+      rw [form_smul_left, smul_sub, smul_smul]
+      simp only [RingHom.id_apply]
+      congr 1
+      ring_nf }
+
+lemma reflection_root (M : CoxeterMatrix B) (s : B) :
+    reflection M s (root s) = -(root s) := by
+  change root s - (2 * form M (root s) (root s)) • root s = -(root s)
+  rw [form_root_root]
+  module
+
+lemma reflection_involutive (M : CoxeterMatrix B) (s : B) :
+    Function.Involutive (reflection M s) := by
+  intro x
+  change (x - (2 * form M x (root s)) • root s) -
+    (2 * form M (x - (2 * form M x (root s)) • root s) (root s)) • root s = x
+  rw [form_sub_left, form_smul_left, form_root_root]
+  module
+
+end
+end CoxeterReflection
+
+
+namespace CoxeterReflection
+noncomputable section
+
+open scoped BigOperators
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+noncomputable def reflectionEquiv (M : CoxeterMatrix B) (s : B) :
+    Space B ≃ₗ[ℝ] Space B :=
+  LinearEquiv.ofInvolutive (reflection M s) (reflection_involutive M s)
+
+lemma pairCoeff_symm (M : CoxeterMatrix B) (s t : B) :
+    pairCoeff M s t = pairCoeff M t s := by
+  rw [pairCoeff, pairCoeff, M.symmetric s t]
+
+lemma coeff_symm (M : CoxeterMatrix B) (i j : B) :
+    coeff M i j = coeff M j i := by
+  by_cases h : i = j
+  · subst j
+    rfl
+  · rw [coeff, coeff, if_neg h, if_neg (Ne.symm h), pairCoeff_symm]
+
+lemma form_root_left (M : CoxeterMatrix B) (s t : B) :
+    form M (root s) (root t) = coeff M s t := by
+  simp [form, root]
+
+lemma form_root_right (M : CoxeterMatrix B) (s t : B) :
+    form M (root t) (root s) = coeff M t s := by
+  simp [form, root]
+
+end
+end CoxeterReflection
+
+
+namespace CoxeterReflection
+noncomputable section
+
+open scoped BigOperators
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+lemma form_symm (M : CoxeterMatrix B) (x y : Space B) :
+    form M x y = form M y x := by
+  unfold form
+  rw [Finsupp.sum_comm]
+  apply Finsupp.sum_congr
+  intro i hi
+  apply Finsupp.sum_congr
+  intro j hj
+  rw [coeff_symm]
+  ring
+
+def pairEmbed (s t : B) : (Fin 2 → ℝ) →ₗ[ℝ] Space B :=
+  { toFun := fun z => z 0 • root s + z 1 • root t
+    map_add' := by
+      intro x y
+      simp only [Pi.add_apply, add_smul]
+      module
+    map_smul' := by
+      intro c x
+      simp only [Pi.smul_apply, RingHom.id_apply]
+      module }
+
+lemma pairEmbed_apply (s t : B) (z : Fin 2 → ℝ) :
+    pairEmbed s t z = z 0 • root s + z 1 • root t := rfl
+
+lemma pairEmbed_injective {s t : B} (hst : s ≠ t) :
+    Function.Injective (pairEmbed s t) := by
+  intro x y hxy
+  funext i
+  fin_cases i
+  · have h := congrArg (fun z : Space B => z s) hxy
+    simpa [pairEmbed, root, hst] using h
+  · have h := congrArg (fun z : Space B => z t) hxy
+    simpa [pairEmbed, root, hst] using h
+
+lemma form_pairEmbed_root_s (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
+    (a b : ℝ) :
+    form M (pairEmbed s t ![a, b]) (root s) =
+      a + b * pairCoeff M s t := by
+  change form M (a • root s + b • root t) (root s) = _
+  rw [form_add_left, form_smul_left, form_smul_left,
+    form_root_left, form_root_right]
+  simp [coeff, hst, Ne.symm hst, pairCoeff_symm]
+
+lemma form_pairEmbed_root_t (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
+    (a b : ℝ) :
+    form M (pairEmbed s t ![a, b]) (root t) =
+      a * pairCoeff M s t + b := by
+  change form M (a • root s + b • root t) (root t) = _
+  rw [form_add_left, form_smul_left, form_smul_left,
+    form_root_left, form_root_right]
+  simp [coeff, hst, Ne.symm hst, pairCoeff_symm]
+
+noncomputable def pairProduct (M : CoxeterMatrix B) (s t : B) :
+    Space B ≃ₗ[ℝ] Space B :=
+  reflectionEquiv M s * reflectionEquiv M t
+
+lemma reflection_t_pair (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
+    (a b : ℝ) :
+    reflectionEquiv M t (pairEmbed s t ![a, b]) =
+      pairEmbed s t ![a, -2 * pairCoeff M s t * a - b] := by
+  change pairEmbed s t ![a, b] -
+      (2 * form M (pairEmbed s t ![a, b]) (root t)) • root t = _
+  rw [form_pairEmbed_root_t M hst, pairEmbed]
+  change a • root s + b • root t -
+      (2 * (a * pairCoeff M s t + b)) • root t =
+      a • root s + (-2 * pairCoeff M s t * a - b) • root t
+  module
+
+lemma reflection_s_pair (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
+    (a b : ℝ) :
+    reflectionEquiv M s (pairEmbed s t ![a, b]) =
+      pairEmbed s t ![-a - 2 * pairCoeff M s t * b, b] := by
+  change pairEmbed s t ![a, b] -
+      (2 * form M (pairEmbed s t ![a, b]) (root s)) • root s = _
+  rw [form_pairEmbed_root_s M hst, pairEmbed]
+  change a • root s + b • root t -
+      (2 * (a + b * pairCoeff M s t)) • root s =
+      (-a - 2 * pairCoeff M s t * b) • root s + b • root t
+  module
+
+lemma pair_intertwines (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
+    (a b : ℝ) :
+    pairProduct M s t (pairEmbed s t ![a, b]) =
+      pairEmbed s t ![
+        (4 * pairCoeff M s t ^ 2 - 1) * a +
+          2 * pairCoeff M s t * b,
+        -2 * pairCoeff M s t * a - b] := by
+  rw [pairProduct, LinearEquiv.mul_apply,
+    reflection_t_pair M hst, reflection_s_pair M hst]
+  apply congrArg (pairEmbed s t)
+  funext i
+  fin_cases i <;> simp <;> ring
+
+end
+end CoxeterReflection
+
+
+namespace CoxeterReflection
+noncomputable section
+
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+noncomputable def pairActionLinear (M : CoxeterMatrix B) (s t : B) :
+    (Fin 2 → ℝ) →ₗ[ℝ] (Fin 2 → ℝ) := by
+  let c := pairCoeff M s t
+  exact
+    { toFun := fun z =>
+        ![(4 * c ^ 2 - 1) * z 0 + 2 * c * z 1,
+          -2 * c * z 0 - z 1]
+      map_add' := by
+        intro x y
+        funext i
+        fin_cases i <;> simp <;> ring
+      map_smul' := by
+        intro a x
+        funext i
+        fin_cases i <;> simp <;> ring }
+
+lemma pairActionLinear_apply (M : CoxeterMatrix B) (s t : B)
+    (z : Fin 2 → ℝ) :
+    pairActionLinear M s t z =
+      ![(4 * pairCoeff M s t ^ 2 - 1) * z 0 +
+          2 * pairCoeff M s t * z 1,
+        -2 * pairCoeff M s t * z 0 - z 1] := by
+  rfl
+
+lemma pairActionLinear_bijective (M : CoxeterMatrix B) (s t : B) :
+    Function.Bijective (pairActionLinear M s t) := by
+  let c : ℝ := pairCoeff M s t
+  let A : ℝ := 4 * c ^ 2 - 1
+  constructor
+  · intro x y hxy
+    have h0 := congrFun hxy 0
+    have h1 := congrFun hxy 1
+    simp only [pairActionLinear_apply, Matrix.cons_val_zero,
+      Matrix.cons_val_one] at h0 h1
+    have hx0 : x 0 = y 0 := by
+      linear_combination (-1) * h0 +
+        (-2 * pairCoeff M s t) * h1
+    have hx1 : x 1 = y 1 := by
+      linear_combination (-1) * h1 -
+        (2 * pairCoeff M s t) * hx0
+    funext i
+    fin_cases i
+    · exact hx0
+    · exact hx1
+  · intro z
+    refine ⟨![ -z 0 - 2 * c * z 1,
+      2 * c * z 0 + A * z 1], ?_⟩
+    funext i
+    fin_cases i
+    · change (4 * pairCoeff M s t ^ 2 - 1) *
+          (-z 0 - 2 * c * z 1) +
+          2 * pairCoeff M s t *
+            (2 * c * z 0 + A * z 1) = z 0
+      dsimp [c, A]
+      ring
+    · change -2 * pairCoeff M s t *
+          (-z 0 - 2 * c * z 1) -
+          (2 * c * z 0 + A * z 1) = z 1
+      dsimp [c, A]
+      ring
+
+noncomputable def pairAction (M : CoxeterMatrix B) (s t : B) :
+    (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) :=
+  LinearEquiv.ofBijective (pairActionLinear M s t)
+    (pairActionLinear_bijective M s t)
+
+lemma pairAction_apply (M : CoxeterMatrix B) (s t : B)
+    (z : Fin 2 → ℝ) :
+    pairAction M s t z =
+      ![(4 * pairCoeff M s t ^ 2 - 1) * z 0 +
+          2 * pairCoeff M s t * z 1,
+        -2 * pairCoeff M s t * z 0 - z 1] := rfl
+
+lemma pairEmbed_intertwines_clean2 (M : CoxeterMatrix B)
+    {s t : B} (hst : s ≠ t) :
+    (pairProduct M s t).toLinearMap.comp (pairEmbed s t) =
+      (pairEmbed s t).comp (pairAction M s t).toLinearMap := by
+  apply LinearMap.ext
+  intro z
+  rw [LinearMap.comp_apply, LinearMap.comp_apply]
+  have hz : z = ![z 0, z 1] := by
+    funext i
+    fin_cases i <;> rfl
+  rw [hz]
+  change pairProduct M s t (pairEmbed s t ![z 0, z 1]) =
+    pairEmbed s t (pairAction M s t ![z 0, z 1])
+  rw [pair_intertwines M hst]
+  rfl
+
+end
+end CoxeterReflection
+
+
+namespace CoxeterReflection
+noncomputable section
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+noncomputable def complexCoord (c d : ℝ) :
+    (Fin 2 → ℝ) →ₗ[ℝ] ℂ :=
+  { toFun := fun z =>
+      (z 0 : ℂ) + ((c : ℂ) + (d : ℂ) * Complex.I) * (z 1 : ℂ)
+    map_add' := by
+      intro x y
+      simp only [Pi.add_apply, Complex.ofReal_add]
+      ring
+    map_smul' := by
+      intro r x
+      change ((r * x 0 : ℝ) : ℂ) +
+          ((c : ℂ) + (d : ℂ) * Complex.I) * ((r * x 1 : ℝ) : ℂ) =
+        (r : ℂ) * ((x 0 : ℂ) +
+          ((c : ℂ) + (d : ℂ) * Complex.I) * (x 1 : ℂ))
+      rw [Complex.ofReal_mul, Complex.ofReal_mul]
+      ring }
+
+lemma complexCoord_bijective {c d : ℝ} (hd : d ≠ 0) :
+    Function.Bijective (complexCoord c d) := by
+  constructor
+  · intro x y hxy
+    have hr := congrArg Complex.re hxy
+    have hi := congrArg Complex.im hxy
+    simp [complexCoord, Complex.mul_re, Complex.mul_im] at hr hi
+    have h1 : x 1 = y 1 := by
+      rcases hi with h | h
+      · exact h
+      · exact (hd h).elim
+    have h0 : x 0 = y 0 := by
+      rw [h1] at hr
+      linarith
+    funext i
+    fin_cases i <;> assumption
+  · intro z
+    refine ⟨![z.re - c * (z.im / d), z.im / d], ?_⟩
+    apply Complex.ext
+    · simp [complexCoord, Complex.mul_re, Complex.mul_im]
+    · simp [complexCoord, Complex.mul_re, Complex.mul_im]
+      field_simp [hd]
+
+lemma complexCoord_pairAction_clean {M : CoxeterMatrix B} {s t : B}
+    {α : ℝ} (hc : pairCoeff M s t = -Real.cos α)
+    (c d : ℝ) (hc' : c = pairCoeff M s t)
+    (hd' : d = Real.sin α) (z : Fin 2 → ℝ) :
+    complexCoord c d (pairAction M s t z) =
+      ((Real.cos (2 * α) : ℂ) +
+        (Real.sin (2 * α) : ℂ) * Complex.I) *
+        complexCoord c d z := by
+  have hz : z = ![z 0, z 1] := by
+    funext i
+    fin_cases i <;> rfl
+  rw [hz, hc', hd']
+  have harg : (2 : ℂ) * (α : ℂ) = ((2 * α : ℝ) : ℂ) := by
+    norm_num [Complex.ofReal_mul]
+  have hcr :
+      (Complex.cos ((2 : ℂ) * (α : ℂ))).re = Real.cos (2 * α) := by
+    rw [harg]
+    exact Complex.cos_ofReal_re _
+  have hci :
+      (Complex.cos ((2 : ℂ) * (α : ℂ))).im = 0 := by
+    rw [harg]
+    exact Complex.cos_ofReal_im _
+  have hsr :
+      (Complex.sin ((2 : ℂ) * (α : ℂ))).re = Real.sin (2 * α) := by
+    rw [harg]
+    exact Complex.sin_ofReal_re _
+  have hsi :
+      (Complex.sin ((2 : ℂ) * (α : ℂ))).im = 0 := by
+    rw [harg]
+    exact Complex.sin_ofReal_im _
+  apply Complex.ext
+  · simp [complexCoord, pairAction_apply, pow_two, Complex.mul_re,
+      Complex.mul_im, Complex.sin_ofReal_re, Complex.sin_ofReal_im,
+      hcr, hci, hsr, hsi]
+    rw [hc, Real.cos_two_mul, Real.sin_two_mul]
+    ring_nf
+    rw [show Real.sin α ^ 2 = 1 - Real.cos α ^ 2 from Real.sin_sq α]
+    ring
+  · simp [complexCoord, pairAction_apply, pow_two, Complex.mul_re,
+      Complex.mul_im, Complex.sin_ofReal_re, Complex.sin_ofReal_im,
+      hcr, hci, hsr, hsi]
+    rw [hc, Real.sin_two_mul, Real.cos_two_mul]
+    ring_nf
+
+lemma complexCoord_pairAction_pow_clean {M : CoxeterMatrix B} {s t : B}
+    {α : ℝ} (hc : pairCoeff M s t = -Real.cos α)
+    (c d : ℝ) (hc' : c = pairCoeff M s t)
+    (hd' : d = Real.sin α) (n : ℕ) (z : Fin 2 → ℝ) :
+    complexCoord c d (((pairAction M s t) ^ n) z) =
+      (((Real.cos (2 * α) : ℂ) +
+        (Real.sin (2 * α) : ℂ) * Complex.I) ^ n) *
+        complexCoord c d z := by
+  induction n generalizing z with
+  | zero =>
+      simp
+  | succ n ih =>
+      rw [pow_succ, LinearEquiv.mul_apply, ih]
+      rw [complexCoord_pairAction_clean hc c d hc' hd']
+      ring
+
+lemma exp_angle_eq (α : ℝ) :
+    Complex.exp (((2 * α : ℝ) : ℂ) * Complex.I) =
+      (Real.cos (2 * α) : ℂ) +
+        (Real.sin (2 * α) : ℂ) * Complex.I := by
+  rw [Complex.exp_mul_I]
+  apply Complex.ext <;> simp
+
+lemma exp_angle_pow (α : ℝ) (n : ℕ) :
+    ((Real.cos (2 * α) : ℂ) +
+      (Real.sin (2 * α) : ℂ) * Complex.I) ^ n =
+      Complex.exp (((n : ℝ) * (2 * α) : ℝ) * Complex.I) := by
+  rw [← exp_angle_eq, ← Complex.exp_nat_mul]
+  congr 1
+  push_cast
+  ring
+
+lemma exp_angle_m (m : ℕ) (hm : 0 < m) :
+    ((Real.cos (2 * (Real.pi / (m : ℝ))) : ℂ) +
+      (Real.sin (2 * (Real.pi / (m : ℝ))) : ℂ) * Complex.I) ^ m = 1 := by
+  rw [exp_angle_pow]
+  rw [show ((m : ℝ) * (2 * (Real.pi / (m : ℝ))) : ℝ) =
+      2 * Real.pi by field_simp]
+  convert Complex.exp_nat_mul_two_pi_mul_I 1 using 1 <;> norm_num
+
+lemma exp_angle_ne (m k : ℕ) (hm : 0 < m) (hk : 0 < k)
+    (hkm : k < m)
+    (h : ((Real.cos (2 * (Real.pi / (m : ℝ))) : ℂ) +
+      (Real.sin (2 * (Real.pi / (m : ℝ))) : ℂ) * Complex.I) ^ k = 1) :
+    False := by
+  rw [exp_angle_pow] at h
+  obtain ⟨n, hn⟩ := Complex.exp_eq_one_iff.mp h
+  have hi := congrArg Complex.im hn
+  simp at hi
+  have hnreal : (k : ℝ) = (n : ℝ) * m := by
+    field_simp at hi
+    nlinarith [Real.pi_pos]
+  have hnzero : n = 0 := by
+    by_contra hnz
+    rcases lt_or_gt_of_ne hnz with hnneg | hnpos
+    · have hnle : (n : ℝ) ≤ -1 := by
+        have h' : n ≤ -1 := by omega
+        exact_mod_cast h'
+      have hm' : (0 : ℝ) < m := by exact_mod_cast hm
+      have hneg : (n : ℝ) * m ≤ -m := by nlinarith
+      have hkneg : (k : ℝ) ≤ -m := by linarith [hnreal]
+      have hk' : (0 : ℝ) < k := by exact_mod_cast hk
+      linarith
+    · have hnle : (1 : ℝ) ≤ n := by exact_mod_cast hnpos
+      have hm' : (0 : ℝ) < m := by exact_mod_cast hm
+      have hpos : m ≤ (n : ℝ) * m := by nlinarith
+      have hkm' : (k : ℝ) < m := by exact_mod_cast hkm
+      linarith [hnreal]
+  subst n
+  have hkzero : (k : ℝ) = 0 := by simpa using hnreal
+  have hkzero' : k = 0 := by exact_mod_cast hkzero
+  omega
+
+lemma pairAction_order_finite (M : CoxeterMatrix B) {s t : B}
+    (hst : s ≠ t) (hm : M s t ≠ 0) :
+    orderOf (pairAction M s t) = M s t := by
+  let m : ℕ := M s t
+  let α : ℝ := Real.pi / (m : ℝ)
+  have hmpos : 0 < m := by
+    dsimp [m]
+    omega
+  have hne : M s t ≠ 1 := M.off_diagonal s t hst
+  have hge : 2 ≤ m := by
+    dsimp [m]
+    omega
+  have hα0 : 0 < α := by
+    dsimp [α]
+    positivity
+  have hαpi : α < Real.pi := by
+    dsimp [α]
+    have hc : (2 : ℝ) ≤ (m : ℝ) := by exact_mod_cast hge
+    apply (div_lt_iff₀ (by positivity : (0 : ℝ) < m)).2
+    nlinarith [Real.pi_pos]
+  have hc : pairCoeff M s t = -Real.cos α := by
+    dsimp [α, m]
+    rw [pairCoeff, if_neg hm]
+  have hd : Real.sin α ≠ 0 :=
+    (Real.sin_pos_of_pos_of_lt_pi hα0 hαpi).ne'
+  let E : ℂ :=
+    (Real.cos (2 * α) : ℂ) +
+      (Real.sin (2 * α) : ℂ) * Complex.I
+  have hE : E ^ m = 1 := by
+    dsimp [E]
+    exact exp_angle_m m hmpos
+  have hEmin : ∀ k < m, 0 < k → E ^ k ≠ 1 := by
+    intro k hkm hk h
+    exact exp_angle_ne m k hmpos hk hkm h
+  have hpow : (pairAction M s t) ^ m = 1 := by
+    apply LinearEquiv.ext
+    intro z
+    apply (complexCoord_bijective hd).injective
+    rw [complexCoord_pairAction_pow_clean hc
+      (pairCoeff M s t) (Real.sin α) rfl rfl m z, hE]
+    simp
+  apply (orderOf_eq_iff hmpos).2
+  constructor
+  · simpa [m] using hpow
+  · intro k hkm hk h
+    have hh := congrArg
+      (fun q : (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) =>
+        complexCoord (pairCoeff M s t) (Real.sin α) (q ![1, 0])) h
+    rw [complexCoord_pairAction_pow_clean hc
+      (pairCoeff M s t) (Real.sin α) rfl rfl k ![1, 0]] at hh
+    have hcoord :
+        complexCoord (pairCoeff M s t) (Real.sin α) ![1, 0] = 1 := by
+      simp [complexCoord]
+    have hh' : E ^ k * 1 = 1 := by
+      simpa [E, hcoord] using hh
+    apply hEmin k (by simpa [m] using hkm) hk
+    simpa using hh'
+
+end
+end CoxeterReflection
+
+
+namespace CoxeterReflection
+
+noncomputable section
+
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+lemma pairAction_pow_infty (M : CoxeterMatrix B) {s t : B}
+    (hst : s ≠ t) (hm : M s t = 0) (n : ℕ) :
+    ((pairAction M s t) ^ n) (![1, 0] : Fin 2 → ℝ) =
+      ![((1 + 2 * n : ℕ) : ℝ), ((2 * n : ℕ) : ℝ)] := by
+  induction n with
+  | zero =>
+      norm_num
+  | succ n ih =>
+      rw [pow_succ', LinearEquiv.mul_apply]
+      rw [pairAction_apply]
+      simp [pairCoeff, hm]
+      rw [ih]
+      norm_num
+      constructor <;> ring
+
+lemma pairAction_order_infty (M : CoxeterMatrix B) {s t : B}
+    (hst : s ≠ t) (hm : M s t = 0) :
+    orderOf (pairAction M s t) = 0 := by
+  rw [orderOf_eq_zero_iff]
+  intro hfin
+  obtain ⟨n, hn, hpow⟩ :=
+    (isOfFinOrder_iff_pow_eq_one.mp hfin)
+  have hv := congrArg
+    (fun q : (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) =>
+      q (![1, 0] : Fin 2 → ℝ)) hpow
+  rw [pairAction_pow_infty M hst hm n] at hv
+  have hfirst := congrFun hv 0
+  norm_num at hfirst
+  omega
+
+/-- The exact-order calculation on the two-root coordinate plane used in
+GT `fg18`; `0` is Mathlib's infinite-order convention. -/
+theorem pairAction_order (M : CoxeterMatrix B) {s t : B}
+    (hst : s ≠ t) :
+    orderOf (pairAction M s t) = M s t := by
+  by_cases hm : M s t = 0
+  · simpa [hm] using pairAction_order_infty M hst hm
+  · exact pairAction_order_finite M hst hm
+
+end
+end CoxeterReflection
 
 
 namespace CoxeterReflection
