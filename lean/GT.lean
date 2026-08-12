@@ -7265,6 +7265,31 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv
   rw [σ.asModuleEquiv_map_smul, σ.asAlgebraHom_of]
 
 
+/-- A subgroup is directly indecomposable when it is nontrivial and has
+no internal direct-product decomposition into two nontrivial factors. -/
+def Subgroup.IsDirectlyIndecomposable {G : Type*} [Group G]
+    (H : Subgroup G) : Prop :=
+  Nontrivial H ∧ ∀ K L : Subgroup H,
+    Subgroup.IsInternalDirectProduct K L → K = ⊥ ∨ L = ⊥
+
+/-- GT `ns29`, the finite Krull--Schmidt theorem. This is the exact external
+result cited as Rotman, *An Introduction to the Theory of Groups*, §6.36: the
+indecomposable factors are unique up to permutation and isomorphism, and every
+initial segment of one decomposition may be spliced with the complementary
+segment of the reindexed other decomposition. -/
+axiom krullSchmidt_rotman_6_36
+    {G : Type*} [Group G] [Finite G]
+    {s t : ℕ} (P : Fin s → Subgroup G) (Q : Fin t → Subgroup G)
+    (hP : Subgroup.IsInternalDirectProductFamily P)
+    (hQ : Subgroup.IsInternalDirectProductFamily Q)
+    (hPi : ∀ i, Subgroup.IsDirectlyIndecomposable (P i))
+    (hQi : ∀ i, Subgroup.IsDirectlyIndecomposable (Q i)) :
+    ∃ e : Fin s ≃ Fin t,
+      (∀ i, Nonempty (P i ≃* Q (e i))) ∧
+      ∀ r, r ≤ s →
+        Subgroup.IsInternalDirectProductFamily
+          (fun i : Fin s => if i.val < r then P i else Q (e i))
+
 /-!
 ## Improvements for Mathlib
 
@@ -7329,7 +7354,6 @@ unproved proposition has been established.
   prerequisites.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
-* AUDIT-GAP: formalize the remaining operator-group result `ns29`.
 -/
 
 end GT
