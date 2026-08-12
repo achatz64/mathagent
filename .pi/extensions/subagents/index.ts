@@ -62,6 +62,17 @@ async function loadConfig(cwd: string): Promise<Required<Config>> {
   }
 }
 
+function isLeanProfile(name: string): boolean {
+  return name === "lean" || name.startsWith("lean-");
+}
+
+function splitModelRef(ref: string, fallbackProvider: string): [string, string] {
+  const slash = ref.indexOf("/");
+  return slash < 0
+    ? [fallbackProvider, ref]
+    : [ref.slice(0, slash), ref.slice(slash + 1)];
+}
+
 function assistantText(messages: readonly any[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
@@ -129,13 +140,11 @@ export default function (pi: ExtensionAPI) {
       const loader = new DefaultResourceLoader({
         cwd: ctx.cwd,
         agentDir: getAgentDir(),
-        appendSystemPrompt: profileName === "lean" ? [leanWorkerProtocol] : [],
+        appendSystemPrompt: isLeanProfile(profileName) ? [leanWorkerProtocol] : [],
       });
       await loader.reload();
       const model = profile.model
-        ? ctx.modelRegistry.find(...(profile.model.includes("/")
-          ? profile.model.split("/", 2) as [string, string]
-          : [ctx.model?.provider ?? "", profile.model] as [string, string]))
+        ? ctx.modelRegistry.find(...splitModelRef(profile.model, ctx.model?.provider ?? ""))
         : ctx.model;
       if (!model) throw new Error(`Model unavailable: ${profile.model ?? "current model"}`);
 
@@ -193,7 +202,7 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params) {
       const worker = workers.get(params.id);
       if (!worker) throw new Error(`Unknown worker ${params.id}`);
-      const message = worker.profile === "lean"
+      const message = isLeanProfile(worker.profile)
         ? leanFollowupReminder + params.message
         : params.message;
       if (worker.session.isStreaming) {
