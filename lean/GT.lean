@@ -13,6 +13,7 @@ import Mathlib.FieldTheory.Finite.GaloisField
 import Mathlib.GroupTheory.FreeGroup.NielsenSchreier
 import Mathlib.GroupTheory.ClassEquation
 import Mathlib.GroupTheory.Coset.Basic
+import Mathlib.GroupTheory.Coxeter.Basic
 import Mathlib.GroupTheory.FiniteAbelian.Duality
 import Mathlib.GroupTheory.GroupAction.Primitive
 import Mathlib.GroupTheory.GroupAction.Quotient
@@ -7265,6 +7266,43 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv
   rw [ρ.asModuleEquiv_symm_map_rho, e.map_smul]
   rw [σ.asModuleEquiv_map_smul, σ.asAlgebraHom_of]
 
+
+namespace CoxeterReflection
+
+/-- The group-theoretic completion of the geometric representation used for GT
+`fg16`: any model realizing the Coxeter relations with the prescribed exact
+orders proves injectivity and exact orders in the presented Coxeter group. -/
+theorem exactOrders_of_model {B H : Type*} [Group H]
+    (M : CoxeterMatrix B) (R : B → H)
+    (hrel : ∀ s t, (R s * R t) ^ M s t = 1)
+    (hinj : Function.Injective R)
+    (hord : ∀ s, orderOf (R s) = 2)
+    (hpair : ∀ s t, s ≠ t → orderOf (R s * R t) = M s t) :
+    Function.Injective M.simple ∧
+      (∀ s, orderOf (M.simple s) = 2) ∧
+      ∀ s t, s ≠ t → orderOf (M.simple s * M.simple t) = M s t := by
+  let φ : M.Group →* H :=
+    (CoxeterSystem.lift M.toCoxeterSystem) ⟨R, hrel⟩
+  have hφ (s : B) : φ (M.simple s) = R s :=
+    CoxeterSystem.lift_apply_simple M.toCoxeterSystem hrel s
+  refine ⟨?_, ?_, ?_⟩
+  · intro s t hst
+    apply hinj
+    rw [← hφ s, ← hφ t, hst]
+  · intro s
+    apply Nat.dvd_antisymm
+    · exact orderOf_dvd_of_pow_eq_one
+        (CoxeterSystem.simple_sq M.toCoxeterSystem s)
+    · rw [← hord s, ← hφ s]
+      exact orderOf_map_dvd φ (M.simple s)
+  · intro s t hst
+    apply Nat.dvd_antisymm
+    · exact orderOf_dvd_of_pow_eq_one
+        (CoxeterSystem.simple_mul_simple_pow M.toCoxeterSystem s t)
+    · rw [← hpair s t hst, ← hφ s, ← hφ t, ← map_mul]
+      exact orderOf_map_dvd φ (M.simple s * M.simple t)
+
+end CoxeterReflection
 
 namespace Bd3mSource
 
