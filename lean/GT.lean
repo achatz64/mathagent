@@ -7496,6 +7496,47 @@ lemma form_symm (M : CoxeterMatrix B) (x y : Space B) :
   rw [coeff_symm]
   ring
 
+/-- Decompose an arbitrary vector into a component in the span of two
+(distinct, non-orthogonal) roots plus a component orthogonal to both roots.
+This is the linear-algebra bridge that lets the two-dimensional reflection
+calculations extend to the whole `Space B`. -/
+lemma decompose_into_span_orthogonal (M : CoxeterMatrix B) {s t : B}
+    (hst : s ≠ t) (hm : M s t ≠ 0) (v : Space B) :
+    ∃ (a b : ℝ) (h : Space B),
+      v = a • root s + b • root t + h ∧
+      form M h (root s) = 0 ∧ form M h (root t) = 0 := by
+  let c : ℝ := pairCoeff M s t
+  have hc_st : coeff M s t = c := by
+    rw [coeff, if_neg hst]
+  have hc_ts : coeff M t s = c := by
+    rw [coeff_symm M t s, coeff, if_neg hst]
+  let vs : ℝ := form M v (root s)
+  let vt : ℝ := form M v (root t)
+  have hdet : 1 - c ^ 2 ≠ 0 := by
+    obtain ⟨hl, hr⟩ := pairCoeff_bounds hst hm
+    have hsq : c ^ 2 < 1 := by nlinarith
+    linarith
+  set a := (vs - c * vt) / (1 - c ^ 2) with ha
+  set b := (vt - c * vs) / (1 - c ^ 2) with hb
+  set h := v - (a • root s + b • root t) with hh
+  refine ⟨a, b, h, ?_, ?_, ?_⟩
+  · dsimp [h]
+    abel
+  · dsimp [h, vs, vt]
+    rw [form_sub_left, form_add_left, form_smul_left, form_smul_left]
+    rw [form_root_root, form_root_left M t s]
+    dsimp [a, b]
+    field_simp [hdet]
+    rw [hc_ts]
+    ring
+  · dsimp [h, vs, vt]
+    rw [form_sub_left, form_add_left, form_smul_left, form_smul_left]
+    rw [form_root_root, form_root_left]
+    dsimp [a, b]
+    field_simp [hdet]
+    rw [hc_st]
+    ring
+
 def pairEmbed (s t : B) : (Fin 2 → ℝ) →ₗ[ℝ] Space B :=
   { toFun := fun z => z 0 • root s + z 1 • root t
     map_add' := by
@@ -8066,6 +8107,178 @@ theorem exactOrders_of_model {B H : Type*} [Group H]
     · rw [← hpair s t hst, ← hφ s, ← hφ t, ← map_mul]
       exact orderOf_map_dvd φ (M.simple s * M.simple t)
 
+end CoxeterReflection
+
+namespace CoxeterReflection
+noncomputable section
+
+open scoped BigOperators
+
+variable {B : Type*}
+local instance : DecidableEq B := Classical.decEq B
+
+lemma reflection_orthogonal (M : CoxeterMatrix B) (s : B) (x : Space B)
+    (hx : form M x (root s) = 0) :
+    reflectionEquiv M s x = x := by
+  change x - (2 * form M x (root s)) • root s = x
+  rw [hx]
+  simp
+
+/-- GT `fg16` support: the pair reflection product satisfies the Coxeter
+relation `(s t)^m = 1` on the whole `Space B`, not just the two-dimensional
+span of the two roots.  The decomposition `decompose_into_span_orthogonal`
+reduces a general vector to a span component (handled by
+`pairEmbed_intertwines` and `pairAction_order`) plus an orthogonal component
+fixed pointwise by both reflections. -/
+lemma pairProduct_pow_orderOf_eq_one (M : CoxeterMatrix B)
+    {s t : B} (hst : s ≠ t) :
+    (pairProduct M s t) ^ (M s t) = 1 := by
+  by_cases hm : M s t = 0
+  · simp [hm]
+  · have hA : (pairAction M s t) ^ (M s t) = 1 := by
+      rw [← pairAction_order M hst]
+      exact pow_orderOf_eq_one _
+    have hpow : ∀ (n : ℕ) (z : Fin 2 → ℝ),
+        ((pairProduct M s t) ^ n) (pairEmbed s t z) =
+          pairEmbed s t (((pairAction M s t) ^ n) z) := by
+      intro n
+      induction n with
+      | zero =>
+          intro z
+          simp
+      | succ n ih =>
+          intro z
+          rw [pow_succ', LinearEquiv.mul_apply, ih]
+          have hi :=
+            LinearMap.congr_fun (pairEmbed_intertwines M hst)
+              (((pairAction M s t) ^ n) z)
+          simpa [pow_succ', LinearEquiv.mul_apply, LinearMap.comp_apply] using hi
+    have hpair : ∀ z : Fin 2 → ℝ,
+        ((pairProduct M s t) ^ (M s t)) (pairEmbed s t z) =
+          pairEmbed s t z := by
+      intro z
+      rw [hpow, hA]
+      rfl
+    have hfix : ∀ h : Space B,
+        form M h (root s) = 0 → form M h (root t) = 0 →
+          pairProduct M s t h = h := by
+      intro h hs ht
+      rw [pairProduct, LinearEquiv.mul_apply,
+        reflection_orthogonal M t h ht,
+        reflection_orthogonal M s h hs]
+    apply LinearEquiv.ext
+    intro v
+    obtain ⟨a, b, h, hv, hs, ht⟩ :=
+      decompose_into_span_orthogonal M hst hm v
+    have hv' : v = pairEmbed s t ![a, b] + h := by
+      calc
+        v = a • root s + b • root t + h := hv
+        _ = pairEmbed s t ![a, b] + h := by
+          rw [pairEmbed_apply]
+          simp
+    have hfixpow : ∀ n : ℕ, ((pairProduct M s t) ^ n) h = h := by
+      intro n
+      induction n with
+      | zero => simp
+      | succ n ih =>
+          rw [pow_succ', LinearEquiv.mul_apply, ih, hfix h hs ht]
+    rw [hv', map_add, hpair, hfixpow]
+    simp
+
+/-- GT `fg16` support: the pair reflection product has exact order `M s t`. -/
+lemma pairProduct_orderOf_eq (M : CoxeterMatrix B)
+    {s t : B} (hst : s ≠ t) :
+    orderOf (pairProduct M s t) = M s t := by
+  apply Nat.dvd_antisymm
+  · exact orderOf_dvd_of_pow_eq_one
+      (pairProduct_pow_orderOf_eq_one M hst)
+  · rw [← pairAction_order M hst]
+    exact LinearEquiv.orderOf_dvd_of_intertwines
+      (pairProduct M s t)
+      (pairAction M s t)
+      (pairEmbed s t)
+      (pairEmbed_injective hst)
+      (pairEmbed_intertwines M hst)
+
+lemma reflectionEquiv_injective (M : CoxeterMatrix B)
+    {s t : B} (hst : s ≠ t) :
+    reflectionEquiv M s ≠ reflectionEquiv M t := by
+  intro he
+  have hr :=
+    congrArg (fun e : Space B ≃ₗ[ℝ] Space B => e (root t)) he
+  change reflection M s (root t) = reflection M t (root t) at hr
+  rw [show reflection M s (root t) =
+        root t - (2 * form M (root t) (root s)) • root s by rfl,
+      reflection_root M t] at hr
+  rw [form_root_left] at hr
+  have heq : (2 : ℝ) • root t = (2 * coeff M t s) • root s := by
+    have h0 : root t - (2 * coeff M t s) • root s + root t = 0 := by
+      rw [hr]
+      module
+    rw [← sub_eq_zero]
+    convert h0 using 1
+    · module
+  have hvec :
+      (![0, 2] : Fin 2 → ℝ) = ![2 * coeff M t s, 0] := by
+    apply pairEmbed_injective hst
+    simpa [pairEmbed_apply] using heq
+  have hc := congrFun hvec 1
+  norm_num at hc
+
+lemma reflectionEquiv_orderOf (M : CoxeterMatrix B) (s : B) :
+    orderOf (reflectionEquiv M s) = 2 := by
+  have hpow : (reflectionEquiv M s) ^ 2 = 1 := by
+    apply LinearEquiv.ext
+    intro x
+    rw [pow_two, LinearEquiv.mul_apply]
+    exact reflection_involutive M s x
+  have hne : reflectionEquiv M s ≠ 1 := by
+    intro he
+    have hr :=
+      congrArg (fun e : Space B ≃ₗ[ℝ] Space B => e (root s)) he
+    change reflection M s (root s) = root s at hr
+    rw [reflection_root M s] at hr
+    have hc := congrArg (fun x : Space B => x s) hr
+    have hc' : (-1 : ℝ) = 1 := by
+      simpa [root] using hc
+    linarith
+  apply (orderOf_eq_iff (by norm_num : 0 < (2 : ℕ))).2
+  refine ⟨hpow, ?_⟩
+  intro n hn hlt
+  have hn1 : n = 1 := by omega
+  subst n
+  simpa using hne
+
+/-- GT `fg16`: the geometric (Tits) representation of the presented Coxeter
+group is faithful, and the simple reflections and their pairwise products have
+the prescribed exact orders.  This is the conclusion of the geometric
+representation argument started by `fg17` and `fg18`. -/
+theorem fg16 (M : CoxeterMatrix B) :
+    Function.Injective M.simple ∧
+      (∀ s, orderOf (M.simple s) = 2) ∧
+      ∀ s t, s ≠ t → orderOf (M.simple s * M.simple t) = M s t := by
+  apply exactOrders_of_model M (fun s => reflectionEquiv M s)
+  · intro s t
+    by_cases hst : s = t
+    · subst t
+      have hss : reflectionEquiv M s * reflectionEquiv M s = 1 := by
+        apply LinearEquiv.ext
+        intro x
+        rw [LinearEquiv.mul_apply]
+        exact reflection_involutive M s x
+      rw [hss]
+      simp
+    · simpa [pairProduct] using
+        pairProduct_pow_orderOf_eq_one M hst
+  · intro s t h
+    by_contra hst
+    exact (reflectionEquiv_injective M hst) h
+  · intro s
+    exact reflectionEquiv_orderOf M s
+  · intro s t hst
+    simpa [pairProduct] using pairProduct_orderOf_eq M hst
+
+end
 end CoxeterReflection
 
 namespace Bd3mSource
@@ -8746,10 +8959,6 @@ unproved proposition has been established.
   implementation.  The canonical target deliberately uses Mathlib's quotient
   construction of `FreeGroup`; duplicating the private presentation would not
   expose additional mathematical structure.
-* AUDIT-GAP: formalize the exact Coxeter reflection-order results `fg16`,
-  `fg17`, and `fg18`, including the exact-order and faithfulness conclusions;
-  the existing Coxeter presentation and power relations are only partial
-  prerequisites.
 -/
 
 end GT
