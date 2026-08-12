@@ -87,14 +87,9 @@ with useful independent tasks where possible. Do not manufacture redundant work
 just to occupy a slot, and do not queue several known heartbeat-heavy Lean
 requests concurrently because the shared REPL serializes them.
 
-There is currently no automatic worker deadline. Do not enter an unbounded wait
-while useful work remains. Check `subagent_status` at natural checkpoints and
-manually abort or reassign a worker whose elapsed time or lack of progress
-exceeds the task's stated deadline. At the same checkpoints, inspect
-`lean_repl_status`: worker state alone does not reveal a blocked shared queue,
-repeated generations, process leaks, or memory pressure. Check OS process and
-memory state immediately after any REPL timeout/restart or unexplained latency.
-Do not start a target build while long worker REPL calls remain active.
+There is no automatic worker deadline. Check `subagent_status` at natural
+checkpoints; it includes REPL health. Abort stalled workers and investigate any
+REPL warning before adding work or starting a build.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
 - Use profile name `lean` exactly. The tested limit is four concurrent workers.
@@ -164,22 +159,9 @@ representations must be `def`/`noncomputable def` (or an appropriately typed
 
 ## Shared Lean REPL
 
-Main and worker SDK sessions share one project REPL process. Model reasoning is
-parallel, while Lean requests are serialized through a FIFO queue. Four workers
-have been tested successfully on substantial proofs with ordinary perceived
-latency generally below a few seconds.
-
-An `env` is meaningful only in the REPL generation that created it. When an
-environment is retained across turns or explicitly handed to a worker, pass both
-its `env` and `repl` values. Workers may otherwise omit `env` to branch from the
-shared Mathlib root. One slow elaboration blocks the queue, so split exploratory
-checks into bounded commands and avoid submitting known heartbeat-heavy commands
-from several workers at once. Before spawning multiple Lean workers, record a
-healthy `lean_repl_status` baseline. During a four-worker experiment, check the
-status at the first process checkpoint and at each natural integration point.
-If `pendingRequests` grows, active request age approaches 120 seconds, restart
-count increases, or the process group has other than the expected launcher and
-REPL pair, stop adding work and diagnose before continuing.
+Lean requests are FIFO-serialized. Pass `env` and `repl` together, keep commands
+bounded, and do not queue several expensive checks. After a restart, discard old
+handles and replay from the new root. See [LEAN_REPL.md](LEAN_REPL.md).
 
 ## Safe Mathlib discovery
 

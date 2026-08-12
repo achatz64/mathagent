@@ -35,69 +35,17 @@ compatibility, but cannot detect that the REPL has restarted. A stale
 `repl` token is rejected instead of accidentally addressing an unrelated
 environment number.
 
-## Sharing and concurrency
+## Sharing and monitoring
 
-Extension instances acquire reference-counted leases on a process-wide service
-keyed by the resolved Lean project directory. Consequently:
+Main and worker sessions share one FIFO-serialized REPL. A long request blocks
+the queue; use bounded commands. On timeout the whole REPL process group is
+replaced, making all old `env`/`repl` handles stale.
 
-- the main agent and all in-process managed subagents see the same environments;
-- worker shutdown does not terminate a REPL still leased by another session;
-- the final lease release terminates the process;
-- only the service writes to stdin, so protocol frames cannot interleave.
-
-Lean elaboration itself is serialized. Agents can reason concurrently, but one
-long Lean request delays every queued request. Prefer bounded exploratory
-commands and branch from known-good environments. A request timeout or framing failure closes that process because continuing
-would be unsafe. The service immediately starts a new generation before
-releasing the FIFO queue, so requests still waiting in the queue can continue
-against a healthy process. The request that detected the failure receives an
-error naming the replacement generation and must retry from the new root.
-All environments and generation tokens from the terminated process are stale;
-retry without them and re-elaborate any required local declarations.
-
-The PID reported by the tool is the `lake env` owner. The operating system may
-also show its actual REPL child; this pair represents one logical shared REPL.
-The launcher and child run in their own process group. Closing or replacing a
-generation terminates the complete group and waits for it to exit before a new
-generation is started; this prevents timed-out children from becoming orphaned
-and continuing to consume CPU and memory.
-
-## Monitoring
-
-Every `lean_repl` response includes a `health` object. The separate
-`lean_repl_status` tool reports the same information without enqueueing Lean
-code:
-
-- generation token and owner PID;
-- active lease/reference count;
-- active plus queued request count and current active-request age;
-- total requests and automatic restart count;
-- last restart reason;
-- operating-system process-group member count and aggregate RSS on Linux;
-- total project REPL processes and any unexpected process-group IDs, which
-  exposes orphaned generations directly.
-
-The main agent is responsible for monitoring this state, not merely reacting to
-worker reports. Check it before launching multiple Lean workers, at worker
-progress checkpoints, after any timeout/restart, and before a build if requests
-have recently stalled. A healthy active service normally has one process group
-with two members (`lake env` and its REPL child). Investigate immediately if a
-generation has more than two members, if old REPL groups remain, if restart
-count rises repeatedly, or if `pendingRequests` remains above one while the
-active request age approaches the 120-second transport timeout.
-
-When diagnosing latency, inspect both logical and OS state:
-
-```bash
-ps -eo pid,ppid,pgid,stat,etime,%cpu,%mem,rss,args \
-  | grep -E '[l]ean|[l]ake|repl'
-free -h
-uptime
-```
-
-Do not launch a build or more large replay commands while the shared queue is
-backed up. Abort obsolete workers first, let the queue drain, and verify that
-only the current process group remains.
+`lean_repl_status` and each response's `health` field report queue age, restarts,
+RSS, and unexpected process groups. The main agent checks this before parallel
+Lean work and after timeouts or unexplained latency. A healthy running service
+has one two-process group (`lake env` plus REPL) and no warnings. If not, stop
+adding work, abort obsolete workers, and diagnose before building.
 
 ## Development and builds
 
