@@ -7663,7 +7663,7 @@ lemma pairAction_apply (M : CoxeterMatrix B) (s t : B)
           2 * pairCoeff M s t * z 1,
         -2 * pairCoeff M s t * z 0 - z 1] := rfl
 
-lemma pairEmbed_intertwines_clean2 (M : CoxeterMatrix B)
+lemma pairEmbed_intertwines (M : CoxeterMatrix B)
     {s t : B} (hst : s ≠ t) :
     (pairProduct M s t).toLinearMap.comp (pairEmbed s t) =
       (pairEmbed s t).comp (pairAction M s t).toLinearMap := by
@@ -7729,7 +7729,7 @@ lemma complexCoord_bijective {c d : ℝ} (hd : d ≠ 0) :
     · simp [complexCoord, Complex.mul_re, Complex.mul_im]
       field_simp [hd]
 
-lemma complexCoord_pairAction_clean {M : CoxeterMatrix B} {s t : B}
+lemma complexCoord_pairAction {M : CoxeterMatrix B} {s t : B}
     {α : ℝ} (hc : pairCoeff M s t = -Real.cos α)
     (c d : ℝ) (hc' : c = pairCoeff M s t)
     (hd' : d = Real.sin α) (z : Fin 2 → ℝ) :
@@ -7773,7 +7773,7 @@ lemma complexCoord_pairAction_clean {M : CoxeterMatrix B} {s t : B}
     rw [hc, Real.sin_two_mul, Real.cos_two_mul]
     ring_nf
 
-lemma complexCoord_pairAction_pow_clean {M : CoxeterMatrix B} {s t : B}
+lemma complexCoord_pairAction_pow {M : CoxeterMatrix B} {s t : B}
     {α : ℝ} (hc : pairCoeff M s t = -Real.cos α)
     (c d : ℝ) (hc' : c = pairCoeff M s t)
     (hd' : d = Real.sin α) (n : ℕ) (z : Fin 2 → ℝ) :
@@ -7786,7 +7786,7 @@ lemma complexCoord_pairAction_pow_clean {M : CoxeterMatrix B} {s t : B}
       simp
   | succ n ih =>
       rw [pow_succ, LinearEquiv.mul_apply, ih]
-      rw [complexCoord_pairAction_clean hc c d hc' hd']
+      rw [complexCoord_pairAction hc c d hc' hd']
       ring
 
 lemma exp_angle_eq (α : ℝ) :
@@ -7884,7 +7884,7 @@ lemma pairAction_order_finite (M : CoxeterMatrix B) {s t : B}
     apply LinearEquiv.ext
     intro z
     apply (complexCoord_bijective hd).injective
-    rw [complexCoord_pairAction_pow_clean hc
+    rw [complexCoord_pairAction_pow hc
       (pairCoeff M s t) (Real.sin α) rfl rfl m z, hE]
     simp
   apply (orderOf_eq_iff hmpos).2
@@ -7894,7 +7894,7 @@ lemma pairAction_order_finite (M : CoxeterMatrix B) {s t : B}
     have hh := congrArg
       (fun q : (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) =>
         complexCoord (pairCoeff M s t) (Real.sin α) (q ![1, 0])) h
-    rw [complexCoord_pairAction_pow_clean hc
+    rw [complexCoord_pairAction_pow hc
       (pairCoeff M s t) (Real.sin α) rfl rfl k ![1, 0]] at hh
     have hcoord :
         complexCoord (pairCoeff M s t) (Real.sin α) ![1, 0] = 1 := by
@@ -8006,6 +8006,31 @@ theorem LinearEquiv.pow_eq_one_of_model
     show (P ^ m) x - x ∈ (⊥ : Submodule K V) from
       hdis.le_bot ⟨hr, hk⟩
   rw [sub_eq_zero.mp hz]
+  rfl
+
+/-- Exact order in an injectively embedded invariant model divides exact
+order in the ambient linear automorphism group. -/
+theorem LinearEquiv.orderOf_dvd_of_intertwines
+    {K V W : Type*} [Field K]
+    [AddCommGroup V] [Module K V] [AddCommGroup W] [Module K W]
+    (P : V ≃ₗ[K] V) (A : W ≃ₗ[K] W)
+    (E : W →ₗ[K] V) (hE : Function.Injective E)
+    (h : P.toLinearMap.comp E = E.comp A.toLinearMap) :
+    orderOf A ∣ orderOf P := by
+  rw [orderOf_dvd_iff_pow_eq_one]
+  apply LinearEquiv.ext
+  intro z
+  apply hE
+  have hp : ∀ n, E ((A ^ n) z) = (P ^ n) (E z) := by
+    intro n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+      rw [pow_succ', LinearEquiv.mul_apply, pow_succ',
+        LinearEquiv.mul_apply, ← ih]
+      have he := LinearMap.congr_fun h ((A ^ n) z)
+      simpa [LinearMap.comp_apply] using he.symm
+  rw [hp, pow_orderOf_eq_one]
   rfl
 
 /-- The group-theoretic completion of the geometric representation used for GT
