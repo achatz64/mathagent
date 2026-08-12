@@ -9,6 +9,7 @@ import Mathlib.Data.Finset.Sort
 import Mathlib.Data.ZMod.QuotientRing
 import Mathlib.Data.ZMod.Units
 import Mathlib.FieldTheory.Finiteness
+import Mathlib.FieldTheory.Finite.GaloisField
 import Mathlib.GroupTheory.FreeGroup.NielsenSchreier
 import Mathlib.GroupTheory.ClassEquation
 import Mathlib.GroupTheory.Coset.Basic
@@ -7265,6 +7266,599 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv
   rw [σ.asModuleEquiv_map_smul, σ.asAlgebraHom_of]
 
 
+namespace Bd3mSource
+
+open scoped Matrix
+open Matrix
+
+variable {K : Type*} [Field K]
+
+def diag2 (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
+  Matrix.diagonal (fun i => if i = 0 then (z : K) else (z⁻¹ : K))
+
+theorem order_diag2 (z : Kˣ) : orderOf (diag2 z) = orderOf z := by
+  apply (orderOf_eq_orderOf_iff).mpr
+  intro n
+  constructor
+  · intro hn
+    rw [diag2, Matrix.diagonal_pow] at hn
+    have h0 := congrArg (fun M : Matrix (Fin 2) (Fin 2) K => M 0 0) hn
+    apply Units.ext
+    simpa using h0
+  · intro hn
+    have hnK : (z : K)^n = 1 :=
+      congrArg (fun x : Kˣ => (x : K)) hn
+    rw [diag2, Matrix.diagonal_pow]
+    ext i j
+    fin_cases i <;> fin_cases j
+    · simpa using hnK
+    · simp
+    · simp
+    · change ((z : K)⁻¹)^n = 1
+      rw [inv_pow, hnK]
+      simp
+
+theorem order_matrix_conj (M D : Matrix (Fin 2) (Fin 2) K)
+    (P : GL (Fin 2) K)
+    (h : (P : Matrix (Fin 2) (Fin 2) K)⁻¹ * D *
+      (P : Matrix (Fin 2) (Fin 2) K) = M) :
+    orderOf M = orderOf D := by
+  have hpow : ∀ n : ℕ,
+      ((P : Matrix (Fin 2) (Fin 2) K)⁻¹ * D *
+        (P : Matrix (Fin 2) (Fin 2) K)) ^ n =
+      (P : Matrix (Fin 2) (Fin 2) K)⁻¹ * D ^ n *
+        (P : Matrix (Fin 2) (Fin 2) K) := by
+    intro n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+        rw [pow_succ, ih, pow_succ]
+        simp [Matrix.mul_assoc]
+  apply (orderOf_eq_orderOf_iff).mpr
+  intro n
+  constructor
+  · intro hn
+    rw [← h, hpow] at hn
+    have hx := congrArg
+      (fun X => (P : Matrix (Fin 2) (Fin 2) K) * X *
+        (P : Matrix (Fin 2) (Fin 2) K)⁻¹) hn
+    simpa [Matrix.mul_assoc] using hx
+  · intro hn
+    rw [← h, hpow, hn]
+    simp [Matrix.mul_assoc]
+
+def slOf (M : Matrix (Fin 2) (Fin 2) K) (h : M.det = 1) :
+    Matrix.SpecialLinearGroup (Fin 2) K :=
+  ⟨M, h⟩
+
+theorem order_slOf (M : Matrix (Fin 2) (Fin 2) K) (h : M.det = 1) :
+    orderOf (slOf M h) = orderOf M := by
+  apply (orderOf_eq_orderOf_iff).mpr
+  intro n
+  constructor
+  · intro hn
+    have hn' := congrArg
+      (fun X : Matrix.SpecialLinearGroup (Fin 2) K =>
+        (X : Matrix (Fin 2) (Fin 2) K)) hn
+    simpa [slOf] using hn'
+  · intro hn
+    apply Subtype.ext
+    simpa [slOf] using hn
+
+theorem matrix_conj_diag (M : Matrix (Fin 2) (Fin 2) K) (z : Kˣ)
+    (hb : M 0 1 ≠ 0) (hz : (z : K)^2 ≠ 1)
+    (hdet : M.det = 1)
+    (htrace : M.trace = (z : K) + (z⁻¹ : K)) :
+    ∃ P : GL (Fin 2) K,
+      (P : Matrix (Fin 2) (Fin 2) K)⁻¹ * M *
+        (P : Matrix (Fin 2) (Fin 2) K) = diag2 z := by
+  have hz' : (z : K) - (z⁻¹ : K) ≠ 0 := by
+    intro he
+    apply hz
+    have he' := sub_eq_zero.mp he
+    calc
+      (z : K)^2 = (z : K) * (z : K) := by ring
+      _ = (z : K) * (z⁻¹ : K) :=
+        congrArg (fun x : K => (z : K) * x) he'
+      _ = 1 := by simp
+  let Pm : Matrix (Fin 2) (Fin 2) K :=
+    !![M 0 1, M 0 1;
+       (z : K) - M 0 0, (z⁻¹ : K) - M 0 0]
+  have hdetP : Pm.det ≠ 0 := by
+    simp [Pm, Matrix.det_fin_two]
+    have h := mul_ne_zero hb
+      (sub_ne_zero.mpr (Ne.symm (sub_ne_zero.mp hz')))
+    convert h using 1 <;> ring
+  let P : GL (Fin 2) K :=
+    Matrix.GeneralLinearGroup.mkOfDetNeZero Pm hdetP
+  refine ⟨P, ?_⟩
+  have hh : M 0 0 * M 1 1 - M 0 1 * M 1 0 = 1 := by
+    simpa [Matrix.det_fin_two] using hdet
+  have ht : M 0 0 + M 1 1 = (z : K) + (z⁻¹ : K) := by
+    simpa [Matrix.trace_fin_two] using htrace
+  have hd : M 1 1 = (z : K) + (z⁻¹ : K) - M 0 0 := by
+    linear_combination ht
+  have hbc :
+      M 0 1 * M 1 0 =
+        M 0 0 * ((z : K) + (z⁻¹ : K) - M 0 0) - 1 := by
+    have hbc0 : M 0 1 * M 1 0 = M 0 0 * M 1 1 - 1 := by
+      linear_combination -hh
+    rw [hbc0, hd]
+  have hz0 : (z : K) ≠ 0 := Units.ne_zero z
+  have hMP : M * Pm = Pm * diag2 z := by
+    ext i j <;> fin_cases i <;> fin_cases j
+    · simp [Pm, diag2, Matrix.mul_apply]
+      ring
+    · simp [Pm, diag2, Matrix.mul_apply]
+      ring
+    · simp [Pm, diag2, Matrix.mul_apply]
+      rw [mul_comm (M 1 0) (M 0 1), hbc, hd]
+      field_simp [hz0]
+      ring
+    · simp [Pm, diag2, Matrix.mul_apply]
+      rw [mul_comm (M 1 0) (M 0 1), hbc, hd]
+      field_simp [hz0]
+      ring
+  change Pm⁻¹ * M * Pm = _
+  calc
+    Pm⁻¹ * M * Pm = Pm⁻¹ * (M * Pm) := by
+      rw [Matrix.mul_assoc]
+    _ = Pm⁻¹ * (Pm * diag2 z) := by rw [hMP]
+    _ = diag2 z := by simp [Matrix.mul_assoc, hdetP]
+
+theorem order_transpose (M : Matrix (Fin 2) (Fin 2) K) :
+    orderOf M.transpose = orderOf M := by
+  apply (orderOf_eq_orderOf_iff).mpr
+  intro n
+  constructor
+  · intro h
+    have h' := congrArg Matrix.transpose h
+    simpa [Matrix.transpose_pow] using h'
+  · intro h
+    have h' := congrArg Matrix.transpose h
+    simpa [Matrix.transpose_pow] using h'
+
+lemma exists_unit_order_of_dvd_card
+    {K : Type*} [Field K] [Fintype K]
+    {d : ℕ} (hd : d ∣ Fintype.card K - 1)
+    (hdpos : 0 < d) :
+    ∃ u : Kˣ, orderOf u = d := by
+  classical
+  obtain ⟨g, hg⟩ :=
+    isCyclic_iff_exists_orderOf_eq_natCard.mp
+      (inferInstance : IsCyclic Kˣ)
+  have hcard : Nat.card Kˣ = Fintype.card K - 1 := by
+    rw [Nat.card_eq_fintype_card, Fintype.card_units]
+  let q := Fintype.card K - 1
+  have hqpos : 0 < q := by
+    dsimp [q]
+    exact Nat.sub_pos_of_lt Fintype.one_lt_card
+  have hqdpos : 0 < q / d :=
+    Nat.div_pos (Nat.le_of_dvd hqpos hd) hdpos
+  let u : Kˣ := g ^ (q / d)
+  refine ⟨u, ?_⟩
+  rw [show u = g ^ (q / d) by rfl, orderOf_pow, hg, hcard]
+  change q / (q.gcd (q / d)) = d
+  rw [Nat.gcd_eq_right]
+  · exact Nat.div_eq_of_eq_mul_right hqdpos
+      (Nat.div_mul_cancel hd).symm
+  · exact Nat.div_dvd_of_dvd hd
+
+lemma prime_power_field_three_units
+    {m n r : ℕ} (hm : 1 < m) (hn : 1 < n) (hr : 1 < r) :
+    ∃ (p k : ℕ) (_ : Fact (Nat.Prime p))
+      (K : Type) (_ : Field K) (_ : Fintype K),
+      ∃ u v w : Kˣ,
+        orderOf u = 2*m ∧ orderOf v = 2*n ∧ orderOf w = 2*r := by
+  classical
+  let N := 2*m*n*r
+  have hNpos : 0 < N := by
+    dsimp [N]
+    positivity
+  obtain ⟨p, hp_le, hp⟩ :=
+    Nat.exists_infinite_primes (N + 1)
+  have hpgt : N < p :=
+    lt_of_lt_of_le (Nat.lt_succ_self N) hp_le
+  have hpN : p.Coprime N :=
+    hp.coprime_iff_not_dvd.mpr
+      (Nat.not_dvd_of_pos_of_lt hNpos hpgt)
+  let k := N.totient
+  have hk : k ≠ 0 := by
+    dsimp [k]
+    exact (Nat.totient_pos.mpr hNpos).ne'
+  letI : Fact (Nat.Prime p) := ⟨hp⟩
+  let K := GaloisField p k
+  letI : Field K := inferInstance
+  letI : Fintype K := Fintype.ofFinite K
+  have hcard : Fintype.card K = p^k := by
+    dsimp [K]
+    rw [← Nat.card_eq_fintype_card, GaloisField.card p k hk]
+  have hmod : p^k ≡ 1 [MOD N] := by
+    simpa [k] using (Nat.ModEq.pow_totient hpN)
+  have hdivN : N ∣ p^k - 1 := by
+    apply (Nat.modEq_iff_dvd'
+      (Nat.one_le_iff_ne_zero.mpr
+        (pow_ne_zero _ hp.ne_zero))).mp
+    exact hmod.symm
+  have hdcard : N ∣ Fintype.card K - 1 := by
+    simpa [hcard] using hdivN
+  have h2m : 2*m ∣ N := by
+    dsimp [N]
+    exact ⟨n*r, by ring⟩
+  have h2n : 2*n ∣ N := by
+    dsimp [N]
+    exact ⟨m*r, by ring⟩
+  have h2r : 2*r ∣ N := by
+    dsimp [N]
+    exact ⟨m*n, by ring⟩
+  obtain ⟨u, hu⟩ :=
+    exists_unit_order_of_dvd_card
+      (dvd_trans h2m hdcard) (by omega)
+  obtain ⟨v, hv⟩ :=
+    exists_unit_order_of_dvd_card
+      (dvd_trans h2n hdcard) (by omega)
+  obtain ⟨w, hw⟩ :=
+    exists_unit_order_of_dvd_card
+      (dvd_trans h2r hdcard) (by omega)
+  exact ⟨p, k, inferInstance, K, inferInstance, inferInstance,
+    u, v, w, hu, hv, hw⟩
+
+def upper (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
+  !![(z : K), 1; 0, (z⁻¹ : K)]
+
+def lower (z : Kˣ) (t : K) : Matrix (Fin 2) (Fin 2) K :=
+  !![(z : K), 0; t, (z⁻¹ : K)]
+
+def upperSL0 (z : Kˣ) : Matrix.SpecialLinearGroup (Fin 2) K :=
+  slOf (upper z) (by simp [upper, Matrix.det_fin_two])
+
+def lowerSL0 (z : Kˣ) (t : K) :
+    Matrix.SpecialLinearGroup (Fin 2) K :=
+  slOf (lower z t) (by simp [lower, Matrix.det_fin_two])
+
+def prodSL0 (u v : Kˣ) (t : K) :
+    Matrix.SpecialLinearGroup (Fin 2) K :=
+  upperSL0 u * lowerSL0 v t
+
+theorem sq_ne_one_of_order_two_mul
+    {x : Kˣ} {d : ℕ} (hd : 1 < d)
+    (hx : orderOf x = 2*d) :
+    (x : K)^2 ≠ 1 := by
+  intro h
+  have hunit : x ^ 2 = 1 := by
+    apply Units.ext
+    simpa using h
+  have hdiv : orderOf x ∣ 2 :=
+    orderOf_dvd_of_pow_eq_one hunit
+  rw [hx] at hdiv
+  obtain ⟨k, hk⟩ := hdiv
+  have hk' : 2 * 1 = 2 * (d*k) := by
+    simpa [Nat.mul_assoc] using hk
+  have hk'' : 1 = d*k :=
+    Nat.mul_left_cancel (by omega) hk'
+  have hd1 : d ∣ 1 := ⟨k, hk''⟩
+  have : d = 1 := Nat.dvd_one.mp hd1
+  omega
+
+theorem order_upperSL0 (z : Kˣ) (hz : (z:K)^2 ≠ 1) :
+    orderOf (upperSL0 z) = orderOf z := by
+  change orderOf (slOf (upper z) _) = orderOf z
+  rw [order_slOf]
+  obtain ⟨P, hP⟩ :=
+    matrix_conj_diag (upper z) z (by simp [upper]) hz
+      (by simp [upper, Matrix.det_fin_two])
+      (by simp [upper, Matrix.trace_fin_two])
+  have ho : orderOf (diag2 z) = orderOf (upper z) :=
+    order_matrix_conj (diag2 z) (upper z) P hP
+  rw [← ho, order_diag2]
+
+theorem order_lowerSL0 (z : Kˣ) (t : K)
+    (hz : (z:K)^2 ≠ 1) :
+    orderOf (lowerSL0 z t) = orderOf z := by
+  by_cases ht : t = 0
+  · subst t
+    change orderOf (slOf (lower z 0) _) = orderOf z
+    rw [order_slOf]
+    have heq : lower z 0 = diag2 z := by
+      ext i j <;> fin_cases i <;> fin_cases j <;>
+        simp [lower, diag2]
+    rw [heq]
+    exact order_diag2 z
+  · change orderOf (slOf (lower z t) _) = orderOf z
+    rw [order_slOf]
+    have hlt : (lower z t).transpose 0 1 ≠ 0 := by
+      simp [lower, ht]
+    obtain ⟨P, hP⟩ :=
+      matrix_conj_diag (lower z t).transpose z hlt hz
+        (by simp [lower, Matrix.det_fin_two])
+        (by simp [lower, Matrix.trace_fin_two])
+    have ho : orderOf (diag2 z) =
+        orderOf ((lower z t).transpose) :=
+      order_matrix_conj (diag2 z) (lower z t).transpose P hP
+    rw [← order_transpose (lower z t), ← ho, order_diag2]
+
+theorem order_prodSL0 (u v w : Kˣ) (t : K)
+    (hw : (w:K)^2 ≠ 1)
+    (ht : (u:K)*(v:K)+t+(u⁻¹:K)*(v⁻¹:K) =
+      (w:K)+(w⁻¹:K)) :
+    orderOf (prodSL0 u v t) = orderOf w := by
+  change orderOf (slOf (upper u * lower v t) _) = orderOf w
+  rw [order_slOf]
+  have hdet : (upper u * lower v t).det = 1 := by
+    rw [Matrix.det_mul]
+    simp [upper, lower, Matrix.det_fin_two]
+  have htrace :
+      (upper u * lower v t).trace = (w:K)+(w⁻¹:K) := by
+    simp [upper, lower, Matrix.trace_fin_two, Matrix.mul_apply]
+    exact ht
+  obtain ⟨P, hP⟩ :=
+    matrix_conj_diag (upper u * lower v t) w
+      (by simp [upper, lower, Matrix.mul_apply, Units.ne_zero])
+      hw hdet htrace
+  have ho : orderOf (diag2 w) =
+      orderOf (upper u * lower v t) :=
+    order_matrix_conj (diag2 w) (upper u * lower v t) P hP
+  rw [← ho, order_diag2]
+
+theorem unit_half_neg_one
+    {z : Kˣ} {m : ℕ} (hm : 0 < m)
+    (hz : orderOf z = 2*m) :
+    (z:K)^m = -1 := by
+  have hpow : (z:K)^(2*m) = 1 := by
+    have h := pow_orderOf_eq_one z
+    simpa [hz] using congrArg (fun x : Kˣ => (x : K)) h
+  have hneq : (z:K)^m ≠ 1 := by
+    intro h
+    have hd : orderOf z ∣ m := by
+      apply orderOf_dvd_of_pow_eq_one
+      apply Units.ext
+      simpa using h
+    rw [hz] at hd
+    exact (Nat.not_dvd_of_pos_of_lt hm (by omega)) hd
+  have hs : ((z:K)^m)^2 = 1 := by
+    calc
+      ((z:K)^m)^2 = (z:K)^(m*2) := by rw [pow_mul]
+      _ = (z:K)^(2*m) :=
+        congrArg (fun q : ℕ => (z:K)^q) (Nat.mul_comm m 2)
+      _ = 1 := hpow
+  rcases (sq_eq_one_iff.mp hs) with h | h
+  · exact False.elim (hneq h)
+  · exact h
+
+theorem conj_pow (M : Matrix (Fin 2) (Fin 2) K)
+    (P : GL (Fin 2) K) (n : ℕ) :
+    ((P : Matrix (Fin 2) (Fin 2) K)⁻¹ * M *
+      (P : Matrix (Fin 2) (Fin 2) K)) ^ n =
+      (P : Matrix (Fin 2) (Fin 2) K)⁻¹ * M^n *
+        (P : Matrix (Fin 2) (Fin 2) K) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+      rw [pow_succ, ih, pow_succ]
+      simp [Matrix.mul_assoc]
+
+theorem half_power_matrix_neg_one
+    (M : Matrix (Fin 2) (Fin 2) K) (z : Kˣ)
+    (P : GL (Fin 2) K) {m : ℕ} (hm : 0 < m)
+    (hz : orderOf z = 2*m)
+    (hP : (P : Matrix (Fin 2) (Fin 2) K)⁻¹ * M *
+      (P : Matrix (Fin 2) (Fin 2) K) = diag2 z) :
+    M^m = -(1 : Matrix (Fin 2) (Fin 2) K) := by
+  have hu : (z:K)^m = -1 := unit_half_neg_one hm hz
+  have hd : (diag2 z)^m =
+      -(1 : Matrix (Fin 2) (Fin 2) K) := by
+    rw [diag2, Matrix.diagonal_pow]
+    ext i j
+    fin_cases i <;> fin_cases j
+    · simpa using hu
+    · simp
+    · simp
+    · change ((z:K)⁻¹)^m = -1
+      rw [inv_pow, hu]
+      simp
+  have hc := conj_pow M P m
+  rw [hP, hd] at hc
+  have he := congrArg
+    (fun X => (P : Matrix (Fin 2) (Fin 2) K) * X *
+      (P : Matrix (Fin 2) (Fin 2) K)⁻¹) hc
+  simpa [Matrix.mul_assoc] using he.symm
+
+theorem half_upperSL0 (z : Kˣ) {m : ℕ}
+    (hm : 1 < m) (hz : orderOf z = 2*m) :
+    (upperSL0 z)^m =
+      (-1 : Matrix.SpecialLinearGroup (Fin 2) K) := by
+  apply Subtype.ext
+  obtain ⟨P, hP⟩ :=
+    matrix_conj_diag (upper z) z (by simp [upper])
+      (sq_ne_one_of_order_two_mul hm hz)
+      (by simp [upper, Matrix.det_fin_two])
+      (by simp [upper, Matrix.trace_fin_two])
+  have hM :=
+    half_power_matrix_neg_one (upper z) z P
+      (by omega) hz hP
+  simpa [upperSL0, slOf, upper,
+    Matrix.SpecialLinearGroup.coe_pow] using hM
+
+theorem half_lowerSL0 (z : Kˣ) (t : K) {m : ℕ}
+    (hm : 1 < m) (hz : orderOf z = 2*m) :
+    (lowerSL0 z t)^m =
+      (-1 : Matrix.SpecialLinearGroup (Fin 2) K) := by
+  apply Subtype.ext
+  by_cases ht : t = 0
+  · subst t
+    have heq : lower z 0 = diag2 z := by
+      ext i j <;> fin_cases i <;> fin_cases j <;>
+        simp [lower, diag2]
+    have hu := unit_half_neg_one (by omega) hz
+    have hd : (diag2 z)^m =
+        -(1 : Matrix (Fin 2) (Fin 2) K) := by
+      rw [diag2, Matrix.diagonal_pow]
+      ext i j
+      fin_cases i <;> fin_cases j
+      · simpa using hu
+      · simp
+      · simp
+      · change ((z:K)⁻¹)^m = -1
+        rw [inv_pow, hu]
+        simp
+    simpa [lowerSL0, slOf,
+      Matrix.SpecialLinearGroup.coe_pow, heq] using hd
+  · obtain ⟨P, hP⟩ :=
+      matrix_conj_diag (lower z t).transpose z
+        (by simp [lower, ht])
+        (sq_ne_one_of_order_two_mul hm hz)
+        (by simp [lower, Matrix.det_fin_two])
+        (by simp [lower, Matrix.trace_fin_two])
+    have hM :=
+      half_power_matrix_neg_one (lower z t).transpose z
+        P (by omega) hz hP
+    have hMT := congrArg Matrix.transpose hM
+    have hM' : (lower z t)^m =
+        -(1 : Matrix (Fin 2) (Fin 2) K) := by
+      simpa [← Matrix.transpose_pow] using hMT
+    simpa [lowerSL0, slOf,
+      Matrix.SpecialLinearGroup.coe_pow] using hM'
+
+theorem half_prodSL0 (u v w : Kˣ) (t : K) {r : ℕ}
+    (hr : 1 < r) (hw : orderOf w = 2*r)
+    (ht : (u:K)*(v:K)+t+(u⁻¹:K)*(v⁻¹:K) =
+      (w:K)+(w⁻¹:K)) :
+    (prodSL0 u v t)^r =
+      (-1 : Matrix.SpecialLinearGroup (Fin 2) K) := by
+  apply Subtype.ext
+  obtain ⟨P, hP⟩ :=
+    matrix_conj_diag (upper u * lower v t) w
+      (by simp [upper, lower, Matrix.mul_apply, Units.ne_zero])
+      (sq_ne_one_of_order_two_mul hr hw)
+      (by rw [Matrix.det_mul]
+          simp [upper, lower, Matrix.det_fin_two])
+      (by simp [upper, lower, Matrix.trace_fin_two, ht])
+  have hM :=
+    half_power_matrix_neg_one (upper u * lower v t) w
+      P (by omega) hw hP
+  simpa [prodSL0, upperSL0, lowerSL0, slOf,
+    Matrix.SpecialLinearGroup.coe_pow] using hM
+
+theorem mem_half_zpowers
+    {G : Type*} [Group G] {x : G} {n m : ℕ}
+    (hx : orderOf x = 2 * n) :
+    x ^ m ∈ Subgroup.zpowers (x ^ n) ↔ n ∣ m := by
+  constructor
+  · intro hm
+    obtain ⟨k, hk⟩ := Subgroup.mem_zpowers_iff.mp hm
+    have heq : x ^ ((n : ℤ) * k) = x ^ (m : ℤ) := by
+      rw [zpow_mul, zpow_natCast]
+      simpa [zpow_natCast] using hk
+    have hd : (2 * (n : ℤ)) ∣ (n : ℤ) * k - m := by
+      have hh := (orderOf_dvd_sub_iff_zpow_eq_zpow
+        (x := x) (a := (n : ℤ) * k) (b := (m : ℤ))).mpr heq
+      simpa [hx] using hh
+    have hn2 : (n : ℤ) ∣ 2 * (n : ℤ) := ⟨2, by ring⟩
+    have hd' : (n : ℤ) ∣ (n : ℤ) * k - m :=
+      dvd_trans hn2 hd
+    have hh := dvd_sub (dvd_mul_right (n : ℤ) k) hd'
+    exact Int.natCast_dvd_natCast.mp
+      (by simpa [sub_eq_add_neg] using hh)
+  · rintro ⟨k, rfl⟩
+    rw [Subgroup.mem_zpowers_iff]
+    refine ⟨(k : ℤ), ?_⟩
+    simpa [zpow_natCast, pow_mul]
+
+theorem order_quotient_half
+    {G : Type*} [Group G] {x z : G} (n : ℕ)
+    (hx : orderOf x = 2 * n) (hn : 0 < n)
+    (hz : z = x ^ n)
+    [((Subgroup.zpowers z).Normal)] :
+    orderOf (QuotientGroup.mk' (Subgroup.zpowers z) x) = n := by
+  rw [orderOf_eq_iff hn]
+  constructor
+  · apply (QuotientGroup.eq_one_iff _).mpr
+    rw [hz]
+    exact Subgroup.mem_zpowers _
+  · intro m hm hmpos hq
+    have hmem : x ^ m ∈ Subgroup.zpowers z := by
+      rw [← map_pow] at hq
+      exact (QuotientGroup.eq_one_iff _).mp hq
+    rw [hz] at hmem
+    exact (Nat.not_dvd_of_pos_of_lt hmpos hm)
+      ((mem_half_zpowers hx).mp hmem)
+
+theorem normal_zpowers_neg_one :
+    ((Subgroup.zpowers
+      (-1 : Matrix.SpecialLinearGroup (Fin 2) K)).Normal) := by
+  constructor
+  intro n hn g
+  obtain ⟨k, hk⟩ := Subgroup.mem_zpowers_iff.mp hn
+  rw [← hk]
+  have hc : Commute g
+      (-1 : Matrix.SpecialLinearGroup (Fin 2) K) := by simp
+  rw [hc.zpow_right k]
+  simp only [mul_assoc, mul_inv_cancel, mul_one]
+  exact Subgroup.mem_zpowers_iff.mpr ⟨k, rfl⟩
+
+theorem bd3m_source_clean
+    {m n r : ℕ} (hm : 1 < m) (hn : 1 < n) (hr : 1 < r) :
+    ∃ (G : Type) (_ : Group G) (_ : Finite G), ∃ a b : G,
+      orderOf a = m ∧ orderOf b = n ∧ orderOf (a*b) = r := by
+  classical
+  obtain ⟨p, k, hp, K, hK, hKfinite, u, v, w, hu, hv, hw⟩ :=
+    prime_power_field_three_units hm hn hr
+  letI : Fact (Nat.Prime p) := hp
+  letI : Field K := hK
+  letI : Fintype K := hKfinite
+  let t : K :=
+    (w:K) + (w⁻¹:K) - (u:K)*(v:K) -
+      (u⁻¹:K)*(v⁻¹:K)
+  have ht :
+      (u:K)*(v:K) + t + (u⁻¹:K)*(v⁻¹:K) =
+        (w:K)+(w⁻¹:K) := by
+    dsimp [t]
+    ring
+  let S := Matrix.SpecialLinearGroup (Fin 2) K
+  let H : Subgroup S := Subgroup.zpowers (-1 : S)
+  letI : H.Normal := by
+    dsimp [H]
+    exact normal_zpowers_neg_one
+  let G := S ⧸ H
+  let a : G := QuotientGroup.mk' H (upperSL0 u)
+  let b : G := QuotientGroup.mk' H (lowerSL0 v t)
+  have ha : orderOf a = m := by
+    dsimp [a]
+    apply order_quotient_half m
+    · rw [order_upperSL0 u
+          (sq_ne_one_of_order_two_mul hm hu), hu]
+    · omega
+    · symm
+      exact half_upperSL0 u hm hu
+  have hb : orderOf b = n := by
+    dsimp [b]
+    apply order_quotient_half n
+    · rw [order_lowerSL0 v t
+          (sq_ne_one_of_order_two_mul hn hv), hv]
+    · omega
+    · symm
+      exact half_lowerSL0 v t hn hv
+  have hab : orderOf (a*b) = r := by
+    change orderOf
+      (QuotientGroup.mk' H (upperSL0 u * lowerSL0 v t)) = r
+    apply order_quotient_half r
+    · change orderOf (prodSL0 u v t) = 2*r
+      rw [order_prodSL0 u v w t
+        (sq_ne_one_of_order_two_mul hr hw) ht, hw]
+    · omega
+    · symm
+      exact half_prodSL0 u v w t hr hw ht
+  exact ⟨G, inferInstance, inferInstance, a, b, ha, hb, hab⟩
+
+end Bd3mSource
+
+theorem bd3m
+    {m n r : ℕ} (hm : 1 < m) (hn : 1 < n) (hr : 1 < r) :
+    ∃ (G : Type) (_ : Group G) (_ : Finite G), ∃ a b : G,
+      orderOf a = m ∧ orderOf b = n ∧ orderOf (a*b) = r := by
+  exact Bd3mSource.bd3m_source_clean hm hn hr
+
+
 /-- A subgroup is directly indecomposable when it is nontrivial and has
 no internal direct-product decomposition into two nontrivial factors. -/
 def Subgroup.IsDirectlyIndecomposable {G : Type*} [Group G]
@@ -7352,8 +7946,6 @@ unproved proposition has been established.
   `fg17`, and `fg18`, including the exact-order and faithfulness conclusions;
   the existing Coxeter presentation and power relations are only partial
   prerequisites.
-* AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
-  direct library interface is not a deferral reason.
 -/
 
 end GT
