@@ -57,6 +57,47 @@ retry without them and re-elaborate any required local declarations.
 
 The PID reported by the tool is the `lake env` owner. The operating system may
 also show its actual REPL child; this pair represents one logical shared REPL.
+The launcher and child run in their own process group. Closing or replacing a
+generation terminates the complete group and waits for it to exit before a new
+generation is started; this prevents timed-out children from becoming orphaned
+and continuing to consume CPU and memory.
+
+## Monitoring
+
+Every `lean_repl` response includes a `health` object. The separate
+`lean_repl_status` tool reports the same information without enqueueing Lean
+code:
+
+- generation token and owner PID;
+- active lease/reference count;
+- active plus queued request count and current active-request age;
+- total requests and automatic restart count;
+- last restart reason;
+- operating-system process-group member count and aggregate RSS on Linux;
+- total project REPL processes and any unexpected process-group IDs, which
+  exposes orphaned generations directly.
+
+The main agent is responsible for monitoring this state, not merely reacting to
+worker reports. Check it before launching multiple Lean workers, at worker
+progress checkpoints, after any timeout/restart, and before a build if requests
+have recently stalled. A healthy active service normally has one process group
+with two members (`lake env` and its REPL child). Investigate immediately if a
+generation has more than two members, if old REPL groups remain, if restart
+count rises repeatedly, or if `pendingRequests` remains above one while the
+active request age approaches the 120-second transport timeout.
+
+When diagnosing latency, inspect both logical and OS state:
+
+```bash
+ps -eo pid,ppid,pgid,stat,etime,%cpu,%mem,rss,args \
+  | grep -E '[l]ean|[l]ake|repl'
+free -h
+uptime
+```
+
+Do not launch a build or more large replay commands while the shared queue is
+backed up. Abort obsolete workers first, let the queue drain, and verify that
+only the current process group remains.
 
 ## Development and builds
 

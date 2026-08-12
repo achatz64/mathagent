@@ -20,7 +20,22 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       lease ??= acquireSharedRepl(`${ctx.cwd}/lean`);
       const response = await lease.request(params.cmd, params.env, params.repl);
-      const details = { ...response, repl: lease.id, pid: lease.pid };
+      const details = { ...response, repl: lease.id, pid: lease.pid, health: lease.status() };
+      return {
+        content: [{ type: "text", text: JSON.stringify(details) }],
+        details,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "lean_repl_status",
+    label: "Lean REPL Status",
+    description: "Inspect the shared Lean REPL generation, queue, restart count, process-group membership, and memory without submitting Lean code.",
+    parameters: Type.Object({}),
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      lease ??= acquireSharedRepl(`${ctx.cwd}/lean`);
+      const details = lease.status();
       return {
         content: [{ type: "text", text: JSON.stringify(details) }],
         details,

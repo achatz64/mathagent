@@ -9,6 +9,7 @@ import {
   type AgentSession,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
+import { getSharedReplStatus } from "../lean-repl/service.ts";
 
 type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 type Profile = { tools?: string[]; model?: string; thinkingLevel?: ThinkingLevel };
@@ -226,11 +227,15 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "subagent_status",
     label: "Subagent status",
-    description: "Inspect live helper-agent state without shell polling.",
+    description: "Inspect live helper-agent state and shared Lean REPL health without shell polling.",
     parameters: Type.Object({ id: Type.Optional(Type.String()) }),
-    async execute(_id, params) {
+    async execute(_id, params, _signal, _onUpdate, ctx) {
       const selected = params.id ? [workers.get(params.id)].filter(Boolean) as Worker[] : [...workers.values()];
-      return { content: [{ type: "text", text: JSON.stringify(selected.map(snapshot), null, 2) }], details: selected.map(snapshot) };
+      const details = {
+        workers: selected.map(snapshot),
+        leanRepl: getSharedReplStatus(`${ctx.cwd}/lean`),
+      };
+      return { content: [{ type: "text", text: JSON.stringify(details, null, 2) }], details };
     },
   });
 

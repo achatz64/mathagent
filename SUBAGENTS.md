@@ -90,13 +90,18 @@ requests concurrently because the shared REPL serializes them.
 There is currently no automatic worker deadline. Do not enter an unbounded wait
 while useful work remains. Check `subagent_status` at natural checkpoints and
 manually abort or reassign a worker whose elapsed time or lack of progress
-exceeds the task's stated deadline.
+exceeds the task's stated deadline. At the same checkpoints, inspect
+`lean_repl_status`: worker state alone does not reveal a blocked shared queue,
+repeated generations, process leaks, or memory pressure. Check OS process and
+memory state immediately after any REPL timeout/restart or unexplained latency.
+Do not start a target build while long worker REPL calls remain active.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
 - Use profile name `lean` exactly. The tested limit is four concurrent workers.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
-- Use `subagent_status` for nonblocking inspection.
+- Use `subagent_status` for nonblocking inspection. Its response also includes
+  shared Lean REPL health, so review the worker and queue/process state together.
 - For multiple live workers, use `subagent_wait_any` with their IDs. It returns
   as soon as one worker completes, allowing immediate review and follow-up;
   remove that worker from the next watched set and wait again.
@@ -169,7 +174,12 @@ environment is retained across turns or explicitly handed to a worker, pass both
 its `env` and `repl` values. Workers may otherwise omit `env` to branch from the
 shared Mathlib root. One slow elaboration blocks the queue, so split exploratory
 checks into bounded commands and avoid submitting known heartbeat-heavy commands
-from several workers at once.
+from several workers at once. Before spawning multiple Lean workers, record a
+healthy `lean_repl_status` baseline. During a four-worker experiment, check the
+status at the first process checkpoint and at each natural integration point.
+If `pendingRequests` grows, active request age approaches 120 seconds, restart
+count increases, or the process group has other than the expected launcher and
+REPL pair, stop adding work and diagnose before continuing.
 
 ## Safe Mathlib discovery
 
