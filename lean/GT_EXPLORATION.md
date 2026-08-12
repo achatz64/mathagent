@@ -103,7 +103,7 @@ type exposes exactly which structure is preserved.
 ### Proof compression by interface selection
 
 After the semantic-audit correction pass and the subsequent theorem-development
-batches, the file has grown to roughly 4,000 lines. Many proofs remain a direct
+batches, the file has grown to roughly 9,500 lines. Many proofs remain a direct
 application, instance synthesis, or a small adapter around a stronger library
 object, but the audit demonstrated that declaration count is not a useful proxy
 for statement fidelity.  Several adapters replace a whole textbook proof:
@@ -185,9 +185,10 @@ the relevant obligation.
 The audit found both missing wrappers and claims requiring new proofs. The
 target now exposes invariant-factor existence and source-facing uniqueness
 from adjacent divisibility, full-decomposition elementary-divisor uniqueness,
-and the simple-module enumeration and character basis for `r32(a)`, `r35`, and
-`r39`.  The output ledger classifies the remaining source-proved omissions as
-`AUDIT-GAP`; only genuine scope or representation decisions remain
+the simple-module enumeration and character basis for `r32(a)`, `r35`, and
+`r39`, and the later theorem-development batches covering the formerly open
+Coxeter, extension, operator-group, and representation-theory labels.  No
+`AUDIT-GAP` remains; only genuine scope or representation decisions remain
 `AUDIT-DEFERRED`.
 
 The durable lesson is that absence of a statement-compatible Mathlib theorem is
@@ -235,11 +236,13 @@ were attempted.
 
 ### Axiom audit
 
-Feit--Thompson (`ns04`) is cited by the text but not proved there and is absent
-from Mathlib.  Merely defining its proposition did not establish the cited
-result.  The corrected target therefore declares one explicit axiom,
-`feitThompson : feitThompsonStatement`.  This is intentional and audible.  No
-result proved in the source is discharged by an axiom.
+Feit--Thompson (`ns04`) and finite Krull--Schmidt (`ns29`) are cited by the
+text but not proved there and are absent from Mathlib.  The corrected target
+therefore declares the explicit axioms `feitThompson : feitThompsonStatement`
+and `krullSchmidt_rotman_6_36`, the latter exposing the factor permutation and
+splicing conclusion cited from Rotman §6.36.  These dependencies are
+intentional and audible; no result proved in the source is discharged by an
+axiom.
 
 ### Split compound claims only at reusable boundaries
 
@@ -367,8 +370,9 @@ The final audit includes all of the following:
 
 1. `lake build GT` succeeds from the `lean` project;
 2. the canonical file contains none of the forbidden incomplete-proof tokens;
-3. the sole project-level assumption is the documented Feit--Thompson
-   dependency; no paper-proved result is axiomatized;
+3. the only project-level assumptions are the documented Feit--Thompson and
+   finite Krull--Schmidt dependencies; no result proved in the source is
+   axiomatized;
 4. inventory counts regenerate from `tools/gt_inventory.py`;
 5. all theorem-like labels are accounted for by `tools/gt_coverage.py`, while
    its all-environment fields expose the 129 labels still requiring classification;

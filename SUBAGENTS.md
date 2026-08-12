@@ -8,7 +8,7 @@ Pi loads the project-local managed-subagent extension from
 
 The main agent owns source interpretation, theorem and interface design,
 integration, semantic review, builds, and commits. Lean proof workers are
-read-only helpers: use the `lean` profile, which grants only `read`, `grep`, and
+read-only helpers: use the `lean*` profile, which grants only `read`, `grep`, and
 `lean_repl`. Do not give them Bash, editing, writing, worktrees, or builds.
 
 A proof-worker prompt must be self-contained. Include:
@@ -84,15 +84,14 @@ worker is live.
 Wait for a worker only when its result is the next actual dependency and no
 independent main-agent work remains. Before waiting, fill any idle worker slots
 with useful independent tasks where possible. Do not manufacture redundant work
-just to occupy a slot, and do not queue several known heartbeat-heavy Lean
-requests concurrently because the shared REPL serializes them.
+just to occupy a slot.
 
 There is no automatic worker deadline. Check `subagent_status` at natural
 checkpoints; it includes REPL health. Abort stalled workers and investigate any
 REPL warning before adding work or starting a build.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
-- Use profile name `lean` exactly. The tested limit is four concurrent workers.
+- Use profile name `lean*`. The tested limit is four concurrent workers.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
 - Use `subagent_status` for nonblocking inspection. Its response also includes
@@ -180,7 +179,7 @@ prompts should explicitly prohibit it and direct workers to this sequence:
 The shared REPL root has already executed `import Mathlib`. Never send an
 `import` command through `lean_repl`: imports are only legal at the beginning of
 a Lean input file, whereas tool calls elaborate within an existing environment.
-The persistent target (for example `GT.lean`) is not imported into that root.
+The persistent target is currently not imported into that root.
 A worker using project-local prerequisites must read them from the target and
 paste the smallest relevant declarations into its branch, renaming a declaration
 when necessary to avoid testing the theorem against its previously compiled

@@ -2,7 +2,7 @@
 
 ## Context
 
-The purpose of this repo is to provide skills and tools for the analysis of math research by llm agents (e.g. Claude Code, Codex etc.)
+The purpose of this repo is to provide skills and tools for the analysis of math research by llm agents.
 
 Llm coding tools are very successful in the analysis of code, in particular in finding bugs and improvements. The hope is to transfer these skills in order to check and clarify statements and proofs of math research documents. 
 
@@ -47,30 +47,3 @@ inclusion: (paper x metadata) -> (KB update).
 Building the knowledge base is not a one time effort, but must be essentially reproducible. We need the infrastructure to build knowledge bases from a paper pipeline (format and architecture to be determined) in order to try out different agents, models, tools, and `ma` languages. 
 
 See [KB.md](KB.md) for the current Lean-first knowledge-base plan.
-
-## Proposed architecture
-
-Agent skills are simply text files with instructions. Architecture of KB tools to be determined and will be under continuous development. 
-
-### Tools available
-
-#### Lean repl MCP
-
-Custom lean repl server similar to lean-lsp.
-
-#### Lean explore MCP
-
-lean-explore 
-
-## Rules
-
-1. Attribution of results in knowledge base according to standards of the mathematical academical community.
-2. Service the math community.
-3. Do not use or support powerful llms. AI safety first.
-3. Generate data for improving open source and special purpose math llms.
-
-### Good to remember
-
-1. Only author-maintained source data should be authoritative; everything generated is disposable.
-
-

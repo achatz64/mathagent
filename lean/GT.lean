@@ -8940,13 +8940,12 @@ item names the present API and a checked proof route or concrete extension.
   centrality is equivalent to conjugacy invariance, and class sums map to the
   delta-function basis on `ConjClasses`.
 
-## Explicit omission and gap ledger
+## Explicit omission ledger
 
-The following stable labels are not separate declarations.  `AUDIT-DEFERRED`
-records intentional scope or representation decisions; `AUDIT-GAP` records
-source results that still require faithful declarations and proofs.  This
-ledger makes the distinction machine-auditable without pretending that an
-unproved proposition has been established.
+The following stable labels are intentionally not separate declarations.
+`AUDIT-DEFERRED` records scope or representation decisions without pretending
+that an unproved proposition has been established.  Any actionable semantic
+defect is instead marked beside the relevant partial declaration.
 
 * AUDIT-DEFERRED `ns06` and `ns12` are split into their subgroup, quotient, and extension
   declarations above.  The subpart suffixes are prose structure, not separate

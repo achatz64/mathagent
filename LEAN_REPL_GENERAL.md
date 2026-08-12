@@ -35,27 +35,10 @@ compatibility, but cannot detect that the REPL has restarted. A stale
 `repl` token is rejected instead of accidentally addressing an unrelated
 environment number.
 
-## Sharing and monitoring
-
-Main and worker sessions share one FIFO-serialized REPL. A long request blocks
-the queue; use bounded commands. On timeout the whole REPL process group is
-replaced, making all old `env`/`repl` handles stale.
-
-`lean_repl_status` and each response's `health` field report queue age, restarts,
-RSS, and unexpected process groups. The main agent checks this before parallel
-Lean work and after timeouts or unexplained latency. A healthy running service
-has one two-process group (`lake env` plus REPL) and no warnings. If not, stop
-adding work, abort obsolete workers, and diagnose before building.
 
 ## Development and builds
 
 Use the REPL for proof development and API checks. Do not create temporary Lean
-files merely to invoke `lake build`. Persistent target files must still receive
-a final project build, for example:
+files merely to invoke `lake build`. 
 
-```text
-cd lean && lake build GT
-```
 
-If an integrated build fails, reproduce the failing fragment in `lean_repl`,
-fix it there, and only then rebuild.
