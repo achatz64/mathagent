@@ -10,14 +10,12 @@ If unclear which type you are, then ask.
 
 Resources to read for 
 
-* main: [rules](RULES.md), [lean-repl](LEAN_REPL_GENERAL.md), [lean-repl-monitoring](LEAN_REPL_MONITORING.md), [subagents](SUBAGENTS.md)
+* main: [rules](RULES.md), [lean-repl](LEAN_REPL_GENERAL.md), [lean-repl-monitoring](LEAN_REPL_MONITORING.md), [formalization](FORMALIZATION.md), [subagents](SUBAGENTS.md)
 * sub: [lean-repl](LEAN_REPL_GENERAL.md)
-* auditor: [rules](RULES.md)
+* auditor: [rules](RULES.md), [audits](AUDIT.md)
 * inventory controller: [rules](RULES.md)
 * builder: [rules](RULES.md),  [vision](VISION.md) 
 
-Before working in this repository, read `OVERVIEW.md`. It is the source of
-truth for the project's vision, architecture, and rules.
 
 
 

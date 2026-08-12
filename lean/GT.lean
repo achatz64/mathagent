@@ -55,6 +55,8 @@ occasionally more general than the finite formulation in the text.
 The computational tables, algorithms, exercises, solutions, examination, and
 informal historical assertions are outside the present scope.  Constructions
 already supplied by Mathlib are used directly instead of being duplicated.
+
+INVENTORY-SCRIPT tools/gt_inventory.py
 -/
 
 namespace GT
