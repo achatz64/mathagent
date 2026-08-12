@@ -7271,6 +7271,53 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv
 
 namespace CoxeterReflection
 
+/-- A reusable recurrence principle for the geometric Coxeter argument. If an
+automorphism changes every vector inside a model subspace, intertwines a model
+automorphism through a coefficient map, and that subspace meets the coefficient
+kernel trivially, then every relation in the model holds globally. -/
+theorem LinearEquiv.pow_eq_one_of_model
+    {K V W : Type*} [Field K]
+    [AddCommGroup V] [Module K V] [AddCommGroup W] [Module K W]
+    (P : V ≃ₗ[K] V) (A : W ≃ₗ[K] W)
+    (E : W →ₗ[K] V) (U : V →ₗ[K] W) (m : ℕ)
+    (hstep : ∀ x, P x - x ∈ LinearMap.range E)
+    (hinter : U.comp P.toLinearMap = A.toLinearMap.comp U)
+    (hdis : Disjoint (LinearMap.range E) (LinearMap.ker U))
+    (hAm : A ^ m = 1) : P ^ m = 1 := by
+  have hdiff : ∀ n x, (P ^ n) x - x ∈ LinearMap.range E := by
+    intro n
+    induction n with
+    | zero => intro x; simp
+    | succ n ih =>
+      intro x
+      rw [pow_succ', LinearEquiv.mul_apply]
+      have h1 := hstep ((P ^ n) x)
+      have h2 := ih x
+      rw [show P ((P ^ n) x) - x =
+          (P ((P ^ n) x) - (P ^ n) x) + ((P ^ n) x - x) by abel]
+      exact (LinearMap.range E).add_mem h1 h2
+  have hU : ∀ n x, U ((P ^ n) x) = (A ^ n) (U x) := by
+    intro n
+    induction n with
+    | zero => simp
+    | succ n ih =>
+      intro x
+      rw [pow_succ', LinearEquiv.mul_apply, pow_succ', LinearEquiv.mul_apply]
+      have heq := LinearMap.congr_fun hinter ((P ^ n) x)
+      rw [LinearMap.comp_apply, LinearMap.comp_apply, ih] at heq
+      exact heq
+  apply LinearEquiv.ext
+  intro x
+  have hr := hdiff m x
+  have hk : (P ^ m) x - x ∈ LinearMap.ker U := by
+    rw [LinearMap.mem_ker, map_sub, hU, hAm]
+    simp
+  have hz : (P ^ m) x - x = 0 :=
+    show (P ^ m) x - x ∈ (⊥ : Submodule K V) from
+      hdis.le_bot ⟨hr, hk⟩
+  rw [sub_eq_zero.mp hz]
+  rfl
+
 /-- The group-theoretic completion of the geometric representation used for GT
 `fg16`: any model realizing the Coxeter relations with the prescribed exact
 orders proves injectivity and exact orders in the presented Coxeter group. -/
