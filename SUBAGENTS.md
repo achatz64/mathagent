@@ -72,7 +72,25 @@ It may return a proof or a precise blocker under the standard above. The main
 agent reviews whether the returned declaration actually exposes all source
 clauses.
 
-## Tool sequence
+## Scheduling and tool sequence
+
+Keep the main agent and all useful worker slots productive. When independent
+proof, source-extraction, API-search, audit, or consolidation tasks are
+available, launch them up to the configured concurrency limit. As workers run,
+the main agent continues integration, semantic review, REPL checking,
+documentation, or infrastructure work; it must not wait merely because one
+worker is live.
+
+Wait for a worker only when its result is the next actual dependency and no
+independent main-agent work remains. Before waiting, fill any idle worker slots
+with useful independent tasks where possible. Do not manufacture redundant work
+just to occupy a slot, and do not queue several known heartbeat-heavy Lean
+requests concurrently because the shared REPL serializes them.
+
+There is currently no automatic worker deadline. Do not enter an unbounded wait
+while useful work remains. Check `subagent_status` at natural checkpoints and
+manually abort or reassign a worker whose elapsed time or lack of progress
+exceeds the task's stated deadline.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
 - Use profile name `lean` exactly. The tested limit is four concurrent workers.
@@ -125,12 +143,14 @@ For every substantial returned proof:
 4. inspect `#print axioms` for each final public result and important helper;
 5. only then integrate it and run the target build.
 
-When a worker has accumulated a large scratch branch, ask for a scratch-free
-replay in small, dependency-ordered chunks rather than a final alias. Each chunk
-must state which previous returned chunk it depends on and must be checked by
-continuing from that returned environment. If consolidation repeatedly diverges
-from the scratch proof, preserve the last known-good target and hand the
-mathematical construction—not the claimed final status—to another worker.
+A worker should normally return one self-contained block replayed from the clean
+Mathlib root. If response size requires sequential blocks, each block may depend
+only on Mathlib and previously accepted blocks, must use final names in the
+intended ambient namespace, and must contain no unreturned scratch dependency.
+Partial scratch chunks are mathematical evidence, not integration material. If
+clean consolidation repeatedly fails, preserve the last known-good target and
+hand the mathematical construction—not the claimed final status—to another
+worker.
 
 Lean declaration kinds matter during review: use `theorem` only for
 propositions. Constructions returning data such as equivalences, bases, or
