@@ -16,12 +16,7 @@ Pi loads the project-local Lean REPL extension by default. Read and follow
 [LEAN_REPL.md](LEAN_REPL.md). Use this REPL and DO NOT build temporary files with
 `lake build`. Target files still require a final `cd lean && lake build ...`.
 If that build fails, isolate and fix the problematic code in the REPL before
-building again. Treat large target builds as monitored stress tests: check REPL
-and OS process/memory state first, time the build with peak RSS when diagnosing
-regressions, and compare against the last known-good target. Do not raise
-`maxHeartbeats` to force an unverified proof through; restore the known-good
-file if an integrated block causes kernel timeouts or a major time/RSS
-regression, then repair the block in isolation.
+building again.
 
 ## Managed proof workers
 

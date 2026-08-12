@@ -155,10 +155,7 @@ intended ambient namespace, and must contain no unreturned scratch dependency.
 Partial scratch chunks are mathematical evidence, not integration material. If
 clean consolidation repeatedly fails, preserve the last known-good target and
 hand the mathematical construction—not the claimed final status—to another
-worker. The same rule applies to performance: if an integrated worker block
-causes deterministic kernel timeouts or a major build time/RSS regression,
-restore the known-good target immediately. Do not increase `maxHeartbeats` to
-turn an unverified worker proof into a long-running full-file experiment.
+worker.
 
 Lean declaration kinds matter during review: use `theorem` only for
 propositions. Constructions returning data such as equivalences, bases, or
@@ -182,11 +179,7 @@ healthy `lean_repl_status` baseline. During a four-worker experiment, check the
 status at the first process checkpoint and at each natural integration point.
 If `pendingRequests` grows, active request age approaches 120 seconds, restart
 count increases, or the process group has other than the expected launcher and
-REPL pair, stop adding work and diagnose before continuing. Before a full target
-build, abort obsolete workers, drain the queue, and account for resident REPL
-memory. Measure diagnostic builds with elapsed time and peak RSS and compare to
-the last known-good target; a large regression after a small integration is a
-proof problem until shown otherwise, not merely a slow import phase.
+REPL pair, stop adding work and diagnose before continuing.
 
 ## Safe Mathlib discovery
 
