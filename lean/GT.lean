@@ -6989,6 +6989,145 @@ theorem fdrep_ofModule'_iso_of_linearEquiv
   exact LinearMap.congr_fun
     (φ.toIntertwiningMap.isIntertwining' g) x
 
+private theorem FDRep.exists_complete_simpleFDRepFamily
+    {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
+    {G : Type u} [Group G] [Fintype G]
+    [Invertible (Fintype.card G : k)] :
+    ∃ (n : ℕ) (V : Fin n → FDRep k G),
+      (∀ i, CategoryTheory.Simple (V i)) ∧
+      (∀ i j, Nonempty (V i ≅ V j) ↔ i = j) ∧
+      ∀ (M : Type u) [AddCommGroup M]
+        [Module (MonoidAlgebra k G) M]
+        [IsSimpleModule (MonoidAlgebra k G) M],
+        ∃! i, Nonempty
+          (M ≃ₗ[MonoidAlgebra k G] Representation.asModule ((V i).ρ)) := by
+  classical
+  obtain ⟨n, d, hd, E, hsimple, hpair, hcomplete, _, _, _⟩ :=
+    MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
+      (k := k) (H := G)
+  let A := MonoidAlgebra k G
+  letI : ∀ i, NeZero (d i) := fun i => ⟨(hd i).ne'⟩
+  letI : ∀ i, Module A (Fin (d i) → k) := fun i =>
+    Module.compHom (Fin (d i) → k)
+      (RingEquiv.piFactorHom (A := A)
+        (fun i => Matrix (Fin (d i)) (Fin (d i)) k) E.toRingEquiv i)
+  letI : ∀ i, IsScalarTower k A (Fin (d i) → k) := fun i =>
+    IsScalarTower.of_algebraMap_smul (fun r x => by
+      change
+        (RingEquiv.piFactorHom (A := A)
+          (fun i => Matrix (Fin (d i)) (Fin (d i)) k) E.toRingEquiv i
+          (algebraMap k A r)) • x = r • x
+      simp [RingEquiv.piFactorHom, Algebra.smul_def])
+  let V : Fin n → FDRep k G := fun i =>
+    FDRep.of
+      (Representation.ofModule' (k := k) (G := G) (Fin (d i) → k))
+  letI : ∀ i, IsSimpleModule A (Fin (d i) → k) := fun i => hsimple i
+  have hs : ∀ i, CategoryTheory.Simple (V i) := fun i => by
+    dsimp [V]
+    exact FDRep.simple_of_simpleModule_ofModule'
+      (k := k) (G := G) (M := Fin (d i) → k)
+  have hc : ∀ (M : Type u) [AddCommGroup M] [Module A M]
+      [IsSimpleModule A M],
+      ∃! i, Nonempty (M ≃ₗ[A] Representation.asModule ((V i).ρ)) := by
+    intro M _ _ _
+    obtain ⟨i, hi, hu⟩ := hcomplete M
+    let ei := Representation.asModule_ofModule'LinearEquiv
+      (k := k) (G := G) (M := Fin (d i) → k)
+    refine ⟨i, ⟨hi.some.trans ei.symm⟩, ?_⟩
+    intro j hj
+    let ej := Representation.asModule_ofModule'LinearEquiv
+      (k := k) (G := G) (M := Fin (d j) → k)
+    exact hu j ⟨hj.some.trans ej⟩
+  have hi : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j := by
+    intro i j
+    constructor
+    · rintro ⟨q⟩
+      let qr := (CategoryTheory.forget₂ (FDRep k G) (Rep k G)).mapIso q
+      let qe := Representation.equivOfIso qr
+      let f := Representation.IntertwiningMap.equivLinearMapAsModule
+        (V i).ρ (V j).ρ qe.toIntertwiningMap
+      let em := LinearEquiv.ofBijective f (by
+        change Function.Bijective qe.toLinearEquiv
+        exact qe.toLinearEquiv.bijective)
+      let ei := Representation.asModule_ofModule'LinearEquiv
+        (k := k) (G := G) (M := Fin (d i) → k)
+      let ej := Representation.asModule_ofModule'LinearEquiv
+        (k := k) (G := G) (M := Fin (d j) → k)
+      exact (hpair i j).mp ⟨ei.symm.trans (em.trans ej)⟩
+    · rintro rfl
+      exact ⟨CategoryTheory.Iso.refl _⟩
+  exact ⟨n, V, hs, hi, hc⟩
+
+/-- GT `r34`: finite-dimensional representations over an algebraically closed
+characteristic-zero field are isomorphic exactly when their characters agree. -/
+theorem FDRep.nonempty_iso_iff_characterClassFunction_eq
+    {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
+    {G : Type u} [Group G] [Fintype G]
+    [Invertible (Fintype.card G : k)] (X Y : FDRep k G) :
+    Nonempty (X ≅ Y) ↔ FDRep.characterClassFunction X =
+      FDRep.characterClassFunction Y := by
+  classical
+  obtain ⟨n, V, hs, hi, hc⟩ :=
+    FDRep.exists_complete_simpleFDRepFamily (k := k) (G := G)
+  letI : ∀ i, CategoryTheory.Simple (V i) := hs
+  obtain ⟨nx, c, ⟨qx⟩⟩ := FDRep.exists_simple_decomposition_iso V hc X
+  obtain ⟨ny, d, ⟨qy⟩⟩ := FDRep.exists_simple_decomposition_iso V hc Y
+  have hX : FDRep.characterClassFunction X =
+      ∑ j, FDRep.characterClassFunction (V (c j)) :=
+    (FDRep.characterClassFunction_eq_of_iso qx).trans
+      (FDRep.characterClassFunction_dfinsuppOf _)
+  have hY : FDRep.characterClassFunction Y =
+      ∑ j, FDRep.characterClassFunction (V (d j)) :=
+    (FDRep.characterClassFunction_eq_of_iso qy).trans
+      (FDRep.characterClassFunction_dfinsuppOf _)
+  apply FDRep.nonempty_iso_iff_character_eq_of_simpleDecompositions
+    V hi X Y c d hX hY
+  intro p hp
+  let ec (j : Fin ny) :
+      Representation.asModule ((V (c (p.symm j))).ρ) ≃ₗ[MonoidAlgebra k G]
+        Representation.asModule ((V (d j)).ρ) := by
+    have hj := hp (p.symm j)
+    rw [p.apply_symm_apply] at hj
+    rw [hj]
+  let esum :
+      (Π₀ i : Fin nx, Representation.asModule ((V (c i)).ρ))
+        ≃ₗ[MonoidAlgebra k G]
+      (Π₀ j : Fin ny, Representation.asModule ((V (d j)).ρ)) :=
+    dfinsuppReindexLinearEquiv
+      (R := MonoidAlgebra k G)
+      (B := fun i => Representation.asModule ((V (c i)).ρ))
+      (C := fun j => Representation.asModule ((V (d j)).ρ)) p ec
+  obtain ⟨qs⟩ := fdrep_ofModule'_iso_of_linearEquiv esum
+  exact ⟨qx ≪≫ (by simpa [FDRep.dfinsuppOf] using qs) ≪≫ qy.symm⟩
+
+/-- GT `r34a`: the simple characters form an integral basis of the virtual
+characters. -/
+theorem FDRep.exists_simpleVirtualCharacterBasis
+    {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
+    {G : Type u} [Group G] [Fintype G]
+    [Invertible (Fintype.card G : k)] :
+    ∃ (n : ℕ) (V : Fin n → FDRep k G),
+      (∀ i, CategoryTheory.Simple (V i)) ∧
+      (∀ i j, Nonempty (V i ≅ V j) ↔ i = j) ∧
+      ∃ B : Module.Basis (Fin n) ℤ
+          (FDRep.VirtualCharacter (k := k) (G := G)),
+        ∀ i, B i = ⟨FDRep.characterClassFunction (V i),
+          Submodule.subset_span ⟨V i, rfl⟩⟩ := by
+  classical
+  obtain ⟨n, V, hs, hi, hc⟩ :=
+    FDRep.exists_complete_simpleFDRepFamily (k := k) (G := G)
+  letI : ∀ i, CategoryTheory.Simple (V i) := hs
+  have hcomplete : ∀ X : FDRep k G,
+      FDRep.HasSimpleCharacterDecomposition V X := by
+    intro X
+    obtain ⟨m, c, ⟨q⟩⟩ := FDRep.exists_simple_decomposition_iso V hc X
+    exact ⟨m, c, (FDRep.characterClassFunction_eq_of_iso q).trans
+      (FDRep.characterClassFunction_dfinsuppOf _)⟩
+  let B := FDRep.simpleVirtualCharacterBasis V hi hcomplete
+  refine ⟨n, V, hs, hi, B, ?_⟩
+  intro i
+  exact FDRep.simpleVirtualCharacterBasis_apply V hi hcomplete i
+
 theorem Representation.nonempty_equiv_of_asModule_linearEquiv
     {k G V W : Type*} [Field k] [Group G]
     [AddCommGroup V] [Module k V]
@@ -7077,11 +7216,10 @@ unproved proposition has been established.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the remaining operator-group result `ns29`.
-* AUDIT-GAP: formalize the remaining representation results `r34`, `r34a`,
-  and `r36`, exposing the source's
-  regular-character, multiplicity, centralizer, and inner-product clauses in
-  declaration types.  Their structural prerequisites and the neighboring
-  results `r32(a)`, `r30`, `r35`, and `r39` are already checked above.
+* AUDIT-GAP: formalize the remaining representation result `r36`, exposing
+  the source's field-valued Hermitian inner-product clauses. The character
+  reconstruction theorem `r34` and integral simple-character basis `r34a` are
+  now proved above.
 -/
 
 end GT
