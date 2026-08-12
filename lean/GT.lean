@@ -4,6 +4,7 @@ import Mathlib.Algebra.Central.Matrix
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
 import Mathlib.Data.List.NodupEquivFin
+import Mathlib.Data.Complex.Basic
 import Mathlib.Data.Finset.Sort
 import Mathlib.Data.ZMod.QuotientRing
 import Mathlib.Data.ZMod.Units
@@ -4989,6 +4990,119 @@ theorem FDRep.simple_character_orthonormal [IsAlgClosed k]
 classes. -/
 abbrev ClassFunction := ConjClasses G → k
 
+/-- An `F`-valued Hermitian inner product for a conjugation-stable subfield
+of `ℂ`. Positivity is stated after the specified embedding. -/
+structure HermitianInnerProductOverComplexSubfield
+    (F V : Type*) [Field F] [StarRing F] [AddCommGroup V] [Module F V]
+    (ι : F →+* ℂ) (hstar : ∀ x, ι (star x) = star (ι x)) where
+  pairing : V → V → F
+  add_left : ∀ x y z, pairing (x + y) z = pairing x z + pairing y z
+  smul_left : ∀ (c : F) x y, pairing (c • x) y = c * pairing x y
+  conj_symm : ∀ x y, star (pairing y x) = pairing x y
+  positive : ∀ ⦃x⦄, x ≠ 0 → 0 < (ι (pairing x x)).re
+
+noncomputable def classFunctionPairingComplexSubfield
+    {F H : Type*} [Field F] [StarRing F] [Group H] [Fintype H]
+    [Invertible (Fintype.card H : F)]
+    (f₁ f₂ : ConjClasses H → F) : F :=
+  ⅟(Fintype.card H : F) *
+    ∑ a : H, f₁ (ConjClasses.mk a) * star (f₂ (ConjClasses.mk a))
+
+private lemma classFunction_sum_normSq_re {H : Type*} [Fintype H]
+    (z : H → ℂ) :
+    (∑ a : H, (Complex.normSq (z a) : ℂ)).re =
+      ∑ a : H, Complex.normSq (z a) := by
+  change Complex.reAddGroupHom (∑ a : H,
+    (Complex.normSq (z a) : ℂ)) = _
+  rw [map_sum]
+  simp
+
+private lemma classFunction_sum_normSq_im {H : Type*} [Fintype H]
+    (z : H → ℂ) :
+    (∑ a : H, (Complex.normSq (z a) : ℂ)).im = 0 := by
+  change Complex.imAddGroupHom (∑ a : H,
+    (Complex.normSq (z a) : ℂ)) = 0
+  rw [map_sum]
+  simp
+
+private lemma classFunction_map_term_normSq
+    {F : Type*} [Field F] [StarRing F]
+    (ι : F →+* ℂ) (hstar : ∀ x, ι (star x) = star (ι x)) (x : F) :
+    ι (x * star x) = (Complex.normSq (ι x) : ℂ) := by
+  rw [map_mul, hstar]
+  change ι x * (starRingEnd ℂ) (ι x) = _
+  exact Complex.mul_conj _
+
+private lemma classFunction_natCast_inv_re (n : ℕ) :
+    ((n : ℂ)⁻¹).re = (n : ℝ)⁻¹ := by
+  rw [Complex.inv_re]
+  simp [Complex.normSq_natCast]
+
+private lemma classFunction_natCast_inv_im (n : ℕ) :
+    ((n : ℂ)⁻¹).im = 0 := by
+  rw [Complex.inv_im]
+  simp [Complex.normSq_natCast]
+
+/-- GT `r36`: the source pairing is an `F`-valued Hermitian inner product on
+class functions for every specified conjugation-stable embedding `F ↪ ℂ`. -/
+noncomputable def classFunctionHermitianInnerProductComplexSubfield
+    {F H : Type*} [Field F] [StarRing F] [Group H] [Fintype H]
+    [Invertible (Fintype.card H : F)]
+    (ι : F →+* ℂ) (hstar : ∀ x, ι (star x) = star (ι x)) :
+    HermitianInnerProductOverComplexSubfield F (ConjClasses H → F) ι hstar where
+  pairing := classFunctionPairingComplexSubfield
+  add_left f₁ f₂ f := by
+    simp only [classFunctionPairingComplexSubfield, Pi.add_apply, add_mul,
+      Finset.sum_add_distrib]
+    ring
+  smul_left c f₁ f₂ := by
+    simp only [classFunctionPairingComplexSubfield, Pi.smul_apply, smul_eq_mul,
+      Finset.mul_sum]
+    ring
+  conj_symm f₁ f₂ := by
+    have hstar_inv : star (⅟(Fintype.card H : F)) =
+        ⅟(Fintype.card H : F) := by
+      simp only [invOf_eq_inv, star_inv₀, star_natCast]
+    simp only [classFunctionPairingComplexSubfield, star_mul, star_sum,
+      star_star]
+    rw [hstar_inv]
+    ring
+  positive {f} hf := by
+    have hsum : 0 < ∑ a : H,
+        Complex.normSq (ι (f (ConjClasses.mk a))) := by
+      apply Finset.sum_pos' (s := Finset.univ)
+      · intro a ha
+        exact Complex.normSq_nonneg _
+      · obtain ⟨C, hC⟩ : ∃ C : ConjClasses H, f C ≠ 0 := by
+          by_contra hno
+          apply hf
+          funext C
+          by_contra hC'
+          exact hno ⟨C, hC'⟩
+        refine ⟨ConjClasses.representative C, Finset.mem_univ _, ?_⟩
+        apply Complex.normSq_pos.mpr
+        intro hz
+        apply hC
+        apply ι.injective
+        simpa using hz
+    have hsum_map :
+        ι (∑ a : H, f (ConjClasses.mk a) * star (f (ConjClasses.mk a))) =
+          ∑ a : H, (Complex.normSq (ι (f (ConjClasses.mk a))) : ℂ) := by
+      rw [map_sum]
+      apply Finset.sum_congr rfl
+      intro a ha
+      exact classFunction_map_term_normSq ι hstar _
+    have hinv_map :
+        ι (⅟(Fintype.card H : F)) = (Fintype.card H : ℂ)⁻¹ := by
+      rw [invOf_eq_inv, map_inv₀]
+      congr 1
+      exact map_natCast ι (Fintype.card H)
+    rw [classFunctionPairingComplexSubfield, map_mul, hinv_map, hsum_map,
+      Complex.mul_re, classFunction_natCast_inv_re,
+      classFunction_natCast_inv_im, classFunction_sum_normSq_re,
+      classFunction_sum_normSq_im]
+    simpa only [zero_mul, sub_zero] using (mul_pos (by positivity) hsum)
+
 /-- A representation character factored through conjugacy classes. -/
 noncomputable def FDRep.characterClassFunction (V : FDRep k G) :
     ClassFunction (k := k) (G := G) :=
@@ -7216,10 +7330,6 @@ unproved proposition has been established.
 * AUDIT-GAP: formalize the isolated existence theorem `bd3m`; absence of a
   direct library interface is not a deferral reason.
 * AUDIT-GAP: formalize the remaining operator-group result `ns29`.
-* AUDIT-GAP: formalize the remaining representation result `r36`, exposing
-  the source's field-valued Hermitian inner-product clauses. The character
-  reconstruction theorem `r34` and integral simple-character basis `r34a` are
-  now proved above.
 -/
 
 end GT
