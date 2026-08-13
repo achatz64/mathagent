@@ -3367,7 +3367,11 @@ def feitThompsonStatement : Prop :=
 
 /-- GT `ns04`.  This is deliberately an audible axiom: Feit--Thompson is an
 external dependency cited without proof in the source, and is absent from
-Mathlib.  No result proved in the source is admitted this way. -/
+Mathlib.  No result proved in the source is admitted this way.
+
+The source states this theorem but never applies it, so no in-scope
+declaration consumes the axiom; it is kept solely to keep the external
+dependency visible to `#print axioms`. -/
 axiom feitThompson : feitThompsonStatement
 
 /-- GT `ns06(a)`: subgroups of solvable groups are solvable. -/
@@ -8904,7 +8908,11 @@ def Subgroup.IsDirectlyIndecomposable {G : Type*} [Group G]
 result cited as Rotman, *An Introduction to the Theory of Groups*, §6.36: the
 indecomposable factors are unique up to permutation and isomorphism, and every
 initial segment of one decomposition may be spliced with the complementary
-segment of the reindexed other decomposition. -/
+segment of the reindexed other decomposition.
+
+The source applies this theorem only in remark `ns31` (outside the declared
+scope), so no in-scope declaration consumes the axiom; it is kept solely to
+keep the external dependency visible to `#print axioms`. -/
 axiom krullSchmidt_rotman_6_36
     {G : Type*} [Group G] [Finite G]
     {s t : ℕ} (P : Fin s → Subgroup G) (Q : Fin t → Subgroup G)
@@ -8975,6 +8983,14 @@ defect is instead marked beside the relevant partial declaration.
   implementation.  The canonical target deliberately uses Mathlib's quotient
   construction of `FreeGroup`; duplicating the private presentation would not
   expose additional mathematical structure.
+* AUDIT-DEFERRED `ns04` and `ns29` are recorded as the named, documented axioms
+  `feitThompson` and `krullSchmidt_rotman_6_36` because the source cites them
+  without proof (Feit--Thompson; Rotman §6.36) and they are absent from
+  Mathlib.  Neither is consumed by an in-scope declaration: the source states
+  `ns04` but never applies it, and applies `ns29` only in the exercise `ns31`
+  (outside scope).  The axioms are kept audible (`#print axioms` names them)
+  so the external dependencies remain visible even though no downstream
+  theorem currently relies on them.
 -/
 
 end GT
