@@ -1,10 +1,9 @@
 name = "ma1"
-defaultTargets = ["ma1"]
 
 [[lean_lib]]
-name = "ma1"
-srcDir = "."
-roots = ["GT"]
+name = "Extlib"
+srcDir = ".."
+globs = ["Extlib.+" ]
 
 [[require]]
 name = "mathlib"

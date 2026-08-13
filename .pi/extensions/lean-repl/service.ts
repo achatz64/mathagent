@@ -18,12 +18,11 @@ class SharedRepl {
   private serial: Promise<void> = Promise.resolve();
   private root: Promise<number> | undefined;
   private closed = false;
+  readonly imports: string;
 
-  constructor(cwd: string, generation: number) {
+  constructor(cwd: string, imports: string, generation: number) {
+    this.imports = imports;
     const binary = join(cwd, ".lake", "packages", "repl", ".lake", "build", "bin", "repl");
-    // Give the launcher and REPL their own process group. Killing only `lake`
-    // leaves its Lean child orphaned after a timeout, so the whole group must
-    // be terminated when framing is lost or a generation is replaced.
     const options = { cwd, stdio: ["pipe", "pipe", "pipe"] as const, detached: true };
     this.child = existsSync(binary)
       ? spawn("lake", ["env", binary], options)
@@ -43,8 +42,8 @@ class SharedRepl {
   }
 
   rootEnvironment(): Promise<number> {
-    this.root ??= this.requestRaw({ cmd: "import Mathlib" }).then((response) => {
-      if (typeof response.env !== "number") throw new Error("Mathlib import returned no environment");
+    this.root ??= this.requestRaw({ cmd: this.imports }).then((response) => {
+      if (typeof response.env !== "number") throw new Error("Import block returned no environment");
       return response.env;
     });
     return this.root;
@@ -95,7 +94,6 @@ class SharedRepl {
       }
       return response as ReplResponse;
     } catch (error) {
-      // Once framing is uncertain, no client may safely continue on this process.
       await this.close();
       throw error;
     } finally {
@@ -152,10 +150,13 @@ export type SharedReplStatus = {
   projectReplProcesses: number;
   unexpectedProcessGroups: number[];
   warnings: string[];
+  initialized: boolean;
+  imports: string | undefined;
 };
 
 type RegistryEntry = {
-  repl: SharedRepl;
+  repl: SharedRepl | undefined;
+  imports: string | undefined;
   references: number;
   serial: Promise<void>;
   pendingRequests: number;
@@ -174,6 +175,7 @@ export type SharedReplLease = {
   readonly id: string;
   readonly pid: number | undefined;
   request(cmd: string, env?: number, replId?: string): Promise<ReplResponse>;
+  initImports(imports: string): Promise<void>;
   status(): SharedReplStatus;
   release(): Promise<void>;
 };
@@ -224,7 +226,7 @@ function processGroupUsage(pid: number | undefined, projectDir: string): {
 }
 
 function entryStatus(entry: RegistryEntry): SharedReplStatus {
-  const usage = processGroupUsage(entry.repl.pid, entry.projectDir);
+  const usage = processGroupUsage(entry.repl?.pid, entry.projectDir);
   const activeForMs = entry.activeSince === undefined ? undefined : Date.now() - entry.activeSince;
   const warnings: string[] = [];
   if (entry.pendingRequests > 1) warnings.push(`${entry.pendingRequests} REPL requests are active or queued`);
@@ -235,9 +237,10 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     warnings.push(`unexpected project REPL process groups: ${usage.unexpectedProcessGroups.join(", ")}`);
   }
   if (entry.restartCount > 0) warnings.push(`${entry.restartCount} automatic REPL restart(s)`);
+  if (!entry.repl && entry.imports === undefined) warnings.push("REPL not initialized — call lean_repl_import first");
   return {
-    id: entry.repl.id,
-    pid: entry.repl.pid,
+    id: entry.repl?.id ?? "uninitialized",
+    pid: entry.repl?.pid,
     references: entry.references,
     pendingRequests: entry.pendingRequests,
     activeForMs,
@@ -249,6 +252,8 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     projectReplProcesses: usage.projectReplProcesses,
     unexpectedProcessGroups: usage.unexpectedProcessGroups,
     warnings,
+    initialized: entry.repl !== undefined,
+    imports: entry.imports,
   };
 }
 
@@ -262,7 +267,8 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
   let entry = registry.entries.get(key);
   if (!entry) {
     entry = {
-      repl: new SharedRepl(key, ++registry.generation),
+      repl: undefined,
+      imports: undefined,
       references: 0,
       serial: Promise.resolve(),
       pendingRequests: 0,
@@ -274,18 +280,38 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     };
     registry.entries.set(key, entry);
   } else {
-    // Extension hot reloads preserve the process-wide registry. Initialize any
-    // monitoring fields added by a newer service version.
     entry.pendingRequests ??= 0;
     entry.activeSince ??= undefined;
     entry.totalRequests ??= 0;
     entry.restartCount ??= 0;
     entry.lastRestartReason ??= undefined;
     entry.projectDir ??= key;
+    entry.repl ??= undefined;
+    entry.imports ??= undefined;
   }
   entry.references++;
   const acquired = entry;
   let released = false;
+
+  async function initImports(imports: string): Promise<void> {
+    const previous = acquired.serial;
+    let release!: () => void;
+    acquired.serial = new Promise<void>((resolveSerial) => { release = resolveSerial; });
+    await previous;
+    try {
+      if (released) throw new Error("Lean REPL lease has been released");
+      if (acquired.repl) {
+        await acquired.repl.close();
+        acquired.repl = undefined;
+      }
+      acquired.imports = imports;
+      acquired.repl = new SharedRepl(key, imports, ++registry.generation);
+      // Eagerly initialize the root environment
+      await acquired.repl.rootEnvironment();
+    } finally {
+      release();
+    }
+  }
 
   async function request(cmd: string, env?: number, replId?: string): Promise<ReplResponse> {
     acquired.pendingRequests++;
@@ -298,15 +324,18 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     try {
       if (released) throw new Error("Lean REPL lease has been released");
       const current = acquired.repl;
+      if (!current) {
+        throw new Error("REPL not initialized — call lean_repl_import first");
+      }
       if (replId !== undefined && replId !== current.id) {
         throw new Error(`Stale Lean REPL handle ${replId}; current process is ${current.id}`);
       }
       try {
         return await current.request(cmd, env);
       } catch (error) {
-        if (acquired.repl === current && acquired.references > 0) {
+        if (acquired.repl === current && acquired.references > 0 && acquired.imports) {
           await current.close();
-          acquired.repl = new SharedRepl(key, ++registry.generation);
+          acquired.repl = new SharedRepl(key, acquired.imports, ++registry.generation);
           const message = error instanceof Error ? error.message : String(error);
           acquired.restartCount++;
           acquired.lastRestartReason = message;
@@ -328,9 +357,10 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
   }
 
   return {
-    get id() { return acquired.repl.id; },
-    get pid() { return acquired.repl.pid; },
+    get id() { return acquired.repl?.id ?? "uninitialized"; },
+    get pid() { return acquired.repl?.pid; },
     request,
+    initImports,
     status,
     async release() {
       if (released) return;
@@ -338,7 +368,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       acquired.references--;
       if (acquired.references === 0 && registry.entries.get(key) === acquired) {
         registry.entries.delete(key);
-        await acquired.repl.close();
+        await acquired.repl?.close();
       }
     },
   };
