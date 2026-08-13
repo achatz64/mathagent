@@ -1,33 +1,7 @@
 # Lean REPL
 
-Pi loads `.pi/extensions/lean-repl/` by default. The extension maintains one
-project-wide Lean REPL shared by the main SDK session and managed subagents.
-It starts the compiled REPL through `lake env` and serializes all requests
-through a FIFO queue.
-
-## Initialization
-
-The REPL must be explicitly initialized before any `lean_repl` call:
-
-```text
-lean_repl_import({ imports: "import Mathlib\nimport Target" })
-```
-
-`lean_repl_import` only works when the REPL is uninitialized or the old process
-has been killed. Call it once at session start.
-
-The default import block should include:
-
-1. `import Mathlib` — always
-2. The current project target file (e.g. `import GT`) — so subagents have
-   access to all target-local declarations without pasting them into branches
-3. Any Extlib dependencies referenced by the formalization task
-
-Example for a session working on `Target.lean` that references Milne 2021:
-
-```text
-lean_repl_import({ imports: "import Mathlib\nimport Target\nimport Extlib.GroupTheory.Mil21" })
-```
+The project-wide shared Lean REPL is initialized by the main agent before any
+`lean_repl` call. Do not attempt to initialize or restart it.
 
 ## Basic use
 
@@ -56,16 +30,10 @@ compatibility, but cannot detect that the REPL has restarted. A stale
 `repl` token is rejected instead of accidentally addressing an unrelated
 environment number.
 
-## Changing imports (restart)
+## Target-local declarations
 
-Only the main agent can restart the REPL:
-
-1. `lean_repl_status` → note the `pid`
-2. `bash kill -TERM -- -<pid>`
-3. `lean_repl_import({ imports: "<new block>" })`
-
-Subagents cannot call `lean_repl_import` on a live REPL — it refuses if the
-process is alive. Killing requires `bash`, which only the main agent has.
+The root imports include the current project target file. Use its declarations
+directly without pasting them into branches.
 
 ## Development and builds
 
