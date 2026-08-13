@@ -29,8 +29,10 @@ environment number.
 
 ## Default imports
 
-The repl's imports include the current project target file, Mathlib, and custom dependencies on Extlib set by main agent. Use its declarations
-directly without pasting them into branches.
+The REPL's imports include the current project target file, Mathlib, and any
+Extlib dependencies set by the main agent. Call `lean_repl_status` to inspect
+the active `imports` block and whether the REPL is `initialized`. Use
+target-local declarations directly without pasting them into branches.
 
 ## Development and builds
 
