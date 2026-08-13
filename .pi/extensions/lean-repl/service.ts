@@ -20,6 +20,8 @@ class SharedRepl {
   private closed = false;
   readonly imports: string;
 
+  get alive(): boolean { return !this.closed && this.child.exitCode === null; }
+
   constructor(cwd: string, imports: string, generation: number) {
     this.imports = imports;
     const binary = join(cwd, ".lake", "packages", "repl", ".lake", "build", "bin", "repl");
@@ -300,9 +302,8 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     await previous;
     try {
       if (released) throw new Error("Lean REPL lease has been released");
-      if (acquired.repl) {
-        await acquired.repl.close();
-        acquired.repl = undefined;
+      if (acquired.repl?.alive) {
+        throw new Error("REPL already initialized — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
       }
       acquired.imports = imports;
       acquired.repl = new SharedRepl(key, imports, ++registry.generation);

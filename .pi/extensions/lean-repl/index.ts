@@ -8,7 +8,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl_import",
     label: "Lean REPL Import",
-    description: "Initialize or restart the shared Lean REPL with an import block. Must be called before lean_repl. Call again to restart with new imports (e.g. when Extlib changes).",
+    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Only works when REPL is uninitialized or dead; to change imports, kill the process via bash (kill -TERM -<pid>) first.",
     parameters: Type.Object({
       imports: Type.String({ description: "Lean import block, e.g. 'import Mathlib\\nimport Extlib.GroupTheory.Mil21'" }),
     }),
