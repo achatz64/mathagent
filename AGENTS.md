@@ -14,8 +14,4 @@ Resources to read for
 * sub: [lean-repl](LEAN_REPL_GENERAL.md)
 * auditor: [rules](RULES.md), [audits](AUDIT.md)
 * inventory controller: [rules](RULES.md)
-* builder: [rules](RULES.md),  [vision](VISION.md) 
-
-
-
-
+* builder: [rules](RULES.md),  [vision](VISION.md), (testing)[TESTING.md]
