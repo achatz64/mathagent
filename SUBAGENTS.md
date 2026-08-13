@@ -160,7 +160,15 @@ representations must be `def`/`noncomputable def` (or an appropriately typed
 
 Lean requests are FIFO-serialized. Pass `env` and `repl` together, keep commands
 bounded, and do not queue several expensive checks. After a restart, discard old
-handles and replay from the new root. See [LEAN_REPL.md](LEAN_REPL.md).
+handles and replay from the new root.
+
+The REPL root imports are configured by the main agent via `lean_repl_import`.
+The default import block includes `Mathlib`, the current target file, and any
+Extlib dependencies needed for the formalization task. Workers therefore have
+access to target-local declarations without pasting them into branches.
+
+Workers must NOT call `lean_repl_import` — it refuses on a live REPL.
+Restarting requires `bash` (main-only). See [LEAN_REPL_GENERAL.md](LEAN_REPL_GENERAL.md).
 
 ## Safe Mathlib discovery
 
@@ -176,15 +184,14 @@ prompts should explicitly prohibit it and direct workers to this sequence:
 3. verify exact candidates with targeted `#check`, `#print`, or `#synth`;
 4. test candidates in small examples before checking a full proof block.
 
-The shared REPL root has already executed `import Mathlib`. Never send an
-`import` command through `lean_repl`: imports are only legal at the beginning of
-a Lean input file, whereas tool calls elaborate within an existing environment.
-The persistent target is currently not imported into that root.
-A worker using project-local prerequisites must read them from the target and
-paste the smallest relevant declarations into its branch, renaming a declaration
-when necessary to avoid testing the theorem against its previously compiled
-version. A worker may only claim REPL verification for dependencies available
-from Mathlib or explicitly elaborated in its returned environment.
+The REPL root imports are configured by the main agent via `lean_repl_import`
+(see [LEAN_REPL_GENERAL.md](LEAN_REPL_GENERAL.md)). Never send an `import`
+command through `lean_repl`: imports are only legal at the beginning of a Lean
+input file, whereas tool calls elaborate within an existing environment.
+The current target file is imported into the root by default, so workers have
+access to target-local declarations directly. A worker may only claim REPL
+verification for dependencies available from the root imports or explicitly
+elaborated in its returned environment.
 
 The main agent should supply likely APIs and source paths whenever known. Search
 output must remain narrow; do not replace `#find` with an unbounded repository
