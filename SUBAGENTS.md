@@ -118,7 +118,7 @@ reports REPL success. The main agent must:
 3. reproduce or extend checks in the main shared REPL when needed;
 4. run the target `lake build`;
 5. update the audit ledger only after the successful build;
-6. run coverage and `git diff --check`, then commit.
+6. run coverage and `git diff --check`, then commit (don't forget to commit).
 
 Never report worker output as integrated before completing these steps.
 

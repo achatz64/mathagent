@@ -114,7 +114,7 @@ A main formalization agent may close an `AUDIT-GAP` or leave it with a blocker e
 
 # Commands to avoid context bloat
 
-1. Read only the relevant regions of the source.
+1. Read only the relevant regions of the source. Again: NEVER READ THE ENTIRE FILES! THEY CAN BE HUGE.
 
 # Obligation to Mathlib and other external libraries
 
