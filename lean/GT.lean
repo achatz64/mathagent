@@ -46,16 +46,28 @@ import Mathlib.RingTheory.SimpleModule.IsAlgClosed
 import Mathlib.RingTheory.SimpleModule.Isotypic
 
 /-!
-# A Mathlib-facing formalization of the referenceable results in `test/GT/GT.tex`
+# Provenance
 
-The stable TeX labels are recorded in comments.  Declaration names follow
-Mathlib conventions and deliberately state the Mathlib formulation, which is
-occasionally more general than the finite formulation in the text.
+```toml
+[source]
+title    = "Group Theory (v4.00)"
+author   = ["Milne, James S."]
+location = "https://www.jmilne.org/math/CourseNotes/GT.zip"
+hash     = "sha256:0cba880458b667cdbbb02865d4c27e1a71c2e7ec72f8f1bbcbfc6149851d9a1f"
+year   = 2021
+type   = "book"
 
-The computational tables, algorithms, exercises, solutions, examination, and
-informal historical assertions are outside the present scope.  Constructions
-already supplied by Mathlib are used directly instead of being duplicated.
+[formalization]
+formalizers = ["achatz64"]
+scope       = """
+  The stable TeX labels are recorded in comments.  Declaration names follow
+  Mathlib conventions and deliberately state the Mathlib formulation, which is
+  occasionally more general than the finite formulation in the text.
+  """
+source-hooks = ["labels"]
+```
 
+# Inventory
 INVENTORY-SCRIPT tools/gt_inventory.py
 COVERAGE-SCRIPT tools/gt_coverage.py
 -/

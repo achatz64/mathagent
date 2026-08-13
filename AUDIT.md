@@ -2,7 +2,7 @@ Read for audit agent.
 
 # Provenance audit
 
-Make sure the source's authors are noted in a comment at the head of lean target file.
+At the beginning of the target after the imports there must be a `# Provenance` section conform with this [standard](PROVENANCE.md).
 
 # Coverage audit
 
@@ -27,7 +27,6 @@ Mathlib.
 axiom feitThompson : feitThompsonStatement
 ``` 
 
-
 # Semantic audit
 
 Check statement fidelity. Put an actionable `AUDIT-GAP` beside the partial declaration; reserve
@@ -51,4 +50,3 @@ In the lean target there are comment sections on
 4. relevant project declarations or source references.
 
 Project-specific wrappers must not be included merely because they are absent from the external library.
-
