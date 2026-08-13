@@ -1,8 +1,5 @@
 # Lean REPL
 
-The project-wide shared Lean REPL is initialized by the main agent before any
-`lean_repl` call. Do not attempt to initialize or restart it.
-
 ## Basic use
 
 Call `lean_repl` with Lean code in `cmd`. The response includes an environment
@@ -30,9 +27,9 @@ compatibility, but cannot detect that the REPL has restarted. A stale
 `repl` token is rejected instead of accidentally addressing an unrelated
 environment number.
 
-## Target-local declarations
+## Default imports
 
-The root imports include the current project target file. Use its declarations
+The repl's imports include the current project target file, Mathlib, and custom dependencies on Extlib set by main agent. Use its declarations
 directly without pasting them into branches.
 
 ## Development and builds

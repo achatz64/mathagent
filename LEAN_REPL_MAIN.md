@@ -54,11 +54,10 @@ workers, and diagnose before building.
 Persistent target files must receive a final project build:
 
 ```text
-cd lean && lake build GT
+cd lean && lake build Target
 ```
 
 If an integrated build fails, reproduce the failing fragment in `lean_repl`,
 fix it there, and only then rebuild.
 
-After `lake build Extlib` (adding a new book), the REPL must be restarted
-with the updated import block (see [Changing imports](#changing-imports-restart)).
+After rebuild the REPL must be restarted to include target modifications.
