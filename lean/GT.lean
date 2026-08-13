@@ -57,6 +57,7 @@ informal historical assertions are outside the present scope.  Constructions
 already supplied by Mathlib are used directly instead of being duplicated.
 
 INVENTORY-SCRIPT tools/gt_inventory.py
+COVERAGE-SCRIPT tools/gt_coverage.py
 -/
 
 namespace GT

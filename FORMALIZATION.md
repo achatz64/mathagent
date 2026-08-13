@@ -2,8 +2,10 @@
 
 The source file is typically a latex file. It is the single source of truth.  
 
-The canonical acceptance target is a lean file `*.lean` in the `lean` folder.  It must compile without
-`sorry`, `admit`, or `gap`. Typically an audit will be performed to verify completeness and faithfulness of the target file. 
+The canonical acceptance target is a lean file `*.lean` in the `lean` folder.  It must compile with `lake build {target}` without
+`sorry`, `admit`, `gap`, or any other incomplete-proof token. The only target-level assumptions are the [documented  dependencies](#axiom-handling), no result proved in the source is axiomatized.
+
+Typically an audit will be performed to verify completeness and faithfulness of the target file. 
 
 # Source inventory 
 
@@ -78,6 +80,9 @@ the provenance, state only what is needed, and keep it visible to
 `#print axioms`; vague dependencies remain gaps, and source-proved results must
 not be axiomatized. See [here](#axiom-handling).
 
+# Linter issues
+
+Additionally to verifying build, address Lean linter issues.  
 
 # Conventions
 Stable TeX labels or other source identifiers (lines, etc.) occur in source
@@ -105,7 +110,23 @@ axiom feitThompson : feitThompsonStatement
 
 Audits will flag violations with `AUDIT-GAP` in the lean target (easy to search with `rg -n 'AUDIT-GAP' lean/{target}.lean`.). 
 
+A main formalization agent may close an `AUDIT-GAP` or leave it with a blocker explanation in target, but must not reclassify it as `AUDIT-DEFERRED`; deferral is a separate scope decision.
 
 # Commands to avoid context bloat
 
 1. Read only the relevant regions of the source.
+
+# Obligation to Mathlib and other external libraries
+
+When development exposes a reusable strengthening of a library theorem or a
+missing general-purpose interface, record it in the output Lean file under
+`Improvements for Mathlib` or `Improvements for {external library}` in general. Each entry should identify:
+
+1. the existing external library declaration and source file;
+2. the proposed stronger statement or API;
+3. a plausible proof route, distinguishing checked project code from a sketch;
+4. relevant project declarations or source references.
+
+Do not treat these upstream suggestions as source-faithfulness gaps, and do not
+overstate a speculative proof as checked. Project-specific wrappers do not need
+an entry merely because they are absent from the external library.
