@@ -12,7 +12,7 @@ Basic coverage test by using a script. Use search for `COVERAGE-SCRIPT` in lean 
 
 Checks that the target builds with `lake build {target}` and the cononical file contains no incomplete-proof token (`sorry`, `admit`, etc.). 
 
-Additionally, lean linter issues need to be flagged as `AUDIT-GAP` in the target and by specifying the issue. 
+Additionally, linter issues need to be flagged as `AUDIT-GAP` in the target and by specifying the issue. All `@[nolint ...]` use cases must be well-documented and clearly flag the application as `false positive` of the linter.
 
 # Axioms audit
 
@@ -38,6 +38,10 @@ Check statement fidelity. Put an actionable `AUDIT-GAP` beside the partial decla
 - Generic library results may be used internally, but source-facing wrappers
   should preserve relevant assumptions and conventions.
 - A build checks Lean correctness; declaration types determine faithfulness.
+
+# Documentation audit
+
+Is the inline documentation satisfactory in terms of quantity and quality. Is the documentation spot on and helpful?  
 
 # Obligation to external library audit
 

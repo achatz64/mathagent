@@ -5,6 +5,21 @@ name = "Extlib"
 srcDir = ".."
 globs = ["Extlib.+" ]
 
+[[lean_lib]]
+name = "Target"
+srcDir = "."
+globs = ["Target"]
+
+[lean_lib.leanOptions]
+weak.linter.dupNamespace = true
+weak.linter.trailingWhitespace = true
+weak.linter.whitespaceBeforeSemicolon = true
+weak.linter.unicodeLinter = true
+weak.linter.modulesUpperCamelCase = true
+weak.linter.modulesForbiddenWindows = true
+# weak.linter.minImports is DISABLED: buggy in Lean 4.31 (Option.get! panic on missing imports; non-monotonic).
+# See tmp/linter_handoff.md. Re-enable behind an on-demand target after an upstream fix.
+
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"

@@ -82,7 +82,7 @@ not be axiomatized. See [here](#axiom-handling).
 
 # Linter issues
 
-Additionally to verifying build, address [Lean linter issues](LEAN_LINTER.md). You must not use `nolint`.  
+Additionally to verifying build, address [Lean linter issues](LEAN_LINTER.md). `@[nolint …]` use is only allowed in cases of false positives: you need to add detailed documentation and explicitly mention that it is a "false positive".   
 
 # Conventions
 Stable TeX labels or other source identifiers (lines, etc.) occur in source
