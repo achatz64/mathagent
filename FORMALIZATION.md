@@ -82,7 +82,7 @@ not be axiomatized. See [here](#axiom-handling).
 
 # Linter issues
 
-Additionally to verifying build, address [Lean linter issues](LEAN_LINTER.md).   
+Additionally to verifying build, address [Lean linter issues](LEAN_LINTER.md). You must not use `nolint`.  
 
 # Conventions
 Stable TeX labels or other source identifiers (lines, etc.) occur in source
