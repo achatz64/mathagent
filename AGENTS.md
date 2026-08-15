@@ -14,4 +14,5 @@ Resources to read for before any other tasks like reading other files are launch
 * sub: [lean-repl](LEAN_REPL_GENERAL.md)
 * auditor: [rules](RULES.md), [audits](AUDIT.md)
 * inventory controller: [rules](RULES.md)
+* mathlib contributer: [rules](RULES.md), [contribute to mathlib](MATHLIB_CONTRIBUTIONS.md)
 * builder: [rules](RULES.md),  [vision](VISION.md), (testing)[TESTING.md]
