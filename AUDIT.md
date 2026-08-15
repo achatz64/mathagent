@@ -39,6 +39,10 @@ Check statement fidelity. Put an actionable `AUDIT-GAP` beside the partial decla
   should preserve relevant assumptions and conventions.
 - A build checks Lean correctness; declaration types determine faithfulness.
 
+# Coding conventions audit
+
+We follow the Mathlib conventions as outlined [here](https://leanprover-community.github.io/contribute/naming.html).
+
 # Documentation audit
 
 Is the inline documentation satisfactory in terms of quantity and quality. Is the documentation spot on and helpful?  
