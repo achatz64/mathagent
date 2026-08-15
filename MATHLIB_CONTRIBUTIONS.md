@@ -11,6 +11,12 @@ The deliverables leave in the `upstream` folder. They live in `upstream/<candida
 - `<base>.lean` — generated shadow = `<base>.original.lean` + the spec insertion with mathlib-only commands neutralized. Cert-only; never hand-edit.
 - `pr_meta.toml` — PR title/body. 
 
+The insertion spec contains the following fields: 
+- `target_file` — mathlib path the fork edits (e.g. `Mathlib/LinearAlgebra/Quotient/Basic.lean`); it is not a file inside `upstream`.
+- `mathlib_rev` — pinned mathlib version.
+- `description` — what the insertion adds.
+- `edits` — list of `{ path, oldText, newText }`: `oldText` is a unique anchor in target_file; `newText` is the mathlib-ready declaration plus that anchor. Fold any preceding `/-- … -/` into `oldText` so that the doc string stays attached. This is a list to support several edits.
+
 # Lean env
 If `upstream` does not exist then it must be created. Create `upstream/lakefile.toml`; lean_version follows the active toolchain — set it to whatever the
 agent is building with. Example:
@@ -32,5 +38,4 @@ globs = ["<candidate>.<base>", ...]
 ```
 Then add `upstream/` to `.gitignore` and run one `lake build Upstream` to build and cache mathlib once in `upstream/.lake`. 
 
-The insertion spec contains the following fields: [Describe the fields]
 
