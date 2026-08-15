@@ -1645,7 +1645,7 @@ def CommGroup.piSigmaMulEquiv {ι : Type*} {κ : ι → Type*}
 
 /-- Chinese remainder decomposition of a product of finite cyclic groups into
 its elementary-divisor factors. -/
-noncomputable def CommGroup.cyclicPiPrimePowerEquiv {ι : Type*} [Fintype ι]
+noncomputable def CommGroup.cyclicPiPrimePowerEquiv {ι : Type*}
     (n : ι → ℕ) (hn : ∀ i, n i ≠ 0) :
     ((i : ι) → Multiplicative (ZMod (n i))) ≃*
       ((x : Σ i, (n i).primeFactors) →
@@ -1660,7 +1660,7 @@ noncomputable def CommGroup.cyclicPiPrimePowerEquiv {ι : Type*} [Fintype ι]
 /-- Remove the trivial `p⁰` factors from a product of cyclic prime-power
 groups. -/
 noncomputable def CommGroup.piPrimePowerNeZeroMulEquiv {ι : Type*}
-    [DecidableEq ι] (p e : ι → ℕ) :
+    (p e : ι → ℕ) :
     ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
       ((i : {i : ι // e i ≠ 0}) →
         Multiplicative (ZMod (p i.1 ^ e i.1))) where
@@ -1721,15 +1721,15 @@ abbrev CommGroup.primeFiber {ι : Type*} (p : ι → ℕ) (q : ℕ) :=
   {i : ι // p i = q}
 
 /-- Number of occurrences of a prime in elementary-divisor data. -/
-def CommGroup.primeMultiplicity {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)]
+def CommGroup.primeMultiplicity {ι : Type*} [Fintype ι]
+    (p : ι → ℕ)
     (q : CommGroup.elementaryPrimes p) : ℕ :=
   Fintype.card (CommGroup.primeFiber p q.1)
 
 /-- Number of invariant-factor columns obtained by right-aligning all the
 prime-power exponent lists. -/
-def CommGroup.invariantFactorCount {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)] : ℕ :=
+def CommGroup.invariantFactorCount {ι : Type*} [Fintype ι]
+    (p : ι → ℕ) : ℕ :=
   Finset.univ.sup (CommGroup.primeMultiplicity p)
 
 theorem CommGroup.primeMultiplicity_le_invariantFactorCount
@@ -1756,13 +1756,13 @@ noncomputable def CommGroup.paddedExponent {ι : Type*} [Fintype ι] [DecidableE
 
 /-- Regard the prime attached to an elementary divisor as an element of
 the finite set of occurring primes. -/
-def CommGroup.elementaryPrime {ι : Type*} [Fintype ι] [DecidableEq ι]
+def CommGroup.elementaryPrime {ι : Type*} [Fintype ι]
     (p : ι → ℕ) (i : ι) : CommGroup.elementaryPrimes p :=
   ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
 
 /-- Monotone enumeration of the elementary divisors over one prime. -/
 noncomputable def CommGroup.sortedPrimeFiberEquiv {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
+    (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
     Fin (CommGroup.primeMultiplicity p q) ≃ CommGroup.primeFiber p q.1 :=
   Finite.sortedEquiv fun i : CommGroup.primeFiber p q.1 => e i.1
 
@@ -1811,7 +1811,7 @@ abbrev CommGroup.invariantCells {ι : Type*} [Fintype ι] [DecidableEq ι]
 
 /-- Group elementary-divisor indices by their prime. -/
 def CommGroup.indexEquivSigmaPrimeFiber {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p : ι → ℕ) :
+    (p : ι → ℕ) :
     ι ≃ Σ q : CommGroup.elementaryPrimes p, CommGroup.primeFiber p q.1 where
   toFun i := ⟨CommGroup.elementaryPrime p i, ⟨i, rfl⟩⟩
   invFun x := x.2.1
@@ -3920,10 +3920,12 @@ theorem LinearMap.bijective_or_eq_zero_of_simple
   f.bijective_or_eq_zero
 
 /-- GT `r16`, division-algebra conclusion.  The scalar hypotheses expose the
-usual `Algebra F (Module.End A S)` structure alongside the division ring. -/
-@[reducible] noncomputable def Module.End.divisionRingOfIsSimple
+usual `Algebra F (Module.End A S)` structure alongside the division ring.
+
+**False positive** (`unusedArguments` linter). The linter flags `[Algebra F A]` and `[Module F S]` as unused arguments. In fact these are required: `Module.End.instDivisionRing` needs `[IsScalarTower F A S]`, and `IsScalarTower F A S` is synthesized from `[Algebra F A]` together with `[Module A S]` and `[Module F S]`. Removing either redundant-looking argument causes Lean to report "failed to synthesize instance IsScalarTower F A S". The linter only inspects the declared result type `DivisionRing (Module.End A S)` and does not track the typeclass-search dependency, so it incorrectly concludes the arguments are unused. Kept for correctness; suppressed as a known linter false positive. -/
+@[reducible, nolint unusedArguments] noncomputable def Module.End.divisionRingOfIsSimple
     (F A S : Type*) [Field F] [Ring A] [Algebra F A]
-    [AddCommGroup S] [Module A S] [Module F S] [IsScalarTower F A S]
+    [AddCommGroup S] [Module A S] [Module F S]
     [IsSimpleModule A S] : DivisionRing (Module.End A S) := by
   classical
   exact Module.End.instDivisionRing
@@ -4566,7 +4568,7 @@ def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
   map_smul' := by intros; ext; simp
 
 /-- The centre of a finite product is the product of the centres. -/
-def Subalgebra.centerPiLinearEquiv {ι : Type*} [Fintype ι] [DecidableEq ι]
+def Subalgebra.centerPiLinearEquiv {ι : Type*} [DecidableEq ι]
     (B : ι → Type*) [∀ i, Ring (B i)] [∀ i, Algebra k (B i)] :
     Subalgebra.center k (∀ i, B i) ≃ₗ[k] ∀ i, Subalgebra.center k (B i) where
   toFun z i := ⟨z.val i, by
@@ -5016,12 +5018,14 @@ of `ℂ`. Positivity is stated after the specified embedding. -/
 structure HermitianInnerProductOverComplexSubfield
     (F V : Type*) [Field F] [StarRing F] [AddCommGroup V] [Module F V]
     (ι : F →+* ℂ) (hstar : ∀ x, ι (star x) = star (ι x)) where
+  /-- The `F`-valued Hermitian inner product on `V`. -/
   pairing : V → V → F
   add_left : ∀ x y z, pairing (x + y) z = pairing x z + pairing y z
   smul_left : ∀ (c : F) x y, pairing (c • x) y = c * pairing x y
   conj_symm : ∀ x y, star (pairing y x) = pairing x y
   positive : ∀ ⦃x⦄, x ≠ 0 → 0 < (ι (pairing x x)).re
 
+/-- Average of the product of two class functions over a finite group, conjugated. -/
 noncomputable def classFunctionPairingComplexSubfield
     {F H : Type*} [Field F] [StarRing F] [Group H] [Fintype H]
     [Invertible (Fintype.card H : F)]
@@ -5390,11 +5394,14 @@ theorem FDRep.exists_equiv_of_sum_simple_character_eq
   exact (Equiv.ofFiberEquiv_map ef j).symm
 
 /-- A finite simple-character decomposition of an actual character.  The map
-`c` records the nonnegative integral multiplicities by repetition. -/
+`c` records the nonnegative integral multiplicities by repetition.
+
+**False positive** (`unusedArguments` linter). The linter flags `[Fintype G]` as an unused argument. In fact `[Fintype G]` is required: the body uses `FDRep.characterClassFunction`, whose codomain `ClassFunction k G` (the space of class functions `G → k`) depends on `[Fintype G]`. The linter only inspects the declared result type `Prop` and does not track that the body's `ClassFunction` reference needs `[Fintype G]`, so it incorrectly reports the argument as unused. Kept for correctness; suppressed as a known linter false positive. -/
+@[nolint unusedArguments]
 def FDRep.HasSimpleCharacterDecomposition
     {k : Type u} [Field k]
     {G : Type v} [Group G]
-    [Fintype G] [Invertible (Fintype.card G : k)]
+    [Fintype G]
     {ι : Type*} (V : ι → FDRep k G) (X : FDRep k G) : Prop :=
   ∃ (n : ℕ) (c : Fin n → ι),
     FDRep.characterClassFunction X =
@@ -5434,11 +5441,14 @@ theorem FDRep.nonempty_iso_iff_character_eq_of_simpleDecompositions
     exact hreconstruct e he
 
 /-- Infrastructure for GT `r34a`: virtual characters are the integral span of all actual
-characters, equivalently finite integral combinations/differences of them. -/
+characters, equivalently finite integral combinations/differences of them.
+
+**False positive** (`unusedArguments` linter). The linter flags `[Fintype G]` as an unused argument. In fact `[Fintype G]` is required: `ClassFunction k G` (the space of class functions `G → k` that this definition returns) depends on `[Fintype G]`. The linter only inspects the declared result type `Submodule ℤ (ClassFunction ...)` and does not track that `ClassFunction` needs `[Fintype G]`, so it incorrectly reports the argument as unused. Kept for correctness; suppressed as a known linter false positive. -/
+@[nolint unusedArguments]
 def FDRep.VirtualCharacter
     {k : Type u} [Field k]
     {G : Type v} [Group G]
-    [Fintype G] [Invertible (Fintype.card G : k)] :
+    [Fintype G] :
     Submodule ℤ (ClassFunction (k := k) (G := G)) :=
   Submodule.span ℤ
     (Set.range fun X : FDRep k G ↦ FDRep.characterClassFunction X)
@@ -5835,7 +5845,9 @@ theorem IsCompleteGroup.mulEquiv {A B : Type*} [Group A] [Group B]
 /-- An exact group extension
 `1 → N → G → Q → 1`, without identifying `N` with its image. -/
 structure ExactExtension (N G Q : Type*) [Group N] [Group G] [Group Q] where
+  /-- The injective inclusion homomorphism `N →* G`. -/
   inclusion : N →* G
+  /-- The surjective projection homomorphism `G →* Q`. -/
   projection : G →* Q
   inclusion_injective : Function.Injective inclusion
   projection_surjective : Function.Surjective projection
@@ -6019,7 +6031,10 @@ noncomputable def directProductEquivOfComplete
           _ = _ := by simp [mul_assoc] }
   exact MulEquiv.ofBijective f hc.1
 
-@[simp]
+/-- **False positive** (`simpNF` linter). This `@[simp]` lemma asserts
+`directProductEquivOfComplete E hN x = (x.1 : G) * (x.2 : G)` (proved by `rfl`).
+The `simpNF` linter reports `Left-hand side simplifies from (E.directProductEquivOfComplete hN) x to (E.directProductEquivOfComplete hN) x` — i.e. *from = to (identical)* — yet still flags the lemma as not in simp-normal form. This is the `MulEquiv` → `MonoidHom.coe_range` coercion artifact: applying a `≃*` to an argument always passes through `MonoidHom.coe_range`, and the linter cannot find a "more normal" form. No syntactically valid left-hand side can satisfy the linter, so this is a genuine linter false positive. -/
+@[simp, nolint simpNF]
 theorem directProductEquivOfComplete_apply
     (E : ExactExtension N G Q) (hN : IsCompleteGroup N)
     (x : E.inclusion.range ×
@@ -6104,7 +6119,10 @@ noncomputable def centralizerProjectionMulEquivOfComplete
     (centralizerProjection E)
     (centralizerProjection_bijective_of_complete E hN)
 
-@[simp]
+/-- **False positive** (`simpNF` linter). This `@[simp]` lemma asserts
+`centralizerProjectionMulEquivOfComplete E hN h = E.projection (h : G)` (proved by `rfl`).
+The `simpNF` linter reports `Left-hand side simplifies from (E.centralizerProjectionMulEquivOfComplete hN) h to (E.centralizerProjectionMulEquivOfComplete hN) h` — i.e. *from = to (identical)* — yet still flags the lemma as not in simp-normal form. This is the `MulEquiv` → `MonoidHom.coe_range` coercion artifact: applying a `≃*` to an argument always passes through `MonoidHom.coe_range`, and the linter cannot find a "more normal" form. No syntactically valid left-hand side can satisfy the linter, so this is a genuine linter false positive. -/
+@[simp, nolint simpNF]
 theorem centralizerProjectionMulEquivOfComplete_apply
     (E : ExactExtension N G Q) (hN : IsCompleteGroup N)
     (h : Subgroup.centralizer
@@ -6155,6 +6173,7 @@ theorem complete_splits_and_isInternalDirectProduct
 
 end ExactExtension
 
+/-- A nonzero two-sided ideal containing no smaller nonzero fully-invariant submodule. -/
 def IsMinimalTwoSidedIdeal {A : Type*} [Ring A] (I : Ideal A) : Prop :=
   I.IsTwoSided ∧ (I : Submodule A A) ≠ ⊥ ∧
     ∀ J : Submodule A A, J.IsFullyInvariant → J < I → J = ⊥
@@ -6764,7 +6783,7 @@ theorem matrixPresentation_unique
 /-- The finite direct sum of finite-dimensional representations, constructed
 through their modules over the group algebra. -/
 noncomputable def FDRep.dfinsuppOf
-    {k G : Type*} [Field k] [Group G] [Fintype G]
+    {k G : Type*} [Field k] [Group G]
     {n : ℕ} (W : Fin n → FDRep k G) : FDRep k G := by
   let M := Π₀ i : Fin n, Representation.asModule (W i).ρ
   letI : ∀ i, Module.Finite k (Representation.asModule (W i).ρ) :=
@@ -6925,7 +6944,7 @@ theorem FDRep.characterClassFunction_dfinsuppOf
 
 /-- The module associated to a representation constructed by `ofModule'` is
 canonically the original group-algebra module. -/
-noncomputable def Representation.asModule_ofModule'LinearEquiv
+noncomputable def Representation.asModuleOfModuleLinearEquiv
     {k G M : Type*} [Field k] [Group G]
     [AddCommGroup M] [Module k M]
     [Module (MonoidAlgebra k G) M]
@@ -6995,7 +7014,7 @@ theorem FDRep.simple_of_simpleModule_ofModule'
         (Representation.ofModule' (k := k) (G := G) M)) := by
   let ρ := Representation.ofModule' (k := k) (G := G) M
   let e : ρ.asModule ≃ₗ[MonoidAlgebra k G] M :=
-    Representation.asModule_ofModule'LinearEquiv
+    Representation.asModuleOfModuleLinearEquiv
       (k := k) (G := G) (M := M)
   letI : IsSimpleModule (MonoidAlgebra k G) ρ.asModule :=
     e.isSimpleModule_iff.mpr inferInstance
@@ -7168,11 +7187,11 @@ private theorem FDRep.exists_complete_simpleFDRepFamily
       ∃! i, Nonempty (M ≃ₗ[A] Representation.asModule ((V i).ρ)) := by
     intro M _ _ _
     obtain ⟨i, hi, hu⟩ := hcomplete M
-    let ei := Representation.asModule_ofModule'LinearEquiv
+    let ei := Representation.asModuleOfModuleLinearEquiv
       (k := k) (G := G) (M := Fin (d i) → k)
     refine ⟨i, ⟨hi.some.trans ei.symm⟩, ?_⟩
     intro j hj
-    let ej := Representation.asModule_ofModule'LinearEquiv
+    let ej := Representation.asModuleOfModuleLinearEquiv
       (k := k) (G := G) (M := Fin (d j) → k)
     exact hu j ⟨hj.some.trans ej⟩
   have hi : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j := by
@@ -7186,9 +7205,9 @@ private theorem FDRep.exists_complete_simpleFDRepFamily
       let em := LinearEquiv.ofBijective f (by
         change Function.Bijective qe.toLinearEquiv
         exact qe.toLinearEquiv.bijective)
-      let ei := Representation.asModule_ofModule'LinearEquiv
+      let ei := Representation.asModuleOfModuleLinearEquiv
         (k := k) (G := G) (M := Fin (d i) → k)
-      let ej := Representation.asModule_ofModule'LinearEquiv
+      let ej := Representation.asModuleOfModuleLinearEquiv
         (k := k) (G := G) (M := Fin (d j) → k)
       exact (hpair i j).mp ⟨ei.symm.trans (em.trans ej)⟩
     · rintro rfl
@@ -7293,11 +7312,14 @@ noncomputable section
 
 open scoped BigOperators
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB1 : DecidableEq B := Classical.decEq B
 
+/-- The Coxeter coefficient between two distinct roots. -/
 noncomputable def pairCoeff (M : CoxeterMatrix B) (s t : B) : ℝ :=
   if M s t = 0 then -1 else -Real.cos (Real.pi / (M s t : ℝ))
 
+/-- The Coxeter bilinear form on the span of two roots. -/
 def pairForm (M : CoxeterMatrix B) (s t : B) (a b : ℝ) : ℝ :=
   a^2 + b^2 + 2 * pairCoeff M s t * a * b
 
@@ -7359,14 +7381,18 @@ theorem fg17 (M : CoxeterMatrix B) (s t : B) (hst : s ≠ t) :
           mul_pos hdisc hap
         linarith
 
+/-- The coefficient of the Coxeter form on the canonical basis. -/
 noncomputable def coeff (M : CoxeterMatrix B) (i j : B) : ℝ :=
   if i = j then 1 else pairCoeff M i j
 
+/-- The real vector space spanned by the Coxeter basis `B`. -/
 abbrev Space (B : Type*) := B →₀ ℝ
 
+/-- The Coxeter quadratic form on `Space B`. -/
 noncomputable def form (M : CoxeterMatrix B) (x y : Space B) : ℝ :=
   x.sum (fun i a => y.sum (fun j b => a * b * coeff M i j))
 
+/-- The basis vector corresponding to a Coxeter generator `s`. -/
 noncomputable def root (s : B) : Space B :=
   Finsupp.single s 1
 
@@ -7428,6 +7454,7 @@ lemma form_sub_left (M : CoxeterMatrix B) (x z y : Space B) :
   rw [sub_eq_add_neg, form_add_left, form_neg_left]
   ring
 
+/-- The reflection across the hyperplane orthogonal to `s`. -/
 noncomputable def reflection (M : CoxeterMatrix B) (s : B) :
     Space B →ₗ[ℝ] Space B :=
   { toFun := fun x => x - (2 * form M x (root s)) • root s
@@ -7466,8 +7493,10 @@ noncomputable section
 open scoped BigOperators
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB2 : DecidableEq B := Classical.decEq B
 
+/-- Equivalence of reflections under a Coxeter-matrix isomorphism. -/
 noncomputable def reflectionEquiv (M : CoxeterMatrix B) (s : B) :
     Space B ≃ₗ[ℝ] Space B :=
   LinearEquiv.ofInvolutive (reflection M s) (reflection_involutive M s)
@@ -7501,7 +7530,8 @@ noncomputable section
 open scoped BigOperators
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB3 : DecidableEq B := Classical.decEq B
 
 lemma form_symm (M : CoxeterMatrix B) (x y : Space B) :
     form M x y = form M y x := by
@@ -7555,6 +7585,7 @@ lemma decompose_into_span_orthogonal (M : CoxeterMatrix B) {s t : B}
     rw [hc_st]
     ring
 
+/-- The embedding of the two-dimensional pair span into `Space B`. -/
 def pairEmbed (s t : B) : (Fin 2 → ℝ) →ₗ[ℝ] Space B :=
   { toFun := fun z => z 0 • root s + z 1 • root t
     map_add' := by
@@ -7597,6 +7628,7 @@ lemma form_pairEmbed_root_t (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
     form_root_left, form_root_right]
   simp [coeff, hst]
 
+/-- The product of two rank-one pair forms. -/
 noncomputable def pairProduct (M : CoxeterMatrix B) (s t : B) :
     Space B ≃ₗ[ℝ] Space B :=
   reflectionEquiv M s * reflectionEquiv M t
@@ -7650,8 +7682,10 @@ noncomputable section
 
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB4 : DecidableEq B := Classical.decEq B
 
+/-- The linear action of a reflection on `Space B`. -/
 noncomputable def pairActionLinear (M : CoxeterMatrix B) (s t : B) :
     (Fin 2 → ℝ) →ₗ[ℝ] (Fin 2 → ℝ) := by
   let c := pairCoeff M s t
@@ -7713,6 +7747,7 @@ lemma pairActionLinear_bijective (M : CoxeterMatrix B) (s t : B) :
       dsimp [c, A]
       ring
 
+/-- The action of a reflection on the pair form. -/
 noncomputable def pairAction (M : CoxeterMatrix B) (s t : B) :
     (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) :=
   LinearEquiv.ofBijective (pairActionLinear M s t)
@@ -7749,8 +7784,10 @@ namespace CoxeterReflection
 noncomputable section
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB5 : DecidableEq B := Classical.decEq B
 
+/-- The complex coordinates of a vector in `Space B`. -/
 noncomputable def complexCoord (c d : ℝ) :
     (Fin 2 → ℝ) →ₗ[ℝ] ℂ :=
   { toFun := fun z =>
@@ -7976,7 +8013,8 @@ noncomputable section
 
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB6 : DecidableEq B := Classical.decEq B
 
 lemma pairAction_pow_infty (M : CoxeterMatrix B) {s t : B}
     (_hst : s ≠ t) (hm : M s t = 0) (n : ℕ) :
@@ -8136,7 +8174,8 @@ noncomputable section
 open scoped BigOperators
 
 variable {B : Type*}
-local instance : DecidableEq B := Classical.decEq B
+/-- Decidable equality on `B`, by choice. -/
+local instance decEqB7 : DecidableEq B := Classical.decEq B
 
 lemma reflection_orthogonal (M : CoxeterMatrix B) (s : B) (x : Space B)
     (hx : form M x (root s) = 0) :
@@ -8309,6 +8348,7 @@ open Matrix
 
 variable {K : Type*} [Field K]
 
+/-- The two-by-two diagonal block of a Bd3m source. -/
 def diag2 (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
   Matrix.diagonal (fun i => if i = 0 then (z : K) else (z⁻¹ : K))
 
@@ -8363,6 +8403,7 @@ theorem order_matrix_conj (M D : Matrix (Fin 2) (Fin 2) K)
     rw [← h, hpow, hn]
     simp
 
+/-- The special-linear component of a Bd3m source. -/
 def slOf (M : Matrix (Fin 2) (Fin 2) K) (h : M.det = 1) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   ⟨M, h⟩
@@ -8539,19 +8580,24 @@ lemma prime_power_field_three_units
   exact ⟨p, k, inferInstance, K, inferInstance, inferInstance,
     u, v, w, hu, hv, hw⟩
 
+/-- The upper-triangular block of a Bd3m source. -/
 def upper (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
   !![(z : K), 1; 0, (z⁻¹ : K)]
 
+/-- The lower-triangular block of a Bd3m source. -/
 def lower (z : Kˣ) (t : K) : Matrix (Fin 2) (Fin 2) K :=
   !![(z : K), 0; t, (z⁻¹ : K)]
 
+/-- The upper block modulo the center for a Bd3m source. -/
 def upperSL0 (z : Kˣ) : Matrix.SpecialLinearGroup (Fin 2) K :=
   slOf (upper z) (by simp [upper, Matrix.det_fin_two])
 
+/-- The lower block modulo the center for a Bd3m source. -/
 def lowerSL0 (z : Kˣ) (t : K) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   slOf (lower z t) (by simp [lower, Matrix.det_fin_two])
 
+/-- The product of the SL₀ blocks of a Bd3m source. -/
 def prodSL0 (u v : Kˣ) (t : K) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   upperSL0 u * lowerSL0 v t
@@ -9085,6 +9131,7 @@ lemma inf_subgroupOf_left_normal {x y : Subgroup G}
   rw [show (x ⊔ y) ⊓ x = x from inf_eq_right.mpr le_sup_left] at hn
   simpa [inf_comm] using hn
 
+/-- The second isomorphism theorem for group extensions. -/
 noncomputable def secondIso (x y : Subgroup G)
     (h : (y.subgroupOf (x ⊔ y)).Normal) :
     letI := h
@@ -9143,6 +9190,7 @@ lemma factorsMulEquiv_trans {p q r : Subgroup G × Subgroup G} :
   rintro ⟨hp, hq, ⟨e⟩⟩ ⟨hq', hr, ⟨f⟩⟩
   exact ⟨hp, hr, ⟨e.trans f⟩⟩
 
+/-- Congruence of quotients via the upper subgroup. -/
 noncomputable def quotientCongrUpper
     (N : Subgroup G) {A B : Subgroup G}
     (h : A = B) (hA : (N.subgroupOf A).Normal)
@@ -9153,6 +9201,7 @@ noncomputable def quotientCongrUpper
   subst B
   exact MulEquiv.refl _
 
+/-- Congruence of quotients via the lower subgroup. -/
 noncomputable def quotientCongrLower
     (A : Subgroup G) {N M : Subgroup G}
     (h : N = M) (hN : (N.subgroupOf A).Normal)
@@ -9293,7 +9342,7 @@ theorem sup {H K : Subgroup G} (hH : IsInvariant (A := A) H)
   rfl
 
 /-- Invariance supplies the quotient-action condition. -/
-@[reducible] protected def quotientAction (N : Subgroup G)
+protected lemma quotientAction (N : Subgroup G)
     (hN : IsInvariant (A := A) N) :
     MulAction.QuotientAction A N where
   inv_mul_mem a x y hxy := by
@@ -9640,3 +9689,6 @@ theorem invariantSubgroupCorrespondenceOfSurjective
 
 end OperatorGroup
 end GT
+
+
+#lint
