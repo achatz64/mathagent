@@ -8,7 +8,7 @@ There are various types of agents depending on tasks:
 
 If unclear which type you are, then ask. 
 
-Resources to read for 
+Resources to read for before any other tasks like reading other files are launched:
 
 * main: [rules](RULES.md), [lean-repl](LEAN_REPL_GENERAL.md), [lean-repl-main](LEAN_REPL_MAIN.md), [formalization](FORMALIZATION.md), [subagents](SUBAGENTS.md)
 * sub: [lean-repl](LEAN_REPL_GENERAL.md)
