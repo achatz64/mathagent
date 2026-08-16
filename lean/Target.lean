@@ -2154,73 +2154,73 @@ theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
   · exact ⟨h.trans ((MulEquiv.refl _).prodCongr
       (CommGroup.piPrimePowerEquivInvariantFactors p e hp he))⟩
 
-/-- A finite product generated coordinatewise by one element per factor
-has group rank at most the number of factors. -/
-theorem Group.rank_pi_le_card_of_zpowers_eq_top {ι : Type*} [Fintype ι]
-    (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Group.FG (A i)]
-    (g : ∀ i, A i) (hg : ∀ i x, x ∈ Subgroup.zpowers (g i)) :
-    Group.rank (∀ i, A i) ≤ Fintype.card ι := by
+/-- Bridge: for a free finite `ℤ`-module, the group rank of the multiplicative
+carrier equals the module finrank.  This is the missing `Multiplicative`-functor
+rank transport discussed in the "Improvements for Mathlib" obligation below.
+`Module.finrank` measures the free-part rank, so the equality needs the
+`[Module.Free ℤ M]` hypothesis (on torsion modules the two notions diverge:
+`Group.rank` counts minimal generators, `Module.finrank` ignores torsion). -/
+theorem Group.rank_multiplicative_eq_finrank
+    (M : Type*) [AddCommGroup M] [Module ℤ M] [Module.Free ℤ M] [Module.Finite ℤ M]
+    [AddGroup.FG M] :
+    Group.rank (Multiplicative M) = Module.finrank ℤ M := by
   classical
-  let S : Finset (∀ i, A i) := Finset.univ.image fun i => Pi.mulSingle i (g i)
-  have hclosure : Subgroup.closure (S : Set (∀ i, A i)) = ⊤ := by
-    rw [eq_top_iff]
-    intro x _
-    -- Mathlib `Finset.univ_prod_mulSingle` rewrites `x` to the product of its
-    -- coordinate injections; `Pi.mulSingle_zpow` rephrases a coordinate power.
-    rw [← Finset.univ_prod_mulSingle x]
-    apply Subgroup.prod_mem
-    intro i _
-    have hgi : Pi.mulSingle i (g i) ∈ Subgroup.closure (S : Set (∀ i, A i)) :=
-      Subgroup.subset_closure (by simp [S])
-    obtain ⟨z, hz⟩ := hg i (x i)
-    rw [← hz, Pi.mulSingle_zpow i (g i) z]
-    exact (Subgroup.closure (S : Set (∀ i, A i))).zpow_mem hgi z
-  exact (Group.rank_le hclosure).trans
-    (Finset.card_image_le.trans_eq Finset.card_univ)
-
-/-- The elementary abelian `2`-group of dimension `r` needs exactly `r`
-generators. -/
-theorem Group.rank_pi_multiplicative_zmod_two (r : ℕ) :
-    Group.rank (Fin r → Multiplicative (ZMod 2)) = r := by
+  have hspan (s : Set M) : (Submodule.span ℤ s).toAddSubgroup = AddSubgroup.closure s := by
+    have hI : (inferInstance : Module ℤ M) = AddCommGroup.toIntModule M := Subsingleton.elim _ _
+    subst hI
+    exact Submodule.span_int_eq_addSubgroupClosure s
   apply le_antisymm
-  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
-      (fun _ : Fin r => Multiplicative (ZMod 2))
-      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
-        ⟨(x.toAdd.val : ℤ), by
-          apply Multiplicative.toAdd.injective
-          simp⟩)
-    simpa using hle
-  -- Mathlib `card_dvd_exponent_pow_rank'` uses the uniform exponent bound
-  -- `∀ g, g ^ 2 = 1` directly, so the `exponent_pi`/`ZMod.exponent`/`lcm`
-  -- block and the `r = 0` case split are no longer needed.
-  have hd := card_dvd_exponent_pow_rank' (G := Fin r → Multiplicative (ZMod 2)) (n := 2)
-      (by intro g; ext i; apply Multiplicative.toAdd.injective; simp
-          change (↑(2 : ℕ) : ZMod 2) * Multiplicative.toAdd (g i) = 0
-          rw [ZMod.natCast_self, zero_mul])
-  have hcard : Nat.card (Fin r → Multiplicative (ZMod 2)) = 2 ^ r := by simp
-  rw [hcard, Nat.pow_dvd_pow_iff_le_right (by omega : 1 < 2)] at hd
-  exact hd
+  · -- basis vectors generate `Multiplicative M` as a group
+    let b : Module.Basis (Module.Free.ChooseBasisIndex ℤ M) ℤ M := Module.Free.chooseBasis ℤ M
+    let ι := Module.Free.ChooseBasisIndex ℤ M
+    let F : Finset (Multiplicative M) := Finset.univ.image fun i : ι => Multiplicative.ofAdd (b i)
+    have hFgen : Subgroup.closure (F : Set (Multiplicative M)) = ⊤ := by
+      have hFset : (F : Set (Multiplicative M)) = Multiplicative.ofAdd '' (Set.range b) := by
+        ext x; simp [F, Equiv.apply_eq_iff_eq_symm_apply]; rfl
+      rw [hFset]
+      have hpre : Multiplicative.ofAdd '' (Set.range b) = Multiplicative.toAdd ⁻¹' (Set.range b) := by
+        ext x; simp
+      rw [hpre, ← AddSubgroup.toSubgroup_closure (Set.range b)]
+      have hcl : AddSubgroup.closure (Set.range b) = ⊤ := by
+        rw [← hspan (Set.range b), b.span_eq]; ext x; simp
+      rw [hcl]; ext x; simp
+    have hle : Group.rank (Multiplicative M) ≤ F.card := Group.rank_le hFgen
+    have hFcard : F.card = Fintype.card ι := by
+      simpa [F, ι] using Finset.card_image_of_injective Finset.univ
+        (f := fun i : ι => Multiplicative.ofAdd (b i)) (by
+          intro i j hij; exact b.injective (Multiplicative.ofAdd.injective hij))
+    exact (hle.trans_eq hFcard).trans_eq (Module.finrank_eq_card_chooseBasisIndex ℤ M).symm
+  · -- a group generating set spans `M` as a `ℤ`-module
+    rcases Group.rank_spec (Multiplicative M) with ⟨S, hScard, hSgen⟩
+    let T : Finset M := S.image fun x : Multiplicative M => Multiplicative.toAdd x
+    have hTcard : T.card = S.card := by
+      simpa [T] using Finset.card_image_of_injective S
+        (f := fun x : Multiplicative M => Multiplicative.toAdd x) (by
+          intro x y hxy; exact Multiplicative.toAdd.injective hxy)
+    have hSadd : AddSubgroup.closure (T : Set M) = ⊤ := by
+      have h := Subgroup.toAddSubgroup'_closure (S : Set (Multiplicative M))
+      rw [hSgen] at h
+      rw [show (⊤ : Subgroup (Multiplicative M)).toAddSubgroup' = (⊤ : AddSubgroup M) by
+        ext x; simp] at h
+      rw [show Multiplicative.ofAdd ⁻¹' (S : Set (Multiplicative M)) = (T : Set M) by
+        ext x; simp [T]] at h
+      exact h.symm
+    have hspanTop : Submodule.span ℤ (T : Set M) = ⊤ := by
+      apply Submodule.toAddSubgroup_injective
+      rw [hspan (T : Set M), hSadd]; ext x; simp
+    have hle : Module.finrank ℤ M ≤ Fintype.card {x : M // x ∈ (T : Set M)} := by
+      refine finrank_le_of_span_eq_top (R := ℤ) (M := M)
+        (ι := {x : M // x ∈ (T : Set M)}) (v := fun x => (x : M)) ?_
+      convert hspanTop using 1; ext x; simp
+    have hcat : Fintype.card {x : M // x ∈ (T : Set M)} = T.card := by simp
+    exact (hle.trans_eq hcat).trans_eq (hTcard.trans hScard)
 
 /-- The free abelian group of rank `r` needs exactly `r` generators. -/
 theorem Group.rank_pi_multiplicative_int (r : ℕ) :
     Group.rank (Fin r → Multiplicative ℤ) = r := by
-  apply le_antisymm
-  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
-      (fun _ : Fin r => Multiplicative ℤ)
-      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
-        ⟨x.toAdd, by
-          apply Multiplicative.toAdd.injective
-          simp⟩)
-    simpa using hle
-  · let f : (Fin r → Multiplicative ℤ) →* (Fin r → Multiplicative (ZMod 2)) :=
-      MonoidHom.piMap fun i : Fin r => (Int.castAddHom (ZMod 2)).toMultiplicative
-    apply (Group.rank_pi_multiplicative_zmod_two r).ge.trans
-    apply Group.rank_le_of_surjective f
-    intro x
-    refine ⟨fun i => Multiplicative.ofAdd (x i).toAdd.val, ?_⟩
-    ext i
-    apply Multiplicative.toAdd.injective
-    simp [f]
+  show Group.rank (Multiplicative (Fin r → ℤ)) = r
+  rw [Group.rank_multiplicative_eq_finrank, Module.finrank_fintype_fun_eq_card]
+  simp
 
 /-- GT `it21(a)`, canonical rank interface: the free rank is invariant under
 commutative-group isomorphism. -/
@@ -8990,47 +8990,27 @@ item names the present API and a checked proof route or concrete extension.
   `GroupTheory.Finiteness`, `Algebra.Group.Submonoid.Operations`,
   `GroupTheory.Exponent`, `GroupTheory.OrderOfElement`) transports morphisms,
   `Finite`/`Fintype`, `FG`, subgroup closure, exponent, and element order
-  between additive and multiplicative groups — but is missing its
-  `Group.rank` entry.  `rank` is the natural partner of `exponent` (which *is*
-  transported, as `Monoid.exponent (Multiplicative G) = AddMonoid.exponent G`),
-  and its prerequisite `FG` is transported (`Group.fg_of_mul_group_fg`); the
-  rank transport itself is absent, so the target's `rank_pi_multiplicative_int`,
-  `rank_pi_multiplicative_zmod_two`, and `rank_pi_le_card_of_zpowers_eq_top`
-  are hand-rolled specific computations rather than corollaries of
-  `Module.finrank`.
-  The proposed contribution is two declarations, completing the package at
-  this gap:
-  (i) an instance `instance [AddCommGroup M] [Module.Finite ℤ M] :
-    AddGroup.FG M` registering the existing lemma `Module.Finite.iff_addGroup_fg`
-    (currently a `theorem`, not an instance, so the FG-transport does not
-    auto-compose with module-finiteness);
-  (ii) the rank-transport lemma
-    `Group.rank (Multiplicative M) = Module.finrank ℤ M` for `[AddCommGroup M]`
-    `[Module ℤ M] [Module.Free ℤ M] [Module.Finite ℤ M]` (the instance from (i)
-    supplies `Group.FG (Multiplicative M)` via `Group.fg_of_mul_group_fg`).
-  Proof sketch (checked in the project REPL, axioms `[propext, Classical.choice,
-  Quot.sound]`, matching `Group.rank` and `Module.finrank`): let
-  `b := Module.Free.chooseBasis ℤ M`, `ι := Module.Free.ChooseBasisIndex ℤ M`,
-  so `Module.finrank_eq_card_chooseBasisIndex` gives `finrank = card ι`.
-  *Upper bound* `rank ≤ finrank`: the `card ι` basis vectors
-  `Multiplicative.ofAdd (b i)` generate `Multiplicative M` as a group — their
-  group closure corresponds, via `Subgroup.toAddSubgroup'_closure` /
-  `AddSubgroup.toSubgroup_closure` and `Submodule.span_int_eq_addSubgroupClosure`
-  (all ℤ-module structures on an `AddCommGroup` coincide, via
-  `AddCommMonoid.subsingletonIntModule`), to the ℤ-span, which is `⊤` by
-  `b.span_eq`; wrap in a `Finset` and apply `Group.rank_le`.
-  *Lower bound* `finrank ≤ rank`: from `Group.rank_spec` take a minimal
-  generating `Finset S`; `Multiplicative.toAdd '' S` spans `M` as a ℤ-module
-  (same closure↔span bridge), so `finrank_le_of_span_eq_top` gives
-  `finrank ≤ card S = rank`; conclude `le_antisymm`.
-  With (i)+(ii), the three target theorems collapse: the two specific ones
-  become `Group.rank (Multiplicative M) = Module.finrank ℤ M` instantiated at
-  `M = Fin r → ℤ` / `Fin r → ZMod 2` and discharged by
-  `Module.finrank_fintype_fun_eq_card` (no exponent/card lower-bound argument
-  needed); the product upper bound becomes the `Module.finrank_pi_fintype`
-  specialisation.  The target's current `card_dvd_exponent_pow_rank'` lower
-  bound for the `ZMod 2` case is then target-local convenience, not the
-  upstream route.
+  between additive and multiplicative groups — but is missing its `Group.rank`
+  entry.  The natural package entry is the transport
+  `Group.rank (Multiplicative M) = AddGroup.rank M` (the `@[to_additive]` twin
+  of `Group.rank`, i.e. minimum number of additive generators), which holds for
+  *all* finitely-generated additive groups — matching the sibling transports
+  `AddGroup.fg_iff_mul_fg`,
+  `Monoid.exponent (Multiplicative G) = AddMonoid.exponent G`, and
+  `orderOf (ofAdd a) = addOrderOf a`.  Its non-triviality: `Group.rank` is
+  minimum number of generators, whereas `Module.finrank ℤ M` is the free-part
+  rank (torsion contributes 0), so a `Module.finrank` equality needs
+  `[Module.Free ℤ M]` and is only a corollary of the transport for free
+  modules.  Its prerequisite `AddGroup.FG M` from `Module.Finite ℤ M` is only a
+  lemma (`Module.Finite.iff_addGroup_fg`), not an instance.
+  Proposed contribution: (i) the instance
+  `instance [AddCommGroup M] [Module.Finite ℤ M] : AddGroup.FG M` registering
+  `Module.Finite.iff_addGroup_fg`; (ii) the transport
+  `Group.rank (Multiplicative M) = AddGroup.rank M`, plus its free-ℤ corollary
+  `Group.rank (Multiplicative M) = Module.finrank ℤ M`.  The target
+  already implements the free-ℤ corollary as
+  `Group.rank_multiplicative_eq_finrank` (and uses it to derive
+  `Group.rank_pi_multiplicative_int`); see that declaration for the proof.
 * The centre of a group algebra.  Mathlib has no group-specific centre API for
   `MonoidAlgebra R G` (the de-facto group algebra); group content is scattered
   (averaging in `RepresentationTheory.Invariants`, semisimplicity in
