@@ -3781,39 +3781,34 @@ theorem Submodule.quotientEquiv_map_linearEquiv {X Y : Type*}
       ((Submodule.map e.toLinearMap Q) ⧸
         Submodule.comap (Submodule.map e.toLinearMap Q).subtype
           (Submodule.map e.toLinearMap P))) := by
-  let P' := Submodule.map e.toLinearMap P
-  let Q' := Submodule.map e.toLinearMap Q
-  let l : Q ≃ₗ[R] Q' := e.submoduleMap Q
-  let A := Submodule.comap Q.subtype P
-  let B := Submodule.comap Q'.subtype P'
-  have hab : A ≤ Submodule.comap l.toLinearMap B := by
-    intro x hx
-    change (l x : Y) ∈ P'
-    exact ⟨x, hx, rfl⟩
-  let q := A.mapQ B l.toLinearMap hab
-  have hsurj : Function.Surjective q := by
-    intro z
-    obtain ⟨y, rfl⟩ := Submodule.Quotient.mk_surjective B z
-    refine ⟨Submodule.Quotient.mk (l.symm y), ?_⟩
-    simp [q, l]
-  have hinj : Function.Injective q := by
-    rw [← LinearMap.ker_eq_bot]
-    apply le_bot_iff.mp
-    intro z hz
-    obtain ⟨x, rfl⟩ := Submodule.Quotient.mk_surjective A z
-    change q (Submodule.Quotient.mk x) = 0 at hz
-    change Submodule.Quotient.mk x = 0
-    rw [show q (Submodule.Quotient.mk x) = 0 ↔ _ from ?_] at hz
-    · rw [Submodule.Quotient.mk_eq_zero]
-      change x.val ∈ P
-      change (l x : Y) ∈ P' at hz
-      obtain ⟨p, hp, heq⟩ := hz
-      change e (p : X) = e x.val at heq
-      have : (p : X) = x.val := e.injective heq
-      simpa [this] using hp
-    · simp only [q, Submodule.mapQ_apply, Submodule.Quotient.mk_eq_zero]
-      rfl
-  exact ⟨LinearEquiv.ofBijective q ⟨hinj, hsurj⟩⟩
+  have hf : (Submodule.comap Q.subtype P).map (e.submoduleMap Q).toLinearMap =
+      Submodule.comap (Submodule.map e.toLinearMap Q).subtype
+        (Submodule.map e.toLinearMap P) := by
+    ext y
+    constructor
+    · rintro ⟨x, hx, hxy⟩
+      have : (x : X) ∈ P := by simpa [Submodule.comap] using hx
+      refine ⟨(x : X), ?_⟩
+      constructor
+      · exact this
+      · change e (x : X) = ↑y
+        rw [← LinearEquiv.submoduleMap_apply]
+        exact congrArg (Subtype.val : ↥(Submodule.map e.toLinearMap Q) → Y) hxy
+    · intro hy
+      rw [Submodule.mem_comap] at hy
+      rw [Submodule.mem_map] at hy
+      rcases hy with ⟨p, hp, h_ep⟩
+      rcases y.property with ⟨q, hq, h_eq⟩
+      have hpq : p = q := e.injective (h_ep.trans h_eq.symm)
+      refine ⟨⟨p, hpq ▸ hq⟩, ?_⟩
+      constructor
+      · show (⟨p, hpq ▸ hq⟩ : Q) ∈ Submodule.comap Q.subtype P
+        simpa [Submodule.comap, hpq] using hp
+      · show (e.submoduleMap Q) ⟨p, hpq ▸ hq⟩ = y
+        apply Subtype.ext
+        rw [LinearEquiv.submoduleMap_apply]
+        exact h_ep
+  exact ⟨Submodule.Quotient.equiv _ _ (e.submoduleMap Q) hf⟩
 
 /-- The composition series obtained by adding finite direct-sum coordinates in
 order.  Its factors are the displayed simple summands. -/
@@ -9024,11 +9019,6 @@ item names the present API and a checked proof route or concrete extension.
   `Mathlib.GroupTheory.Schreier`.  Their proofs use coordinate generators for
   the upper bounds and reduction modulo two plus
   `card_dvd_exponent_pow_rank` for the lower bound.
-* `Submodule.quotientEquiv_map_linearEquiv` is a general quotient-transport
-  equivalence that could live with Mathlib's quotient linear-equivalence API;
-  it is not specific to GT.  It transports both the ambient module and the
-  submodule along a `LinearEquiv` and is used above in the finite direct-sum
-  Jordan--Hölder argument.
 * `MonoidAlgebra.centerEquivClassFunction` and the conjugacy-class-sum basis
   provide a reusable group-algebra interface not currently exposed by the
   representation-theory imports.  The proof is coefficient extensionality:
