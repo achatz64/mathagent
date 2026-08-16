@@ -131,8 +131,22 @@ Do not treat these upstream suggestions as source-faithfulness gaps, and do not
 overstate a speculative proof as checked. Project-specific wrappers do not need
 an entry merely because they are absent from the external library.
 
-## Other criteria for obligation candidates
+## Criteria for obligation candidates
 
-- The proof must be minimal and search through all possibly available helpers in Mathlib and other available external libs.
-- Library covers it up to the epsilon of X ⇒ not enough to be an obligation
+Before recording an entry under `Improvements for Mathlib` (or another external
+library), apply two checks. Both must hold for the entry to be substantive.
+
+- *Content check (not a wrapper).* The proposed upstream statement must be more
+  than an existing library theorem plus a small structural wrapper — for example,
+  adding a `k`-linear / `AlgEquiv` / `toAdditive` layer to a `RingEquiv`- or
+  set-level result. If a library composition reproduces the target's declaration
+  with the same axioms and a shorter proof, the entry is overstated: the library
+  already covers it "up to the epsilon" of the wrapper, and the target should
+  delegate rather than record an obligation.
+- *Absence check.* Before concluding a gap, search the external libraries
+  comprehensively for the concept (broad `rg` across the libraries, not only the
+  obvious namespace), since bounded name-guessing repeatedly misses the route.
+  A reliable negative result is a broad grep returning no candidate combined
+  with REPL replay of the would-be wrapper from the target's actual import
+  closure (not the all-`Mathlib` REPL root, which hides missing imports).
 

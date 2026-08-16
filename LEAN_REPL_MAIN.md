@@ -60,6 +60,12 @@ cd lean && lake build Target
 If an integrated build fails, reproduce the failing fragment in `lean_repl`,
 fix it there, and only then rebuild.
 
+The all-`Mathlib` REPL root hides missing target imports: a declaration that
+elaborates in the REPL may fail `lake build` with `Unknown constant` when the
+target file does not actually import that module. Confirm any library API used
+in a target edit is in the target's import closure (via the build, not the
+REPL), and add the import when it is not.
+
 After rebuild the REPL must be restarted to include target modifications.
 
 NEVER use tmp lean files to build, always the Target or the use the REPL.
