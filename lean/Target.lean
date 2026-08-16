@@ -8963,6 +8963,642 @@ axiom krullSchmidt_rotman_6_36
         Subgroup.IsInternalDirectProductFamily
           (fun i : Fin s => if i.val < r then P i else Q (e i))
 
+
+/-!
+## PID structure theorem in invariant-factor form
+
+A finitely generated module over a PID is a direct sum of a free module and a
+product of cyclic quotient modules `R ⧸ span {n j}` whose invariant factors
+`n j` are non-units and ordered by divisibility.  This is the
+module-theoretic (PID) generalization of the target's
+`CommGroup.exists_mulEquiv_free_prod_invariantFactors` (the `ℤ` case).
+-/
+
+open scoped BigOperators Function
+
+namespace PIDInvariantFactors
+
+/-! ## Generic monotone enumeration -/
+
+/-- `sortedEquivData`: see the surrounding section documentation. -/
+noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
+    {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
+  let tie := Fintype.equivFin α
+  letI : LinearOrder α := LinearOrder.lift' (fun x => toLex (f x, tie x))
+    (fun x y h => tie.injective (congrArg (fun z => (ofLex z).2) h))
+  let O : Fin (Fintype.card α) ≃o α := Fintype.orderIsoFinOfCardEq α rfl
+  refine ⟨O.toEquiv, ?_⟩
+  intro i j hij
+  have h := O.monotone hij
+  change toLex (f (O i), tie (O i)) ≤ toLex (f (O j), tie (O j)) at h
+  rcases (Prod.lex_def.mp h) with h | h
+  · exact h.le
+  · exact h.1.le
+
+/-- `sortedEquiv`: see the surrounding section documentation. -/
+noncomputable def sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Fin (Fintype.card α) ≃ α :=
+  (sortedEquivData f).1
+
+/-- `monotone_sortedEquiv`: see the surrounding section documentation. -/
+theorem monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Monotone (fun j => f (sortedEquiv f j)) :=
+  (sortedEquivData f).2
+
+/-! ## Generic elementary-divisor combinatorics -/
+
+/-- `elementaryPrimes`: see the surrounding section documentation. -/
+abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) :=
+  {q : α // q ∈ Finset.univ.image p}
+
+/-- `primeFiber`: see the surrounding section documentation. -/
+abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
+  {i : ι // p i = q}
+
+/-- `primeMultiplicity`: see the surrounding section documentation. -/
+noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (q : elementaryPrimes p) : ℕ :=
+  Fintype.card (primeFiber p q.1)
+
+/-- `invariantFactorCount`: see the surrounding section documentation. -/
+noncomputable def invariantFactorCount {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) : ℕ :=
+  Finset.univ.sup (primeMultiplicity p)
+
+/-- `primeMultiplicity_le_invariantFactorCount`: see the surrounding section documentation. -/
+theorem primeMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (q : elementaryPrimes p) :
+    primeMultiplicity p q ≤ invariantFactorCount p := by
+  exact Finset.le_sup (f := primeMultiplicity p) (Finset.mem_univ q)
+/-- `paddedExponent`: see the surrounding section documentation. -/
+noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p)
+    (j : Fin (invariantFactorCount p)) : ℕ :=
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  if h : s - c ≤ j.1 then
+    e (sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+      ⟨j.1 - (s - c), by
+        change j.1 - (s - c) < c
+        have hc := primeMultiplicity_le_invariantFactorCount p q
+        omega⟩).1
+  else 0
+
+/-- `elementaryPrime`: see the surrounding section documentation. -/
+def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (i : ι) : elementaryPrimes p :=
+  ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
+
+/-- `sortedPrimeFiberEquiv`: see the surrounding section documentation. -/
+noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
+    Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
+  sortedEquiv fun i : primeFiber p q.1 => e i.1
+
+/-- `elementaryColumn`: see the surrounding section documentation. -/
+noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
+    Fin (invariantFactorCount p) := by
+  let q := elementaryPrime p i
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  exact ⟨s - c + k.1, by
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    omega⟩
+
+/-- `paddedExponent_elementaryColumn`: see the surrounding section documentation. -/
+theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
+    paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i := by
+  let q := elementaryPrime p i
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  have hc := primeMultiplicity_le_invariantFactorCount p q
+  change (if h : s - c ≤ s - c + k.1 then
+      e (sortedEquiv (fun x : primeFiber p q.1 => e x.1)
+        ⟨s - c + k.1 - (s - c), by
+          change s - c + k.1 - (s - c) < c
+          omega⟩).1 else 0) = e i
+  rw [dif_pos (show s - c ≤ s - c + k.1 by omega)]
+  congr 1
+  change (sortedPrimeFiberEquiv p e q
+    ⟨s - c + k.1 - (s - c), _⟩).1 = i
+  have harg : (⟨s - c + k.1 - (s - c), by
+      omega⟩ : Fin c) = k := Fin.ext (Nat.add_sub_cancel_left _ _)
+  rw [harg]
+  exact congrArg Subtype.val
+    ((sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
+/-- `invariantCells`: see the surrounding section documentation. -/
+abbrev invariantCells {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) :=
+  {x : elementaryPrimes p × Fin (invariantFactorCount p) //
+    paddedExponent p e x.1 x.2 ≠ 0}
+
+/-- `indexEquivSigmaPrimeFiber`: see the surrounding section documentation. -/
+def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) :
+    ι ≃ Σ q : elementaryPrimes p, primeFiber p q.1 where
+  toFun i := ⟨elementaryPrime p i, ⟨i, rfl⟩⟩
+  invFun x := x.2.1
+  left_inv _ := rfl
+  right_inv x := by
+    rcases x with ⟨⟨q, hq⟩, ⟨i, hi⟩⟩
+    simp only at hi
+    subst q
+    rfl
+
+/-- `sigmaPrimeFiberEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def sigmaPrimeFiberEquivInvariantCells
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    (Σ q : elementaryPrimes p, Fin (primeMultiplicity p q)) ≃ invariantCells p e where
+  toFun x := by
+    rcases x with ⟨q, k⟩
+    let c := primeMultiplicity p q
+    let s := invariantFactorCount p
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    let j : Fin s := ⟨s - c + k.1, by omega⟩
+    refine ⟨(q, j), ?_⟩
+    rw [paddedExponent, dif_pos (show s - c ≤ j.1 by
+      change s - c ≤ s - c + k.1; omega)]
+    have harg : (⟨j.1 - (s - c), by
+        change s - c + k.1 - (s - c) < c
+        omega⟩ : Fin c) = k := by
+      apply Fin.ext; simp [j]
+    change e (sortedPrimeFiberEquiv p e q
+      ⟨j.1 - (s - c), _⟩).1 ≠ 0
+    rw [harg]
+    exact ne_of_gt (he (sortedPrimeFiberEquiv p e q k).1)
+  invFun x := by
+    let q := x.1.1
+    let j := x.1.2
+    let c := primeMultiplicity p q
+    let s := invariantFactorCount p
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    have hj : s - c ≤ j.1 := by
+      by_contra h
+      apply x.2
+      rw [paddedExponent, dif_neg h]
+    exact ⟨q, ⟨j.1 - (s - c), by omega⟩⟩
+  left_inv x := by
+    rcases x with ⟨q, k⟩
+    change (⟨q, ⟨invariantFactorCount p -
+      primeMultiplicity p q + k.1 -
+      (invariantFactorCount p - primeMultiplicity p q), by
+        omega⟩⟩ : Σ q, Fin (primeMultiplicity p q)) = ⟨q, k⟩
+    rw [Sigma.ext_iff]
+    refine ⟨rfl, heq_of_eq ?_⟩
+    apply Fin.ext
+    change invariantFactorCount p - primeMultiplicity p q + k.1 -
+      (invariantFactorCount p - primeMultiplicity p q) = k.1
+    omega
+  right_inv x := by
+    apply Subtype.ext
+    apply Prod.ext
+    · rfl
+    · apply Fin.ext
+      simp only
+      let q := x.1.1
+      let j := x.1.2
+      let c := primeMultiplicity p q
+      let s := invariantFactorCount p
+      have hc := primeMultiplicity_le_invariantFactorCount p q
+      have hj : s - c ≤ j.1 := by
+        by_contra h
+        apply x.2
+        rw [paddedExponent, dif_neg h]
+      change s - c + (j.1 - (s - c)) = j.1
+      omega
+/-- `elementaryIndexEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def elementaryIndexEquivInvariantCells
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    ι ≃ invariantCells p e :=
+  (indexEquivSigmaPrimeFiber p).trans <|
+    (Equiv.sigmaCongrRight fun q => (sortedPrimeFiberEquiv p e q).symm).trans
+      (sigmaPrimeFiberEquivInvariantCells p e he)
+
+/-- `elementaryIndexEquivInvariantCells_prime`: see the surrounding section documentation. -/
+@[simp]
+theorem elementaryIndexEquivInvariantCells_prime
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i := by
+  rfl
+
+/-- `elementaryIndexEquivInvariantCells_apply`: see the surrounding section documentation. -/
+theorem elementaryIndexEquivInvariantCells_apply
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (elementaryIndexEquivInvariantCells p e he i).1 =
+      (elementaryPrime p i, elementaryColumn p e i) := by
+  apply Prod.ext
+  · rfl
+  · apply Fin.ext; rfl
+
+/-- `elementaryIndexEquivInvariantCells_exponent`: see the surrounding section documentation. -/
+@[simp]
+theorem elementaryIndexEquivInvariantCells_exponent
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    paddedExponent p e
+      (elementaryIndexEquivInvariantCells p e he i).1.1
+      (elementaryIndexEquivInvariantCells p e he i).1.2 = e i := by
+  rw [elementaryIndexEquivInvariantCells_apply]
+  exact paddedExponent_elementaryColumn p e i
+/-! ## PID layer: generators, coprimality, invariant factors -/
+
+section PID
+variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+/-- `principal_of_mem_image`: see the surrounding section documentation. -/
+theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
+    (q.1 : Ideal R).IsPrincipal :=
+  IsPrincipalIdealRing.principal q.1
+
+/-- `gen`: see the surrounding section documentation. -/
+noncomputable def gen (p : ι → Ideal R) (q : elementaryPrimes p) : R :=
+  Submodule.IsPrincipal.generator q.1
+
+/-- `span_singleton_gen`: see the surrounding section documentation. -/
+theorem span_singleton_gen (p : ι → Ideal R) (q : elementaryPrimes p) :
+    (R ∙ gen p q : Ideal R) = q.1 :=
+  Submodule.IsPrincipal.span_singleton_generator q.1
+
+/-- `isMaximal_of_mem_elementaryPrimes`: see the surrounding section documentation. -/
+theorem isMaximal_of_mem_elementaryPrimes (p : ι → Ideal R)
+    (hmax : ∀ i, (p i).IsMaximal) (q : elementaryPrimes p) :
+    (q.1 : Ideal R).IsMaximal := by
+  rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+  exact hi ▸ hmax i
+
+/-- `invariantFactor`: see the surrounding section documentation. -/
+noncomputable def invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
+    (j : Fin (invariantFactorCount p)) : R :=
+  ∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j
+
+/-- `isCoprime_pow_pow_ideal`: see the surrounding section documentation. -/
+theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
+    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    IsCoprime ((q.1 : Ideal R) ^ a) ((r.1 : Ideal R) ^ b) := by
+  have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  exact (Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne).pow_left (m := a) |>.pow_right (n := b)
+
+/-- `isCoprime_generator_pow_pow`: see the surrounding section documentation. -/
+theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
+    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    IsCoprime (gen p q ^ a) (gen p r ^ b) := by
+  have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  have hc : IsCoprime (R ∙ gen p q) (R ∙ gen p r) := by
+    rw [span_singleton_gen p q, span_singleton_gen p r]
+    exact Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne
+  exact (Ideal.isCoprime_span_singleton_iff (gen p q) (gen p r)).mp hc
+    |>.pow_left (m := a) |>.pow_right (n := b)
+
+/-- `monotone_paddedExponent`: see the surrounding section documentation. -/
+theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
+    (q : elementaryPrimes p) :
+    Monotone (paddedExponent p e q) := by
+  intro j k hjk
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  by_cases hj : s - c ≤ j.1
+  · have hk : s - c ≤ k.1 := hj.trans hjk
+    rw [paddedExponent, dif_pos hj, paddedExponent, dif_pos hk]
+    apply monotone_sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+    exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
+  · rw [paddedExponent, dif_neg hj]
+    exact Nat.zero_le _
+/-- `exists_pos_paddedExponent`: see the surrounding section documentation. -/
+theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : ∀ i, 0 < e i)
+    (j : Fin (invariantFactorCount p)) :
+    ∃ q : elementaryPrimes p, 0 < paddedExponent p e q j := by
+  have hs : 0 < invariantFactorCount p := Nat.zero_lt_of_lt j.2
+  haveI : Nonempty ι := by
+    cases isEmpty_or_nonempty ι with
+    | inl h =>
+        exfalso
+        have : invariantFactorCount p = 0 := by simp [invariantFactorCount]
+        omega
+    | inr h => exact h
+  let i₀ := Classical.choice (inferInstance : Nonempty ι)
+  have hP : (Finset.univ : Finset (elementaryPrimes p)).Nonempty :=
+    ⟨elementaryPrime p i₀, Finset.mem_univ _⟩
+  obtain ⟨q, _, hq⟩ := Finset.exists_mem_eq_sup
+    (Finset.univ : Finset (elementaryPrimes p)) hP (primeMultiplicity p)
+  have hmult : primeMultiplicity p q = invariantFactorCount p := hq.symm
+  refine ⟨q, ?_⟩
+  rw [paddedExponent]
+  have hzero : invariantFactorCount p - primeMultiplicity p q = 0 := by omega
+  rw [dif_pos (by omega)]
+  exact he _
+
+/-- `not_isUnit_invariantFactor`: see the surrounding section documentation. -/
+theorem not_isUnit_invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i)
+    (j : Fin (invariantFactorCount p)) : ¬ IsUnit (invariantFactor p e j) := by
+  obtain ⟨q, hpos⟩ := exists_pos_paddedExponent p e he j
+  have hdvd_pow : gen p q ^ paddedExponent p e q j ∣ invariantFactor p e j := by
+    exact Finset.dvd_prod_of_mem _ (Finset.mem_univ q)
+  have hdvd : gen p q ∣ invariantFactor p e j := by
+    simpa using (pow_dvd_pow (gen p q) (Nat.succ_le_of_lt hpos)).trans hdvd_pow
+  intro hu
+  have huq : IsUnit (gen p q) := isUnit_of_dvd_unit hdvd hu
+  have hqmax : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  apply hqmax.ne_top
+  rw [← span_singleton_gen p q]
+  exact Ideal.span_singleton_eq_top.mpr huq
+
+/-- `invariantFactor_dvd_succ`: see the surrounding section documentation. -/
+theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
+    (j : Fin (invariantFactorCount p - 1)) :
+    invariantFactor p e ⟨j.1, by omega⟩ ∣
+      invariantFactor p e ⟨j.1 + 1, by omega⟩ := by
+  apply Finset.prod_dvd_prod_of_dvd
+  intro q _
+  exact pow_dvd_pow (gen p q)
+    (monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
+
+end PID
+/-! ## Generic product reindexing linear equivalences -/
+
+/-- `piCongrLinearEquiv`: see the surrounding section documentation. -/
+noncomputable def piCongrLinearEquiv {R : Type*} [Semiring R] {α β : Type*} (A : α → Type*)
+    (B : β → Type*) [∀ i, AddCommMonoid (A i)] [∀ j, AddCommMonoid (B j)]
+    [∀ i, Module R (A i)] [∀ j, Module R (B j)]
+    (h : α ≃ β) (e : ∀ i, A i ≃ₗ[R] B (h i)) : ((i : α) → A i) ≃ₗ[R] ((j : β) → B j) := by
+  let E := Equiv.piCongr h fun i => (e i).toEquiv
+  refine { E with map_add' := ?_, map_smul' := ?_ }
+  · intro f g
+    funext j
+    obtain ⟨i, rfl⟩ := h.surjective j
+    change (h.piCongr (fun i => (e i).toEquiv) (f + g)) (h i) =
+      (h.piCongr (fun i => (e i).toEquiv) f) (h i) +
+        (h.piCongr (fun i => (e i).toEquiv) g) (h i)
+    rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply]
+    exact map_add (e i) (f i) (g i)
+  · intro r f
+    funext j
+    obtain ⟨i, rfl⟩ := h.surjective j
+    change (h.piCongr (fun i => (e i).toEquiv) (r • f)) (h i) =
+      r • (h.piCongr (fun i => (e i).toEquiv) f) (h i)
+    rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply]
+    exact map_smul (e i) r (f i)
+
+/-- `piProdSwapLinearEquiv`: see the surrounding section documentation. -/
+def piProdSwapLinearEquiv {R : Type*} [Semiring R] {ι κ : Type*} (A : ι → κ → Type*)
+    [∀ i j, AddCommMonoid (A i j)] [∀ i j, Module R (A i j)] :
+    ((x : ι × κ) → A x.1 x.2) ≃ₗ[R] ((j : κ) → (i : ι) → A i j) where
+  toFun f j i := f (i, j)
+  invFun f x := f x.2 x.1
+  left_inv _ := rfl
+  right_inv _ := rfl
+  map_add' _ _ := rfl
+  map_smul' _ _ := rfl
+
+/-- `quotientInfLinearEquivPiQuotient`: see the surrounding section documentation. -/
+noncomputable def quotientInfLinearEquivPiQuotient {R : Type*} [CommRing R] {ι : Type*}
+    [Fintype ι] (f : ι → Ideal R) (hf : Pairwise (IsCoprime on f)) :
+    (R ⧸ ⨅ i, f i) ≃ₗ[R] ((i : ι) → R ⧸ f i) := by
+  classical
+  let e := Ideal.quotientInfRingEquivPiQuotient f hf
+  refine
+    { toFun := e
+      invFun := e.symm
+      left_inv := e.left_inv
+      right_inv := e.right_inv
+      map_add' := ?_
+      map_smul' := ?_ }
+  · intro x y
+    exact (Ideal.quotientInfToPiQuotient f).map_add x y
+  · intro r x
+    refine Submodule.Quotient.induction_on (⨅ i, f i) x ?_
+    intro a
+    rw [← Submodule.Quotient.mk_smul]
+    rw [show e (Submodule.Quotient.mk (r • a)) = fun i => Ideal.Quotient.mk (f i) (r • a) by
+      funext i
+      exact Ideal.quotientInfToPiQuotient_mk' f (r • a) i]
+    rw [show e (Submodule.Quotient.mk a) = fun i => Ideal.Quotient.mk (f i) a by
+      funext i
+      exact Ideal.quotientInfToPiQuotient_mk' f a i]
+    change (fun i => Ideal.Quotient.mk (f i) (r • a)) =
+      r • (fun i => Ideal.Quotient.mk (f i) a)
+    funext i
+    exact Submodule.Quotient.mk_smul (f i) r a
+/-! ## Reindexing equivalences for the PID case -/
+
+section PID
+variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+/-- `piRectangleEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def piRectangleEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ) :
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) where
+  toFun f x := f x.1
+  invFun f x := if h : paddedExponent p e x.1 x.2 ≠ 0 then f ⟨x, h⟩ else 0
+  left_inv := by
+    intro f
+    funext x
+    by_cases h : paddedExponent p e x.1 x.2 ≠ 0
+    · simp [h]
+    · have hpad : paddedExponent p e x.1 x.2 = 0 := not_ne_iff.mp h
+      have htop : (x.1.1 : Ideal R) ^ paddedExponent p e x.1 x.2 = ⊤ := by
+        rw [hpad, pow_zero, Ideal.one_eq_top]
+      haveI : Subsingleton (R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
+        htop ▸ inferInstance
+      simp [h]
+      exact Subsingleton.elim _ _
+  right_inv := by
+    intro f
+    funext x
+    by_cases h : paddedExponent p e x.1.1 x.1.2 ≠ 0
+    · simp [h]
+    · exact False.elim (h x.2)
+  map_add' := by intro f g; funext x; rfl
+  map_smul' := by intro r f; funext x; rfl
+
+/-- `piInvariantCellsEquivPiRectangle`: see the surrounding section documentation. -/
+noncomputable def piInvariantCellsEquivPiRectangle (p : ι → Ideal R) (e : ι → ℕ) :
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) ≃ₗ[R]
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
+  (piRectangleEquivInvariantCells p e).symm
+
+/-- `piElementaryEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def piElementaryEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ)
+    (he : ∀ i, 0 < e i) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) := by
+  classical
+  refine piCongrLinearEquiv (fun i => R ⧸ (p i : Ideal R)^(e i))
+    (fun x : invariantCells p e => R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2))
+    (elementaryIndexEquivInvariantCells p e he) ?_
+  intro i
+  refine Submodule.quotEquivOfEq _ _ ?_
+  rw [elementaryIndexEquivInvariantCells_exponent p e he i]
+  congr 1
+/-- `columnEquiv`: see the surrounding section documentation. -/
+noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (j : Fin (invariantFactorCount p)) :
+    ((q : elementaryPrimes p) → R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j)) ≃ₗ[R]
+    (R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  let f : elementaryPrimes p → Ideal R := fun q => (q.1 : Ideal R) ^ paddedExponent p e q j
+  have hf : Pairwise (IsCoprime on f) := by
+    intro q r hqr
+    exact isCoprime_pow_pow_ideal p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j)
+  have hinf : (⨅ q : elementaryPrimes p, f q) = R ∙ invariantFactor p e j := by
+    calc
+      (⨅ q : elementaryPrimes p, f q) =
+          ⨅ q : elementaryPrimes p, Ideal.span {gen p q ^ paddedExponent p e q j} := by
+        apply iInf_congr
+        intro q
+        calc
+          f q = (q.1 : Ideal R) ^ paddedExponent p e q j := rfl
+          _ = (R ∙ gen p q : Ideal R) ^ paddedExponent p e q j := by
+            rw [span_singleton_gen p q]
+          _ = Ideal.span {gen p q ^ paddedExponent p e q j} := by
+            rw [Ideal.span_singleton_pow]
+      _ = Ideal.span {∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j} := by
+        exact Ideal.iInf_span_singleton (fun q r hqr =>
+          isCoprime_generator_pow_pow p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j))
+      _ = R ∙ invariantFactor p e j := by
+        rfl
+  exact (quotientInfLinearEquivPiQuotient f hf).symm.trans (Submodule.quotEquivOfEq _ _ hinf)
+
+/-- `piRectangleEquivInvariantFactors`: see the surrounding section documentation. -/
+noncomputable def piRectangleEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) :
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
+    ((j : Fin (invariantFactorCount p)) → R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  exact (piProdSwapLinearEquiv (fun (q : elementaryPrimes p)
+      (j : Fin (invariantFactorCount p)) =>
+      R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j))).trans
+    (LinearEquiv.piCongrRight fun j => columnEquiv p e hmax j)
+
+/-- `piPrimePowerEquivInvariantFactors`: see the surrounding section documentation. -/
+noncomputable def piPrimePowerEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((j : Fin (invariantFactorCount p)) → R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  exact (piElementaryEquivInvariantCells p e he).trans
+    ((piInvariantCellsEquivPiRectangle p e).trans (piRectangleEquivInvariantFactors p e hmax))
+
+/-- `piPrimePowerNeZeroLinearEquiv`: see the surrounding section documentation. -/
+noncomputable def piPrimePowerNeZeroLinearEquiv (p : ι → Ideal R) (e : ι → ℕ) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((i : {i : ι // e i ≠ 0}) → R ⧸ (p i.1 : Ideal R)^(e i.1)) where
+  toFun f i := f i.1
+  invFun f i := if h : e i ≠ 0 then f ⟨i, h⟩ else 0
+  left_inv := by
+    intro f
+    funext i
+    by_cases h : e i ≠ 0
+    · simp [h]
+    · have he : e i = 0 := not_ne_iff.mp h
+      have htop : (p i : Ideal R) ^ e i = ⊤ := by
+        rw [he, pow_zero, Ideal.one_eq_top]
+      haveI : Subsingleton (R ⧸ (p i : Ideal R)^(e i)) := htop ▸ inferInstance
+      simp [h]
+      exact Subsingleton.elim _ _
+  right_inv := by
+    intro f
+    funext i
+    by_cases h : e i.1 ≠ 0
+    · simp [h]
+    · exact False.elim (h i.2)
+  map_add' := by intro f g; funext i; rfl
+  map_smul' := by intro r f; funext i; rfl
+
+end PID
+/-- `piSpanPowerEquivIdealPow`: see the surrounding section documentation. -/
+noncomputable def piSpanPowerEquivIdealPow (R : Type*) [CommRing R]
+    {ι : Type*} (pElem : ι → R) (e : ι → ℕ) :
+    ((i : ι) → R ⧸ R ∙ (pElem i ^ e i)) ≃ₗ[R]
+    ((i : ι) → R ⧸ (R ∙ pElem i : Ideal R)^(e i)) := by
+  classical
+  refine piCongrLinearEquiv _ _ (Equiv.refl ι) ?_
+  intro i
+  refine Submodule.quotEquivOfEq (R ∙ (pElem i ^ e i)) ((R ∙ pElem i : Ideal R)^(e i)) ?_
+  exact (Ideal.span_singleton_pow (pElem i) (e i)).symm
+
+end PIDInvariantFactors
+
+/-! ## Main theorem -/
+
+namespace Module
+
+open scoped BigOperators
+
+/-- `exists_linearEquiv_free_prod_invariantFactors`: see the surrounding section documentation. -/
+theorem exists_linearEquiv_free_prod_invariantFactors
+    (R M : Type*) [CommRing R] [IsPrincipalIdealRing R] [IsDomain R]
+    [AddCommGroup M] [Module R M] [Module.Finite R M] :
+    ∃ (r s : ℕ) (n : Fin s → R),
+      (∀ j, ¬ IsUnit (n j)) ∧
+      (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (M ≃ₗ[R] (Fin r →₀ R) ×
+        ((j : Fin s) → R ⧸ Ideal.span {n j})) := by
+  classical
+  obtain ⟨r, ι, fι, pElem, hp, e, ⟨h⟩⟩ :=
+    Module.equiv_free_prod_directSum (R := R) (M := M)
+  letI : Fintype ι := fι
+  let p : ι → Ideal R := fun i => R ∙ pElem i
+  have hmax : ∀ i, (p i).IsMaximal := fun i =>
+    PrincipalIdealRing.isMaximal_of_irreducible (hp i)
+  let ι' := {i : ι // e i ≠ 0}
+  let p' : ι' → Ideal R := fun i => p i.1
+  let e' : ι' → ℕ := fun i => e i.1
+  have he' : ∀ i : ι', 0 < e' i := fun i => Nat.pos_of_ne_zero i.2
+  have hmax' : ∀ i : ι', (p' i).IsMaximal := fun i => hmax i.1
+  let s := PIDInvariantFactors.invariantFactorCount p'
+  let n : Fin s → R := PIDInvariantFactors.invariantFactor p' e'
+  refine ⟨r, s, n, ?_, ?_, ?_⟩
+  · intro j
+    exact PIDInvariantFactors.not_isUnit_invariantFactor p' e' hmax' he' j
+  · exact PIDInvariantFactors.invariantFactor_dvd_succ p' e'
+  · let e1 := DirectSum.linearEquivFunOnFintype (R := R) (ι := ι)
+        (M := fun i => R ⧸ R ∙ (pElem i ^ e i))
+    let e2 := PIDInvariantFactors.piSpanPowerEquivIdealPow R pElem e
+    let e3 := PIDInvariantFactors.piPrimePowerNeZeroLinearEquiv p e
+    let e4 := PIDInvariantFactors.piPrimePowerEquivInvariantFactors p' e' hmax' he'
+    exact ⟨h.trans (LinearEquiv.prodCongr
+      (LinearEquiv.refl (R := R) (M := Fin r →₀ R))
+      (e1.trans (e2.trans (e3.trans e4))))⟩
+
+/-- `exists_addEquiv_free_prod_invariantFactors_zmod`: see the surrounding section documentation. -/
+theorem exists_addEquiv_free_prod_invariantFactors_zmod
+    (G : Type*) [AddCommGroup G] [AddGroup.FG G] :
+    ∃ (r s : ℕ) (n : Fin s → ℤ),
+      (∀ j, ¬ IsUnit (n j)) ∧
+      (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃+ (Fin r →₀ ℤ) × ((j : Fin s) → ZMod (n j).natAbs)) := by
+  classical
+  obtain ⟨r, s, n, hn, hdvd, ⟨e⟩⟩ :=
+    exists_linearEquiv_free_prod_invariantFactors ℤ G
+  refine ⟨r, s, n, hn, hdvd, ?_⟩
+  exact ⟨(e.toAddEquiv).trans (AddEquiv.prodCongr (AddEquiv.refl _)
+    (AddEquiv.piCongrRight fun j => (Int.quotientSpanEquivZMod (n j)).toAddEquiv))⟩
+
+end Module
+
 /-!
 ## Improvements for Mathlib
 
