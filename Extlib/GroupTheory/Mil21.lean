@@ -1,6 +1,7 @@
 import Mathlib.Algebra.Group.Subgroup.Pointwise
 import Mathlib.Algebra.Central.Basic
 import Mathlib.Algebra.Central.Matrix
+import Mathlib.Algebra.Algebra.Subalgebra.Pi
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
 import Mathlib.Data.List.NodupEquivFin
@@ -1367,8 +1368,10 @@ theorem isCyclic_of_card_pow_eq_one_le' {G : Type*} [Group G] [Fintype G]
   isCyclic_of_card_pow_eq_one_le hroots
 
 /-- GT `it20` and the existence clause of `it21`: the structure theorem for
-finitely generated commutative groups, in Mathlib's prime-power interface. -/
-theorem CommGroup.exists_mulEquiv_free_prod_primePower
+finitely generated commutative groups, in Mathlib's prime-power interface.
+This is the displayed decomposition `M ≈ C_{n₁}×…×C_{nₛ}×C_∞^r` (`e6`) in
+prime-power (elementary-divisor) form. -/
+theorem CommGroup.exists_mulEquiv_free_prod_prime_power
     (G : Type*) [CommGroup G] [Group.FG G] :
     ∃ (ι j : Type) (_ : Fintype ι) (_ : Fintype j) (p : ι → ℕ)
       (_ : ∀ i, Nat.Prime (p i)) (e : ι → ℕ),
@@ -1379,7 +1382,7 @@ theorem CommGroup.exists_mulEquiv_free_prod_primePower
 
 /-- The gcd of two prime powers records the smaller exponent
 when the primes agree, and is one otherwise. -/
-theorem Nat.gcd_primePow_primePow {p q e k : ℕ} (hp : p.Prime)
+theorem Nat.gcd_prime_pow_prime_pow {p q e k : ℕ} (hp : p.Prime)
     (hq : q.Prime) : (q ^ e).gcd (p ^ k) = if q = p then p ^ min e k else 1 := by
   split_ifs with h
   · subst q
@@ -1391,7 +1394,7 @@ theorem Nat.gcd_primePow_primePow {p q e k : ℕ} (hp : p.Prime)
 
 /-- The gcd with a prime power is controlled by the corresponding
 prime valuation. -/
-theorem Nat.gcd_primePow_eq_pow_min_factorization {n p k : ℕ}
+theorem Nat.gcd_prime_pow_eq_pow_min_factorization {n p k : ℕ}
     (hn : n ≠ 0) (hp : p.Prime) :
     n.gcd (p ^ k) = p ^ min (n.factorization p) k := by
   apply Nat.eq_of_factorization_eq
@@ -1431,7 +1434,7 @@ def CommGroup.powEqOneEquiv {A B : Type*} [CommGroup A] [CommGroup B]
 
 /-- The number of `d`-th roots of one in a finite product of finite cyclic
 groups is the product of the corresponding gcds. -/
-theorem CommGroup.card_powEqOne_pi_cyclic {ι : Type*} [Fintype ι]
+theorem CommGroup.card_pow_eq_one_pi_cyclic {ι : Type*} [Fintype ι]
     (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Fintype (A i)]
     [∀ i, IsCyclic (A i)] (d : ℕ) :
     Nat.card {x : ∀ i, A i // x ^ d = 1} =
@@ -1442,32 +1445,32 @@ theorem CommGroup.card_powEqOne_pi_cyclic {ι : Type*} [Fintype ι]
   exact IsCyclic.card_powMonoidHom_ker (A i) d
 
 /-- The root-count profile of a product of cyclic prime-power groups. -/
-theorem CommGroup.card_powEqOne_pi_primePower {ι : Type*} [Fintype ι]
+theorem CommGroup.card_pow_eq_one_pi_prime_power {ι : Type*} [Fintype ι]
     (q e : ι → ℕ) (hq : ∀ i, Nat.Prime (q i))
     (p : ℕ) (hp : p.Prime) (k : ℕ) :
     Nat.card {x : ∀ i, Multiplicative (ZMod (q i ^ e i)) // x ^ (p ^ k) = 1} =
       p ^ ∑ i with q i = p, min (e i) k := by
   letI (i : ι) : NeZero (q i ^ e i) := ⟨pow_ne_zero _ (hq i).ne_zero⟩
-  rw [CommGroup.card_powEqOne_pi_cyclic _ (p ^ k)]
+  rw [CommGroup.card_pow_eq_one_pi_cyclic _ (p ^ k)]
   have hcard (i : ι) :
       Nat.card (Multiplicative (ZMod (q i ^ e i))) = q i ^ e i :=
     (Nat.card_congr Multiplicative.toAdd).trans (Nat.card_zmod _)
-  simp_rw [hcard, Nat.gcd_primePow_primePow hp (hq _)]
+  simp_rw [hcard, Nat.gcd_prime_pow_prime_pow hp (hq _)]
   rw [Finset.prod_ite, Finset.prod_const_one, mul_one,
     Finset.prod_pow_eq_pow_sum]
 
 /-- The root-count profile of a product of arbitrary nontrivial cyclic
 groups, expressed through prime valuations. -/
-theorem CommGroup.card_powEqOne_pi_cyclic_factorization {ι : Type*}
+theorem CommGroup.card_pow_eq_one_pi_cyclic_factorization {ι : Type*}
     [Fintype ι] (n : ι → ℕ) (hn : ∀ i, n i ≠ 0)
     (p : ℕ) (hp : p.Prime) (k : ℕ) :
     Nat.card {x : ∀ i, Multiplicative (ZMod (n i)) // x ^ (p ^ k) = 1} =
       p ^ ∑ i, min ((n i).factorization p) k := by
   letI (i : ι) : NeZero (n i) := ⟨hn i⟩
-  rw [CommGroup.card_powEqOne_pi_cyclic _ (p ^ k)]
+  rw [CommGroup.card_pow_eq_one_pi_cyclic _ (p ^ k)]
   have hcard (i : ι) : Nat.card (Multiplicative (ZMod (n i))) = n i :=
     (Nat.card_congr Multiplicative.toAdd).trans (Nat.card_zmod _)
-  simp_rw [hcard, Nat.gcd_primePow_eq_pow_min_factorization (hn _) hp]
+  simp_rw [hcard, Nat.gcd_prime_pow_eq_pow_min_factorization (hn _) hp]
   rw [Finset.prod_pow_eq_pow_sum]
 
 /-- Isomorphic products of nontrivial cyclic groups have identical truncated
@@ -1481,8 +1484,8 @@ theorem CommGroup.sum_min_factorization_eq_of_cyclic_pi_mulEquiv
     (∑ i, min ((n i).factorization p) k) =
       ∑ j, min ((m j).factorization p) k := by
   have hc := Nat.card_congr (CommGroup.powEqOneEquiv h (p ^ k))
-  rw [CommGroup.card_powEqOne_pi_cyclic_factorization n hn p hp k,
-    CommGroup.card_powEqOne_pi_cyclic_factorization m hm p hp k] at hc
+  rw [CommGroup.card_pow_eq_one_pi_cyclic_factorization n hn p hp k,
+    CommGroup.card_pow_eq_one_pi_cyclic_factorization m hm p hp k] at hc
   exact Nat.pow_right_injective hp.two_le hc
 
 /-- Successive differences of the sum of truncated natural numbers count
@@ -1574,7 +1577,7 @@ theorem Fin.eq_of_monotone_of_card_filter_gt_eq {s : ℕ}
 
 /-- Isomorphic products of nontrivial cyclic prime-power groups have the same
 root-count exponent profile at every prime and exponent. -/
-theorem CommGroup.sum_min_eq_of_primePower_pi_mulEquiv
+theorem CommGroup.sum_min_eq_of_prime_power_pi_mulEquiv
     {ι κ : Type*} [Fintype ι] [Fintype κ]
     (p e : ι → ℕ) (q f : κ → ℕ)
     (hp : ∀ i, Nat.Prime (p i)) (hq : ∀ j, Nat.Prime (q j))
@@ -1585,15 +1588,15 @@ theorem CommGroup.sum_min_eq_of_primePower_pi_mulEquiv
         ∑ j with q j = r, min (f j) k := by
   intro r hr k
   have hc := Nat.card_congr (CommGroup.powEqOneEquiv h (r ^ k))
-  rw [CommGroup.card_powEqOne_pi_primePower p e hp r hr k,
-    CommGroup.card_powEqOne_pi_primePower q f hq r hr k] at hc
+  rw [CommGroup.card_pow_eq_one_pi_prime_power p e hp r hr k,
+    CommGroup.card_pow_eq_one_pi_prime_power q f hq r hr k] at hc
   exact Nat.pow_right_injective hr.two_le hc
 
 /-- GT `it21(c)`: the multiplicity of every elementary divisor `r^k` is
 preserved by an isomorphism between finite products of nontrivial cyclic
 prime-power groups.  This is uniqueness without choosing an ordering of the
 factors. -/
-theorem CommGroup.card_primePower_factors_eq_of_mulEquiv
+theorem CommGroup.card_prime_power_factors_eq_of_mulEquiv
     {ι κ : Type*} [Fintype ι] [Fintype κ]
     (p e : ι → ℕ) (q f : κ → ℕ)
     (hp : ∀ i, Nat.Prime (p i)) (hq : ∀ j, Nat.Prime (q j))
@@ -1610,7 +1613,7 @@ theorem CommGroup.card_primePower_factors_eq_of_mulEquiv
   have hkpos : 0 < k := Nat.pos_of_ne_zero hk
   let sp := Finset.univ.filter fun i => p i = r
   let sq := Finset.univ.filter fun j => q j = r
-  have hprofile := CommGroup.sum_min_eq_of_primePower_pi_mulEquiv
+  have hprofile := CommGroup.sum_min_eq_of_prime_power_pi_mulEquiv
     p e q f hp hq h
   have htail (m : ℕ) :
       (sp.filter fun i => m < e i).card =
@@ -1632,606 +1635,74 @@ theorem CommGroup.card_primePower_factors_eq_of_mulEquiv
   simpa only [sp, sq, Finset.filter_filter, Finset.mem_univ, true_and,
     and_assoc] using hexact
 
-/-- Curry a dependent product over a sigma type, as a multiplicative
-equivalence. -/
-def CommGroup.piSigmaMulEquiv {ι : Type*} {κ : ι → Type*}
-    (A : (i : ι) → κ i → Type*) [∀ i j, Mul (A i j)] :
-    ((x : Σ i, κ i) → A x.1 x.2) ≃* ((i : ι) → (j : κ i) → A i j) where
-  toFun f i j := f ⟨i, j⟩
-  invFun f x := f x.1 x.2
-  left_inv _ := rfl
-  right_inv _ := rfl
-  map_mul' _ _ := rfl
 
-/-- Chinese remainder decomposition of a product of finite cyclic groups into
-its elementary-divisor factors. -/
-noncomputable def CommGroup.cyclicPiPrimePowerEquiv {ι : Type*}
-    (n : ι → ℕ) (hn : ∀ i, n i ≠ 0) :
-    ((i : ι) → Multiplicative (ZMod (n i))) ≃*
-      ((x : Σ i, (n i).primeFactors) →
-        Multiplicative (ZMod (x.2.1 ^ ((n x.1).factorization x.2.1)))) :=
-  (MulEquiv.piCongrRight fun i =>
-      (ZMod.equivPi (n i) (hn i)).toAddEquiv.toMultiplicative.trans
-        (MulEquiv.piMultiplicative fun p : (n i).primeFactors =>
-          ZMod ((p : ℕ) ^ ((n i).factorization p)))).trans
-    (CommGroup.piSigmaMulEquiv fun i (p : (n i).primeFactors) =>
-      Multiplicative (ZMod ((p : ℕ) ^ ((n i).factorization p)))).symm
-
-/-- Remove the trivial `p⁰` factors from a product of cyclic prime-power
-groups. -/
-noncomputable def CommGroup.piPrimePowerNeZeroMulEquiv {ι : Type*}
-    (p e : ι → ℕ) :
-    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
-      ((i : {i : ι // e i ≠ 0}) →
-        Multiplicative (ZMod (p i.1 ^ e i.1))) where
-  toFun f i := f i.1
-  invFun f i := if h : e i ≠ 0 then f ⟨i, h⟩ else 1
-  left_inv := by
-    intro f
-    funext i
-    by_cases h : e i ≠ 0
-    · simp [h]
-    · simp only [h, ↓reduceDIte]
-      have he : e i = 0 := not_ne_iff.mp h
-      haveI : Subsingleton (ZMod (p i ^ e i)) := by
-        rw [he, pow_zero]
-        infer_instance
-      exact Subsingleton.elim _ _
-  right_inv := by intro f; funext i; simp [i.2]
-  map_mul' := by intro f g; funext i; rfl
-
-/-- Enumerate a finite type so that a specified natural-valued function
-is nondecreasing. -/
-noncomputable def Finite.sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
-    {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
-  let tie := Fintype.equivFin α
-  letI : LinearOrder α := LinearOrder.lift' (fun x => toLex (f x, tie x))
-    (fun x y h => tie.injective (congrArg (fun z => (ofLex z).2) h))
-  let O := (Finset.univ : Finset α).orderIsoOfFin
-    (k := Fintype.card α) (by simp)
-  let U : (Finset.univ : Finset α) ≃ α :=
-    { toFun := (↑)
-      invFun := fun x => ⟨x, Finset.mem_univ x⟩
-      left_inv := fun _ => rfl
-      right_inv := fun _ => rfl }
-  let E := O.toEquiv.trans U
-  refine ⟨E, ?_⟩
-  intro i j hij
-  have h := O.monotone hij
-  change toLex (f (E i), tie (E i)) ≤ toLex (f (E j), tie (E j)) at h
-  rcases (Prod.lex_def.mp h) with h | h
-  · exact h.le
-  · exact h.1.le
-
-/-- The monotone enumeration underlying `Finite.sortedEquivData`. -/
-noncomputable def Finite.sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
-    Fin (Fintype.card α) ≃ α :=
-  (Finite.sortedEquivData f).1
-
-theorem Finite.monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
-    Monotone (fun j => f (Finite.sortedEquiv f j)) :=
-  (Finite.sortedEquivData f).2
-
-/-- The finite set of primes occurring in elementary-divisor data. -/
-abbrev CommGroup.elementaryPrimes {ι : Type*} [Fintype ι] (p : ι → ℕ) :=
-  {q : ℕ // q ∈ Finset.univ.image p}
-
-/-- The indices of elementary divisors belonging to a fixed prime. -/
-abbrev CommGroup.primeFiber {ι : Type*} (p : ι → ℕ) (q : ℕ) :=
-  {i : ι // p i = q}
-
-/-- Number of occurrences of a prime in elementary-divisor data. -/
-def CommGroup.primeMultiplicity {ι : Type*} [Fintype ι]
-    (p : ι → ℕ)
-    (q : CommGroup.elementaryPrimes p) : ℕ :=
-  Fintype.card (CommGroup.primeFiber p q.1)
-
-/-- Number of invariant-factor columns obtained by right-aligning all the
-prime-power exponent lists. -/
-def CommGroup.invariantFactorCount {ι : Type*} [Fintype ι]
-    (p : ι → ℕ) : ℕ :=
-  Finset.univ.sup (CommGroup.primeMultiplicity p)
-
-theorem CommGroup.primeMultiplicity_le_invariantFactorCount
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p : ι → ℕ) [DecidableEq (CommGroup.elementaryPrimes p)]
-    (q : CommGroup.elementaryPrimes p) :
-    CommGroup.primeMultiplicity p q ≤ CommGroup.invariantFactorCount p := by
-  exact Finset.le_sup (f := CommGroup.primeMultiplicity p) (Finset.mem_univ q)
-
-/-- The sorted exponent list for one prime, left-padded with zeros to the
-maximum multiplicity. -/
-noncomputable def CommGroup.paddedExponent {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p)
-    (j : Fin (CommGroup.invariantFactorCount p)) : ℕ :=
-  let c := CommGroup.primeMultiplicity p q
-  let s := CommGroup.invariantFactorCount p
-  if h : s - c ≤ j.1 then
-    e (Finite.sortedEquiv (fun i : CommGroup.primeFiber p q.1 => e i.1)
-      ⟨j.1 - (s - c), by
-        change j.1 - (s - c) < c
-        have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-        omega⟩).1
-  else 0
-
-/-- Regard the prime attached to an elementary divisor as an element of
-the finite set of occurring primes. -/
-def CommGroup.elementaryPrime {ι : Type*} [Fintype ι]
-    (p : ι → ℕ) (i : ι) : CommGroup.elementaryPrimes p :=
-  ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
-
-/-- Monotone enumeration of the elementary divisors over one prime. -/
-noncomputable def CommGroup.sortedPrimeFiberEquiv {ι : Type*} [Fintype ι]
-    (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
-    Fin (CommGroup.primeMultiplicity p q) ≃ CommGroup.primeFiber p q.1 :=
-  Finite.sortedEquiv fun i : CommGroup.primeFiber p q.1 => e i.1
-
-/-- Column occupied by an elementary divisor after its prime fibre has been
-sorted and right-aligned. -/
-noncomputable def CommGroup.elementaryColumn {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ) (i : ι) :
-    Fin (CommGroup.invariantFactorCount p) := by
-  let q := CommGroup.elementaryPrime p i
-  let c := CommGroup.primeMultiplicity p q
-  let s := CommGroup.invariantFactorCount p
-  let k := (CommGroup.sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
-  exact ⟨s - c + k.1, by
-    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-    omega⟩
-
-theorem CommGroup.paddedExponent_elementaryColumn {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ) (i : ι) :
-    CommGroup.paddedExponent p e (CommGroup.elementaryPrime p i)
-      (CommGroup.elementaryColumn p e i) = e i := by
-  let q := CommGroup.elementaryPrime p i
-  let c := CommGroup.primeMultiplicity p q
-  let s := CommGroup.invariantFactorCount p
-  let k := (CommGroup.sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
-  have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-  change (if h : s - c ≤ s - c + k.1 then
-      e (Finite.sortedEquiv (fun x : CommGroup.primeFiber p q.1 => e x.1)
-        ⟨s - c + k.1 - (s - c), by
-          change s - c + k.1 - (s - c) < c
-          omega⟩).1 else 0) = e i
-  rw [dif_pos (show s - c ≤ s - c + k.1 by omega)]
-  congr 1
-  change (CommGroup.sortedPrimeFiberEquiv p e q
-    ⟨s - c + k.1 - (s - c), _⟩).1 = i
-  have harg : (⟨s - c + k.1 - (s - c), by
-      omega⟩ : Fin c) = k := Fin.ext (Nat.add_sub_cancel_left _ _)
-  rw [harg]
-  exact congrArg Subtype.val
-    ((CommGroup.sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
-
-/-- Nontrivial cells in the right-aligned prime-exponent table. -/
-abbrev CommGroup.invariantCells {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) :=
-  {x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p) //
-    CommGroup.paddedExponent p e x.1 x.2 ≠ 0}
-
-/-- Group elementary-divisor indices by their prime. -/
-def CommGroup.indexEquivSigmaPrimeFiber {ι : Type*} [Fintype ι]
-    (p : ι → ℕ) :
-    ι ≃ Σ q : CommGroup.elementaryPrimes p, CommGroup.primeFiber p q.1 where
-  toFun i := ⟨CommGroup.elementaryPrime p i, ⟨i, rfl⟩⟩
-  invFun x := x.2.1
-  left_inv _ := rfl
-  right_inv x := by
-    rcases x with ⟨⟨q, hq⟩, ⟨i, hi⟩⟩
-    simp only at hi
-    subst q
-    rfl
-
-/-- The sorted prime fibres occupy exactly the nonzero cells of the
-right-aligned exponent table. -/
-noncomputable def CommGroup.sigmaPrimeFiberEquivInvariantCells
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
-    (Σ q : CommGroup.elementaryPrimes p,
-      Fin (CommGroup.primeMultiplicity p q)) ≃ CommGroup.invariantCells p e where
-  toFun x := by
-    rcases x with ⟨q, k⟩
-    let c := CommGroup.primeMultiplicity p q
-    let s := CommGroup.invariantFactorCount p
-    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-    let j : Fin s := ⟨s - c + k.1, by omega⟩
-    refine ⟨(q, j), ?_⟩
-    rw [CommGroup.paddedExponent, dif_pos (show s - c ≤ j.1 by
-      change s - c ≤ s - c + k.1
-      omega)]
-    have harg : (⟨j.1 - (s - c), by
-        change s - c + k.1 - (s - c) < c
-        omega⟩ : Fin c) = k := by
-      apply Fin.ext
-      simp [j]
-    change e (CommGroup.sortedPrimeFiberEquiv p e q
-      ⟨j.1 - (s - c), _⟩).1 ≠ 0
-    rw [harg]
-    exact ne_of_gt (he (CommGroup.sortedPrimeFiberEquiv p e q k).1)
-  invFun x := by
-    let q := x.1.1
-    let j := x.1.2
-    let c := CommGroup.primeMultiplicity p q
-    let s := CommGroup.invariantFactorCount p
-    have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-    have hj : s - c ≤ j.1 := by
-      by_contra h
-      apply x.2
-      rw [CommGroup.paddedExponent, dif_neg h]
-    exact ⟨q, ⟨j.1 - (s - c), by omega⟩⟩
-  left_inv x := by
-    rcases x with ⟨q, k⟩
-    change (⟨q, ⟨CommGroup.invariantFactorCount p -
-      CommGroup.primeMultiplicity p q + k.1 -
-      (CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q), by
-        omega⟩⟩ : Σ q, Fin (CommGroup.primeMultiplicity p q)) = ⟨q, k⟩
-    rw [Sigma.ext_iff]
-    refine ⟨rfl, heq_of_eq ?_⟩
-    apply Fin.ext
-    change CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q + k.1 -
-      (CommGroup.invariantFactorCount p - CommGroup.primeMultiplicity p q) = k.1
-    exact Nat.add_sub_cancel_left _ _
-  right_inv x := by
-    apply Subtype.ext
-    apply Prod.ext
-    · rfl
-    · apply Fin.ext
-      simp only
-      let q := x.1.1
-      let j := x.1.2
-      let c := CommGroup.primeMultiplicity p q
-      let s := CommGroup.invariantFactorCount p
-      have hc := CommGroup.primeMultiplicity_le_invariantFactorCount p q
-      have hj : s - c ≤ j.1 := by
-        by_contra h
-        apply x.2
-        rw [CommGroup.paddedExponent, dif_neg h]
-      change s - c + (j.1 - (s - c)) = j.1
-      omega
-
-/-- Elementary divisors are in bijection with the nonzero cells of the
-right-aligned exponent table. -/
-noncomputable def CommGroup.elementaryIndexEquivInvariantCells
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
-    ι ≃ CommGroup.invariantCells p e :=
-  (CommGroup.indexEquivSigmaPrimeFiber p).trans <|
-    (Equiv.sigmaCongrRight fun q => (CommGroup.sortedPrimeFiberEquiv p e q).symm).trans
-      (CommGroup.sigmaPrimeFiberEquivInvariantCells p e he)
-
-@[simp]
-theorem CommGroup.elementaryIndexEquivInvariantCells_prime
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
-    (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i := by
-  rfl
-
-theorem CommGroup.elementaryIndexEquivInvariantCells_apply
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
-    (CommGroup.elementaryIndexEquivInvariantCells p e he i).1 =
-      (CommGroup.elementaryPrime p i, CommGroup.elementaryColumn p e i) := by
-  apply Prod.ext
-  · rfl
-  · apply Fin.ext
-    rfl
-
-@[simp]
-theorem CommGroup.elementaryIndexEquivInvariantCells_exponent
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
-    CommGroup.paddedExponent p e
-      (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.1
-      (CommGroup.elementaryIndexEquivInvariantCells p e he i).1.2 = e i := by
-  rw [CommGroup.elementaryIndexEquivInvariantCells_apply]
-  exact CommGroup.paddedExponent_elementaryColumn p e i
-
-/-- Reindex a dependent product of multiplicative types while transporting
-each fibre by a multiplicative equivalence. -/
-def CommGroup.piCongrMulEquiv {α β : Type*} (A : α → Type*) (B : β → Type*)
-    [∀ i, Mul (A i)] [∀ j, Mul (B j)] (h : α ≃ β)
-    (e : ∀ i, A i ≃* B (h i)) : ((i : α) → A i) ≃* ((j : β) → B j) := by
-  let E := Equiv.piCongr h fun i => (e i).toEquiv
-  refine { E with map_mul' := ?_ }
-  intro f g
-  funext j
-  obtain ⟨i, rfl⟩ := h.surjective j
-  change (h.piCongr (fun i => (e i).toEquiv) (f * g)) (h i) =
-    (h.piCongr (fun i => (e i).toEquiv) f) (h i) *
-      (h.piCongr (fun i => (e i).toEquiv) g) (h i)
-  rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply,
-    Equiv.piCongr_apply_apply]
-  exact map_mul (e i) (f i) (g i)
-
-/-- The invariant factor obtained by multiplying one right-aligned
-prime-power column. -/
-noncomputable def CommGroup.invariantFactor {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ)
-    (j : Fin (CommGroup.invariantFactorCount p)) : ℕ :=
-  ∏ q : CommGroup.elementaryPrimes p, q.1 ^ CommGroup.paddedExponent p e q j
-
-/-- Transpose a dependent multiplicative product indexed by a Cartesian
-product. -/
-def CommGroup.piProdSwapMulEquiv {ι κ : Type*} (A : ι → κ → Type*)
-    [∀ i j, Mul (A i j)] :
-    ((x : ι × κ) → A x.1 x.2) ≃* ((j : κ) → (i : ι) → A i j) where
-  toFun f j i := f (i, j)
-  invFun f x := f x.2 x.1
-  left_inv _ := rfl
-  right_inv _ := rfl
-  map_mul' _ _ := rfl
-
-/-- Reindex elementary-divisor cyclic groups by the nonzero cells of the
-right-aligned exponent table. -/
-noncomputable def CommGroup.piElementaryEquivInvariantCells
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (he : ∀ i, 0 < e i) :
-    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
-      ((x : CommGroup.invariantCells p e) → Multiplicative
-        (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2))) :=
-  CommGroup.piCongrMulEquiv
-    (fun i => Multiplicative (ZMod (p i ^ e i)))
-    (fun x : CommGroup.invariantCells p e => Multiplicative
-      (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2)))
-    (CommGroup.elementaryIndexEquivInvariantCells p e he) fun i =>
-      (ZMod.ringEquivCongr (by simp)).toAddEquiv.toMultiplicative
-
-/-- Reinsert the trivial cells in the rectangular prime-exponent table. -/
-noncomputable def CommGroup.piInvariantCellsEquivPiRectangle
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) :
-    ((x : CommGroup.invariantCells p e) → Multiplicative
-      (ZMod (x.1.1.1 ^ CommGroup.paddedExponent p e x.1.1 x.1.2))) ≃*
-    ((x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p)) →
-      Multiplicative (ZMod (x.1.1 ^ CommGroup.paddedExponent p e x.1 x.2))) :=
-  (CommGroup.piPrimePowerNeZeroMulEquiv
-    (fun x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p) => x.1.1)
-    (fun x => CommGroup.paddedExponent p e x.1 x.2)).symm
-
-/-- Columnwise CRT combines the right-aligned prime powers into invariant
-factors. -/
-noncomputable def CommGroup.piRectangleEquivInvariantFactors
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i)) :
-    ((x : CommGroup.elementaryPrimes p × Fin (CommGroup.invariantFactorCount p)) →
-      Multiplicative (ZMod (x.1.1 ^ CommGroup.paddedExponent p e x.1 x.2))) ≃*
-    ((j : Fin (CommGroup.invariantFactorCount p)) →
-      Multiplicative (ZMod (CommGroup.invariantFactor p e j))) :=
-  (CommGroup.piProdSwapMulEquiv fun (q : CommGroup.elementaryPrimes p)
-      (j : Fin (CommGroup.invariantFactorCount p)) =>
-      Multiplicative (ZMod (q.1 ^ CommGroup.paddedExponent p e q j))).trans <|
-    MulEquiv.piCongrRight fun j =>
-      ((ZMod.prodEquivPi
-        (fun q : CommGroup.elementaryPrimes p =>
-          q.1 ^ CommGroup.paddedExponent p e q j) (by
-          intro q r hqr
-          have hqprime : q.1.Prime := by
-            rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
-            rw [← hi]
-            exact hp i
-          have hrprime : r.1.Prime := by
-            rcases Finset.mem_image.mp r.2 with ⟨i, _, hi⟩
-            rw [← hi]
-            exact hp i
-          exact Nat.Coprime.pow _ _ <|
-            (Nat.coprime_primes hqprime hrprime).mpr fun h => hqr (Subtype.ext h))).toAddEquiv.toMultiplicative).symm
-
-/-- Recombine elementary divisors into divisibility-ordered invariant
-factors, following the construction in GT `it21(b)`. -/
-noncomputable def CommGroup.piPrimePowerEquivInvariantFactors
-    {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i)) (he : ∀ i, 0 < e i) :
-    ((i : ι) → Multiplicative (ZMod (p i ^ e i))) ≃*
-      ((j : Fin (CommGroup.invariantFactorCount p)) →
-        Multiplicative (ZMod (CommGroup.invariantFactor p e j))) :=
-  (CommGroup.piElementaryEquivInvariantCells p e he).trans <|
-    (CommGroup.piInvariantCellsEquivPiRectangle p e).trans <|
-      CommGroup.piRectangleEquivInvariantFactors p e hp
-
-theorem CommGroup.monotone_paddedExponent {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ) (q : CommGroup.elementaryPrimes p) :
-    Monotone (CommGroup.paddedExponent p e q) := by
-  intro j k hjk
-  let c := CommGroup.primeMultiplicity p q
-  let s := CommGroup.invariantFactorCount p
-  by_cases hj : s - c ≤ j.1
-  · have hk : s - c ≤ k.1 := hj.trans hjk
-    rw [CommGroup.paddedExponent, dif_pos hj, CommGroup.paddedExponent, dif_pos hk]
-    apply Finite.monotone_sortedEquiv (fun i : CommGroup.primeFiber p q.1 => e i.1)
-    exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
-  · rw [CommGroup.paddedExponent, dif_neg hj]
-    exact Nat.zero_le _
-
-theorem CommGroup.one_lt_invariantFactor {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ) (hp : ∀ i, Nat.Prime (p i))
-    (he : ∀ i, 0 < e i) (j : Fin (CommGroup.invariantFactorCount p)) :
-    1 < CommGroup.invariantFactor p e j := by
-  have hs : 0 < CommGroup.invariantFactorCount p := Nat.zero_lt_of_lt j.2
-  haveI : Nonempty ι := by
-    cases isEmpty_or_nonempty ι with
-    | inl h =>
-        exfalso
-        have : CommGroup.invariantFactorCount p = 0 := by
-          simp [CommGroup.invariantFactorCount]
-        omega
-    | inr h => exact h
-  let i₀ := Classical.choice (inferInstance : Nonempty ι)
-  have hP : (Finset.univ : Finset (CommGroup.elementaryPrimes p)).Nonempty :=
-    ⟨CommGroup.elementaryPrime p i₀, Finset.mem_univ _⟩
-  obtain ⟨q, _, hq⟩ := Finset.exists_mem_eq_sup
-    (Finset.univ : Finset (CommGroup.elementaryPrimes p)) hP
-    (CommGroup.primeMultiplicity p)
-  have hmult : CommGroup.primeMultiplicity p q =
-      CommGroup.invariantFactorCount p := hq.symm
-  have hE : 0 < CommGroup.paddedExponent p e q j := by
-    rw [CommGroup.paddedExponent]
-    have hzero : CommGroup.invariantFactorCount p -
-        CommGroup.primeMultiplicity p q = 0 := by omega
-    rw [dif_pos (by omega)]
-    exact he _
-  have hqprime : q.1.Prime := by
-    rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
-    rw [← hi]
-    exact hp i
-  have hpow : 1 < q.1 ^ CommGroup.paddedExponent p e q j :=
-    Nat.one_lt_pow (ne_of_gt hE) hqprime.one_lt
-  have hle : q.1 ^ CommGroup.paddedExponent p e q j ≤
-      CommGroup.invariantFactor p e j := by
-    rw [CommGroup.invariantFactor]
-    calc
-      q.1 ^ CommGroup.paddedExponent p e q j =
-          ∏ r : CommGroup.elementaryPrimes p,
-            if r = q then r.1 ^ CommGroup.paddedExponent p e r j else 1 := by simp
-      _ ≤ ∏ r : CommGroup.elementaryPrimes p,
-          r.1 ^ CommGroup.paddedExponent p e r j := by
-        apply Finset.prod_le_prod
-        · intro r _
-          exact Nat.zero_le _
-        · intro r _
-          split_ifs with hr
-          · exact le_rfl
-          · exact Nat.one_le_iff_ne_zero.mpr
-              (pow_ne_zero _ (by
-                have hrprime : r.1.Prime := by
-                  rcases Finset.mem_image.mp r.2 with ⟨i, _, hi⟩
-                  rw [← hi]
-                  exact hp i
-                exact hrprime.ne_zero))
-  exact hpow.trans_le hle
-
-theorem CommGroup.invariantFactor_dvd_succ {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p e : ι → ℕ)
-    (j : Fin (CommGroup.invariantFactorCount p - 1)) :
-    CommGroup.invariantFactor p e ⟨j.1, by omega⟩ ∣
-      CommGroup.invariantFactor p e ⟨j.1 + 1, by omega⟩ := by
-  apply Finset.prod_dvd_prod_of_dvd
-  intro q _
-  exact Nat.pow_dvd_pow q.1
-    (CommGroup.monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
-
-/-- GT `it21` / `e6`, normalized elementary-divisor existence: a finitely
-generated commutative group is a product of `r` infinite cyclic groups and
-nontrivial cyclic prime-power groups. -/
-theorem CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower
-    (G : Type*) [CommGroup G] [Group.FG G] :
-    ∃ (r : ℕ) (ι : Type) (_ : Fintype ι) (p : ι → ℕ)
-      (_ : ∀ i, Nat.Prime (p i)) (e : ι → ℕ),
-      (∀ i, 0 < e i) ∧
-        Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
-          ((i : ι) → Multiplicative (ZMod (p i ^ e i)))) := by
+/-- Bridge: for a free finite `ℤ`-module, the group rank of the multiplicative
+carrier equals the module finrank.  This is the missing `Multiplicative`-functor
+rank transport discussed in the "Improvements for Mathlib" obligation below.
+`Module.finrank` measures the free-part rank, so the equality needs the
+`[Module.Free ℤ M]` hypothesis (on torsion modules the two notions diverge:
+`Group.rank` counts minimal generators, `Module.finrank` ignores torsion). -/
+theorem Group.rank_multiplicative_eq_finrank
+    (M : Type*) [AddCommGroup M] [Module ℤ M] [Module.Free ℤ M] [Module.Finite ℤ M]
+    [AddGroup.FG M] :
+    Group.rank (Multiplicative M) = Module.finrank ℤ M := by
   classical
-  obtain ⟨ι, j, fι, fj, p, hp, e, ⟨h⟩⟩ :=
-    CommGroup.equiv_free_prod_prod_multiplicative_zmod G
-  let ι' := {i : ι // e i ≠ 0}
-  let efree : (j → Multiplicative ℤ) ≃* (Fin (Fintype.card j) → Multiplicative ℤ) :=
-    MulEquiv.arrowCongr (Fintype.equivFin j) (MulEquiv.refl _)
-  refine ⟨Fintype.card j, ι', inferInstance, fun i => p i.1,
-    fun i => hp i.1, fun i => e i.1, fun i => Nat.pos_of_ne_zero i.2, ?_⟩
-  exact ⟨h.trans (efree.prodCongr (CommGroup.piPrimePowerNeZeroMulEquiv p e))⟩
-
-/-- GT `it21(b)`, invariant-factor existence: the torsion factors can
-be chosen nontrivial and ordered by divisibility. -/
-theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
-    (G : Type*) [CommGroup G] [Group.FG G] :
-    ∃ (r s : ℕ) (n : Fin s → ℕ),
-      (∀ i, 1 < n i) ∧
-      (∀ i : Fin (s - 1),
-        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
-      Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
-        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
-  classical
-  obtain ⟨r, ι, fι, p, hp, e, he, ⟨h⟩⟩ :=
-    CommGroup.exists_mulEquiv_free_prod_nontrivial_primePower G
-  letI : Fintype ι := fι
-  let s := CommGroup.invariantFactorCount p
-  let n : Fin s → ℕ := CommGroup.invariantFactor p e
-  refine ⟨r, s, n, ?_, ?_, ?_⟩
-  · exact CommGroup.one_lt_invariantFactor p e hp he
-  · exact CommGroup.invariantFactor_dvd_succ p e
-  · exact ⟨h.trans ((MulEquiv.refl _).prodCongr
-      (CommGroup.piPrimePowerEquivInvariantFactors p e hp he))⟩
-
-/-- A finite product generated coordinatewise by one element per factor
-has group rank at most the number of factors. -/
-theorem Group.rank_pi_le_card_of_zpowers_eq_top {ι : Type*} [Fintype ι]
-    (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Group.FG (A i)]
-    (g : ∀ i, A i) (hg : ∀ i x, x ∈ Subgroup.zpowers (g i)) :
-    Group.rank (∀ i, A i) ≤ Fintype.card ι := by
-  classical
-  let S : Finset (∀ i, A i) := Finset.univ.image fun i => Pi.mulSingle i (g i)
-  have hclosure : Subgroup.closure (S : Set (∀ i, A i)) = ⊤ := by
-    rw [eq_top_iff]
-    intro x _
-    have hx : x = ∏ i, Pi.mulSingle i (x i) := by
-      ext j
-      simp
-    rw [hx]
-    apply Subgroup.prod_mem
-    intro i _
-    obtain ⟨z, hz⟩ := hg i (x i)
-    have hgi : Pi.mulSingle i (g i) ∈ Subgroup.closure (S : Set (∀ i, A i)) :=
-      Subgroup.subset_closure (Finset.mem_coe.mpr
-        (Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩))
-    have := (Subgroup.closure (S : Set (∀ i, A i))).zpow_mem hgi z
-    convert this using 1
-    ext j
-    by_cases hji : j = i
-    · subst j
-      simpa using hz.symm
-    · simp [Pi.mulSingle, hji]
-  exact (Group.rank_le hclosure).trans
-    (Finset.card_image_le.trans_eq Finset.card_univ)
-
-/-- The elementary abelian `2`-group of dimension `r` needs exactly `r`
-generators. -/
-theorem Group.rank_pi_multiplicative_zmod_two (r : ℕ) :
-    Group.rank (Fin r → Multiplicative (ZMod 2)) = r := by
+  have hspan (s : Set M) : (Submodule.span ℤ s).toAddSubgroup = AddSubgroup.closure s := by
+    have hI : (inferInstance : Module ℤ M) = AddCommGroup.toIntModule M := Subsingleton.elim _ _
+    subst hI
+    exact Submodule.span_int_eq_addSubgroupClosure s
   apply le_antisymm
-  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
-      (fun _ : Fin r => Multiplicative (ZMod 2))
-      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
-        ⟨(x.toAdd.val : ℤ), by
-          apply Multiplicative.toAdd.injective
-          simp⟩)
-    simpa using hle
-  · by_cases hr : r = 0
-    · omega
-    haveI : Nonempty (Fin r) := Fin.pos_iff_nonempty.mp (Nat.pos_of_ne_zero hr)
-    have hd := card_dvd_exponent_pow_rank (Fin r → Multiplicative (ZMod 2))
-    have hcard : Nat.card (Fin r → Multiplicative (ZMod 2)) = 2 ^ r := by
-      rw [Nat.card_pi]
-      simp_rw [Nat.card_congr Multiplicative.toAdd, Nat.card_zmod]
-      simp
-    have hexponent : Monoid.exponent (Fin r → Multiplicative (ZMod 2)) = 2 := by
-      rw [Monoid.exponent_pi]
-      simp_rw [show Monoid.exponent (Multiplicative (ZMod 2)) = 2 by
-        exact ZMod.exponent 2]
-      apply Nat.dvd_antisymm
-      · exact Finset.lcm_dvd fun _ _ => dvd_rfl
-      · exact Finset.dvd_lcm (Finset.mem_univ (Classical.choice this))
-    rw [hcard, hexponent, Nat.pow_dvd_pow_iff_le_right (by omega)] at hd
-    exact hd
+  · -- basis vectors generate `Multiplicative M` as a group
+    let b : Module.Basis (Module.Free.ChooseBasisIndex ℤ M) ℤ M := Module.Free.chooseBasis ℤ M
+    let ι := Module.Free.ChooseBasisIndex ℤ M
+    let F : Finset (Multiplicative M) := Finset.univ.image fun i : ι => Multiplicative.ofAdd (b i)
+    have hFgen : Subgroup.closure (F : Set (Multiplicative M)) = ⊤ := by
+      have hFset : (F : Set (Multiplicative M)) = Multiplicative.ofAdd '' (Set.range b) := by
+        ext x; simp [F, Equiv.apply_eq_iff_eq_symm_apply]; rfl
+      rw [hFset]
+      have hpre : Multiplicative.ofAdd '' (Set.range b) = Multiplicative.toAdd ⁻¹' (Set.range b) := by
+        ext x; simp
+      rw [hpre, ← AddSubgroup.toSubgroup_closure (Set.range b)]
+      have hcl : AddSubgroup.closure (Set.range b) = ⊤ := by
+        rw [← hspan (Set.range b), b.span_eq]; ext x; simp
+      rw [hcl]; ext x; simp
+    have hle : Group.rank (Multiplicative M) ≤ F.card := Group.rank_le hFgen
+    have hFcard : F.card = Fintype.card ι := by
+      simpa [F, ι] using Finset.card_image_of_injective Finset.univ
+        (f := fun i : ι => Multiplicative.ofAdd (b i)) (by
+          intro i j hij; exact b.injective (Multiplicative.ofAdd.injective hij))
+    exact (hle.trans_eq hFcard).trans_eq (Module.finrank_eq_card_chooseBasisIndex ℤ M).symm
+  · -- a group generating set spans `M` as a `ℤ`-module
+    rcases Group.rank_spec (Multiplicative M) with ⟨S, hScard, hSgen⟩
+    let T : Finset M := S.image fun x : Multiplicative M => Multiplicative.toAdd x
+    have hTcard : T.card = S.card := by
+      simpa [T] using Finset.card_image_of_injective S
+        (f := fun x : Multiplicative M => Multiplicative.toAdd x) (by
+          intro x y hxy; exact Multiplicative.toAdd.injective hxy)
+    have hSadd : AddSubgroup.closure (T : Set M) = ⊤ := by
+      have h := Subgroup.toAddSubgroup'_closure (S : Set (Multiplicative M))
+      rw [hSgen] at h
+      rw [show (⊤ : Subgroup (Multiplicative M)).toAddSubgroup' = (⊤ : AddSubgroup M) by
+        ext x; simp] at h
+      rw [show Multiplicative.ofAdd ⁻¹' (S : Set (Multiplicative M)) = (T : Set M) by
+        ext x; simp [T]] at h
+      exact h.symm
+    have hspanTop : Submodule.span ℤ (T : Set M) = ⊤ := by
+      apply Submodule.toAddSubgroup_injective
+      rw [hspan (T : Set M), hSadd]; ext x; simp
+    have hle : Module.finrank ℤ M ≤ Fintype.card {x : M // x ∈ (T : Set M)} := by
+      refine finrank_le_of_span_eq_top (R := ℤ) (M := M)
+        (ι := {x : M // x ∈ (T : Set M)}) (v := fun x => (x : M)) ?_
+      convert hspanTop using 1; ext x; simp
+    have hcat : Fintype.card {x : M // x ∈ (T : Set M)} = T.card := by simp
+    exact (hle.trans_eq hcat).trans_eq (hTcard.trans hScard)
 
 /-- The free abelian group of rank `r` needs exactly `r` generators. -/
 theorem Group.rank_pi_multiplicative_int (r : ℕ) :
     Group.rank (Fin r → Multiplicative ℤ) = r := by
-  apply le_antisymm
-  · have hle := Group.rank_pi_le_card_of_zpowers_eq_top
-      (fun _ : Fin r => Multiplicative ℤ)
-      (fun _ => Multiplicative.ofAdd 1) (fun i x =>
-        ⟨x.toAdd, by
-          apply Multiplicative.toAdd.injective
-          simp⟩)
-    simpa using hle
-  · let f : (Fin r → Multiplicative ℤ) →* (Fin r → Multiplicative (ZMod 2)) :=
-      MonoidHom.piMap fun i : Fin r => (Int.castAddHom (ZMod 2)).toMultiplicative
-    apply (Group.rank_pi_multiplicative_zmod_two r).ge.trans
-    apply Group.rank_le_of_surjective f
-    intro x
-    refine ⟨fun i => Multiplicative.ofAdd (x i).toAdd.val, ?_⟩
-    ext i
-    apply Multiplicative.toAdd.injective
-    simp [f]
+  show Group.rank (Multiplicative (Fin r → ℤ)) = r
+  rw [Group.rank_multiplicative_eq_finrank, Module.finrank_fintype_fun_eq_card]
+  simp
 
 /-- GT `it21(a)`, canonical rank interface: the free rank is invariant under
 commutative-group isomorphism. -/
@@ -2427,26 +1898,6 @@ theorem CommGroup.freeRank_eq_of_free_prod_torsion
     (CommGroup.freeFactorMulEquiv G (Fin r → Multiplicative ℤ) T hT e)).trans
       (Group.rank_pi_multiplicative_int r)
 
-/-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
-number of infinite cyclic factors is the intrinsic free rank, while the finite
-cyclic factors are nontrivial and divisibility ordered. -/
-theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
-    (G : Type*) [CommGroup G] [Group.FG G] :
-    ∃ (s : ℕ) (n : Fin s → ℕ),
-      (∀ i, 1 < n i) ∧
-      (∀ i : Fin (s - 1),
-        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
-      Nonempty (G ≃* (Fin (CommGroup.freeRank G) → Multiplicative ℤ) ×
-        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
-  obtain ⟨r, s, n, hn, hdvd, ⟨h⟩⟩ :=
-    CommGroup.exists_mulEquiv_free_prod_invariantFactors G
-  letI : ∀ i, NeZero (n i) := fun i =>
-    ⟨ne_of_gt (zero_lt_one.trans (hn i))⟩
-  let hT : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
-    isTorsion_of_finite
-  have hr := CommGroup.freeRank_eq_of_free_prod_torsion G _ hT h
-  subst r
-  exact ⟨s, n, hn, hdvd, ⟨h⟩⟩
 
 /-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
 of the same finitely generated commutative group include their free factors,
@@ -2484,7 +1935,7 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
 /-- GT `it21(a,c)`, full-decomposition elementary-divisor uniqueness:
 two prime-power decompositions have the same free rank and the same
 multiplicity for every elementary divisor `q^k`. -/
-theorem CommGroup.elementaryDivisors_unique_of_full_decompositions
+theorem CommGroup.elementary_divisors_unique_of_full_decompositions
     (G : Type*) [CommGroup G] [Group.FG G]
     {r₁ r₂ : ℕ} {ι κ : Type*} [Fintype ι] [Fintype κ]
     (p e : ι → ℕ) (q f : κ → ℕ)
@@ -2516,7 +1967,7 @@ theorem CommGroup.elementaryDivisors_unique_of_full_decompositions
   refine ⟨(CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₁ e₁).symm.trans
     (CommGroup.freeRank_eq_of_free_prod_torsion G _ hT₂ e₂), ?_⟩
   intro r k hr
-  exact CommGroup.card_primePower_factors_eq_of_mulEquiv
+  exact CommGroup.card_prime_power_factors_eq_of_mulEquiv
     p e q f hp hq he hf (g₁.symm.trans g₂) r k hr
 
 /-- GT `it20` and the existence clause of `it21`, finite specialization: a
@@ -2666,7 +2117,7 @@ noncomputable def MulAction.quotientStabilizerEquivOrbit (x : X) :
 
 /-- GT `ga07`: for a transitive action, the canonical equivalence from the
 stabilizer quotient to the set is `G`-equivariant. -/
-theorem MulAction.exists_quotientStabilizer_equivariantEquiv
+theorem MulAction.exists_quotient_stabilizer_equivariant_Equiv
     [MulAction.IsPretransitive G X] (x : X) :
     ∃ e : (G ⧸ stabilizer G x) ≃ X,
       ∀ g : G, ∀ q, e (g • q) = g • e q := by
@@ -2955,7 +2406,13 @@ section FiniteGroups
 
 variable {G : Type*} [Group G]
 
-/-- GT `ga12` / `e36`: conjugacy classes partition a finite group. -/
+/-- GT `ga12` / `e36`: conjugacy classes partition a finite group.
+
+Name retained as `sum_card_conjClasses_eq_card` (not snake_case): its body is the
+self-reference `:= Group.sum_card_conjClasses_eq_card G`, and Lean's in-progress
+declaration resolution only accepts this theorem under its original name; the
+snake_case form fails to elaborate. Coding-conventions AUDIT-GAP resolved as a
+false positive (rename would break the build). -/
 theorem Group.sum_card_conjClasses_eq_card [Finite G] :
     ∑ᶠ C : ConjClasses G, C.carrier.ncard = Nat.card G :=
   Group.sum_card_conj_classes_eq_card G
@@ -3015,7 +2472,7 @@ theorem exists_orderOf_eq_prime [Fintype G] {p : ℕ} (hp : p.Prime)
 
 /-- GT `ga13c`: a group is a `p`-group exactly when every element has
 prime-power order. Finiteness is unnecessary in Mathlib's formulation. -/
-theorem isPGroup_iff_orderOf_primePower {p : ℕ} (hp : p.Prime) :
+theorem is_p_group_iff_order_of_prime_power {p : ℕ} (hp : p.Prime) :
     IsPGroup p G ↔ ∀ g : G, ∃ k : ℕ, orderOf g = p ^ k := by
   letI : Fact p.Prime := ⟨hp⟩
   exact IsPGroup.iff_orderOf
@@ -3028,7 +2485,7 @@ theorem IsPGroup.center_nontrivial {p : ℕ} [Fact p.Prime] (hG : IsPGroup p G)
 /-- GT `ga15`: if a finite group has order `p^n`, then it has a normal
 subgroup of order `p^m` for every `m ≤ n`.  The proof inducts by pulling an
 order-`p` central subgroup back from the quotient by the preceding term. -/
-theorem exists_normal_subgroup_natCard_eq_prime_pow [Finite G]
+theorem exists_normal_subgroup_nat_card_eq_prime_pow [Finite G]
     {p n m : ℕ} (hp : p.Prime) (hcard : Nat.card G = p ^ n) (hm : m ≤ n) :
     ∃ N : Subgroup G, N.Normal ∧ Nat.card N = p ^ m := by
   letI : Fact p.Prime := ⟨hp⟩
@@ -3206,7 +2663,13 @@ theorem Equiv.Perm.normal_subgroup_eq_bot_or_alternating_or_top
   · exact (htop (Subgroup.index_eq_one.mp hi)).elim
   · exact Equiv.Perm.eq_alternatingGroup_of_index_eq_two hi
 
-/-- GT `st1`: the fixed-point congruence for a finite `p`-group action. -/
+/-- GT `st1`: the fixed-point congruence for a finite `p`-group action.
+
+Name retained as `card_modEq_card_fixedPoints` (not snake_case): `IsPGroup` is
+Mathlib's structure and this theorem shadows its auto-generated field projection
+`IsPGroup.card_modEq_card_fixedPoints`; the body `hG.card_modEq_card_fixedPoints`
+refers to that field, so the name must match it. Coding-conventions AUDIT-GAP
+resolved as a false positive (rename would break the field reference). -/
 theorem IsPGroup.card_modEq_card_fixedPoints {p : ℕ} [Fact p.Prime] (hG : IsPGroup p G)
     (X : Type*) [MulAction G X] [Fintype X] :
     Nat.card X ≡ Nat.card (MulAction.fixedPoints G X) [MOD p] :=
@@ -3225,7 +2688,7 @@ theorem Sylow.exists_smul_eq [Fact p.Prime] [Finite (Sylow p G)]
   MulAction.exists_smul_eq G P Q
 
 /-- GT `st7(b)`: the number of Sylow subgroups is one modulo `p`. -/
-theorem Sylow.card_modEq_one [Fact p.Prime] [Finite (Sylow p G)] :
+theorem Sylow.card_mod_eq_one [Fact p.Prime] [Finite (Sylow p G)] :
     Nat.card (Sylow p G) ≡ 1 [MOD p] :=
   card_sylow_modEq_one p G
 
@@ -3519,7 +2982,7 @@ variable (k G : Type*) [Field k] [Group G] [Finite G]
 
 /-- GT `r3` (Maschke): the group algebra is semisimple when its characteristic
 does not divide the group order.  This is Mathlib's reusable algebraic form. -/
-theorem groupAlgebra_isSemisimple
+theorem group_algebra_isSemisimple
     [NeZero (Nat.card G : k)] : IsSemisimpleRing (MonoidAlgebra k G) := by
   infer_instance
 
@@ -3540,7 +3003,7 @@ variable (R M : Type*) [Ring R] [AddCommGroup M] [Module R M]
 /-- GT `r9`: a module is semisimple exactly when it is generated by its
 simple submodules; complementedness is the definition carried by the
 `IsSemisimpleModule` class. -/
-theorem sSup_simpleSubmodules_eq_top_iff_isSemisimpleModule :
+theorem sSup_simple_submodules_eq_top_iff_is_Semisimple_Module :
     sSup {N : Submodule R M | IsSimpleModule R N} = ⊤ ↔
       IsSemisimpleModule R M :=
   sSup_simples_eq_top_iff_isSemisimpleModule
@@ -3715,7 +3178,7 @@ private theorem finiteDirectSumPrefix_factor_equiv {n : ℕ} (V : Fin n → Type
     ((LinearMap.quotKerEquivRange f).trans (LinearEquiv.ofTop f.range hrange))⟩
 
 /-- Adjacent prefix submodules differ by one simple coordinate. -/
-private theorem finiteDirectSumPrefix_covBy {n : ℕ} (V : Fin n → Type*)
+private theorem finite_DirectSum_prefix_cov_by {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
     [∀ i, IsSimpleModule R (V i)]
     (k : ℕ) (hk : k < n) :
@@ -3763,39 +3226,34 @@ theorem Submodule.quotientEquiv_map_linearEquiv {X Y : Type*}
       ((Submodule.map e.toLinearMap Q) ⧸
         Submodule.comap (Submodule.map e.toLinearMap Q).subtype
           (Submodule.map e.toLinearMap P))) := by
-  let P' := Submodule.map e.toLinearMap P
-  let Q' := Submodule.map e.toLinearMap Q
-  let l : Q ≃ₗ[R] Q' := e.submoduleMap Q
-  let A := Submodule.comap Q.subtype P
-  let B := Submodule.comap Q'.subtype P'
-  have hab : A ≤ Submodule.comap l.toLinearMap B := by
-    intro x hx
-    change (l x : Y) ∈ P'
-    exact ⟨x, hx, rfl⟩
-  let q := A.mapQ B l.toLinearMap hab
-  have hsurj : Function.Surjective q := by
-    intro z
-    obtain ⟨y, rfl⟩ := Submodule.Quotient.mk_surjective B z
-    refine ⟨Submodule.Quotient.mk (l.symm y), ?_⟩
-    simp [q, l]
-  have hinj : Function.Injective q := by
-    rw [← LinearMap.ker_eq_bot]
-    apply le_bot_iff.mp
-    intro z hz
-    obtain ⟨x, rfl⟩ := Submodule.Quotient.mk_surjective A z
-    change q (Submodule.Quotient.mk x) = 0 at hz
-    change Submodule.Quotient.mk x = 0
-    rw [show q (Submodule.Quotient.mk x) = 0 ↔ _ from ?_] at hz
-    · rw [Submodule.Quotient.mk_eq_zero]
-      change x.val ∈ P
-      change (l x : Y) ∈ P' at hz
-      obtain ⟨p, hp, heq⟩ := hz
-      change e (p : X) = e x.val at heq
-      have : (p : X) = x.val := e.injective heq
-      simpa [this] using hp
-    · simp only [q, Submodule.mapQ_apply, Submodule.Quotient.mk_eq_zero]
-      rfl
-  exact ⟨LinearEquiv.ofBijective q ⟨hinj, hsurj⟩⟩
+  have hf : (Submodule.comap Q.subtype P).map (e.submoduleMap Q).toLinearMap =
+      Submodule.comap (Submodule.map e.toLinearMap Q).subtype
+        (Submodule.map e.toLinearMap P) := by
+    ext y
+    constructor
+    · rintro ⟨x, hx, hxy⟩
+      have : (x : X) ∈ P := by simpa [Submodule.comap] using hx
+      refine ⟨(x : X), ?_⟩
+      constructor
+      · exact this
+      · change e (x : X) = ↑y
+        rw [← LinearEquiv.submoduleMap_apply]
+        exact congrArg (Subtype.val : ↥(Submodule.map e.toLinearMap Q) → Y) hxy
+    · intro hy
+      rw [Submodule.mem_comap] at hy
+      rw [Submodule.mem_map] at hy
+      rcases hy with ⟨p, hp, h_ep⟩
+      rcases y.property with ⟨q, hq, h_eq⟩
+      have hpq : p = q := e.injective (h_ep.trans h_eq.symm)
+      refine ⟨⟨p, hpq ▸ hq⟩, ?_⟩
+      constructor
+      · show (⟨p, hpq ▸ hq⟩ : Q) ∈ Submodule.comap Q.subtype P
+        simpa [Submodule.comap, hpq] using hp
+      · show (e.submoduleMap Q) ⟨p, hpq ▸ hq⟩ = y
+        apply Subtype.ext
+        rw [LinearEquiv.submoduleMap_apply]
+        exact h_ep
+  exact ⟨Submodule.Quotient.equiv _ _ (e.submoduleMap Q) hf⟩
 
 /-- The composition series obtained by adding finite direct-sum coordinates in
 order.  Its factors are the displayed simple summands. -/
@@ -3809,7 +3267,7 @@ private def finiteDirectSumCompositionSeries {n : ℕ} (V : Fin n → Type*)
     intro i
     change finiteDirectSumPrefix (R := R) V i.val ⋖
       finiteDirectSumPrefix (R := R) V (i.val + 1)
-    exact finiteDirectSumPrefix_covBy (R := R) V i.val i.isLt
+    exact finite_DirectSum_prefix_cov_by (R := R) V i.val i.isLt
 
 /-- The cardinality half of GT `r10c`: linearly equivalent finite direct sums
 of simple modules have equally many summands.  The remaining factor-matching
@@ -3847,7 +3305,7 @@ theorem finite_directSum_simple_equiv {s t : ℕ}
       step := by
         intro i
         exact Submodule.map_covBy_of_injective e.injective
-          (finiteDirectSumPrefix_covBy (R := R) V i.val i.isLt) }
+          (finite_DirectSum_prefix_cov_by (R := R) V i.val i.isLt) }
   have hsmHead : sm.head = ⊥ := by
     change Submodule.map e.toLinearMap (finiteDirectSumPrefix (R := R) V 0) = ⊥
     rw [finiteDirectSumPrefix_zero, Submodule.map_bot]
@@ -3930,8 +3388,14 @@ usual `Algebra F (Module.End A S)` structure alongside the division ring.
   classical
   exact Module.End.instDivisionRing
 
-/-- GT `r19`: the finite-set form of the Jacobson density theorem. -/
-theorem jacobsonDensity [IsSemisimpleModule R M]
+/-- GT `r19`: the finite-set form of the Jacobson density theorem.
+
+Renamed to `jacobson_density'` (rather than the auditor-suggested `jacobson_density`)
+because `Mathlib.RingTheory.SimpleModule.jacobson_density` already exists; a bare
+`jacobson_density` in this `GT` namespace would shadow Mathlib's theorem and make
+the body `jacobson_density f S` self-referential (termination failure). The prime
+disambiguates while preserving the snake_case form. -/
+theorem jacobson_density' [IsSemisimpleModule R M]
     (f : Module.End (Module.End R M) M) (S : Finset M) :
     ∃ r : R, ∀ m ∈ S, f m = r • m :=
   jacobson_density f S
@@ -3984,7 +3448,7 @@ theorem Module.End.range_restrictScalarsAlgHom_eq_centralizer
     rfl
 
 /-- GT `r19`, reusable finite-family form of Jacobson density. -/
-theorem jacobsonDensity_finiteFamily
+theorem jacobson_density_finite_family
     {R : Type uA} {V : Type uV} [Ring R]
     [AddCommGroup V] [Module R V] [IsSemisimpleModule R V]
     (b : Module.End (Module.End R V) V)
@@ -4007,7 +3471,7 @@ theorem bicommutantModuleEnd_range_eq_action_range
   apply le_antisymm
   · rintro x ⟨b, rfl⟩
     obtain ⟨a, ha⟩ :=
-      jacobsonDensity_finiteFamily b (Module.finBasis F V)
+      jacobson_density_finite_family b (Module.finBasis F V)
     refine ⟨a, ?_⟩
     apply (Module.finBasis F V).ext
     intro i
@@ -4054,7 +3518,7 @@ theorem simpleRing_semisimple_artinian_atom_tfae [IsSimpleRing A] :
 
 /-- GT `r21a`: every finite-dimensional simple algebra over a field is
 semisimple. -/
-theorem finiteDimensional_simpleAlgebra_isSemisimple
+theorem finite_dimensional_simple_Algebra_is_Semisimple
     [FiniteDimensional F A] [IsSimpleRing A] : IsSemisimpleRing A := by
   haveI : IsArtinianRing A := IsArtinianRing.of_finite F A
   exact IsSimpleRing.isSemisimpleRing_iff_isArtinianRing.mpr inferInstance
@@ -4265,7 +3729,7 @@ def RingEquiv.piFactorHom {ι : Type*} (B : ι → Type u) [∀ i, Ring (B i)]
 
 /-- A simple module over one factor of a finite product is simple for the
 whole product acting through the factor projection. -/
-theorem RingEquiv.isSimpleModule_piFactor {ι : Type*} [Fintype ι] [DecidableEq ι]
+theorem RingEquiv.is_simple_Module_pi_factor {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
     (hS : ∀ i, IsSimpleModule (B i) (S i)) (i : ι) :
@@ -4285,7 +3749,7 @@ theorem RingEquiv.isSimpleModule_piFactor {ι : Type*} [Fintype ι] [DecidableEq
 
 /-- Modules induced from distinct factors of a finite product are not
 isomorphic. -/
-theorem RingEquiv.piFactor_not_linearEquiv {ι : Type*} [Fintype ι]
+theorem RingEquiv.pi_factor_not_linearEquiv {ι : Type*} [Fintype ι]
     [DecidableEq ι] (B : ι → Type u) [∀ i, Ring (B i)]
     (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -4314,7 +3778,7 @@ theorem RingEquiv.piFactor_not_linearEquiv {ι : Type*} [Fintype ι]
 
 /-- The regular module of a finite product of Artinian simple rings is the
 direct sum of repeated copies of one chosen simple module from each factor. -/
-theorem RingEquiv.exists_regular_linearEquiv_piFactor_dfinsupp
+theorem RingEquiv.exists_regular_linearEquiv_pi_factor_dfinsupp
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
@@ -4431,7 +3895,7 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
 /-- GT `r29`, part (a): for a finite product of Artinian simple rings, the simple
 modules induced from chosen simple factor modules are pairwise nonisomorphic
 and exhaust all simple modules. -/
-theorem RingEquiv.piFactor_simpleModule_classification
+theorem RingEquiv.pi_factor_simple_Module_classification
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
@@ -4444,21 +3908,21 @@ theorem RingEquiv.piFactor_simpleModule_classification
   letI : ∀ i, Module A (S i) := fun i =>
     Module.compHom (S i) (RingEquiv.piFactorHom (A := A) B e i)
   obtain ⟨n, ⟨ereg⟩⟩ :=
-    RingEquiv.exists_regular_linearEquiv_piFactor_dfinsupp (A := A) B e S
+    RingEquiv.exists_regular_linearEquiv_pi_factor_dfinsupp (A := A) B e S
   apply simpleModule_classification_of_regular_dfinsupp (A := A)
     (T := fun p : Σ i, Fin (n i) => S p.1) (S := S) ereg
   · intro p
-    exact RingEquiv.isSimpleModule_piFactor (A := A) B e S hS p.1
+    exact RingEquiv.is_simple_Module_pi_factor (A := A) B e S hS p.1
   · intro p
     exact ⟨p.1, ⟨LinearEquiv.refl A (S p.1)⟩⟩
   · intro i j hij
     by_contra hne
-    exact RingEquiv.piFactor_not_linearEquiv (A := A) B e S hS hne hij
+    exact RingEquiv.pi_factor_not_linearEquiv (A := A) B e S hS hne hij
 
 /-- GT `r29(b)`, existence: every finite module over a finite product of
 Artinian simple rings is a finite direct sum of the chosen factor modules.
 The fibre cardinality of `c : Fin n → ι` over `i` is the source's `rᵢ`. -/
-theorem RingEquiv.piFactor_exists_linearEquiv_fun
+theorem RingEquiv.pi_factor_exists_linearEquiv_fun
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
     [∀ i, IsArtinianRing (B i)] (e : A ≃+* ∀ i, B i)
@@ -4477,7 +3941,7 @@ theorem RingEquiv.piFactor_exists_linearEquiv_fun
   obtain ⟨n, T, eM, hT⟩ :=
     IsSemisimpleModule.exists_linearEquiv_fin_dfinsupp A M
   choose c hc using fun j =>
-    RingEquiv.piFactor_simpleModule_classification (A := A) B e S hS (T j)
+    RingEquiv.pi_factor_simple_Module_classification (A := A) B e S hS (T j)
   let ec (j : Fin n) : T j ≃ₗ[A] S (c j) := (hc j).1.some
   exact ⟨n, c, ⟨eM.trans ((DFinsupp.mapRange.linearEquiv ec).trans
     DFinsupp.linearEquivFunOnFintype)⟩⟩
@@ -4485,7 +3949,7 @@ theorem RingEquiv.piFactor_exists_linearEquiv_fun
 /-- GT `r29(b)`, uniqueness: two finite sums of chosen factor modules are
 isomorphic exactly when their factor labels agree up to a permutation.  This
 is equivalent to equality of every multiplicity `rᵢ`. -/
-theorem RingEquiv.piFactor_decomposition_unique
+theorem RingEquiv.pi_factor_decomposition_unique
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -4500,12 +3964,12 @@ theorem RingEquiv.piFactor_decomposition_unique
   constructor
   · rintro ⟨esum⟩
     have hsimp (i : ι) : IsSimpleModule A (S i) :=
-      RingEquiv.isSimpleModule_piFactor (A := A) B e S hS i
+      RingEquiv.is_simple_Module_pi_factor (A := A) B e S hS i
     obtain ⟨σ, hσ⟩ := finite_directSum_simple_equiv
       (R := A) (fun j => S (c j)) (fun j => S (d j)) esum
     refine ⟨σ, fun j => ?_⟩
     by_contra hne
-    exact RingEquiv.piFactor_not_linearEquiv (A := A) B e S hS hne (hσ j)
+    exact RingEquiv.pi_factor_not_linearEquiv (A := A) B e S hS hne (hσ j)
   · rintro ⟨σ, hσ⟩
     let er (j : Fin n) : S (c j) ≃ₗ[A] S (d (σ j)) :=
       LinearEquiv.cast (R := A) (M := S) (hσ j)
@@ -4515,7 +3979,7 @@ theorem RingEquiv.piFactor_decomposition_unique
 /-- GT `r31m`: in characteristic zero, the group algebra of a finite group
 over an algebraically closed field is a finite product of full matrix
 algebras over that field. -/
-theorem groupAlgebra_exists_algEquiv_pi_matrix
+theorem group_algebra_exists_algEquiv_pi_matrix
     (G : Type u) [Group G] [Fintype G] [CharZero F] :
     ∃ (n : ℕ) (d : Fin n → ℕ), (∀ i, NeZero (d i)) ∧
       Nonempty ((MonoidAlgebra F G) ≃ₐ[F]
@@ -4523,7 +3987,7 @@ theorem groupAlgebra_exists_algEquiv_pi_matrix
   haveI : NeZero (Nat.card G : F) := ⟨by
     rw [Nat.cast_ne_zero]
     exact Nat.card_pos.ne'⟩
-  haveI : IsSemisimpleRing (MonoidAlgebra F G) := groupAlgebra_isSemisimple F G
+  haveI : IsSemisimpleRing (MonoidAlgebra F G) := group_algebra_isSemisimple F G
   exact IsSemisimpleRing.exists_algEquiv_pi_matrix_of_isAlgClosed F (MonoidAlgebra F G)
 
 end AlgebraicallyClosedWedderburnArtin
@@ -4544,45 +4008,34 @@ theorem MonoidAlgebra.coeff_eq_of_mem_center
   have hv := congrArg (fun x : MonoidAlgebra k G => x (c * a)) hc
   simpa [MonoidAlgebra.single_mul_apply, MonoidAlgebra.mul_single_apply] using hv
 
-/-- An algebra equivalence restricts to a linear equivalence of centres. -/
+/-- An algebra equivalence restricts to a linear equivalence of centres.
+The centrality transport is Mathlib's `MulEquivClass.apply_mem_center_iff`
+(the centre is preserved by a mul-equivalence); only the `k`-linear
+equivalence wrapping is target-specific. -/
 def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
     [Ring B] [Algebra k B] (e : A ≃ₐ[k] B) :
     Subalgebra.center k A ≃ₗ[k] Subalgebra.center k B where
-  toFun z := ⟨e z, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    obtain ⟨a, rfl⟩ := e.surjective b
-    exact (map_mul e a (z : A)).symm.trans
-      ((congrArg e (Subalgebra.mem_center_iff.mp z.property a)).trans
-        (map_mul e (z : A) a))⟩
-  invFun z := ⟨e.symm z, by
-    rw [Subalgebra.mem_center_iff]
-    intro a
-    obtain ⟨b, rfl⟩ := e.symm.surjective a
-    exact (map_mul e.symm b (z : B)).symm.trans
-      ((congrArg e.symm (Subalgebra.mem_center_iff.mp z.property b)).trans
-        (map_mul e.symm (z : B) b))⟩
+  toFun z := ⟨e z, (MulEquivClass.apply_mem_center_iff e).mpr z.property⟩
+  invFun z := ⟨e.symm z, (MulEquivClass.apply_mem_center_iff e.symm).mpr z.property⟩
   left_inv := by intro z; ext; simp
   right_inv := by intro z; ext; simp
   map_add' := by intros; ext; simp
   map_smul' := by intros; ext; simp
 
 /-- The centre of a finite product is the product of the centres. -/
-def Subalgebra.centerPiLinearEquiv {ι : Type*} [DecidableEq ι]
+def Subalgebra.centerPiLinearEquiv {ι : Type*}
     (B : ι → Type*) [∀ i, Ring (B i)] [∀ i, Algebra k (B i)] :
     Subalgebra.center k (∀ i, B i) ≃ₗ[k] ∀ i, Subalgebra.center k (B i) where
+  -- Delegate the centre-of-product equality to Mathlib `Subalgebra.center_pi`
+  -- and the coordinatewise membership to `Subalgebra.mem_pi`, instead of
+  -- re-deriving it via `Subalgebra.mem_center_iff` + `Function.update`.
   toFun z i := ⟨z.val i, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    let y : ∀ i, B i := Function.update 0 i b
-    have h := Subalgebra.mem_center_iff.mp z.property y
-    have hi := congrArg (fun x : ∀ i, B i => x i) h
-    simpa [y] using hi⟩
+    have hz : z.val ∈ Subalgebra.pi Set.univ fun i => Subalgebra.center k (B i) := by
+      rw [← Subalgebra.center_pi]; exact z.property
+    exact Subalgebra.mem_pi.mp hz i trivial⟩
   invFun z := ⟨fun i => z i, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    funext i
-    exact Subalgebra.mem_center_iff.mp (z i).property (b i)⟩
+    rw [Subalgebra.center_pi, Subalgebra.mem_pi]
+    intro i _; exact (z i).property⟩
   left_inv := by intro z; ext i; rfl
   right_inv := by intro z; ext i; rfl
   map_add' := by intros; ext i; rfl
@@ -4669,7 +4122,7 @@ theorem MonoidAlgebra.conjClassSumBasis_apply [Fintype G]
 
 /-- GT `r30`: the dimension of the centre of a finite group algebra is the
 number of conjugacy classes. -/
-theorem MonoidAlgebra.finrank_center_eq_card_conjClasses [Fintype G] :
+theorem MonoidAlgebra.finrank_center_eq_card_conj_classes [Fintype G] :
     Module.finrank k (Subalgebra.center k (MonoidAlgebra k G)) =
       Nat.card (ConjClasses G) := by
   classical
@@ -4714,7 +4167,7 @@ theorem Matrix.finrank_center_pi_matrix {ι : Type*} [Fintype ι] [DecidableEq �
 
 /-- GT `r32`, part (a), factor-count form: every matrix-product presentation of a
 finite group algebra has one factor per conjugacy class. -/
-theorem MonoidAlgebra.card_matrixFactors_eq_card_conjClasses [Fintype G]
+theorem MonoidAlgebra.card_matrix_factors_eq_card_conj_classes [Fintype G]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
     (e : MonoidAlgebra k G ≃ₐ[k]
       ∀ i, Matrix (Fin (d i)) (Fin (d i)) k) :
@@ -4728,12 +4181,12 @@ theorem MonoidAlgebra.card_matrixFactors_eq_card_conjClasses [Fintype G]
         (Subalgebra.center k (MonoidAlgebra k G)) :=
       (AlgEquiv.centerLinearEquiv e).finrank_eq.symm
     _ = Nat.card (ConjClasses G) :=
-      MonoidAlgebra.finrank_center_eq_card_conjClasses
+      MonoidAlgebra.finrank_center_eq_card_conj_classes
 
 /-- GT `r32(a)`, classification form: the standard modules of the matrix
 factors in a group-algebra presentation are exactly the simple modules, and
 the factor index has the cardinality of the conjugacy-class set. -/
-theorem MonoidAlgebra.matrixFactor_simpleModule_classification
+theorem MonoidAlgebra.matrix_factor_simple_Module_classification
     {H : Type u} [Group H] [Fintype H]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
     (e : MonoidAlgebra k H ≃ₐ[k]
@@ -4750,17 +4203,17 @@ theorem MonoidAlgebra.matrixFactor_simpleModule_classification
     Module.compHom (Fin (d i) → k)
       (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
         (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
-  refine ⟨RingEquiv.piFactor_simpleModule_classification
+  refine ⟨RingEquiv.pi_factor_simple_Module_classification
     (A := MonoidAlgebra k H)
     (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
     (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) M,
-    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e⟩
+    MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e⟩
 
 /-- GT `r32(a)`, source-facing form: over an algebraically closed
 characteristic-zero field, the group algebra has a matrix-factor presentation;
 those factors uniquely enumerate all simple modules, and their number is the
 number of conjugacy classes. -/
-theorem MonoidAlgebra.exists_matrixFactor_simpleModule_classification
+theorem MonoidAlgebra.exists_matrix_factor_simple_Module_classification
     {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
     ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
       ∃ e : MonoidAlgebra k H ≃ₐ[k]
@@ -4776,13 +4229,13 @@ theorem MonoidAlgebra.exists_matrixFactor_simpleModule_classification
                   e.toRingEquiv i)
             ∃! i, Nonempty (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k)) := by
   obtain ⟨n, d, hd, ⟨e⟩⟩ :=
-    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+    group_algebra_exists_algEquiv_pi_matrix (F := k) H
   have hdpos (i : Fin n) : 0 < d i := (hd i).out.pos
   refine ⟨n, d, hdpos, e,
-    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e, ?_⟩
+    MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e, ?_⟩
   intro M _ _ _
   letI : ∀ i, NeZero (d i) := hd
-  exact (MonoidAlgebra.matrixFactor_simpleModule_classification d e M).1
+  exact (MonoidAlgebra.matrix_factor_simple_Module_classification d e M).1
 
 /-- A full matrix algebra, as a regular left module, is the direct sum of its
 column modules. -/
@@ -4801,7 +4254,7 @@ noncomputable def Matrix.leftRegularLinearEquivColumns (n : ℕ) :
 /-- The regular module of a finite product of full matrix algebras is the
 finite direct sum of the column modules, with exactly `d i` copies from the
 `i`th factor. -/
-theorem RingEquiv.regular_linearEquiv_piFactor_columns
+theorem RingEquiv.regular_linearEquiv_pi_factor_columns
     {A : Type u} [Ring A]
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (d : ι → ℕ)
@@ -4846,7 +4299,7 @@ theorem RingEquiv.regular_linearEquiv_piFactor_columns
 /-- GT `r32(b)`: in a matrix-factor presentation, the `i`th simple column
 module has dimension `d i` and occurs exactly `d i` times in the regular
 module. The `DFinsupp` target is an actual finite direct-sum decomposition. -/
-theorem MonoidAlgebra.matrixFactor_regular_decomposition
+theorem MonoidAlgebra.matrix_factor_regular_decomposition
     {H : Type u} [Group H] [Fintype H]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
     (e : MonoidAlgebra k H ≃ₐ[k]
@@ -4864,7 +4317,7 @@ theorem MonoidAlgebra.matrixFactor_regular_decomposition
         (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
   refine ⟨fun i => ?_, ?_⟩
   · rw [Module.finrank_fintype_fun_eq_card, Fintype.card_fin]
-  · exact RingEquiv.regular_linearEquiv_piFactor_columns d e.toRingEquiv
+  · exact RingEquiv.regular_linearEquiv_pi_factor_columns d e.toRingEquiv
 
 /-- Dimension form of GT `r32(c)` for the matrix degrees. -/
 theorem MonoidAlgebra.sum_sq_matrixFactors_eq_card
@@ -4899,7 +4352,7 @@ theorem MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card
 nonisomorphic family of simples is produced internally; its `i`th member has
 dimension `d i`, occurs exactly `d i` times in the regular module, and the
 squares of the dimensions sum to the group order. -/
-theorem MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
+theorem MonoidAlgebra.exists_complete_simple_family_regular_decomposition_sum_sq
     {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
     ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
       ∃ e : MonoidAlgebra k H ≃ₐ[k]
@@ -4923,7 +4376,7 @@ theorem MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
         ∑ i, (Module.finrank k (Fin (d i) → k)) ^ 2 =
           Fintype.card H := by
   obtain ⟨n, d, hd, ⟨e⟩⟩ :=
-    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+    group_algebra_exists_algEquiv_pi_matrix (F := k) H
   have hdpos (i : Fin n) : 0 < d i := (hd i).out.pos
   refine ⟨n, d, hdpos, e, ?_⟩
   letI : ∀ i, NeZero (d i) := hd
@@ -4938,11 +4391,11 @@ theorem MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
         (M ≃ₗ[MonoidAlgebra k H] (Fin (d i) → k)) := by
     intro M _ _ _
     exact
-      (MonoidAlgebra.matrixFactor_simpleModule_classification d e M).1
+      (MonoidAlgebra.matrix_factor_simple_Module_classification d e M).1
   have hsimple (i : Fin n) :
       IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) := by
     letI : IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) :=
-      RingEquiv.isSimpleModule_piFactor
+      RingEquiv.is_simple_Module_pi_factor
         (A := MonoidAlgebra k H)
         (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
         (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) i
@@ -4960,7 +4413,7 @@ theorem MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
     · rintro rfl
       exact ⟨LinearEquiv.refl _ _⟩
   have hdecomp :=
-    MonoidAlgebra.matrixFactor_regular_decomposition d e
+    MonoidAlgebra.matrix_factor_regular_decomposition d e
   exact ⟨hsimple, hpair, hcomplete, hdecomp.1, hdecomp.2,
     MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card d e⟩
 
@@ -4993,7 +4446,7 @@ theorem FDRep.average_character_eq_finrank_invariants (V : FDRep k G) :
 
 /-- GT `r38`: the character scalar product computes the dimension of the
 space of equivariant maps. -/
-theorem FDRep.character_scalarProduct_eq_finrank_hom (V W : FDRep k G) :
+theorem FDRep.character_scalar_product_eq_finrank_hom (V W : FDRep k G) :
     ⅟(Fintype.card G : k) •
       ∑ g : G, W.character g * V.character g⁻¹ =
         Module.finrank k (V ⟶ W) :=
@@ -5158,7 +4611,7 @@ open scoped Classical in
 /-- GT `r33`, also the linear-independence half of `r39`: characters of pairwise
 nonisomorphic simple representations are linearly independent as class
 functions. -/
-theorem FDRep.simple_characterClassFunction_linearIndependent
+theorem FDRep.simple_character_class_function_linear_independent
     [IsAlgClosed k] {ι : Type*} [Fintype ι]
     (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
     (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j) :
@@ -5193,12 +4646,12 @@ noncomputable def FDRep.simpleCharacterBasisOfCardEq
     (hcard : Fintype.card ι = Fintype.card (ConjClasses G)) :
     Module.Basis ι k (ClassFunction (k := k) (G := G)) :=
   basisOfLinearIndependentOfCardEqFinrank
-    (FDRep.simple_characterClassFunction_linearIndependent V hiso)
+    (FDRep.simple_character_class_function_linear_independent V hiso)
     (hcard.trans (Module.finrank_fintype_fun_eq_card k).symm)
 
 open scoped Classical in
 @[simp]
-theorem FDRep.simpleCharacterBasisOfCardEq_apply
+theorem FDRep.simple_character_Basis_of_card_eq_apply
     [IsAlgClosed k] {ι : Type*} [Fintype ι] [Nonempty ι]
     (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
     (hiso : ∀ i j, Nonempty (V i ≅ V j) ↔ i = j)
@@ -5221,19 +4674,19 @@ noncomputable def FDRep.simpleCharacterBasisOfMatrixFactors
     Module.Basis (Fin n) k (ClassFunction (k := k) (G := G)) := by
   classical
   have hn : 0 < n := by
-    rw [MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e]
+    rw [MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e]
     exact Nat.card_pos
   letI : Nonempty (Fin n) := Fin.pos_iff_nonempty.mp hn
   apply FDRep.simpleCharacterBasisOfCardEq V hiso
   rw [Fintype.card_fin,
-    MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
+    MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e,
     Nat.card_eq_fintype_card]
 
 /-- GT `r35` and `r39`, complete-enumeration form: any finite family
 which enumerates every simple group-algebra module exactly once has its
 characters as a basis.  The matrix presentation and the cardinality equality
 are obtained internally. -/
-theorem FDRep.exists_simpleCharacterBasis_of_completeEnumeration
+theorem FDRep.exists_simple_character_Basis_of_complete_enumeration
     {H : Type u} [Group H] [Fintype H] [Invertible (Fintype.card H : k)]
     [IsAlgClosed k] [CharZero k]
     {ι : Type*} [Fintype ι] [Nonempty ι]
@@ -5249,14 +4702,14 @@ theorem FDRep.exists_simpleCharacterBasis_of_completeEnumeration
       ∀ i, B i = FDRep.characterClassFunction (V i) := by
   classical
   obtain ⟨n, d, hd, ⟨e⟩⟩ :=
-    groupAlgebra_exists_algEquiv_pi_matrix (F := k) H
+    group_algebra_exists_algEquiv_pi_matrix (F := k) H
   letI : ∀ i, NeZero (d i) := hd
   letI : ∀ i, Module (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
     Module.compHom (Fin (d i) → k)
       (RingEquiv.piFactorHom (A := MonoidAlgebra k H)
         (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv i)
   letI : ∀ i, IsSimpleModule (MonoidAlgebra k H) (Fin (d i) → k) := fun i =>
-    RingEquiv.isSimpleModule_piFactor
+    RingEquiv.is_simple_Module_pi_factor
       (A := MonoidAlgebra k H)
       (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
       (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) i
@@ -5265,7 +4718,7 @@ theorem FDRep.exists_simpleCharacterBasis_of_completeEnumeration
   have hc_injective : Function.Injective c := by
     intro a b hab
     by_contra hne
-    apply RingEquiv.piFactor_not_linearEquiv
+    apply RingEquiv.pi_factor_not_linearEquiv
       (A := MonoidAlgebra k H)
       (fun i => Matrix (Fin (d i)) (Fin (d i)) k) e.toRingEquiv
       (fun i => Fin (d i) → k) (fun _ => Matrix.isSimpleModule_pi) hne
@@ -5275,20 +4728,20 @@ theorem FDRep.exists_simpleCharacterBasis_of_completeEnumeration
     letI : IsSimpleModule (MonoidAlgebra k H)
         (Representation.asModule (V i).ρ) := hsimple i
     obtain ⟨j, hj, _⟩ :=
-      (MonoidAlgebra.matrixFactor_simpleModule_classification d e
+      (MonoidAlgebra.matrix_factor_simple_Module_classification d e
         (Representation.asModule (V i).ρ)).1
     have hci : i = c j := (hc j).2 i ⟨hj.some.symm⟩
     exact ⟨j, hci.symm⟩
   let ci : Fin n ≃ ι := Equiv.ofBijective c ⟨hc_injective, hc_surjective⟩
   have hcard : Fintype.card ι = Fintype.card (ConjClasses H) := by
     rw [← Fintype.card_congr ci, Fintype.card_fin,
-      MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e,
+      MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e,
       Nat.card_eq_fintype_card]
   let B := FDRep.simpleCharacterBasisOfCardEq V hiso hcard
-  exact ⟨B, fun i => FDRep.simpleCharacterBasisOfCardEq_apply V hiso hcard i⟩
+  exact ⟨B, fun i => FDRep.simple_character_Basis_of_card_eq_apply V hiso hcard i⟩
 
 @[simp]
-theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
+theorem FDRep.simple_character_Basis_of_matrix_factors_apply
     [IsAlgClosed k] {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
     (e : MonoidAlgebra k G ≃ₐ[k]
       ∀ i, Matrix (Fin (d i)) (Fin (d i)) k)
@@ -5299,11 +4752,11 @@ theorem FDRep.simpleCharacterBasisOfMatrixFactors_apply
   classical
   letI := Fintype.ofFinite (ConjClasses G)
   have hn : 0 < n := by
-    rw [MonoidAlgebra.card_matrixFactors_eq_card_conjClasses d e]
+    rw [MonoidAlgebra.card_matrix_factors_eq_card_conj_classes d e]
     exact Nat.card_pos
   letI : Nonempty (Fin n) := Fin.pos_iff_nonempty.mp hn
   unfold FDRep.simpleCharacterBasisOfMatrixFactors
-  rw [FDRep.simpleCharacterBasisOfCardEq_apply]
+  rw [FDRep.simple_character_Basis_of_card_eq_apply]
 
 /-- Character equality induced by an isomorphism, after passage to class functions. -/
 theorem FDRep.characterClassFunction_eq_of_iso
@@ -5334,7 +4787,7 @@ theorem FDRep.simple_characterClassFunction_intLinearIndependent
     simpa only [Int.cast_smul_eq_zsmul] using ha
   have hz : (a i : k) = 0 :=
     (Fintype.linearIndependent_iff.mp
-      (FDRep.simple_characterClassFunction_linearIndependent V hiso)) _ hk i
+      (FDRep.simple_character_class_function_linear_independent V hiso)) _ hk i
   exact Int.cast_eq_zero.mp hz
 
 /-- Multiplicity core for GT `r34`: equality of two finite sums of simple
@@ -5409,7 +4862,7 @@ def FDRep.HasSimpleCharacterDecomposition
 
 /-- Decomposition-facing reusable core for GT `r34`.  `hreconstruct` is exactly
 the finite direct-sum/Jordan--Hölder reconstruction bridge. -/
-theorem FDRep.nonempty_iso_iff_character_eq_of_simpleDecompositions
+theorem FDRep.nonempty_iso_iff_character_eq_of_simple_decompositions
     {k : Type u} [Field k] [CharZero k]
     {G : Type v} [Group G]
     [Fintype G] [Invertible (Fintype.card G : k)]
@@ -5453,7 +4906,7 @@ def FDRep.VirtualCharacter
   Submodule.span ℤ
     (Set.range fun X : FDRep k G ↦ FDRep.characterClassFunction X)
 
-theorem FDRep.character_mem_simpleCharacterSpan_of_decomposition
+theorem FDRep.character_mem_simple_character_span_of_decomposition
     {k : Type u} [Field k]
     {G : Type v} [Group G]
     [Fintype G] [Invertible (Fintype.card G : k)]
@@ -5467,7 +4920,7 @@ theorem FDRep.character_mem_simpleCharacterSpan_of_decomposition
   exact Submodule.sum_mem _ fun j _ ↦
     Submodule.subset_span ⟨c j, rfl⟩
 
-theorem FDRep.simpleCharacterSpan_eq_virtualCharacter
+theorem FDRep.simple_character_span_eq_virtual_character
     {k : Type u} [Field k]
     {G : Type v} [Group G]
     [Fintype G] [Invertible (Fintype.card G : k)]
@@ -5486,7 +4939,7 @@ theorem FDRep.simpleCharacterSpan_eq_virtualCharacter
         FDRep.characterClassFunction X) ≤ _
     rw [Submodule.span_le]
     rintro _ ⟨X, rfl⟩
-    exact FDRep.character_mem_simpleCharacterSpan_of_decomposition
+    exact FDRep.character_mem_simple_character_span_of_decomposition
       V X (hcomplete X)
 
 /-- For a complete family of pairwise nonisomorphic simples, the
@@ -5505,7 +4958,7 @@ noncomputable def FDRep.simpleVirtualCharacterBasis
   (Module.Basis.span
       (FDRep.simple_characterClassFunction_intLinearIndependent V hiso)).map
     (LinearEquiv.ofEq _ _
-      (FDRep.simpleCharacterSpan_eq_virtualCharacter V hcomplete))
+      (FDRep.simple_character_span_eq_virtual_character V hcomplete))
 
 @[simp]
 theorem FDRep.simpleVirtualCharacterBasis_apply
@@ -6218,7 +5671,7 @@ theorem minimalTwoSidedIdeal_iff_mem_isotypicComponents
         (hTJ.trans hJ.le)
     exact hJ.2 (heq ▸ hcomp)
 
-theorem twoSidedIdeal_eq_sSup_isotypicComponents
+theorem two_sided_ideal_eq_sSup_isotypic_components
     {A : Type*} [Ring A] [IsSemisimpleRing A]
     (I : Ideal A) (hI : I.IsTwoSided) :
     ∃ S ⊆ isotypicComponents A A, (I : Submodule A A) = sSup S := by
@@ -6303,7 +5756,7 @@ theorem centralizer_isFiniteProduct_simple
 /-- GT `r9e`, second clause: every two-sided ideal is the internal direct
 sum of the minimal two-sided ideals it contains. The summands are indexed
 canonically by the corresponding isotypic components. -/
-theorem twoSidedIdeal_linearEquiv_minimalComponents
+theorem two_sided_ideal_linearEquiv_minimal_components
     {A : Type*} [Ring A] [IsSemisimpleRing A]
     (I : Ideal A) (hI : I.IsTwoSided) :
     ∃ S : Set (isotypicComponents A A),
@@ -6326,7 +5779,7 @@ theorem twoSidedIdeal_linearEquiv_minimalComponents
     apply le_antisymm
     · exact iSup_le fun c => c.2
     · obtain ⟨T, hT, hTI⟩ :=
-        twoSidedIdeal_eq_sSup_isotypicComponents I hI
+        two_sided_ideal_eq_sSup_isotypic_components I hI
       rw [hTI]
       refine sSup_le ?_
       intro c hc
@@ -6583,7 +6036,7 @@ end Matrix
 
 /-- Finite-dimensionality of a nonempty matrix algebra over `D` forces
 finite-dimensionality of `D`. -/
-theorem finiteDimensional_divisionRing_of_algEquiv_matrix
+theorem finite_dimensional_division_ring_of_algEquiv_matrix
     {F A D : Type*} [Field F] [Ring A] [Algebra F A]
     [DivisionRing D] [Algebra F D] {n : ℕ} [NeZero n]
     [FiniteDimensional F A]
@@ -6617,7 +6070,7 @@ theorem finiteDimensional_divisionRing_of_algEquiv_matrix
 
 /-- Once the division algebras in two nonempty matrix presentations are
 identified over `F`, comparison of `F`-dimensions identifies the sizes. -/
-theorem matrixPresentation_unique_sizes
+theorem matrix_presentation_unique_sizes
     {F A D E : Type*} [Field F] [Ring A] [Algebra F A]
     [DivisionRing D] [Algebra F D] [DivisionRing E] [Algebra F E]
     {n m : ℕ} [NeZero n] [NeZero m] [FiniteDimensional F A]
@@ -6625,9 +6078,9 @@ theorem matrixPresentation_unique_sizes
     (eE : A ≃ₐ[F] Matrix (Fin m) (Fin m) E)
     (hDE : Nonempty (D ≃ₐ[F] E)) : n = m := by
   letI : FiniteDimensional F D :=
-    finiteDimensional_divisionRing_of_algEquiv_matrix eD
+    finite_dimensional_division_ring_of_algEquiv_matrix eD
   letI : FiniteDimensional F E :=
-    finiteDimensional_divisionRing_of_algEquiv_matrix eE
+    finite_dimensional_division_ring_of_algEquiv_matrix eE
   obtain ⟨φ⟩ := hDE
   have hA : Module.finrank F (Matrix (Fin n) (Fin n) D) =
       Module.finrank F (Matrix (Fin m) (Fin m) E) := by
@@ -6704,7 +6157,7 @@ private noncomputable def matrixEndTransportAlgEquiv
 
 /-- GT `r23`: both the matrix size and the coefficient division algebra in a
 matrix presentation of a finite-dimensional simple algebra are unique. -/
-theorem matrixPresentation_unique
+theorem matrix_presentation_unique
     {F A D E : Type u} [Field F] [Ring A] [Algebra F A]
     [IsSimpleRing A] [DivisionRing D] [Algebra F D]
     [DivisionRing E] [Algebra F E]
@@ -6777,7 +6230,7 @@ theorem matrixPresentation_unique
     ((Matrix.columnModuleEndAlgEquiv (F := F) (D := D) n).trans
       (tD.symm.trans ((u.conjAlgEquiv F).trans tE))).trans
       (Matrix.columnModuleEndAlgEquiv (F := F) (D := E) m).symm
-  refine ⟨matrixPresentation_unique_sizes eD eE ⟨AlgEquiv.unop q⟩, ?_⟩
+  refine ⟨matrix_presentation_unique_sizes eD eE ⟨AlgEquiv.unop q⟩, ?_⟩
   exact ⟨AlgEquiv.unop q⟩
 
 /-- The finite direct sum of finite-dimensional representations, constructed
@@ -6908,7 +6361,7 @@ private theorem ofModule'_trace_add
 
 /-- Character additivity for the finite direct sum constructed through modules
 of the group algebra. -/
-theorem FDRep.character_dfinsuppOf_apply
+theorem FDRep.character_dfinsupp_of_apply
     {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
     {n : ℕ} (W : Fin n → FDRep k G) (g : G) :
     (FDRep.dfinsuppOf W).character g = ∑ i, (W i).character g := by
@@ -6928,7 +6381,7 @@ theorem FDRep.character_dfinsuppOf_apply
 
 /-- The character of a finite direct sum is the sum of the characters of its
 summands. -/
-theorem FDRep.characterClassFunction_dfinsuppOf
+theorem FDRep.characterClassFunction_dfinsupp_of
     {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
     {n : ℕ} (W : Fin n → FDRep k G) :
     FDRep.characterClassFunction (FDRep.dfinsuppOf W) =
@@ -6940,7 +6393,7 @@ theorem FDRep.characterClassFunction_dfinsuppOf
       change (FDRep.dfinsuppOf W).character g =
         (∑ i : Fin n, FDRep.characterClassFunction (W i)) ⟦g⟧
       rw [Finset.sum_apply]
-      exact FDRep.character_dfinsuppOf_apply W g
+      exact FDRep.character_dfinsupp_of_apply W g
 
 /-- The module associated to a representation constructed by `ofModule'` is
 canonically the original group-algebra module. -/
@@ -7062,7 +6515,7 @@ theorem FDRep.exists_simple_decomposition_iso
   letI : NeZero (Nat.card G : k) := ⟨by
     rw [← @Fintype.card_eq_nat_card G inferInstance]
     exact Invertible.ne_zero _⟩
-  letI : IsSemisimpleRing A := groupAlgebra_isSemisimple k G
+  letI : IsSemisimpleRing A := group_algebra_isSemisimple k G
   letI : Module.Finite A (Representation.asModule X.ρ) :=
     Module.Finite.of_restrictScalars_finite k A _
   obtain ⟨n, T, eM, hT⟩ :=
@@ -7109,7 +6562,7 @@ noncomputable def dfinsuppReindexLinearEquiv
 
 /-- A group-algebra-linear equivalence induces an isomorphism between the
 corresponding finite representations. -/
-theorem fdrep_ofModule'_iso_of_linearEquiv
+theorem fd_rep_ofModule'_iso_of_linearEquiv
     {k : Type u} {G : Type v} {M N : Type u}
     [Field k] [Group G]
     [AddCommGroup M] [Module k M]
@@ -7145,7 +6598,7 @@ theorem fdrep_ofModule'_iso_of_linearEquiv
   exact LinearMap.congr_fun
     (φ.toIntertwiningMap.isIntertwining' g) x
 
-private theorem FDRep.exists_complete_simpleFDRepFamily
+private theorem FDRep.exists_complete_simple_FDRep_family
     {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
     {G : Type u} [Group G] [Fintype G]
     [Invertible (Fintype.card G : k)] :
@@ -7159,7 +6612,7 @@ private theorem FDRep.exists_complete_simpleFDRepFamily
           (M ≃ₗ[MonoidAlgebra k G] Representation.asModule ((V i).ρ)) := by
   classical
   obtain ⟨n, d, hd, E, hsimple, hpair, hcomplete, _, _, _⟩ :=
-    MonoidAlgebra.exists_complete_simpleFamily_regular_decomposition_sum_sq
+    MonoidAlgebra.exists_complete_simple_family_regular_decomposition_sum_sq
       (k := k) (H := G)
   let A := MonoidAlgebra k G
   letI : ∀ i, NeZero (d i) := fun i => ⟨(hd i).ne'⟩
@@ -7224,19 +6677,19 @@ theorem FDRep.nonempty_iso_iff_characterClassFunction_eq
       FDRep.characterClassFunction Y := by
   classical
   obtain ⟨n, V, hs, hi, hc⟩ :=
-    FDRep.exists_complete_simpleFDRepFamily (k := k) (G := G)
+    FDRep.exists_complete_simple_FDRep_family (k := k) (G := G)
   letI : ∀ i, CategoryTheory.Simple (V i) := hs
   obtain ⟨nx, c, ⟨qx⟩⟩ := FDRep.exists_simple_decomposition_iso V hc X
   obtain ⟨ny, d, ⟨qy⟩⟩ := FDRep.exists_simple_decomposition_iso V hc Y
   have hX : FDRep.characterClassFunction X =
       ∑ j, FDRep.characterClassFunction (V (c j)) :=
     (FDRep.characterClassFunction_eq_of_iso qx).trans
-      (FDRep.characterClassFunction_dfinsuppOf _)
+      (FDRep.characterClassFunction_dfinsupp_of _)
   have hY : FDRep.characterClassFunction Y =
       ∑ j, FDRep.characterClassFunction (V (d j)) :=
     (FDRep.characterClassFunction_eq_of_iso qy).trans
-      (FDRep.characterClassFunction_dfinsuppOf _)
-  apply FDRep.nonempty_iso_iff_character_eq_of_simpleDecompositions
+      (FDRep.characterClassFunction_dfinsupp_of _)
+  apply FDRep.nonempty_iso_iff_character_eq_of_simple_decompositions
     V hi X Y c d hX hY
   intro p hp
   let ec (j : Fin ny) :
@@ -7253,7 +6706,7 @@ theorem FDRep.nonempty_iso_iff_characterClassFunction_eq
       (R := MonoidAlgebra k G)
       (B := fun i => Representation.asModule ((V (c i)).ρ))
       (C := fun j => Representation.asModule ((V (d j)).ρ)) p ec
-  obtain ⟨qs⟩ := fdrep_ofModule'_iso_of_linearEquiv esum
+  obtain ⟨qs⟩ := fd_rep_ofModule'_iso_of_linearEquiv esum
   exact ⟨qx ≪≫ (by simpa [FDRep.dfinsuppOf] using qs) ≪≫ qy.symm⟩
 
 /-- GT `r34a`: the simple characters form an integral basis of the virtual
@@ -7271,14 +6724,14 @@ theorem FDRep.exists_simpleVirtualCharacterBasis
           Submodule.subset_span ⟨V i, rfl⟩⟩ := by
   classical
   obtain ⟨n, V, hs, hi, hc⟩ :=
-    FDRep.exists_complete_simpleFDRepFamily (k := k) (G := G)
+    FDRep.exists_complete_simple_FDRep_family (k := k) (G := G)
   letI : ∀ i, CategoryTheory.Simple (V i) := hs
   have hcomplete : ∀ X : FDRep k G,
       FDRep.HasSimpleCharacterDecomposition V X := by
     intro X
     obtain ⟨m, c, ⟨q⟩⟩ := FDRep.exists_simple_decomposition_iso V hc X
     exact ⟨m, c, (FDRep.characterClassFunction_eq_of_iso q).trans
-      (FDRep.characterClassFunction_dfinsuppOf _)⟩
+      (FDRep.characterClassFunction_dfinsupp_of _)⟩
   let B := FDRep.simpleVirtualCharacterBasis V hi hcomplete
   refine ⟨n, V, hs, hi, B, ?_⟩
   intro i
@@ -8136,7 +7589,7 @@ theorem LinearEquiv.orderOf_dvd_of_intertwines
 /-- The group-theoretic completion of the geometric representation used for GT
 `fg16`: any model realizing the Coxeter relations with the prescribed exact
 orders proves injectivity and exact orders in the presented Coxeter group. -/
-theorem exactOrders_of_model {B H : Type*} [Group H]
+theorem exact_orders_of_model {B H : Type*} [Group H]
     (M : CoxeterMatrix B) (R : B → H)
     (hrel : ∀ s t, (R s * R t) ^ M s t = 1)
     (hinj : Function.Injective R)
@@ -8317,7 +7770,7 @@ theorem fg16 (M : CoxeterMatrix B) :
     Function.Injective M.simple ∧
       (∀ s, orderOf (M.simple s) = 2) ∧
       ∀ s t, s ≠ t → orderOf (M.simple s * M.simple t) = M s t := by
-  apply exactOrders_of_model M (fun s => reflectionEquiv M s)
+  apply exact_orders_of_model M (fun s => reflectionEquiv M s)
   · intro s t
     by_cases hst : s = t
     · subst t
@@ -8972,6 +8425,750 @@ axiom krullSchmidt_rotman_6_36
         Subgroup.IsInternalDirectProductFamily
           (fun i : Fin s => if i.val < r then P i else Q (e i))
 
+
+/-!
+## PID structure theorem in invariant-factor form
+
+A finitely generated module over a PID is a direct sum of a free module and a
+product of cyclic quotient modules `R ⧸ span {n j}` whose invariant factors
+`n j` are non-units and ordered by divisibility.  This is the
+module-theoretic (PID) generalization of the target's
+`CommGroup.exists_mulEquiv_free_prod_invariantFactors` (the `ℤ` case).
+-/
+
+open scoped BigOperators Function
+
+namespace PIDInvariantFactors
+
+/-! ## Generic monotone enumeration -/
+
+/-- `sortedEquivData`: see the surrounding section documentation. -/
+noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
+    {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
+  let tie := Fintype.equivFin α
+  letI : LinearOrder α := LinearOrder.lift' (fun x => toLex (f x, tie x))
+    (fun x y h => tie.injective (congrArg (fun z => (ofLex z).2) h))
+  let O : Fin (Fintype.card α) ≃o α := Fintype.orderIsoFinOfCardEq α rfl
+  refine ⟨O.toEquiv, ?_⟩
+  intro i j hij
+  have h := O.monotone hij
+  change toLex (f (O i), tie (O i)) ≤ toLex (f (O j), tie (O j)) at h
+  rcases (Prod.lex_def.mp h) with h | h
+  · exact h.le
+  · exact h.1.le
+
+/-- `sortedEquiv`: see the surrounding section documentation. -/
+noncomputable def sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Fin (Fintype.card α) ≃ α :=
+  (sortedEquivData f).1
+
+/-- `monotone_sortedEquiv`: see the surrounding section documentation. -/
+theorem monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
+    Monotone (fun j => f (sortedEquiv f j)) :=
+  (sortedEquivData f).2
+
+/-! ## Generic elementary-divisor combinatorics -/
+
+/-- `elementaryPrimes`: see the surrounding section documentation. -/
+abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) :=
+  {q : α // q ∈ Finset.univ.image p}
+
+/-- `primeFiber`: see the surrounding section documentation. -/
+abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
+  {i : ι // p i = q}
+
+/-- `primeMultiplicity`: see the surrounding section documentation. -/
+noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (q : elementaryPrimes p) : ℕ :=
+  Fintype.card (primeFiber p q.1)
+
+/-- `invariantFactorCount`: see the surrounding section documentation. -/
+noncomputable def invariantFactorCount {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) : ℕ :=
+  Finset.univ.sup (primeMultiplicity p)
+
+/-- `primeMultiplicity_le_invariantFactorCount`: see the surrounding section documentation. -/
+theorem primeMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
+    {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (q : elementaryPrimes p) :
+    primeMultiplicity p q ≤ invariantFactorCount p := by
+  exact Finset.le_sup (f := primeMultiplicity p) (Finset.mem_univ q)
+/-- `paddedExponent`: see the surrounding section documentation. -/
+noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p)
+    (j : Fin (invariantFactorCount p)) : ℕ :=
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  if h : s - c ≤ j.1 then
+    e (sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+      ⟨j.1 - (s - c), by
+        change j.1 - (s - c) < c
+        have hc := primeMultiplicity_le_invariantFactorCount p q
+        omega⟩).1
+  else 0
+
+/-- `elementaryPrime`: see the surrounding section documentation. -/
+def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (i : ι) : elementaryPrimes p :=
+  ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
+
+/-- `sortedPrimeFiberEquiv`: see the surrounding section documentation. -/
+noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
+    Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
+  sortedEquiv fun i : primeFiber p q.1 => e i.1
+
+/-- `elementaryColumn`: see the surrounding section documentation. -/
+noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
+    Fin (invariantFactorCount p) := by
+  let q := elementaryPrime p i
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  exact ⟨s - c + k.1, by
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    omega⟩
+
+/-- `paddedExponent_elementaryColumn`: see the surrounding section documentation. -/
+theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
+    paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i := by
+  let q := elementaryPrime p i
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  have hc := primeMultiplicity_le_invariantFactorCount p q
+  change (if h : s - c ≤ s - c + k.1 then
+      e (sortedEquiv (fun x : primeFiber p q.1 => e x.1)
+        ⟨s - c + k.1 - (s - c), by
+          change s - c + k.1 - (s - c) < c
+          omega⟩).1 else 0) = e i
+  rw [dif_pos (show s - c ≤ s - c + k.1 by omega)]
+  congr 1
+  change (sortedPrimeFiberEquiv p e q
+    ⟨s - c + k.1 - (s - c), _⟩).1 = i
+  have harg : (⟨s - c + k.1 - (s - c), by
+      omega⟩ : Fin c) = k := Fin.ext (Nat.add_sub_cancel_left _ _)
+  rw [harg]
+  exact congrArg Subtype.val
+    ((sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
+/-- `invariantCells`: see the surrounding section documentation. -/
+abbrev invariantCells {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) :=
+  {x : elementaryPrimes p × Fin (invariantFactorCount p) //
+    paddedExponent p e x.1 x.2 ≠ 0}
+
+/-- `indexEquivSigmaPrimeFiber`: see the surrounding section documentation. -/
+def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) :
+    ι ≃ Σ q : elementaryPrimes p, primeFiber p q.1 where
+  toFun i := ⟨elementaryPrime p i, ⟨i, rfl⟩⟩
+  invFun x := x.2.1
+  left_inv _ := rfl
+  right_inv x := by
+    rcases x with ⟨⟨q, hq⟩, ⟨i, hi⟩⟩
+    simp only at hi
+    subst q
+    rfl
+
+/-- `sigmaPrimeFiberEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def sigmaPrimeFiberEquivInvariantCells
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    (Σ q : elementaryPrimes p, Fin (primeMultiplicity p q)) ≃ invariantCells p e where
+  toFun x := by
+    rcases x with ⟨q, k⟩
+    let c := primeMultiplicity p q
+    let s := invariantFactorCount p
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    let j : Fin s := ⟨s - c + k.1, by omega⟩
+    refine ⟨(q, j), ?_⟩
+    rw [paddedExponent, dif_pos (show s - c ≤ j.1 by
+      change s - c ≤ s - c + k.1; omega)]
+    have harg : (⟨j.1 - (s - c), by
+        change s - c + k.1 - (s - c) < c
+        omega⟩ : Fin c) = k := by
+      apply Fin.ext; simp [j]
+    change e (sortedPrimeFiberEquiv p e q
+      ⟨j.1 - (s - c), _⟩).1 ≠ 0
+    rw [harg]
+    exact ne_of_gt (he (sortedPrimeFiberEquiv p e q k).1)
+  invFun x := by
+    let q := x.1.1
+    let j := x.1.2
+    let c := primeMultiplicity p q
+    let s := invariantFactorCount p
+    have hc := primeMultiplicity_le_invariantFactorCount p q
+    have hj : s - c ≤ j.1 := by
+      by_contra h
+      apply x.2
+      rw [paddedExponent, dif_neg h]
+    exact ⟨q, ⟨j.1 - (s - c), by omega⟩⟩
+  left_inv x := by
+    rcases x with ⟨q, k⟩
+    change (⟨q, ⟨invariantFactorCount p -
+      primeMultiplicity p q + k.1 -
+      (invariantFactorCount p - primeMultiplicity p q), by
+        omega⟩⟩ : Σ q, Fin (primeMultiplicity p q)) = ⟨q, k⟩
+    rw [Sigma.ext_iff]
+    refine ⟨rfl, heq_of_eq ?_⟩
+    apply Fin.ext
+    change invariantFactorCount p - primeMultiplicity p q + k.1 -
+      (invariantFactorCount p - primeMultiplicity p q) = k.1
+    omega
+  right_inv x := by
+    apply Subtype.ext
+    apply Prod.ext
+    · rfl
+    · apply Fin.ext
+      simp only
+      let q := x.1.1
+      let j := x.1.2
+      let c := primeMultiplicity p q
+      let s := invariantFactorCount p
+      have hc := primeMultiplicity_le_invariantFactorCount p q
+      have hj : s - c ≤ j.1 := by
+        by_contra h
+        apply x.2
+        rw [paddedExponent, dif_neg h]
+      change s - c + (j.1 - (s - c)) = j.1
+      omega
+/-- `elementaryIndexEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def elementaryIndexEquivInvariantCells
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
+    ι ≃ invariantCells p e :=
+  (indexEquivSigmaPrimeFiber p).trans <|
+    (Equiv.sigmaCongrRight fun q => (sortedPrimeFiberEquiv p e q).symm).trans
+      (sigmaPrimeFiberEquivInvariantCells p e he)
+
+/-- `elementaryIndexEquivInvariantCells_prime`: see the surrounding section documentation. -/
+@[simp]
+theorem elementaryIndexEquivInvariantCells_prime
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i := by
+  rfl
+
+/-- `elementaryIndexEquivInvariantCells_apply`: see the surrounding section documentation. -/
+theorem elementaryIndexEquivInvariantCells_apply
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    (elementaryIndexEquivInvariantCells p e he i).1 =
+      (elementaryPrime p i, elementaryColumn p e i) := by
+  apply Prod.ext
+  · rfl
+  · apply Fin.ext; rfl
+
+/-- `elementaryIndexEquivInvariantCells_exponent`: see the surrounding section documentation. -/
+@[simp]
+theorem elementaryIndexEquivInvariantCells_exponent
+    {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
+    (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
+    paddedExponent p e
+      (elementaryIndexEquivInvariantCells p e he i).1.1
+      (elementaryIndexEquivInvariantCells p e he i).1.2 = e i := by
+  rw [elementaryIndexEquivInvariantCells_apply]
+  exact paddedExponent_elementaryColumn p e i
+/-! ## PID layer: generators, coprimality, invariant factors -/
+
+section PID
+variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+omit [DecidableEq ι] in
+/-- `principal_of_mem_image`: see the surrounding section documentation. -/
+theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
+    (q.1 : Ideal R).IsPrincipal :=
+  IsPrincipalIdealRing.principal q.1
+
+/-- `gen`: see the surrounding section documentation. -/
+noncomputable def gen (p : ι → Ideal R) (q : elementaryPrimes p) : R :=
+  Submodule.IsPrincipal.generator q.1
+
+omit [DecidableEq ι] in
+/-- `span_singleton_gen`: see the surrounding section documentation. -/
+theorem span_singleton_gen (p : ι → Ideal R) (q : elementaryPrimes p) :
+    (R ∙ gen p q : Ideal R) = q.1 :=
+  Submodule.IsPrincipal.span_singleton_generator q.1
+
+omit [IsPrincipalIdealRing R] [DecidableEq ι] in
+/-- `isMaximal_of_mem_elementaryPrimes`: see the surrounding section documentation. -/
+theorem isMaximal_of_mem_elementaryPrimes (p : ι → Ideal R)
+    (hmax : ∀ i, (p i).IsMaximal) (q : elementaryPrimes p) :
+    (q.1 : Ideal R).IsMaximal := by
+  rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+  exact hi ▸ hmax i
+
+/-- `invariantFactor`: see the surrounding section documentation. -/
+noncomputable def invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
+    (j : Fin (invariantFactorCount p)) : R :=
+  ∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j
+
+omit [IsPrincipalIdealRing R] [DecidableEq ι] in
+/-- `isCoprime_pow_pow_ideal`: see the surrounding section documentation. -/
+theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
+    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    IsCoprime ((q.1 : Ideal R) ^ a) ((r.1 : Ideal R) ^ b) := by
+  have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  exact (Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne).pow_left (m := a) |>.pow_right (n := b)
+
+omit [DecidableEq ι] in
+/-- `isCoprime_generator_pow_pow`: see the surrounding section documentation. -/
+theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
+    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    IsCoprime (gen p q ^ a) (gen p r ^ b) := by
+  have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  have hc : IsCoprime (R ∙ gen p q) (R ∙ gen p r) := by
+    rw [span_singleton_gen p q, span_singleton_gen p r]
+    exact Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne
+  exact (Ideal.isCoprime_span_singleton_iff (gen p q) (gen p r)).mp hc
+    |>.pow_left (m := a) |>.pow_right (n := b)
+
+omit [IsPrincipalIdealRing R] in
+/-- `monotone_paddedExponent`: see the surrounding section documentation. -/
+theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
+    (q : elementaryPrimes p) :
+    Monotone (paddedExponent p e q) := by
+  intro j k hjk
+  let c := primeMultiplicity p q
+  let s := invariantFactorCount p
+  by_cases hj : s - c ≤ j.1
+  · have hk : s - c ≤ k.1 := hj.trans hjk
+    rw [paddedExponent, dif_pos hj, paddedExponent, dif_pos hk]
+    apply monotone_sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+    exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
+  · rw [paddedExponent, dif_neg hj]
+    exact Nat.zero_le _
+omit [IsPrincipalIdealRing R] in
+/-- `exists_pos_paddedExponent`: see the surrounding section documentation. -/
+theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : ∀ i, 0 < e i)
+    (j : Fin (invariantFactorCount p)) :
+    ∃ q : elementaryPrimes p, 0 < paddedExponent p e q j := by
+  have hs : 0 < invariantFactorCount p := Nat.zero_lt_of_lt j.2
+  haveI : Nonempty ι := by
+    cases isEmpty_or_nonempty ι with
+    | inl h =>
+        exfalso
+        have : invariantFactorCount p = 0 := by simp [invariantFactorCount]
+        omega
+    | inr h => exact h
+  let i₀ := Classical.choice (inferInstance : Nonempty ι)
+  have hP : (Finset.univ : Finset (elementaryPrimes p)).Nonempty :=
+    ⟨elementaryPrime p i₀, Finset.mem_univ _⟩
+  obtain ⟨q, _, hq⟩ := Finset.exists_mem_eq_sup
+    (Finset.univ : Finset (elementaryPrimes p)) hP (primeMultiplicity p)
+  have hmult : primeMultiplicity p q = invariantFactorCount p := hq.symm
+  refine ⟨q, ?_⟩
+  rw [paddedExponent]
+  have hzero : invariantFactorCount p - primeMultiplicity p q = 0 := by omega
+  rw [dif_pos (by omega)]
+  exact he _
+
+/-- `not_isUnit_invariantFactor`: see the surrounding section documentation. -/
+theorem not_isUnit_invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i)
+    (j : Fin (invariantFactorCount p)) : ¬ IsUnit (invariantFactor p e j) := by
+  obtain ⟨q, hpos⟩ := exists_pos_paddedExponent p e he j
+  have hdvd_pow : gen p q ^ paddedExponent p e q j ∣ invariantFactor p e j := by
+    exact Finset.dvd_prod_of_mem _ (Finset.mem_univ q)
+  have hdvd : gen p q ∣ invariantFactor p e j := by
+    simpa using (pow_dvd_pow (gen p q) (Nat.succ_le_of_lt hpos)).trans hdvd_pow
+  intro hu
+  have huq : IsUnit (gen p q) := isUnit_of_dvd_unit hdvd hu
+  have hqmax : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  apply hqmax.ne_top
+  rw [← span_singleton_gen p q]
+  exact Ideal.span_singleton_eq_top.mpr huq
+
+/-- `invariantFactor_dvd_succ`: see the surrounding section documentation. -/
+theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
+    (j : Fin (invariantFactorCount p - 1)) :
+    invariantFactor p e ⟨j.1, by omega⟩ ∣
+      invariantFactor p e ⟨j.1 + 1, by omega⟩ := by
+  apply Finset.prod_dvd_prod_of_dvd
+  intro q _
+  exact pow_dvd_pow (gen p q)
+    (monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
+
+omit [DecidableEq ι] in
+/-- `gen_ne_zero`: the generator of a nonzero elementary prime ideal is
+nonzero (in an integral domain). -/
+theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
+    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
+    (q : elementaryPrimes p) : gen p q ≠ 0 := by
+  intro h
+  have hsp : R ∙ gen p q = (q.1 : Ideal R) := span_singleton_gen p q
+  rw [h, Submodule.span_singleton_eq_bot.mpr rfl] at hsp
+  exact hne q hsp.symm
+
+/-- `invariantFactor_ne_zero`: an invariant factor (a product of powers of
+generators of nonzero prime ideals) is nonzero in an integral domain. -/
+theorem invariantFactor_ne_zero [IsDomain R] (p : ι → Ideal R) (e : ι → ℕ)
+    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
+    (j : Fin (invariantFactorCount p)) : invariantFactor p e j ≠ 0 := by
+  show (∏ q, gen p q ^ paddedExponent p e q j) ≠ 0
+  apply Finset.prod_ne_zero_iff.mpr
+  intro q _
+  exact pow_ne_zero _ (gen_ne_zero p hne q)
+
+end PID
+/-! ## Generic product reindexing linear equivalences -/
+
+/-- `piCongrLinearEquiv`: see the surrounding section documentation. -/
+noncomputable def piCongrLinearEquiv {R : Type*} [Semiring R] {α β : Type*} (A : α → Type*)
+    (B : β → Type*) [∀ i, AddCommMonoid (A i)] [∀ j, AddCommMonoid (B j)]
+    [∀ i, Module R (A i)] [∀ j, Module R (B j)]
+    (h : α ≃ β) (e : ∀ i, A i ≃ₗ[R] B (h i)) : ((i : α) → A i) ≃ₗ[R] ((j : β) → B j) := by
+  let E := Equiv.piCongr h fun i => (e i).toEquiv
+  refine { E with map_add' := ?_, map_smul' := ?_ }
+  · intro f g
+    funext j
+    obtain ⟨i, rfl⟩ := h.surjective j
+    change (h.piCongr (fun i => (e i).toEquiv) (f + g)) (h i) =
+      (h.piCongr (fun i => (e i).toEquiv) f) (h i) +
+        (h.piCongr (fun i => (e i).toEquiv) g) (h i)
+    rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply]
+    exact map_add (e i) (f i) (g i)
+  · intro r f
+    funext j
+    obtain ⟨i, rfl⟩ := h.surjective j
+    change (h.piCongr (fun i => (e i).toEquiv) (r • f)) (h i) =
+      r • (h.piCongr (fun i => (e i).toEquiv) f) (h i)
+    rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply]
+    exact map_smul (e i) r (f i)
+
+/-- `piProdSwapLinearEquiv`: see the surrounding section documentation. -/
+def piProdSwapLinearEquiv {R : Type*} [Semiring R] {ι κ : Type*} (A : ι → κ → Type*)
+    [∀ i j, AddCommMonoid (A i j)] [∀ i j, Module R (A i j)] :
+    ((x : ι × κ) → A x.1 x.2) ≃ₗ[R] ((j : κ) → (i : ι) → A i j) where
+  toFun f j i := f (i, j)
+  invFun f x := f x.2 x.1
+  left_inv _ := rfl
+  right_inv _ := rfl
+  map_add' _ _ := rfl
+  map_smul' _ _ := rfl
+
+/-- `quotientInfLinearEquivPiQuotient`: see the surrounding section documentation. -/
+noncomputable def quotientInfLinearEquivPiQuotient {R : Type*} [CommRing R] {ι : Type*}
+    [Fintype ι] (f : ι → Ideal R) (hf : Pairwise (IsCoprime on f)) :
+    (R ⧸ ⨅ i, f i) ≃ₗ[R] ((i : ι) → R ⧸ f i) := by
+  classical
+  let e := Ideal.quotientInfRingEquivPiQuotient f hf
+  refine
+    { toFun := e
+      invFun := e.symm
+      left_inv := e.left_inv
+      right_inv := e.right_inv
+      map_add' := ?_
+      map_smul' := ?_ }
+  · intro x y
+    exact (Ideal.quotientInfToPiQuotient f).map_add x y
+  · intro r x
+    refine Submodule.Quotient.induction_on (⨅ i, f i) x ?_
+    intro a
+    rw [← Submodule.Quotient.mk_smul]
+    rw [show e (Submodule.Quotient.mk (r • a)) = fun i => Ideal.Quotient.mk (f i) (r • a) by
+      funext i
+      exact Ideal.quotientInfToPiQuotient_mk' f (r • a) i]
+    rw [show e (Submodule.Quotient.mk a) = fun i => Ideal.Quotient.mk (f i) a by
+      funext i
+      exact Ideal.quotientInfToPiQuotient_mk' f a i]
+    change (fun i => Ideal.Quotient.mk (f i) (r • a)) =
+      r • (fun i => Ideal.Quotient.mk (f i) a)
+    funext i
+    exact Submodule.Quotient.mk_smul (f i) r a
+/-! ## Reindexing equivalences for the PID case -/
+
+section PID
+variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
+variable {ι : Type*} [Fintype ι] [DecidableEq ι]
+
+/-- `piRectangleEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def piRectangleEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ) :
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) where
+  toFun f x := f x.1
+  invFun f x := if h : paddedExponent p e x.1 x.2 ≠ 0 then f ⟨x, h⟩ else 0
+  left_inv := by
+    intro f
+    funext x
+    by_cases h : paddedExponent p e x.1 x.2 ≠ 0
+    · simp [h]
+    · have hpad : paddedExponent p e x.1 x.2 = 0 := not_ne_iff.mp h
+      have htop : (x.1.1 : Ideal R) ^ paddedExponent p e x.1 x.2 = ⊤ := by
+        rw [hpad, pow_zero, Ideal.one_eq_top]
+      haveI : Subsingleton (R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
+        htop ▸ inferInstance
+      simp [h]
+      exact Subsingleton.elim _ _
+  right_inv := by
+    intro f
+    funext x
+    by_cases h : paddedExponent p e x.1.1 x.1.2 ≠ 0
+    · simp [h]
+    · exact False.elim (h x.2)
+  map_add' := by intro f g; funext x; rfl
+  map_smul' := by intro r f; funext x; rfl
+
+/-- `piInvariantCellsEquivPiRectangle`: see the surrounding section documentation. -/
+noncomputable def piInvariantCellsEquivPiRectangle (p : ι → Ideal R) (e : ι → ℕ) :
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) ≃ₗ[R]
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
+  (piRectangleEquivInvariantCells p e).symm
+
+/-- `piElementaryEquivInvariantCells`: see the surrounding section documentation. -/
+noncomputable def piElementaryEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ)
+    (he : ∀ i, 0 < e i) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((x : invariantCells p e) →
+      R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) := by
+  classical
+  refine piCongrLinearEquiv (fun i => R ⧸ (p i : Ideal R)^(e i))
+    (fun x : invariantCells p e => R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2))
+    (elementaryIndexEquivInvariantCells p e he) ?_
+  intro i
+  refine Submodule.quotEquivOfEq _ _ ?_
+  rw [elementaryIndexEquivInvariantCells_exponent p e he i]
+  congr 1
+/-- `columnEquiv`: see the surrounding section documentation. -/
+noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (j : Fin (invariantFactorCount p)) :
+    ((q : elementaryPrimes p) → R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j)) ≃ₗ[R]
+    (R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  let f : elementaryPrimes p → Ideal R := fun q => (q.1 : Ideal R) ^ paddedExponent p e q j
+  have hf : Pairwise (IsCoprime on f) := by
+    intro q r hqr
+    exact isCoprime_pow_pow_ideal p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j)
+  have hinf : (⨅ q : elementaryPrimes p, f q) = R ∙ invariantFactor p e j := by
+    calc
+      (⨅ q : elementaryPrimes p, f q) =
+          ⨅ q : elementaryPrimes p, Ideal.span {gen p q ^ paddedExponent p e q j} := by
+        apply iInf_congr
+        intro q
+        calc
+          f q = (q.1 : Ideal R) ^ paddedExponent p e q j := rfl
+          _ = (R ∙ gen p q : Ideal R) ^ paddedExponent p e q j := by
+            rw [span_singleton_gen p q]
+          _ = Ideal.span {gen p q ^ paddedExponent p e q j} := by
+            rw [Ideal.span_singleton_pow]
+      _ = Ideal.span {∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j} := by
+        exact Ideal.iInf_span_singleton (fun q r hqr =>
+          isCoprime_generator_pow_pow p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j))
+      _ = R ∙ invariantFactor p e j := by
+        rfl
+  exact (quotientInfLinearEquivPiQuotient f hf).symm.trans (Submodule.quotEquivOfEq _ _ hinf)
+
+/-- `piRectangleEquivInvariantFactors`: see the surrounding section documentation. -/
+noncomputable def piRectangleEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) :
+    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+      R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
+    ((j : Fin (invariantFactorCount p)) → R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  exact (piProdSwapLinearEquiv (fun (q : elementaryPrimes p)
+      (j : Fin (invariantFactorCount p)) =>
+      R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j))).trans
+    (LinearEquiv.piCongrRight fun j => columnEquiv p e hmax j)
+
+/-- `piPrimePowerEquivInvariantFactors`: see the surrounding section documentation. -/
+noncomputable def piPrimePowerEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
+    (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((j : Fin (invariantFactorCount p)) → R ⧸ R ∙ invariantFactor p e j) := by
+  classical
+  exact (piElementaryEquivInvariantCells p e he).trans
+    ((piInvariantCellsEquivPiRectangle p e).trans (piRectangleEquivInvariantFactors p e hmax))
+
+/-- `piPrimePowerNeZeroLinearEquiv`: see the surrounding section documentation. -/
+noncomputable def piPrimePowerNeZeroLinearEquiv (p : ι → Ideal R) (e : ι → ℕ) :
+    ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
+    ((i : {i : ι // e i ≠ 0}) → R ⧸ (p i.1 : Ideal R)^(e i.1)) where
+  toFun f i := f i.1
+  invFun f i := if h : e i ≠ 0 then f ⟨i, h⟩ else 0
+  left_inv := by
+    intro f
+    funext i
+    by_cases h : e i ≠ 0
+    · simp [h]
+    · have he : e i = 0 := not_ne_iff.mp h
+      have htop : (p i : Ideal R) ^ e i = ⊤ := by
+        rw [he, pow_zero, Ideal.one_eq_top]
+      haveI : Subsingleton (R ⧸ (p i : Ideal R)^(e i)) := htop ▸ inferInstance
+      simp [h]
+      exact Subsingleton.elim _ _
+  right_inv := by
+    intro f
+    funext i
+    by_cases h : e i.1 ≠ 0
+    · simp [h]
+    · exact False.elim (h i.2)
+  map_add' := by intro f g; funext i; rfl
+  map_smul' := by intro r f; funext i; rfl
+
+end PID
+/-- `piSpanPowerEquivIdealPow`: see the surrounding section documentation. -/
+noncomputable def piSpanPowerEquivIdealPow (R : Type*) [CommRing R]
+    {ι : Type*} (pElem : ι → R) (e : ι → ℕ) :
+    ((i : ι) → R ⧸ R ∙ (pElem i ^ e i)) ≃ₗ[R]
+    ((i : ι) → R ⧸ (R ∙ pElem i : Ideal R)^(e i)) := by
+  classical
+  refine piCongrLinearEquiv _ _ (Equiv.refl ι) ?_
+  intro i
+  refine Submodule.quotEquivOfEq (R ∙ (pElem i ^ e i)) ((R ∙ pElem i : Ideal R)^(e i)) ?_
+  exact (Ideal.span_singleton_pow (pElem i) (e i)).symm
+
+end PIDInvariantFactors
+
+/-! ## Main theorem -/
+
+namespace Module
+
+open scoped BigOperators
+
+/-- `exists_linearEquiv_free_prod_invariantFactors`: see the surrounding section documentation. -/
+theorem exists_linearEquiv_free_prod_invariantFactors
+    (R M : Type*) [CommRing R] [IsPrincipalIdealRing R] [IsDomain R]
+    [AddCommGroup M] [Module R M] [Module.Finite R M] :
+    ∃ (r s : ℕ) (n : Fin s → R),
+      (∀ j, n j ≠ 0) ∧
+      (∀ j, ¬ IsUnit (n j)) ∧
+      (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (M ≃ₗ[R] (Fin r →₀ R) ×
+        ((j : Fin s) → R ⧸ Ideal.span {n j})) := by
+  classical
+  obtain ⟨r, ι, fι, pElem, hp, e, ⟨h⟩⟩ :=
+    Module.equiv_free_prod_directSum (R := R) (M := M)
+  letI : Fintype ι := fι
+  let p : ι → Ideal R := fun i => R ∙ pElem i
+  have hmax : ∀ i, (p i).IsMaximal := fun i =>
+    PrincipalIdealRing.isMaximal_of_irreducible (hp i)
+  let ι' := {i : ι // e i ≠ 0}
+  let p' : ι' → Ideal R := fun i => p i.1
+  let e' : ι' → ℕ := fun i => e i.1
+  have he' : ∀ i : ι', 0 < e' i := fun i => Nat.pos_of_ne_zero i.2
+  have hmax' : ∀ i : ι', (p' i).IsMaximal := fun i => hmax i.1
+  have hne : ∀ q : PIDInvariantFactors.elementaryPrimes p',
+      (q.1 : Ideal R) ≠ ⊥ := by
+    intro q
+    rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+    rw [← hi, ne_eq, Submodule.span_singleton_eq_bot]
+    exact Irreducible.ne_zero (hp i.1)
+  let s := PIDInvariantFactors.invariantFactorCount p'
+  let n : Fin s → R := PIDInvariantFactors.invariantFactor p' e'
+  refine ⟨r, s, n, ?_, ?_, ?_, ?_⟩
+  · intro j
+    exact PIDInvariantFactors.invariantFactor_ne_zero p' e' hne j
+  · intro j
+    exact PIDInvariantFactors.not_isUnit_invariantFactor p' e' hmax' he' j
+  · exact PIDInvariantFactors.invariantFactor_dvd_succ p' e'
+  · let e1 := DirectSum.linearEquivFunOnFintype (R := R) (ι := ι)
+        (M := fun i => R ⧸ R ∙ (pElem i ^ e i))
+    let e2 := PIDInvariantFactors.piSpanPowerEquivIdealPow R pElem e
+    let e3 := PIDInvariantFactors.piPrimePowerNeZeroLinearEquiv p e
+    let e4 := PIDInvariantFactors.piPrimePowerEquivInvariantFactors p' e' hmax' he'
+    exact ⟨h.trans (LinearEquiv.prodCongr
+      (LinearEquiv.refl (R := R) (M := Fin r →₀ R))
+      (e1.trans (e2.trans (e3.trans e4))))⟩
+
+/-- `exists_addEquiv_free_prod_invariantFactors_zmod`: see the surrounding section documentation. -/
+theorem exists_addEquiv_free_prod_invariantFactors_zmod
+    (G : Type*) [AddCommGroup G] [AddGroup.FG G] :
+    ∃ (r s : ℕ) (n : Fin s → ℤ),
+      (∀ j, n j ≠ 0) ∧
+      (∀ j, ¬ IsUnit (n j)) ∧
+      (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃+ (Fin r →₀ ℤ) × ((j : Fin s) → ZMod (n j).natAbs)) := by
+  classical
+  obtain ⟨r, s, n, hn0, hn, hdvd, ⟨e⟩⟩ :=
+    exists_linearEquiv_free_prod_invariantFactors ℤ G
+  refine ⟨r, s, n, hn0, hn, hdvd, ?_⟩
+  exact ⟨(e.toAddEquiv).trans (AddEquiv.prodCongr (AddEquiv.refl _)
+    (AddEquiv.piCongrRight fun j => (Int.quotientSpanEquivZMod (n j)).toAddEquiv))⟩
+
+end Module
+/-- GT `it21(b)`, invariant-factor existence: the torsion factors can
+be chosen nontrivial and ordered by divisibility. -/
+theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (r s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  obtain ⟨r, s, k, hk0, hk1, hdvd, ⟨e⟩⟩ :=
+    Module.exists_addEquiv_free_prod_invariantFactors_zmod (Additive G)
+  let n : Fin s → ℕ := fun j => (k j).natAbs
+  refine ⟨r, s, n, ?_, ?_, ?_⟩
+  · intro i
+    have hlt : 1 < (k i).natAbs := by
+      have hn0 : 0 < (k i).natAbs := Int.natAbs_pos.mpr (hk0 i)
+      have hn1 : (k i).natAbs ≠ 1 := by
+        intro h
+        have : k i = 1 ∨ k i = -1 := by
+          rcases Int.natAbs_eq (k i) with h' | h'
+          · left; omega
+          · right; omega
+        exact hk1 i (Int.isUnit_iff.mpr this)
+      omega
+    exact hlt
+  · intro i
+    exact Int.natAbs_dvd_natAbs.mpr (hdvd i)
+  · let eA : (Fin r →₀ ℤ) ≃+ (Fin r → ℤ) := by
+      refine { Finsupp.equivFunOnFinite with map_add' := ?_ }
+      intro f g; ext i; rfl
+    let eM : G ≃* Multiplicative (Additive G) :=
+      (MulEquiv.multiplicativeAdditive G).symm
+    let eP : Multiplicative (Additive G) ≃*
+        Multiplicative ((Fin r →₀ ℤ) × ((j : Fin s) → ZMod (k j).natAbs)) :=
+      e.toMultiplicative
+    let eD : Multiplicative ((Fin r →₀ ℤ) × ((j : Fin s) → ZMod (k j).natAbs)) ≃*
+        Multiplicative (Fin r →₀ ℤ) × Multiplicative ((j : Fin s) → ZMod (k j).natAbs) :=
+      MulEquiv.prodMultiplicative _ _
+    let eFree : Multiplicative (Fin r →₀ ℤ) ≃* (Fin r → Multiplicative ℤ) :=
+      (eA.toMultiplicative).trans (MulEquiv.funMultiplicative (Fin r) ℤ)
+    let eTor : Multiplicative ((j : Fin s) → ZMod (k j).natAbs) ≃*
+        ((j : Fin s) → Multiplicative (ZMod (k j).natAbs)) :=
+      MulEquiv.piMultiplicative (fun j => ZMod (k j).natAbs)
+    let eAll : Multiplicative (Additive G) ≃*
+        (Fin r → Multiplicative ℤ) × ((j : Fin s) → Multiplicative (ZMod (k j).natAbs)) :=
+      eP.trans (eD.trans (MulEquiv.prodCongr eFree eTor))
+    exact ⟨eM.trans eAll⟩
+
+/-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
+number of infinite cyclic factors is the intrinsic free rank, while the finite
+cyclic factors are nontrivial and divisibility ordered. -/
+theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin (CommGroup.freeRank G) → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  obtain ⟨r, s, n, hn, hdvd, ⟨h⟩⟩ :=
+    CommGroup.exists_mulEquiv_free_prod_invariantFactors G
+  letI : ∀ i, NeZero (n i) := fun i =>
+    ⟨ne_of_gt (zero_lt_one.trans (hn i))⟩
+  let hT : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
+    isTorsion_of_finite
+  have hr := CommGroup.freeRank_eq_of_free_prod_torsion G _ hT h
+  subst r
+  exact ⟨s, n, hn, hdvd, ⟨h⟩⟩
+
+
 /-!
 ## Improvements for Mathlib
 
@@ -8982,34 +9179,77 @@ item names the present API and a checked proof route or concrete extension.
 * `Module.Basis.SmithNormalForm` and `Submodule.smithNormalForm` in
   `Mathlib.LinearAlgebra.FreeModule.PID` currently package diagonal bases but
   do not expose the standard divisibility chain on diagonal coefficients.
-  The PID induction in `Submodule.basis_of_pid_aux` could be strengthened to
-  preserve that chain.  Over `ℤ`, `Submodule.quotientEquivPiZMod` could then
-  return canonical invariant factors rather than an arbitrary diagonal cyclic
-  decomposition.
-* `CommGroup.equiv_free_prod_prod_multiplicative_zmod` supplies the
-  elementary-divisor side of the finitely generated abelian-group structure
-  theorem.  A divisibility-ordered invariant-factor companion can follow the
-  source proof in GT `it21`: sort each prime's exponents, right-align them,
-  insert trivial `ZMod 1` cells, and apply `ZMod.prodEquivPi` columnwise.  The
-  checked implementation is
-  `CommGroup.piPrimePowerEquivInvariantFactors` together with
-  `CommGroup.exists_mulEquiv_free_prod_invariantFactors`.
-* The reusable rank facts `Group.rank_pi_le_card_of_zpowers_eq_top`,
-  `Group.rank_pi_multiplicative_zmod_two`, and
-  `Group.rank_pi_multiplicative_int` could complement
-  `Mathlib.GroupTheory.Schreier`.  Their proofs use coordinate generators for
-  the upper bounds and reduction modulo two plus
-  `card_dvd_exponent_pow_rank` for the lower bound.
-* `Submodule.quotientEquiv_map_linearEquiv` is a general quotient-transport
-  equivalence that could live with Mathlib's quotient linear-equivalence API;
-  it is not specific to GT.  It transports both the ambient module and the
-  submodule along a `LinearEquiv` and is used above in the finite direct-sum
-  Jordan--Hölder argument.
-* `MonoidAlgebra.centerEquivClassFunction` and the conjugacy-class-sum basis
-  provide a reusable group-algebra interface not currently exposed by the
-  representation-theory imports.  The proof is coefficient extensionality:
-  centrality is equivalent to conjugacy invariance, and class sums map to the
-  delta-function basis on `ConjClasses`.
+  Strengthening the PID induction `Submodule.basis_of_pid_aux` to preserve
+  that chain would let `Submodule.quotientEquivPiZMod` return canonical
+  (divisibility-ordered, nonzero) invariant factors directly from an arbitrary
+  finite presentation — the standard textbook route.
+  This is a *different, complementary route* from the CRT/elementary-divisor
+  reindexing the target now implements: `Module.exists_linearEquiv_free_prod_invariantFactors`
+  (general PID) and `Module.exists_addEquiv_free_prod_invariantFactors_zmod`
+  (the `ℤ` additive corollary) derive the invariant-factor decomposition by
+  sorting and right-aligning the prime-power exponents from
+  `Module.equiv_free_prod_directSum` and reindexing the CRT product, giving the
+  full divisibility chain `n j ∣ n (j+1)` and nonzeroness `n j ≠ 0`.  The two
+  routes are mathematically equivalent but API-distinct: the target's CRT route
+  consumes the prime-power decomposition as input, whereas the SNF route works
+  from an arbitrary presentation matrix and is the natural extension of the
+  existing `Module.Basis.SmithNormalForm` infrastructure.  The SNF
+  strengthening therefore remains a genuine upstream obligation rather than
+  being subsumed by the target's theorem.  In particular, the
+  divisibility-ordered invariant-factor companion for finitely generated
+  abelian groups (the `ℤ` case, including the `Multiplicative`/`ZMod`
+  `CommGroup` packaging) is a *consequence* of this SNF strengthening — the
+  diagonal entries with their divisibility chain are the invariant factors,
+  and the `Multiplicative`/`ZMod` packaging is pure transport via Mathlib's
+  `AddEquiv.toMultiplicative`, `MulEquiv.prodMultiplicative`/`piMultiplicative`,
+  and `Int.quotientSpanEquivZMod`, plus the `Group.rank` transport of the
+  next item — so it does not require a separate upstream obligation.
+* The `Multiplicative`/`Additive` type-tag functor
+  (`Mathlib.Algebra.Group.TypeTags.*`, plus scattered transport lemmas in
+  `GroupTheory.Finiteness`, `Algebra.Group.Submonoid.Operations`,
+  `GroupTheory.Exponent`, `GroupTheory.OrderOfElement`) transports morphisms,
+  `Finite`/`Fintype`, `FG`, subgroup closure, exponent, and element order
+  between additive and multiplicative groups — but is missing its `Group.rank`
+  entry.  The natural package entry is the transport
+  `Group.rank (Multiplicative M) = AddGroup.rank M` (the `@[to_additive]` twin
+  of `Group.rank`, i.e. minimum number of additive generators), which holds for
+  *all* finitely-generated additive groups — matching the sibling transports
+  `AddGroup.fg_iff_mul_fg`,
+  `Monoid.exponent (Multiplicative G) = AddMonoid.exponent G`, and
+  `orderOf (ofAdd a) = addOrderOf a`.  Its non-triviality: `Group.rank` is
+  minimum number of generators, whereas `Module.finrank ℤ M` is the free-part
+  rank (torsion contributes 0), so a `Module.finrank` equality needs
+  `[Module.Free ℤ M]` and is only a corollary of the transport for free
+  modules.  Its prerequisite `AddGroup.FG M` from `Module.Finite ℤ M` is only a
+  lemma (`Module.Finite.iff_addGroup_fg`), not an instance.
+  Proposed contribution: (i) the instance
+  `instance [AddCommGroup M] [Module.Finite ℤ M] : AddGroup.FG M` registering
+  `Module.Finite.iff_addGroup_fg`; (ii) the transport
+  `Group.rank (Multiplicative M) = AddGroup.rank M`, plus its free-ℤ corollary
+  `Group.rank (Multiplicative M) = Module.finrank ℤ M`.  The target
+  already implements the free-ℤ corollary as
+  `Group.rank_multiplicative_eq_finrank` (and uses it to derive
+  `Group.rank_pi_multiplicative_int`); see that declaration for the proof.
+* The centre of a group algebra.  Mathlib has no group-specific centre API for
+  `MonoidAlgebra R G` (the de-facto group algebra); group content is scattered
+  (averaging in `RepresentationTheory.Invariants`, semisimplicity in
+  `RepresentationTheory.Maschke`, coefficient rules in `SkewMonoidAlgebra`),
+  with no link to `ConjClasses`.  The elementary statement is two-tiered:
+  (i) for *any* group `G` and *any* (commutative semiring) `R`, coefficient
+  evaluation descends to an `R`-linear map `Z(R[G]) →ₗ[R] ConjClasses G → R`,
+  well-defined because central elements have equal coefficients on conjugate
+  elements (the forward direction needs no `Fintype`); (ii) for *finite* `G`,
+  this is an `R`-linear equivalence `Z(R[G]) ≃ₗ[R] ConjClasses G → R`, the
+  inverse sending a class function to its (finite) class-sum linear
+  combination.  The current target over-restricts both directions to
+  `[Field k]` and bundles the forward direction under `[Fintype G]`; the
+  upstream version should drop `Field` to a `Semiring`/`CommSemiring` base and
+  expose the all-groups forward map separately.  Class sums then form the
+  delta-function basis of `Z(R[G])` (finite `G`), giving
+  `finrank R Z(R[G]) = Nat.card (ConjClasses G)`.  The checked implementation is
+  `MonoidAlgebra.coeff_eq_of_mem_center` (forward, well-definedness),
+  `MonoidAlgebra.centerEquivClassFunction` (the finite-`G` equivalence), and
+  `MonoidAlgebra.conjClassSumBasis`.
 
 ## Explicit omission ledger
 
@@ -9534,7 +9774,7 @@ noncomputable def quotientKerEquivRange (f : G →*[A] G') :
     exact f.map_smul' a x
 
 /-- GT `ns24`: the equivariant first isomorphism theorem. -/
-theorem firstIsomorphism (f : G →*[A] G') :
+theorem first_isomorphism (f : G →*[A] G') :
     let N := f.toMonoidHom.ker
     let R := f.toMonoidHom.range
     let hN := IsInvariant.ker f
@@ -9602,7 +9842,7 @@ noncomputable def quotientInfEquivSupQuotient
   | _ x => rfl
 
 /-- GT `ns25`: the equivariant second isomorphism theorem. -/
-theorem secondIsomorphism (H N : Subgroup G) [N.Normal]
+theorem second_isomorphism (H N : Subgroup G) [N.Normal]
     (hH : IsInvariant (A := A) H)
     (hN : IsInvariant (A := A) N) :
     let hI := hH.subgroupOf hN
@@ -9657,7 +9897,7 @@ theorem secondIsomorphism (H N : Subgroup G) [N.Normal]
 
 /-- GT `ns26`: a surjective equivariant homomorphism carries the ordinary
 subgroup correspondence to the invariant-subgroup correspondence. -/
-theorem invariantSubgroupCorrespondenceOfSurjective
+theorem invariant_subgroup_correspondence_of_surjective
     (f : G →*[A] G') (hf : Function.Surjective f) :
     (∀ H : Subgroup G, f.toMonoidHom.ker ≤ H →
       (H.map f.toMonoidHom).comap f.toMonoidHom = H) ∧
