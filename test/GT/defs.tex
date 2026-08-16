@@ -1,0 +1,157 @@
+%Blackboard bold one. since alas there's no "\Bbb{1}";
+\def\1{{1\mkern-7mu1}}
+
+%\DeclareMathOperator{\div}{div}%%This is already defined in TeX??
+%\newcommand{\Proj{\mathsf{Proj}}%%Problem here with Proj below.
+%\DeclareMathOperator{\TS}{TS}
+\DeclareMathOperator{\Ad}{Ad}
+\DeclareMathOperator{\art}{Art}%%For the Artin map; note \Art is for Artin motives
+\DeclareMathOperator{\arrows}{ar}%%ar Conflicts with xy
+\DeclareMathOperator{\Aut}{Aut}
+\DeclareMathOperator{\Bd}{Bd}
+\DeclareMathOperator{\Br}{Br}
+\DeclareMathOperator{\Card}{Card}
+%\DeclareMathOperator{\ch}{\mathrm{char}}%%\char creates chaos -- used internally. Avoid this; use \mathrm{char} instead.
+\DeclareMathOperator{\Cl}{Cl}
+\DeclareMathOperator{\codim}{codim}
+\DeclareMathOperator{\Cor}{Cor}
+\DeclareMathOperator{\Coker}{Coker}
+\DeclareMathOperator{\Corr}{Corr}
+\DeclareMathOperator{\disc}{disc}
+\DeclareMathOperator{\Div}{Div}
+\DeclareMathOperator{\divv}{div}
+\DeclareMathOperator{\Dlim}{\underrightarrow{\mathrm{Lim}}}%2-category inverse limit
+\DeclareMathOperator{\dlim}{\varinjlim}%%\nolimits}%%Causes problems with ArXiVE
+\DeclareMathOperator{\End}{End}
+\DeclareMathOperator{\ev}{ev}
+\DeclareMathOperator{\Ext}{Ext}
+\DeclareMathOperator{\Filt}{Filt}
+\DeclareMathOperator{\Frob}{Frob}
+\DeclareMathOperator{\Gal}{Gal}
+\DeclareMathOperator{\GL}{GL}
+\DeclareMathOperator{\Gr}{Gr}
+\DeclareMathOperator{\GSp}{GSp}
+\DeclareMathOperator{\GU}{GU}
+\DeclareMathOperator{\Hg}{Hg}
+\DeclareMathOperator{\Hom}{Hom}
+\DeclareMathOperator{\id}{id}
+\DeclareMathOperator{\Id}{Id}
+\DeclareMathOperator{\im}{Im}  %Image \Im is already used by TeX.
+\DeclareMathOperator{\Ilim}{\underleftarrow{\mathrm{Lim}}}%2-category inverse limit
+\DeclareMathOperator{\Ind}{Ind}
+\DeclareMathOperator{\Inf}{Inf}
+\DeclareMathOperator{\inn}{inn}
+\DeclareMathOperator{\inv}{inv}
+\DeclareMathOperator{\Inv}{Inv}
+\DeclareMathOperator{\Isom}{Isom}
+\DeclareMathOperator{\Jac}{Jac}
+\DeclareMathOperator{\Ker}{Ker}
+\DeclareMathOperator{\Lie}{Lie}
+\DeclareMathOperator{\Map}{Map}
+\DeclareMathOperator{\meas}{meas}
+\DeclareMathOperator{\Mor}{Mor}
+\DeclareMathOperator{\MT}{MT}
+\DeclareMathOperator{\Nm}{Nm}
+\DeclareMathOperator{\ob}{ob}
+\DeclareMathOperator{\ord}{ord}
+\DeclareMathOperator{\Out}{Out}
+\DeclareMathOperator{\PGL}{PGL}
+\DeclareMathOperator{\Pic}{\mathrm{Pic}}
+\DeclareMathOperator{\plim}{\varprojlim}%%\nolimits}%%Causes problems with ArXive
+\DeclareMathOperator{\Proj}{\mathrm{Proj}}
+\DeclareMathOperator{\proj}{\mathrm{proj}}
+\DeclareMathOperator{\pr}{pr}
+\DeclareMathOperator{\PSL}{PSL}
+\DeclareMathOperator{\rad}{rad}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\rec}{rec}
+\DeclareMathOperator{\Res}{Res}
+\DeclareMathOperator{\Sh}{Sh}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\SL}{SL}
+\DeclareMathOperator{\SO}{SO}
+\DeclareMathOperator{\specm}{specm}
+\DeclareMathOperator{\Specm}{Specm}
+\DeclareMathOperator{\spec}{spec}
+\DeclareMathOperator{\Spec}{Spec}
+\DeclareMathOperator{\Spin}{Spin}
+\DeclareMathOperator{\spm}{spm}
+\DeclareMathOperator{\Spm}{Spm}
+\DeclareMathOperator{\SP}{Sp} %\Sp already used.
+\DeclareMathOperator{\Stab}{Stab}
+\DeclareMathOperator{\SU}{SU}
+\DeclareMathOperator{\Sym}{Sym}
+\DeclareMathOperator{\Tgt}{Tgt}
+\DeclareMathOperator{\Tor}{Tor}
+\DeclareMathOperator{\Tr}{Tr}
+
+%Some categories (Mac Lane p291).
+\newcommand{\Ab}{\mathsf{Ab}}%abelian groups
+\newcommand{\Aff}{\mathsf{Aff}}%affine schemes
+\newcommand{\AM}{\mathsf{AM}}%Abelian motives
+\newcommand{\Art}{\mathsf{Art}}%Artin motives
+\newcommand{\AT}{\mathsf{AT}}%Artin-Tate motives
+\newcommand{\AV}{\mathsf{AV}}%abelian varieties
+\newcommand{\Cat}{\mathsf{CAT}}%Categories and functors
+\newcommand{\CMAV}{\mathsf{CMAV}}%abelian varieties of CM-type
+\newcommand{\CM}{\mathsf{CM}}%CM-motives
+\newcommand{\Comod}{\mathsf{Comod}}%Comodules
+\newcommand{\Crys}{\mathsf{Crys}}%crystals
+\newcommand{\C}{\mathsf{C}}%general category
+\newcommand{\Desc}{\mathsf{Desc}}%Descent
+\newcommand{\Ens}{\mathsf{Ens}}%Sets No! better Set
+\newcommand{\Et}{\mathsf{Et}}%Etale algebras.
+\newcommand{\Hdg}{\mathsf{Hdg}}%Hodge structures
+\newcommand{\HMot}{\mathsf{HMot}}
+\newcommand{\Hod}{\mathsf{Hod}}%Hodge structures
+\newcommand{\Isab}{\mathsf{Isab}}%abelian varieties up to isogeny
+\newcommand{\Isoc}{\mathsf{Isoc}}%Isocrystals
+\newcommand{\LCM}{\mathsf{LCM}}%Lefschetz motives of CM-type
+\newcommand{\LMot}{\mathsf{LMot}}%Lefschetz motives
+\newcommand{\LM}{\mathsf{LM}}%Lefschetz motives (shorthand)
+\newcommand{\Mdot}{\dot{\mathsf{M}}}%false motives.
+\newcommand{\MF}{\mathsf{MF}}
+\newcommand{\Modf}{\mathsf{Modf}}%modules of finite type.
+\newcommand{\Mod}{\mathsf{Mod}}%modules
+\newcommand{\Mot}{\mathsf{Mot}}%motives
+\newcommand{\M}{\mathsf{M}}
+\newcommand{\norm}{\Vert}
+\newcommand{\PMot}{\mathsf{PMot}}
+\newcommand{\QMot}{\mathsf{QMot}}
+\newcommand{\Rep}{\mathsf{Rep}}%representations
+\newcommand{\Set}{\mathsf{Set}}%Sets Conflicts with braket
+\newcommand{\Tat}{\mathsf{Tat}}%Tate motives
+\newcommand{\Vct}{\mathsf{Vec}}
+\newcommand{\Vc}{\mathsf{Vec}}%%\Vec would be better, but confuses SWP
+\newcommand{\V}{\mathsf{V}}
+\renewcommand{\ker}{Ker}
+
+%Some bold expresssions
+\newcommand{\bp}{\boldsymbol{\pi}}
+\newcommand{\bM}{\bold{M}}
+\newcommand{\bL}{\bold{L}} %%\L is already taken.
+
+%Some text boxes
+\newcommand{\ab}{\mathrm{ab}}
+\newcommand{\ad}{\mathrm{ad}}
+\newcommand{\al}{\mathrm{al}}
+\newcommand{\can}{\mathrm{can}}
+\newcommand{\cl}{\mathrm{cl}}
+\newcommand{\cm}{\mathrm{cm}}
+\newcommand{\crys}{\mathrm{crys}}
+\newcommand{\diag}{\mathrm{diag}}
+\newcommand{\dR}{\mathrm{dR}}
+\newcommand{\der}{\mathrm{der}}
+\newcommand{\et}{\mathrm{et}}
+\newcommand{\fg}{\mathrm{fg}}
+\newcommand{\forget}{\mathrm{forget}}
+\newcommand{\lift}{\mathrm{lift}}
+\newcommand{\num}{\mathrm{num}}
+\newcommand{\rat}{\mathrm{rat}}
+%\newcommand{\th}{\mathrm{th}}%%already defined.
+\newcommand{\un}{\mathrm{un}}
+
+
+%Some fancy small caps.
+\newcommand{\Tors}{\textsc{Tors}}
+\newcommand{\Fib}{\textsc{Fib}}

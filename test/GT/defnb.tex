@@ -1,0 +1,133 @@
+%%%Miscellaneous. Some of these only work in the Memoir class.
+
+%%so def doesn't open lines. Use \overset{\df}{=}
+\newcommand{\df}{\smash{\lower.12em\hbox{\textup{\tiny def}}}}
+                       
+%%Turn off blackboxes in draft.
+\overfullrule=0pt
+
+%%This gets math in running heads to come out correctly.
+\usepackage[overload]{textcase}
+
+%%blueblack --- for links. Is best --- 0.5 not visible.
+\usepackage{xcolor}
+\definecolor{bblue}{rgb}{0.0, 0.0, 0.7}
+
+%%fix headheight warning in Memoir 
+\setlength{\headheight}{14pt}
+
+%%To stop footnotes in theorems coming out slanted
+\renewcommand{\foottextfont}{\upshape\footnotesize}
+
+%%For natbib: cite gives Author Year
+\let\cite=\citealt
+
+%%So memoir can print bibs
+\renewcommand{\sc}{\scshape}
+
+%%Turn emph into italic+bold
+\newcommand{\eb}[1]{{\itshape\bfseries#1}}
+\renewcommand{\emph}{\eb}
+
+%%improves spacing
+\usepackage{microtype}
+
+%%%FONTS
+
+%% This should work for everyone.
+\usepackage{mathptmx}
+
+%% To use the STIX fonts, put
+%\usepackage{stix2}
+%%in GT.tex after \document class and uncomment a line after tikzcd.
+%% With the stix fonts, my system gives a fatal error unless I change 
+%% \chapter{Representations of Finite Groups} to ... finite groups.
+
+%% I use the mtpro2 fonts, but they cost money.
+%\usepackage{mathptmx}
+%\usepackage[scaled=0.92]{helvet}
+%\usepackage[subscriptcorrection,slantedGreek,nofontinfo]{mtpro2}
+
+%% To use the free version of the mtpro2 fonts, replace the last line with
+%\usepackage[lite,subscriptcorrection,slantedGreek,nofontinfo]{mtpro2}
+
+%%%Diagrams
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usetikzlibrary{matrix,arrows,positioning,decorations.pathmorphing}
+\usetikzlibrary{decorations.markings,shapes.geometric}
+\tikzset{commutative diagrams/column sep/Huge/.initial=24ex}
+
+%%Stix gives weird arrow heads in tikzcd; the next line restores the status quo.
+%\tikzcdset{arrow style=math font}
+
+
+%%%Define the chapterstyle daleif2
+\makechapterstyle{daleif2}{
+\renewcommand\chapnamefont{\normalfont\Large\scshape\raggedleft}
+\renewcommand\chaptitlefont{\normalfont\Huge\bfseries\sffamily\raggedleft}
+\renewcommand\chapternamenum{}
+\renewcommand\printchapternum{%
+\makebox[0pt][l]{\hspace{0.4em}%
+\resizebox{!}{4ex}{\chapnamefont\bfseries\sffamily\thechapter}}}
+\renewcommand\afterchapternum{\par\hspace{1.5cm}\hrule\vskip\midchapskip}
+}
+
+%%%Counters and numbering
+\maxsecnumdepth{chapter}
+\maxtocdepth{section}
+\renewcommand{\theequation}{\arabic{equation}}
+\setcounter{page}{-1}
+
+%%Change the numbering of exercises to section-number.
+\renewcommand{\theY}{\arabic{chapter}-\arabic{Y}}
+\renewcommand{\theX}{\arabic{chapter}.\arabic{X}}
+
+%%Get equations numbered consecutively throughout.
+\usepackage{chngcntr}
+\counterwithout{equation}{chapter}
+
+
+%%%Lists
+
+%Get rid of black bullets, which I find ugly
+\renewcommand{\labelitemii}{$\circ$\hspace{0.07in}}
+\renewcommand{\labelitemi}{$\diamond$\hspace{0.07in}}
+
+%%This requires memoir
+\tightlists
+
+%Change enumerate to letters/small roman
+\renewcommand{\theenumi}{{\alph{enumi}}}
+\renewcommand{\labelenumi}{\upshape{(\theenumi)}}
+\renewcommand{\theenumii}{\roman{enumii}}
+\renewcommand{\labelenumii}{\upshape{\theenumii)}}
+
+%%%These definitions are to get the file running smoothly in Scientific Workplace
+%%%They fix problem with SWP misshandling some commands....
+\newcommand\bquote{\begin{quote}}
+\newcommand\equote{\end{quote}}
+\newcommand\bcomment{\begin{comment}}
+\newcommand\ecomment{\end{comment}}
+\newcommand\bsmall{\begin{small}}
+\newcommand\esmall{\end{small}}
+\newcommand\bhangparas{\begin{hangparas}{2em}{1}} %%SWP screws this up completely
+\newcommand\ehangparas{\end{hangparas}}
+\newcommand\tableoc{\tableofcontents}
+%To get \textstyle and \displaystyle painlessly
+\newcommand{\tstyle}{\textstyle}
+\newcommand{\dstyle}{\displaystyle}
+
+%%%Setup for hyperref
+\hypersetup{linkcolor=bblue,anchorcolor=bblue,citecolor=bblue,filecolor=bblue,urlcolor=bblue}
+\hypersetup{pdftitle={Group Theory},pdfauthor={J.S. Milne},pdfkeywords={groups}}
+
+%%%Page setup. Choose one.
+
+%%This gives a text size of 5.5in x 9.0in on a4paper
+\usepackage[textwidth=5.5in,textheight=9.0in,centering,a4paper]{geometry}
+
+%%This gives a text size of 5.5in x 9.0in with margins of 0.5in (better for viewing on screen)
+%\usepackage[papersize={6.5in,10.0in},margin=0.5in,pdftex]{geometry}
+
+

@@ -2132,27 +2132,6 @@ theorem CommGroup.exists_mulEquiv_free_prod_nontrivial_prime_power
     fun i => hp i.1, fun i => e i.1, fun i => Nat.pos_of_ne_zero i.2, ?_⟩
   exact ⟨h.trans (efree.prodCongr (CommGroup.piPrimePowerNeZeroMulEquiv p e))⟩
 
-/-- GT `it21(b)`, invariant-factor existence: the torsion factors can
-be chosen nontrivial and ordered by divisibility. -/
-theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
-    (G : Type*) [CommGroup G] [Group.FG G] :
-    ∃ (r s : ℕ) (n : Fin s → ℕ),
-      (∀ i, 1 < n i) ∧
-      (∀ i : Fin (s - 1),
-        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
-      Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
-        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
-  classical
-  obtain ⟨r, ι, fι, p, hp, e, he, ⟨h⟩⟩ :=
-    CommGroup.exists_mulEquiv_free_prod_nontrivial_prime_power G
-  letI : Fintype ι := fι
-  let s := CommGroup.invariantFactorCount p
-  let n : Fin s → ℕ := CommGroup.invariantFactor p e
-  refine ⟨r, s, n, ?_, ?_, ?_⟩
-  · exact CommGroup.one_lt_invariantFactor p e hp he
-  · exact CommGroup.invariantFactor_dvd_succ p e
-  · exact ⟨h.trans ((MulEquiv.refl _).prodCongr
-      (CommGroup.piPrimePowerEquivInvariantFactors p e hp he))⟩
 
 /-- Bridge: for a free finite `ℤ`-module, the group rank of the multiplicative
 carrier equals the module finrank.  This is the missing `Multiplicative`-functor
@@ -2416,26 +2395,6 @@ theorem CommGroup.freeRank_eq_of_free_prod_torsion
     (CommGroup.freeFactorMulEquiv G (Fin r → Multiplicative ℤ) T hT e)).trans
       (Group.rank_pi_multiplicative_int r)
 
-/-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
-number of infinite cyclic factors is the intrinsic free rank, while the finite
-cyclic factors are nontrivial and divisibility ordered. -/
-theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
-    (G : Type*) [CommGroup G] [Group.FG G] :
-    ∃ (s : ℕ) (n : Fin s → ℕ),
-      (∀ i, 1 < n i) ∧
-      (∀ i : Fin (s - 1),
-        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
-      Nonempty (G ≃* (Fin (CommGroup.freeRank G) → Multiplicative ℤ) ×
-        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
-  obtain ⟨r, s, n, hn, hdvd, ⟨h⟩⟩ :=
-    CommGroup.exists_mulEquiv_free_prod_invariantFactors G
-  letI : ∀ i, NeZero (n i) := fun i =>
-    ⟨ne_of_gt (zero_lt_one.trans (hn i))⟩
-  let hT : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
-    isTorsion_of_finite
-  have hr := CommGroup.freeRank_eq_of_free_prod_torsion G _ hT h
-  subst r
-  exact ⟨s, n, hn, hdvd, ⟨h⟩⟩
 
 /-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
 of the same finitely generated commutative group include their free factors,
@@ -9328,6 +9287,26 @@ theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
   exact pow_dvd_pow (gen p q)
     (monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
 
+/-- `gen_ne_zero`: the generator of a nonzero elementary prime ideal is
+nonzero (in an integral domain). -/
+theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
+    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
+    (q : elementaryPrimes p) : gen p q ≠ 0 := by
+  intro h
+  have hsp : R ∙ gen p q = (q.1 : Ideal R) := span_singleton_gen p q
+  rw [h, Submodule.span_singleton_eq_bot.mpr rfl] at hsp
+  exact hne q hsp.symm
+
+/-- `invariantFactor_ne_zero`: an invariant factor (a product of powers of
+generators of nonzero prime ideals) is nonzero in an integral domain. -/
+theorem invariantFactor_ne_zero [IsDomain R] (p : ι → Ideal R) (e : ι → ℕ)
+    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
+    (j : Fin (invariantFactorCount p)) : invariantFactor p e j ≠ 0 := by
+  show (∏ q, gen p q ^ paddedExponent p e q j) ≠ 0
+  apply Finset.prod_ne_zero_iff.mpr
+  intro q _
+  exact pow_ne_zero _ (gen_ne_zero p hne q)
+
 end PID
 /-! ## Generic product reindexing linear equivalences -/
 
@@ -9552,6 +9531,7 @@ theorem exists_linearEquiv_free_prod_invariantFactors
     (R M : Type*) [CommRing R] [IsPrincipalIdealRing R] [IsDomain R]
     [AddCommGroup M] [Module R M] [Module.Finite R M] :
     ∃ (r s : ℕ) (n : Fin s → R),
+      (∀ j, n j ≠ 0) ∧
       (∀ j, ¬ IsUnit (n j)) ∧
       (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
       Nonempty (M ≃ₗ[R] (Fin r →₀ R) ×
@@ -9568,9 +9548,17 @@ theorem exists_linearEquiv_free_prod_invariantFactors
   let e' : ι' → ℕ := fun i => e i.1
   have he' : ∀ i : ι', 0 < e' i := fun i => Nat.pos_of_ne_zero i.2
   have hmax' : ∀ i : ι', (p' i).IsMaximal := fun i => hmax i.1
+  have hne : ∀ q : PIDInvariantFactors.elementaryPrimes p',
+      (q.1 : Ideal R) ≠ ⊥ := by
+    intro q
+    rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
+    rw [← hi, ne_eq, Submodule.span_singleton_eq_bot]
+    exact Irreducible.ne_zero (hp i.1)
   let s := PIDInvariantFactors.invariantFactorCount p'
   let n : Fin s → R := PIDInvariantFactors.invariantFactor p' e'
-  refine ⟨r, s, n, ?_, ?_, ?_⟩
+  refine ⟨r, s, n, ?_, ?_, ?_, ?_⟩
+  · intro j
+    exact PIDInvariantFactors.invariantFactor_ne_zero p' e' hne j
   · intro j
     exact PIDInvariantFactors.not_isUnit_invariantFactor p' e' hmax' he' j
   · exact PIDInvariantFactors.invariantFactor_dvd_succ p' e'
@@ -9587,17 +9575,88 @@ theorem exists_linearEquiv_free_prod_invariantFactors
 theorem exists_addEquiv_free_prod_invariantFactors_zmod
     (G : Type*) [AddCommGroup G] [AddGroup.FG G] :
     ∃ (r s : ℕ) (n : Fin s → ℤ),
+      (∀ j, n j ≠ 0) ∧
       (∀ j, ¬ IsUnit (n j)) ∧
       (∀ i : Fin (s - 1), n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
       Nonempty (G ≃+ (Fin r →₀ ℤ) × ((j : Fin s) → ZMod (n j).natAbs)) := by
   classical
-  obtain ⟨r, s, n, hn, hdvd, ⟨e⟩⟩ :=
+  obtain ⟨r, s, n, hn0, hn, hdvd, ⟨e⟩⟩ :=
     exists_linearEquiv_free_prod_invariantFactors ℤ G
-  refine ⟨r, s, n, hn, hdvd, ?_⟩
+  refine ⟨r, s, n, hn0, hn, hdvd, ?_⟩
   exact ⟨(e.toAddEquiv).trans (AddEquiv.prodCongr (AddEquiv.refl _)
     (AddEquiv.piCongrRight fun j => (Int.quotientSpanEquivZMod (n j)).toAddEquiv))⟩
 
 end Module
+/-- GT `it21(b)`, invariant-factor existence: the torsion factors can
+be chosen nontrivial and ordered by divisibility. -/
+theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (r s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin r → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  obtain ⟨r, s, k, hk0, hk1, hdvd, ⟨e⟩⟩ :=
+    Module.exists_addEquiv_free_prod_invariantFactors_zmod (Additive G)
+  let n : Fin s → ℕ := fun j => (k j).natAbs
+  refine ⟨r, s, n, ?_, ?_, ?_⟩
+  · intro i
+    have hlt : 1 < (k i).natAbs := by
+      have hn0 : 0 < (k i).natAbs := Int.natAbs_pos.mpr (hk0 i)
+      have hn1 : (k i).natAbs ≠ 1 := by
+        intro h
+        have : k i = 1 ∨ k i = -1 := by
+          rcases Int.natAbs_eq (k i) with h' | h'
+          · left; omega
+          · right; omega
+        exact hk1 i (Int.isUnit_iff.mpr this)
+      omega
+    exact hlt
+  · intro i
+    exact Int.natAbs_dvd_natAbs.mpr (hdvd i)
+  · let eA : (Fin r →₀ ℤ) ≃+ (Fin r → ℤ) := by
+      refine { Finsupp.equivFunOnFinite with map_add' := ?_ }
+      intro f g; ext i; rfl
+    let eM : G ≃* Multiplicative (Additive G) :=
+      (MulEquiv.multiplicativeAdditive G).symm
+    let eP : Multiplicative (Additive G) ≃*
+        Multiplicative ((Fin r →₀ ℤ) × ((j : Fin s) → ZMod (k j).natAbs)) :=
+      e.toMultiplicative
+    let eD : Multiplicative ((Fin r →₀ ℤ) × ((j : Fin s) → ZMod (k j).natAbs)) ≃*
+        Multiplicative (Fin r →₀ ℤ) × Multiplicative ((j : Fin s) → ZMod (k j).natAbs) :=
+      MulEquiv.prodMultiplicative _ _
+    let eFree : Multiplicative (Fin r →₀ ℤ) ≃* (Fin r → Multiplicative ℤ) :=
+      (eA.toMultiplicative).trans (MulEquiv.funMultiplicative (Fin r) ℤ)
+    let eTor : Multiplicative ((j : Fin s) → ZMod (k j).natAbs) ≃*
+        ((j : Fin s) → Multiplicative (ZMod (k j).natAbs)) :=
+      MulEquiv.piMultiplicative (fun j => ZMod (k j).natAbs)
+    let eAll : Multiplicative (Additive G) ≃*
+        (Fin r → Multiplicative ℤ) × ((j : Fin s) → Multiplicative (ZMod (k j).natAbs)) :=
+      eP.trans (eD.trans (MulEquiv.prodCongr eFree eTor))
+    exact ⟨eM.trans eAll⟩
+
+/-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
+number of infinite cyclic factors is the intrinsic free rank, while the finite
+cyclic factors are nontrivial and divisibility ordered. -/
+theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
+    (G : Type*) [CommGroup G] [Group.FG G] :
+    ∃ (s : ℕ) (n : Fin s → ℕ),
+      (∀ i, 1 < n i) ∧
+      (∀ i : Fin (s - 1),
+        n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) ∧
+      Nonempty (G ≃* (Fin (CommGroup.freeRank G) → Multiplicative ℤ) ×
+        ((i : Fin s) → Multiplicative (ZMod (n i)))) := by
+  obtain ⟨r, s, n, hn, hdvd, ⟨h⟩⟩ :=
+    CommGroup.exists_mulEquiv_free_prod_invariantFactors G
+  letI : ∀ i, NeZero (n i) := fun i =>
+    ⟨ne_of_gt (zero_lt_one.trans (hn i))⟩
+  let hT : Monoid.IsTorsion ((i : Fin s) → Multiplicative (ZMod (n i))) :=
+    isTorsion_of_finite
+  have hr := CommGroup.freeRank_eq_of_free_prod_torsion G _ hT h
+  subst r
+  exact ⟨s, n, hn, hdvd, ⟨h⟩⟩
+
 
 /-!
 ## Improvements for Mathlib
