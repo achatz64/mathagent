@@ -17,7 +17,7 @@ main agent has).
 The default import block should include:
 
 1. `import Mathlib` — always
-2. The current project target file (e.g. `import GT`) — so subagents have
+2. The current project target file (e.g. `import Target`) — so subagents have
    access to all target-local declarations without pasting them into branches
 3. Any Extlib dependencies referenced by the formalization task
 

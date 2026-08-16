@@ -130,3 +130,9 @@ missing general-purpose interface, record it in the output Lean file under
 Do not treat these upstream suggestions as source-faithfulness gaps, and do not
 overstate a speculative proof as checked. Project-specific wrappers do not need
 an entry merely because they are absent from the external library.
+
+## Other criteria for obligation candidates
+
+- The proof must be minimal and search through all possibly available helpers in Mathlib and other available external libs.
+- Library covers it up to the epsilon of X ⇒ not enough to be an obligation
+
