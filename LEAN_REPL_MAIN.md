@@ -61,3 +61,5 @@ If an integrated build fails, reproduce the failing fragment in `lean_repl`,
 fix it there, and only then rebuild.
 
 After rebuild the REPL must be restarted to include target modifications.
+
+NEVER use tmp lean files to build, always the Target or the use the REPL.
