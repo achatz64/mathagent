@@ -1368,7 +1368,9 @@ theorem isCyclic_of_card_pow_eq_one_le' {G : Type*} [Group G] [Fintype G]
   isCyclic_of_card_pow_eq_one_le hroots
 
 /-- GT `it20` and the existence clause of `it21`: the structure theorem for
-finitely generated commutative groups, in Mathlib's prime-power interface. -/
+finitely generated commutative groups, in Mathlib's prime-power interface.
+This is the displayed decomposition `M ≈ C_{n₁}×…×C_{nₛ}×C_∞^r` (`e6`) in
+prime-power (elementary-divisor) form. -/
 theorem CommGroup.exists_mulEquiv_free_prod_prime_power
     (G : Type*) [CommGroup G] [Group.FG G] :
     ∃ (ι j : Type) (_ : Fintype ι) (_ : Fintype j) (p : ι → ℕ)
@@ -8676,6 +8678,7 @@ section PID
 variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
 variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 
+omit [DecidableEq ι] in
 /-- `principal_of_mem_image`: see the surrounding section documentation. -/
 theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
     (q.1 : Ideal R).IsPrincipal :=
@@ -8685,11 +8688,13 @@ theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
 noncomputable def gen (p : ι → Ideal R) (q : elementaryPrimes p) : R :=
   Submodule.IsPrincipal.generator q.1
 
+omit [DecidableEq ι] in
 /-- `span_singleton_gen`: see the surrounding section documentation. -/
 theorem span_singleton_gen (p : ι → Ideal R) (q : elementaryPrimes p) :
     (R ∙ gen p q : Ideal R) = q.1 :=
   Submodule.IsPrincipal.span_singleton_generator q.1
 
+omit [IsPrincipalIdealRing R] [DecidableEq ι] in
 /-- `isMaximal_of_mem_elementaryPrimes`: see the surrounding section documentation. -/
 theorem isMaximal_of_mem_elementaryPrimes (p : ι → Ideal R)
     (hmax : ∀ i, (p i).IsMaximal) (q : elementaryPrimes p) :
@@ -8702,6 +8707,7 @@ noncomputable def invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
     (j : Fin (invariantFactorCount p)) : R :=
   ∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j
 
+omit [IsPrincipalIdealRing R] [DecidableEq ι] in
 /-- `isCoprime_pow_pow_ideal`: see the surrounding section documentation. -/
 theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
     {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
@@ -8711,6 +8717,7 @@ theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaxi
   haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
   exact (Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne).pow_left (m := a) |>.pow_right (n := b)
 
+omit [DecidableEq ι] in
 /-- `isCoprime_generator_pow_pow`: see the surrounding section documentation. -/
 theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
     {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
@@ -8724,6 +8731,7 @@ theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).Is
   exact (Ideal.isCoprime_span_singleton_iff (gen p q) (gen p r)).mp hc
     |>.pow_left (m := a) |>.pow_right (n := b)
 
+omit [IsPrincipalIdealRing R] in
 /-- `monotone_paddedExponent`: see the surrounding section documentation. -/
 theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
     (q : elementaryPrimes p) :
@@ -8738,6 +8746,7 @@ theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
     exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
   · rw [paddedExponent, dif_neg hj]
     exact Nat.zero_le _
+omit [IsPrincipalIdealRing R] in
 /-- `exists_pos_paddedExponent`: see the surrounding section documentation. -/
 theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : ∀ i, 0 < e i)
     (j : Fin (invariantFactorCount p)) :
@@ -8788,6 +8797,7 @@ theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
   exact pow_dvd_pow (gen p q)
     (monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
 
+omit [DecidableEq ι] in
 /-- `gen_ne_zero`: the generator of a nonzero elementary prime ideal is
 nonzero (in an integral domain). -/
 theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
