@@ -8985,12 +8985,52 @@ item names the present API and a checked proof route or concrete extension.
   checked implementation is
   `CommGroup.piPrimePowerEquivInvariantFactors` together with
   `CommGroup.exists_mulEquiv_free_prod_invariantFactors`.
-* The reusable rank facts `Group.rank_pi_le_card_of_zpowers_eq_top`,
-  `Group.rank_pi_multiplicative_zmod_two`, and
-  `Group.rank_pi_multiplicative_int` could complement
-  `Mathlib.GroupTheory.Schreier`.  Their proofs use coordinate generators for
-  the upper bounds and reduction modulo two plus
-  `card_dvd_exponent_pow_rank` for the lower bound.
+* The `Multiplicative`/`Additive` type-tag functor
+  (`Mathlib.Algebra.Group.TypeTags.*`, plus scattered transport lemmas in
+  `GroupTheory.Finiteness`, `Algebra.Group.Submonoid.Operations`,
+  `GroupTheory.Exponent`, `GroupTheory.OrderOfElement`) transports morphisms,
+  `Finite`/`Fintype`, `FG`, subgroup closure, exponent, and element order
+  between additive and multiplicative groups — but is missing its
+  `Group.rank` entry.  `rank` is the natural partner of `exponent` (which *is*
+  transported, as `Monoid.exponent (Multiplicative G) = AddMonoid.exponent G`),
+  and its prerequisite `FG` is transported (`Group.fg_of_mul_group_fg`); the
+  rank transport itself is absent, so the target's `rank_pi_multiplicative_int`,
+  `rank_pi_multiplicative_zmod_two`, and `rank_pi_le_card_of_zpowers_eq_top`
+  are hand-rolled specific computations rather than corollaries of
+  `Module.finrank`.
+  The proposed contribution is two declarations, completing the package at
+  this gap:
+  (i) an instance `instance [AddCommGroup M] [Module.Finite ℤ M] :
+    AddGroup.FG M` registering the existing lemma `Module.Finite.iff_addGroup_fg`
+    (currently a `theorem`, not an instance, so the FG-transport does not
+    auto-compose with module-finiteness);
+  (ii) the rank-transport lemma
+    `Group.rank (Multiplicative M) = Module.finrank ℤ M` for `[AddCommGroup M]`
+    `[Module ℤ M] [Module.Free ℤ M] [Module.Finite ℤ M]` (the instance from (i)
+    supplies `Group.FG (Multiplicative M)` via `Group.fg_of_mul_group_fg`).
+  Proof sketch (checked in the project REPL, axioms `[propext, Classical.choice,
+  Quot.sound]`, matching `Group.rank` and `Module.finrank`): let
+  `b := Module.Free.chooseBasis ℤ M`, `ι := Module.Free.ChooseBasisIndex ℤ M`,
+  so `Module.finrank_eq_card_chooseBasisIndex` gives `finrank = card ι`.
+  *Upper bound* `rank ≤ finrank`: the `card ι` basis vectors
+  `Multiplicative.ofAdd (b i)` generate `Multiplicative M` as a group — their
+  group closure corresponds, via `Subgroup.toAddSubgroup'_closure` /
+  `AddSubgroup.toSubgroup_closure` and `Submodule.span_int_eq_addSubgroupClosure`
+  (all ℤ-module structures on an `AddCommGroup` coincide, via
+  `AddCommMonoid.subsingletonIntModule`), to the ℤ-span, which is `⊤` by
+  `b.span_eq`; wrap in a `Finset` and apply `Group.rank_le`.
+  *Lower bound* `finrank ≤ rank`: from `Group.rank_spec` take a minimal
+  generating `Finset S`; `Multiplicative.toAdd '' S` spans `M` as a ℤ-module
+  (same closure↔span bridge), so `finrank_le_of_span_eq_top` gives
+  `finrank ≤ card S = rank`; conclude `le_antisymm`.
+  With (i)+(ii), the three target theorems collapse: the two specific ones
+  become `Group.rank (Multiplicative M) = Module.finrank ℤ M` instantiated at
+  `M = Fin r → ℤ` / `Fin r → ZMod 2` and discharged by
+  `Module.finrank_fintype_fun_eq_card` (no exponent/card lower-bound argument
+  needed); the product upper bound becomes the `Module.finrank_pi_fintype`
+  specialisation.  The target's current `card_dvd_exponent_pow_rank'` lower
+  bound for the `ZMod 2` case is then target-local convenience, not the
+  upstream route.
 * The centre of a group algebra.  Mathlib has no group-specific centre API for
   `MonoidAlgebra R G` (the de-facto group algebra); group content is scattered
   (averaging in `RepresentationTheory.Invariants`, semisimplicity in
