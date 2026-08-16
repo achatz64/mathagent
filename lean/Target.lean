@@ -1,6 +1,7 @@
 import Mathlib.Algebra.Group.Subgroup.Pointwise
 import Mathlib.Algebra.Central.Basic
 import Mathlib.Algebra.Central.Matrix
+import Mathlib.Algebra.Algebra.Subalgebra.Pi
 import Mathlib.Algebra.Field.ZMod
 import Mathlib.Algebra.Module.ZMod
 import Mathlib.Data.List.NodupEquivFin
@@ -1687,18 +1688,14 @@ noncomputable def Finite.sortedEquivData {α : Type*} [Fintype α] (f : α → �
   let tie := Fintype.equivFin α
   letI : LinearOrder α := LinearOrder.lift' (fun x => toLex (f x, tie x))
     (fun x y h => tie.injective (congrArg (fun z => (ofLex z).2) h))
-  let O := (Finset.univ : Finset α).orderIsoOfFin
-    (k := Fintype.card α) (by simp)
-  let U : (Finset.univ : Finset α) ≃ α :=
-    { toFun := (↑)
-      invFun := fun x => ⟨x, Finset.mem_univ x⟩
-      left_inv := fun _ => rfl
-      right_inv := fun _ => rfl }
-  let E := O.toEquiv.trans U
-  refine ⟨E, ?_⟩
+  -- Mathlib `Fintype.orderIsoFinOfCardEq` (Data/Finset/Sort.lean) packages
+  -- `(Finset.univ.orderIsoOfFin h).trans ((OrderIso.setCongr _ _ coe_univ).trans
+  --  OrderIso.Set.univ)`, the increasing `Fin (card α) ≃o α` for this linear order.
+  let O : Fin (Fintype.card α) ≃o α := Fintype.orderIsoFinOfCardEq α rfl
+  refine ⟨O.toEquiv, ?_⟩
   intro i j hij
   have h := O.monotone hij
-  change toLex (f (E i), tie (E i)) ≤ toLex (f (E j), tie (E j)) at h
+  change toLex (f (O i), tie (O i)) ≤ toLex (f (O j), tie (O j)) at h
   rcases (Prod.lex_def.mp h) with h | h
   · exact h.le
   · exact h.1.le
@@ -2168,23 +2165,16 @@ theorem Group.rank_pi_le_card_of_zpowers_eq_top {ι : Type*} [Fintype ι]
   have hclosure : Subgroup.closure (S : Set (∀ i, A i)) = ⊤ := by
     rw [eq_top_iff]
     intro x _
-    have hx : x = ∏ i, Pi.mulSingle i (x i) := by
-      ext j
-      simp
-    rw [hx]
+    -- Mathlib `Finset.univ_prod_mulSingle` rewrites `x` to the product of its
+    -- coordinate injections; `Pi.mulSingle_zpow` rephrases a coordinate power.
+    rw [← Finset.univ_prod_mulSingle x]
     apply Subgroup.prod_mem
     intro i _
-    obtain ⟨z, hz⟩ := hg i (x i)
     have hgi : Pi.mulSingle i (g i) ∈ Subgroup.closure (S : Set (∀ i, A i)) :=
-      Subgroup.subset_closure (Finset.mem_coe.mpr
-        (Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩))
-    have := (Subgroup.closure (S : Set (∀ i, A i))).zpow_mem hgi z
-    convert this using 1
-    ext j
-    by_cases hji : j = i
-    · subst j
-      simpa using hz.symm
-    · simp [Pi.mulSingle, hji]
+      Subgroup.subset_closure (by simp [S])
+    obtain ⟨z, hz⟩ := hg i (x i)
+    rw [← hz, Pi.mulSingle_zpow i (g i) z]
+    exact (Subgroup.closure (S : Set (∀ i, A i))).zpow_mem hgi z
   exact (Group.rank_le hclosure).trans
     (Finset.card_image_le.trans_eq Finset.card_univ)
 
@@ -2200,23 +2190,16 @@ theorem Group.rank_pi_multiplicative_zmod_two (r : ℕ) :
           apply Multiplicative.toAdd.injective
           simp⟩)
     simpa using hle
-  · by_cases hr : r = 0
-    · omega
-    haveI : Nonempty (Fin r) := Fin.pos_iff_nonempty.mp (Nat.pos_of_ne_zero hr)
-    have hd := card_dvd_exponent_pow_rank (Fin r → Multiplicative (ZMod 2))
-    have hcard : Nat.card (Fin r → Multiplicative (ZMod 2)) = 2 ^ r := by
-      rw [Nat.card_pi]
-      simp_rw [Nat.card_congr Multiplicative.toAdd, Nat.card_zmod]
-      simp
-    have hexponent : Monoid.exponent (Fin r → Multiplicative (ZMod 2)) = 2 := by
-      rw [Monoid.exponent_pi]
-      simp_rw [show Monoid.exponent (Multiplicative (ZMod 2)) = 2 by
-        exact ZMod.exponent 2]
-      apply Nat.dvd_antisymm
-      · exact Finset.lcm_dvd fun _ _ => dvd_rfl
-      · exact Finset.dvd_lcm (Finset.mem_univ (Classical.choice this))
-    rw [hcard, hexponent, Nat.pow_dvd_pow_iff_le_right (by omega)] at hd
-    exact hd
+  -- Mathlib `card_dvd_exponent_pow_rank'` uses the uniform exponent bound
+  -- `∀ g, g ^ 2 = 1` directly, so the `exponent_pi`/`ZMod.exponent`/`lcm`
+  -- block and the `r = 0` case split are no longer needed.
+  have hd := card_dvd_exponent_pow_rank' (G := Fin r → Multiplicative (ZMod 2)) (n := 2)
+      (by intro g; ext i; apply Multiplicative.toAdd.injective; simp
+          change (↑(2 : ℕ) : ZMod 2) * Multiplicative.toAdd (g i) = 0
+          rw [ZMod.natCast_self, zero_mul])
+  have hcard : Nat.card (Fin r → Multiplicative (ZMod 2)) = 2 ^ r := by simp
+  rw [hcard, Nat.pow_dvd_pow_iff_le_right (by omega : 1 < 2)] at hd
+  exact hd
 
 /-- The free abelian group of rank `r` needs exactly `r` generators. -/
 theorem Group.rank_pi_multiplicative_int (r : ℕ) :
@@ -4587,21 +4570,19 @@ def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
   map_smul' := by intros; ext; simp
 
 /-- The centre of a finite product is the product of the centres. -/
-def Subalgebra.centerPiLinearEquiv {ι : Type*} [DecidableEq ι]
+def Subalgebra.centerPiLinearEquiv {ι : Type*}
     (B : ι → Type*) [∀ i, Ring (B i)] [∀ i, Algebra k (B i)] :
     Subalgebra.center k (∀ i, B i) ≃ₗ[k] ∀ i, Subalgebra.center k (B i) where
+  -- Delegate the centre-of-product equality to Mathlib `Subalgebra.center_pi`
+  -- and the coordinatewise membership to `Subalgebra.mem_pi`, instead of
+  -- re-deriving it via `Subalgebra.mem_center_iff` + `Function.update`.
   toFun z i := ⟨z.val i, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    let y : ∀ i, B i := Function.update 0 i b
-    have h := Subalgebra.mem_center_iff.mp z.property y
-    have hi := congrArg (fun x : ∀ i, B i => x i) h
-    simpa [y] using hi⟩
+    have hz : z.val ∈ Subalgebra.pi Set.univ fun i => Subalgebra.center k (B i) := by
+      rw [← Subalgebra.center_pi]; exact z.property
+    exact Subalgebra.mem_pi.mp hz i trivial⟩
   invFun z := ⟨fun i => z i, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    funext i
-    exact Subalgebra.mem_center_iff.mp (z i).property (b i)⟩
+    rw [Subalgebra.center_pi, Subalgebra.mem_pi]
+    intro i _; exact (z i).property⟩
   left_inv := by intro z; ext i; rfl
   right_inv := by intro z; ext i; rfl
   map_add' := by intros; ext i; rfl
