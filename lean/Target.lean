@@ -8991,11 +8991,26 @@ item names the present API and a checked proof route or concrete extension.
   `Mathlib.GroupTheory.Schreier`.  Their proofs use coordinate generators for
   the upper bounds and reduction modulo two plus
   `card_dvd_exponent_pow_rank` for the lower bound.
-* `MonoidAlgebra.centerEquivClassFunction` and the conjugacy-class-sum basis
-  provide a reusable group-algebra interface not currently exposed by the
-  representation-theory imports.  The proof is coefficient extensionality:
-  centrality is equivalent to conjugacy invariance, and class sums map to the
-  delta-function basis on `ConjClasses`.
+* The centre of a group algebra.  Mathlib has no group-specific centre API for
+  `MonoidAlgebra R G` (the de-facto group algebra); group content is scattered
+  (averaging in `RepresentationTheory.Invariants`, semisimplicity in
+  `RepresentationTheory.Maschke`, coefficient rules in `SkewMonoidAlgebra`),
+  with no link to `ConjClasses`.  The elementary statement is two-tiered:
+  (i) for *any* group `G` and *any* (commutative semiring) `R`, coefficient
+  evaluation descends to an `R`-linear map `Z(R[G]) →ₗ[R] ConjClasses G → R`,
+  well-defined because central elements have equal coefficients on conjugate
+  elements (the forward direction needs no `Fintype`); (ii) for *finite* `G`,
+  this is an `R`-linear equivalence `Z(R[G]) ≃ₗ[R] ConjClasses G → R`, the
+  inverse sending a class function to its (finite) class-sum linear
+  combination.  The current target over-restricts both directions to
+  `[Field k]` and bundles the forward direction under `[Fintype G]`; the
+  upstream version should drop `Field` to a `Semiring`/`CommSemiring` base and
+  expose the all-groups forward map separately.  Class sums then form the
+  delta-function basis of `Z(R[G])` (finite `G`), giving
+  `finrank R Z(R[G]) = Nat.card (ConjClasses G)`.  The checked implementation is
+  `MonoidAlgebra.coeff_eq_of_mem_center` (forward, well-definedness),
+  `MonoidAlgebra.centerEquivClassFunction` (the finite-`G` equivalence), and
+  `MonoidAlgebra.conjClassSumBasis`.
 
 ## Explicit omission ledger
 
