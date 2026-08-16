@@ -9668,10 +9668,23 @@ item names the present API and a checked proof route or concrete extension.
 * `Module.Basis.SmithNormalForm` and `Submodule.smithNormalForm` in
   `Mathlib.LinearAlgebra.FreeModule.PID` currently package diagonal bases but
   do not expose the standard divisibility chain on diagonal coefficients.
-  The PID induction in `Submodule.basis_of_pid_aux` could be strengthened to
-  preserve that chain.  Over `ℤ`, `Submodule.quotientEquivPiZMod` could then
-  return canonical invariant factors rather than an arbitrary diagonal cyclic
-  decomposition.
+  Strengthening the PID induction `Submodule.basis_of_pid_aux` to preserve
+  that chain would let `Submodule.quotientEquivPiZMod` return canonical
+  (divisibility-ordered, nonzero) invariant factors directly from an arbitrary
+  finite presentation — the standard textbook route.
+  This is a *different, complementary route* from the CRT/elementary-divisor
+  reindexing the target now implements: `Module.exists_linearEquiv_free_prod_invariantFactors`
+  (general PID) and `Module.exists_addEquiv_free_prod_invariantFactors_zmod`
+  (the `ℤ` additive corollary) derive the invariant-factor decomposition by
+  sorting and right-aligning the prime-power exponents from
+  `Module.equiv_free_prod_directSum` and reindexing the CRT product, giving the
+  full divisibility chain `n j ∣ n (j+1)` and nonzeroness `n j ≠ 0`.  The two
+  routes are mathematically equivalent but API-distinct: the target's CRT route
+  consumes the prime-power decomposition as input, whereas the SNF route works
+  from an arbitrary presentation matrix and is the natural extension of the
+  existing `Module.Basis.SmithNormalForm` infrastructure.  The SNF
+  strengthening therefore remains a genuine upstream obligation rather than
+  being subsumed by the target's theorem.
 * `CommGroup.equiv_free_prod_prod_multiplicative_zmod` supplies the
   elementary-divisor side of the finitely generated abelian-group structure
   theorem.  A divisibility-ordered invariant-factor companion can follow the
