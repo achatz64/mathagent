@@ -4546,24 +4546,15 @@ theorem MonoidAlgebra.coeff_eq_of_mem_center
   have hv := congrArg (fun x : MonoidAlgebra k G => x (c * a)) hc
   simpa [MonoidAlgebra.single_mul_apply, MonoidAlgebra.mul_single_apply] using hv
 
-/-- An algebra equivalence restricts to a linear equivalence of centres. -/
+/-- An algebra equivalence restricts to a linear equivalence of centres.
+The centrality transport is Mathlib's `MulEquivClass.apply_mem_center_iff`
+(the centre is preserved by a mul-equivalence); only the `k`-linear
+equivalence wrapping is target-specific. -/
 def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
     [Ring B] [Algebra k B] (e : A ≃ₐ[k] B) :
     Subalgebra.center k A ≃ₗ[k] Subalgebra.center k B where
-  toFun z := ⟨e z, by
-    rw [Subalgebra.mem_center_iff]
-    intro b
-    obtain ⟨a, rfl⟩ := e.surjective b
-    exact (map_mul e a (z : A)).symm.trans
-      ((congrArg e (Subalgebra.mem_center_iff.mp z.property a)).trans
-        (map_mul e (z : A) a))⟩
-  invFun z := ⟨e.symm z, by
-    rw [Subalgebra.mem_center_iff]
-    intro a
-    obtain ⟨b, rfl⟩ := e.symm.surjective a
-    exact (map_mul e.symm b (z : B)).symm.trans
-      ((congrArg e.symm (Subalgebra.mem_center_iff.mp z.property b)).trans
-        (map_mul e.symm (z : B) b))⟩
+  toFun z := ⟨e z, (MulEquivClass.apply_mem_center_iff e).mpr z.property⟩
+  invFun z := ⟨e.symm z, (MulEquivClass.apply_mem_center_iff e.symm).mpr z.property⟩
   left_inv := by intro z; ext; simp
   right_inv := by intro z; ext; simp
   map_add' := by intros; ext; simp
