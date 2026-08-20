@@ -43,11 +43,17 @@ Check statement fidelity. Put an actionable `AUDIT-GAP` beside the partial decla
 
 We follow the Mathlib conventions as outlined [here](https://leanprover-community.github.io/contribute/naming.html).
 
+When choosing names, it is important to choose names that make sense and feel natural in the context of the [documentation string](#documentation-audit). For example, for a simple construction in combinatorics, which will later be used in the context of ring theory, a name like `elementaryPrimes` is not adequate, because the construction will have nothing to do with primes, only the application.  
+
 # Documentation audit
 
-Is the inline documentation satisfactory in terms of quantity and quality? Follwing criteria must be satisfied:
-- All constructions and proofs must explain the idea in textbook math terms.
-- Theorems, lemmas etc. must have a textbook math documentation of the statements and the ideas entering the proof.
+Is the inline documentation satisfactory in terms of quantity and quality? 
+
+Following criteria must be satisfied:
+- All construction's and proof's documentation must explain the idea in textbook math terms. 
+- Theorems, lemmas etc. must have a textbook math documentation of the statements and the ideas entering the proof. If no new idea enters in the proof (e.g. unpacking, repacking) then the documentation must declare it as trivial. 
+- The documentation of a construction or a proof must not contain contend relating to other defs or proofs with the only exception of listing dependencies and where they enter. For example, it a thm A will be used by another thm B in the future, then the documentation of B may mention A, but A may not mention B. 
+- State the nature of the construction, statement or proof in the surrounding contex. For examples: `technical lemma`, `main theorem of this section`, `auxilary construction`, `key lemma`, `key construction`, etc. [TODO: enum to be specified]. 
 
 # Obligation to external library audit
 

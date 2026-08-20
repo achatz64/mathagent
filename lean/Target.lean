@@ -8440,9 +8440,29 @@ open scoped BigOperators Function
 
 namespace PIDInvariantFactors
 
-/-! ## Generic monotone enumeration -/
+/-! ## Generic monotone enumeration
 
-/-- `sortedEquivData`: see the surrounding section documentation. -/
+Textbook math: the elementary-divisor combinatorics below need to index a
+finite collection of objects (primes, exponent vectors, …) by `Fin N` in an
+order where a counting function never decreases. The gadget `sortedEquivData`
+builds such an enumeration for any finite type `α` and any `f : α → ℕ`: it
+sorts `α` by `f` (ties broken by a canonical tie-breaker) and returns both the
+bijection and a proof that `f` is monotone along it. `sortedEquiv` and
+`monotone_sortedEquiv` are its two projections. -/
+
+/-- `sortedEquivData`
+Textbook math: let `α` be a finite set of size `N = |α|` and `f : α → ℕ` any
+function. This returns a dependent pair consisting of a bijection
+`E : Fin N ≃ α` together with a proof that the sequence
+`f(E 0), f(E 1), …, f(E N-1)` is nondecreasing (monotone in the Lean sense,
+i.e. `i ≤ j → f(E i) ≤ f(E j)`).
+
+Construction: choose any fixed bijection `τ : α → Fin N` (a tie-breaker),
+declare `x ≤ y` iff `(f x, τ x) ≤_lex (f y, τ y)`, list `α` in increasing order,
+and let `E` be that enumeration. Ties in `f` are broken by `τ`, so the result
+is deterministic; by the lexicographic definition `f(E i) ≤ f(E j)` whenever
+`i ≤ j`. This is the generic "sort the elements of `α` by their `f`-values"
+gadget used below to order prime columns. -/
 noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
     {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
   let tie := Fintype.equivFin α
@@ -8457,44 +8477,115 @@ noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
   · exact h.le
   · exact h.1.le
 
-/-- `sortedEquiv`: see the surrounding section documentation. -/
+/-- `sortedEquiv`
+Textbook math: the projection of `sortedEquivData` to the bijection itself,
+`E : Fin N ≃ α`. It enumerates `α` in non-decreasing order of `f` (ties broken
+by the canonical tie-breaker `τ`). It is defined literally as
+`(sortedEquivData f).1`, so it is defeq to the first component of the bundled
+pair; this is what lets `monotone_sortedEquiv` reuse the pair's second
+component with no proof. -/
 noncomputable def sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
     Fin (Fintype.card α) ≃ α :=
   (sortedEquivData f).1
 
-/-- `monotone_sortedEquiv`: see the surrounding section documentation. -/
+/-- `monotone_sortedEquiv`:
+Textbook math: the monotonicity certificate,
+`Monotone (λ j, f (sortedEquiv f j))`. Its proof is trivial.
+-/
 theorem monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
     Monotone (fun j => f (sortedEquiv f j)) :=
   (sortedEquivData f).2
 
-/-! ## Generic elementary-divisor combinatorics -/
+/-! ## Generic elementary-divisor combinatorics
 
-/-- `elementaryPrimes`: see the surrounding section documentation. -/
+Textbook math: a finitely generated module over a PID decomposes as a direct
+sum of cyclic modules `R/(p_i^{e_i})` (elementary divisors), where each `p_i`
+is a prime element/ideal. Fix a finite index set `ι` and a labeling
+`p : ι → α` recording, for each summand `i`, which prime `p i` it uses, together
+with its exponent `e i`. The constructions here organize this data into the
+Smith normal form rectangle: `elementaryPrimes p` are the distinct primes,
+`primeFiber p q` the `q`-summands, `primeMultiplicity p q` their count, and
+`invariantFactorCount p` the maximal count (the rectangle height `s`).
+`paddedExponent` places the sorted `q`-exponents into the bottom `c` rows of
+column `q` and pads the top with zeros; `elementaryColumn`/`elementaryPrime`
+invert this placement, and `paddedExponent_elementaryColumn` records that the
+embedding is lossless. Downstream, row-products of these entries give the
+invariant factors `d_j` with `d_j | d_{j+1}`. -/
+
+/-- `elementaryPrimes`: see the surrounding section documentation.
+
+Textbook math: for a finite labeling `p : ι → α`, this is the subtype of
+*q-distinct values actually attained by `p`*,
+`{ q : α // q ∈ image(p) }`. Abstractly it is just "the set of distinct labels
+appearing in the list `p`". In the intended instantiation `α = Ideal R` and
+`p i` is the prime/maximal ideal attached to the `i`-th elementary-divisor
+summand, so `elementaryPrimes p` becomes the set of distinct primes occurring
+among the summands — the "elementary primes". The name records this intended
+use; the definition itself is prime-agnostic. -/
 abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :=
   {q : α // q ∈ Finset.univ.image p}
 
-/-- `primeFiber`: see the surrounding section documentation. -/
+/-- `primeFiber`: see the surrounding section documentation.
+
+Textbook math: for a label `p : ι → α` and a value `q : α`, `primeFiber p q`
+is the subtype `{ i : ι // p i = q }` — the indices whose label equals `q`.
+In the elementary-divisor picture this is the *`q`-primary block*: the summands
+built from the prime `q`. Its cardinality is the multiplicity of `q`. -/
 abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
   {i : ι // p i = q}
 
-/-- `primeMultiplicity`: see the surrounding section documentation. -/
+/-- `primeMultiplicity`: see the surrounding section documentation.
+
+Textbook math: `primeMultiplicity p q = |{ i : p i = q }|`, the number of
+summands labeled by the prime `q` (the size of the `q`-fiber). In the Smith
+normal form rectangle it is the height of the `q`-column. -/
 noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (q : elementaryPrimes p) : ℕ :=
   Fintype.card (primeFiber p q.1)
 
-/-- `invariantFactorCount`: see the surrounding section documentation. -/
+/-- `invariantFactorCount`: see the surrounding section documentation.
+
+Textbook math: `invariantFactorCount p = sup_q (primeMultiplicity p q)`, the
+maximum fiber size over all distinct primes. This is the total number of
+invariant factors, i.e. the height `s` of the Smith normal form rectangle into
+which every prime column is padded. -/
 noncomputable def invariantFactorCount {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) : ℕ :=
   Finset.univ.sup (primeMultiplicity p)
 
-/-- `primeMultiplicity_le_invariantFactorCount`: see the surrounding section documentation. -/
+/-- `primeMultiplicity_le_invariantFactorCount`: see the surrounding section documentation.
+
+Textbook math: every fiber is no larger than the maximum fiber,
+`primeMultiplicity p q ≤ invariantFactorCount p`. Trivial as a statement (it is
+the defining property of a supremum); the proof is `Finset.le_sup` applied to
+the membership of `q` in `Finset.univ`. This inequality is used repeatedly to
+discharge the index bounds `s - c ≤ j` and `j - (s - c) < c` appearing in
+`paddedExponent` and `elementaryColumn`. -/
 theorem primeMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (q : elementaryPrimes p) :
     primeMultiplicity p q ≤ invariantFactorCount p := by
   exact Finset.le_sup (f := primeMultiplicity p) (Finset.mem_univ q)
-/-- `paddedExponent`: see the surrounding section documentation. -/
+/-- `paddedExponent`: see the surrounding section documentation.
+
+Textbook math: arrange the elementary divisors in an `s × (#primes)` rectangle,
+one column per distinct prime `q` and one row per invariant-factor index
+`j : Fin s`, where `s = invariantFactorCount p` is the maximal fiber size. For
+`q`, let `c = primeMultiplicity p q`. Fill the *bottom* `c` rows of column `q`
+with the `c` exponents of the `q`-summands, sorted non-decreasingly from bottom
+to top, and pad the top `s - c` rows with `0`:
+
+  row s-1      : e_{c-1}      (largest exponent, bottom)
+  ⋮
+  row s-c      : e_0          (smallest exponent)
+  row 0..s-c-1 : 0            (padded zeros, top)
+
+`paddedExponent p e q j` is the entry in column `q`, row `j`: when `s - c ≤ j`
+it returns the exponent at sorted position `j - (s - c)` inside the `q`-fiber
+(via `sortedEquiv`), otherwise `0`. Padding every column to the common height
+`s` lets each row be multiplied into one invariant factor; the within-column
+sorting is exactly what makes those factors satisfy `d_j | d_{j+1}`. -/
 noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p)
     (j : Fin (invariantFactorCount p)) : ℕ :=
@@ -8508,18 +8599,35 @@ noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fin
         omega⟩).1
   else 0
 
-/-- `elementaryPrime`: see the surrounding section documentation. -/
+/-- `elementaryPrime`: see the surrounding section documentation.
+
+Textbook math: the natural coercion of an index `i : ι` to its prime label,
+`elementaryPrime p i = p i`, packaged as an element of `elementaryPrimes p`.
+It witnesses that `p i` is one of the distinct primes attained by `p`. -/
 def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (i : ι) : elementaryPrimes p :=
   ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
 
-/-- `sortedPrimeFiberEquiv`: see the surrounding section documentation. -/
+/-- `sortedPrimeFiberEquiv`: see the surrounding section documentation.
+
+Textbook math: the canonical order-isomorphism
+`Fin (primeMultiplicity p q) ≃ { i : ι // p i = q }` obtained by applying
+`sortedEquiv` to the `q`-fiber, sorting its elements by their exponent `e i`.
+It numbers the `q`-summands `0, …, c-1` in non-decreasing order of exponent;
+this is the sorted enumeration inside column `q` used by `paddedExponent`. -/
 noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
     Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
   sortedEquiv fun i : primeFiber p q.1 => e i.1
 
-/-- `elementaryColumn`: see the surrounding section documentation. -/
+/-- `elementaryColumn`: see the surrounding section documentation.
+
+Textbook math: the inverse of the padding placement. Given a summand index `i`,
+let `q = p i` and `k` be the position of `i` in the sorted `q`-fiber
+(`sortedPrimeFiberEquiv p e q` applied to `i`). Then `elementaryColumn p e i`
+returns the row `s - c + k` in the padded rectangle — i.e. the row into which
+the exponent `e i` is placed. The offset `s - c` puts the `q`-column's entries
+in the bottom `c` rows, as required by `paddedExponent`. -/
 noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
     Fin (invariantFactorCount p) := by
@@ -8531,7 +8639,19 @@ noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [F
     have hc := primeMultiplicity_le_invariantFactorCount p q
     omega⟩
 
-/-- `paddedExponent_elementaryColumn`: see the surrounding section documentation. -/
+/-- `paddedExponent_elementaryColumn`: see the surrounding section documentation.
+
+Textbook math: this is the losslessness of the embedding into the padded
+rectangle. For every summand `i`, the entry placed at row
+`elementaryColumn p e i` of column `elementaryPrime p i` recovers the original
+exponent:
+`paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i`.
+Proof idea: `elementaryColumn p e i = s - c + k` where `k` is `i`'s position in
+the sorted `q`-fiber, so the `if s - c ≤ j` branch of `paddedExponent` is taken
+and the inner index is `j - (s - c) = k`; then `sortedEquiv`/`sortedPrimeFiberEquiv`
+returns `i` again (its own `symm` application), giving `e i`. Thus every
+original elementary-divisor exponent appears exactly once as a matrix entry, so
+the invariant-factor form faithfully encodes the same decomposition. -/
 theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
     paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i := by
