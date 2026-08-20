@@ -45,7 +45,9 @@ We follow the Mathlib conventions as outlined [here](https://leanprover-communit
 
 # Documentation audit
 
-Is the inline documentation satisfactory in terms of quantity and quality. Is the documentation spot on and helpful?  
+Is the inline documentation satisfactory in terms of quantity and quality? Follwing criteria must be satisfied:
+- All constructions and proofs must explain the idea in textbook math terms.
+- Theorems, lemmas etc. must have a textbook math documentation of the statements and the ideas entering the proof.
 
 # Obligation to external library audit
 
