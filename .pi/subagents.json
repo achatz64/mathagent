@@ -6,7 +6,7 @@
     },
     "lean": {
       "tools": ["read", "grep", "lean_repl"],
-      "model": "openrouter/deepseek/deepseek-v4-flash-0731",
+      "model": "openrouter/tencent/hy3",
       "thinkingLevel": "high"
     }
   }

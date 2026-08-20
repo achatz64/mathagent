@@ -53,7 +53,7 @@ Following criteria must be satisfied:
 - All construction's and proof's documentation must explain the idea in textbook math terms. 
 - Theorems, lemmas etc. must have a textbook math documentation of the statements and the ideas entering the proof. If no new idea enters in the proof (e.g. unpacking, repacking) then the documentation must declare it as trivial. 
 - The documentation of a construction or a proof must not contain contend relating to other defs or proofs with the only exception of listing dependencies and where they enter. For example, it a thm A will be used by another thm B in the future, then the documentation of B may mention A, but A may not mention B. 
-- State the nature of the construction, statement or proof in the surrounding contex. For examples: `technical lemma`, `main theorem of this section`, `auxilary construction`, `key lemma`, `key construction`, etc. [TODO: enum to be specified]. 
+- State the nature of the construction, statement or proof in the surrounding contex. For examples: `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`, `key construction`, etc. [TODO: enum to be specified]. 
 
 # Obligation to external library audit
 

@@ -8451,18 +8451,18 @@ bijection and a proof that `f` is monotone along it. `sortedEquiv` and
 `monotone_sortedEquiv` are its two projections. -/
 
 /-- `sortedEquivData`
-Textbook math: let `α` be a finite set of size `N = |α|` and `f : α → ℕ` any
-function. This returns a dependent pair consisting of a bijection
-`E : Fin N ≃ α` together with a proof that the sequence
-`f(E 0), f(E 1), …, f(E N-1)` is nondecreasing (monotone in the Lean sense,
-i.e. `i ≤ j → f(E i) ≤ f(E j)`).
 
-Construction: choose any fixed bijection `τ : α → Fin N` (a tie-breaker),
-declare `x ≤ y` iff `(f x, τ x) ≤_lex (f y, τ y)`, list `α` in increasing order,
-and let `E` be that enumeration. Ties in `f` are broken by `τ`, so the result
-is deterministic; by the lexicographic definition `f(E i) ≤ f(E j)` whenever
-`i ≤ j`. This is the generic "sort the elements of `α` by their `f`-values"
-gadget used below to order prime columns. -/
+Key construction. Textbook math: let `α` be a finite set of size `N = |α|`
+and `f : α → ℕ` any function. This returns a dependent pair: a bijection
+`E : Fin N ≃ α` together with a proof that the sequence
+`f(E 0), f(E 1), …, f(E N-1)` is nondecreasing (`i ≤ j → f(E i) ≤ f(E j)` in
+the Lean sense of `Monotone`).
+
+Construction: fix any bijection `τ : α → Fin N` (a tie-breaker) and declare
+`x ≤ y` iff `(f x, τ x) ≤_lex (f y, τ y)`; then list `α` in increasing order and
+let `E` be that enumeration. Ties in `f` are broken by `τ`, making the result
+deterministic; by the lexicographic definition `f(E i) ≤ f(E j)` whenever
+`i ≤ j`. -/
 noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
     {E : Fin (Fintype.card α) ≃ α // Monotone (fun j => f (E j))} := by
   let tie := Fintype.equivFin α
@@ -8478,12 +8478,12 @@ noncomputable def sortedEquivData {α : Type*} [Fintype α] (f : α → ℕ) :
   · exact h.1.le
 
 /-- `sortedEquiv`
-Textbook math: the projection of `sortedEquivData` to the bijection itself,
-`E : Fin N ≃ α`. It enumerates `α` in non-decreasing order of `f` (ties broken
-by the canonical tie-breaker `τ`). It is defined literally as
-`(sortedEquivData f).1`, so it is defeq to the first component of the bundled
-pair; this is what lets `monotone_sortedEquiv` reuse the pair's second
-component with no proof. -/
+
+Auxiliary construction (projection). Textbook math: the bijection
+`E : Fin N ≃ α` obtained by projecting `sortedEquivData` to its first
+component. It enumerates `α` in non-decreasing order of `f`, with ties broken
+by the canonical tie-breaker `τ`. Being literally `(sortedEquivData f).1`, it is
+definitionally equal to the bundled bijection. -/
 noncomputable def sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
     Fin (Fintype.card α) ≃ α :=
   (sortedEquivData f).1
@@ -8512,69 +8512,66 @@ invert this placement, and `paddedExponent_elementaryColumn` records that the
 embedding is lossless. Downstream, row-products of these entries give the
 invariant factors `d_j` with `d_j | d_{j+1}`. -/
 
-/-- `elementaryPrimes`: see the surrounding section documentation.
+/-- `elementaryPrimes`
 
-Textbook math: for a finite labeling `p : ι → α`, this is the subtype of
-*q-distinct values actually attained by `p`*,
-`{ q : α // q ∈ image(p) }`. Abstractly it is just "the set of distinct labels
-appearing in the list `p`". In the intended instantiation `α = Ideal R` and
-`p i` is the prime/maximal ideal attached to the `i`-th elementary-divisor
-summand, so `elementaryPrimes p` becomes the set of distinct primes occurring
-among the summands — the "elementary primes". The name records this intended
-use; the definition itself is prime-agnostic. -/
+Auxiliary construction. Textbook math: for a finite labeling `p : ι → α`, this
+is the subtype `{ q : α // q ∈ image(p) }` of distinct values actually attained
+by `p` — equivalently, the set of labels appearing in the list `p`. The name
+reflects the intended application (the labels are primes there), but the
+construction itself is independent of any prime structure. -/
 abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :=
   {q : α // q ∈ Finset.univ.image p}
 
-/-- `primeFiber`: see the surrounding section documentation.
+/-- `primeFiber`
 
-Textbook math: for a label `p : ι → α` and a value `q : α`, `primeFiber p q`
-is the subtype `{ i : ι // p i = q }` — the indices whose label equals `q`.
-In the elementary-divisor picture this is the *`q`-primary block*: the summands
-built from the prime `q`. Its cardinality is the multiplicity of `q`. -/
+Auxiliary construction. Textbook math: for a labeling `p : ι → α` and a value
+`q : α`, this is the subtype `{ i : ι // p i = q }` of indices whose label is
+`q` — the fiber of `p` over `q`. In the intended application the labels are
+primes, so this collects the summands attached to the prime `q`. -/
 abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
   {i : ι // p i = q}
 
-/-- `primeMultiplicity`: see the surrounding section documentation.
+/-- `primeMultiplicity`
 
-Textbook math: `primeMultiplicity p q = |{ i : p i = q }|`, the number of
-summands labeled by the prime `q` (the size of the `q`-fiber). In the Smith
-normal form rectangle it is the height of the `q`-column. -/
+Auxiliary construction. Textbook math: `primeMultiplicity p q = |{ i : p i = q }|`,
+the number of indices labeled by `q` — equivalently the cardinality of the
+fiber `primeFiber p q`. In the intended application this is how many times the
+label `q` occurs. -/
 noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (q : elementaryPrimes p) : ℕ :=
   Fintype.card (primeFiber p q.1)
 
-/-- `invariantFactorCount`: see the surrounding section documentation.
+/-- `invariantFactorCount`
 
-Textbook math: `invariantFactorCount p = sup_q (primeMultiplicity p q)`, the
-maximum fiber size over all distinct primes. This is the total number of
-invariant factors, i.e. the height `s` of the Smith normal form rectangle into
-which every prime column is padded. -/
+Auxiliary construction (key quantity). Textbook math:
+`invariantFactorCount p = sup_q (primeMultiplicity p q)`, the maximum size of a
+fiber of `p` over any label `q`. Equivalently, it is the largest number of
+indices sharing the same label. -/
 noncomputable def invariantFactorCount {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) : ℕ :=
   Finset.univ.sup (primeMultiplicity p)
 
-/-- `primeMultiplicity_le_invariantFactorCount`: see the surrounding section documentation.
+/-- `primeMultiplicity_le_invariantFactorCount`
 
-Textbook math: every fiber is no larger than the maximum fiber,
-`primeMultiplicity p q ≤ invariantFactorCount p`. Trivial as a statement (it is
-the defining property of a supremum); the proof is `Finset.le_sup` applied to
-the membership of `q` in `Finset.univ`. This inequality is used repeatedly to
-discharge the index bounds `s - c ≤ j` and `j - (s - c) < c` appearing in
-`paddedExponent` and `elementaryColumn`. -/
+Technical lemma. Textbook math: every fiber is no larger than the maximum
+fiber, `primeMultiplicity p q ≤ invariantFactorCount p`. Both the statement and
+the proof are trivial: the inequality is the defining property of a supremum,
+and the proof is the single library call `Finset.le_sup` at the membership
+`q ∈ Finset.univ`. -/
 theorem primeMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (q : elementaryPrimes p) :
     primeMultiplicity p q ≤ invariantFactorCount p := by
   exact Finset.le_sup (f := primeMultiplicity p) (Finset.mem_univ q)
-/-- `paddedExponent`: see the surrounding section documentation.
+/-- `paddedExponent`
 
-Textbook math: arrange the elementary divisors in an `s × (#primes)` rectangle,
-one column per distinct prime `q` and one row per invariant-factor index
-`j : Fin s`, where `s = invariantFactorCount p` is the maximal fiber size. For
-`q`, let `c = primeMultiplicity p q`. Fill the *bottom* `c` rows of column `q`
-with the `c` exponents of the `q`-summands, sorted non-decreasingly from bottom
-to top, and pad the top `s - c` rows with `0`:
+Key construction. Textbook math: lay the elementary-divisor data into an
+`s × (#labels)` rectangle, one column per distinct label `q` and one row per
+index `j : Fin s`, where `s = invariantFactorCount p` is the maximal fiber size
+and `c = primeMultiplicity p q` is the size of column `q`. Fill the *bottom*
+`c` rows of column `q` with the `c` exponents of the `q`-summands, sorted
+non-decreasingly from bottom to top, and pad the top `s - c` rows with `0`:
 
   row s-1      : e_{c-1}      (largest exponent, bottom)
   ⋮
@@ -8583,9 +8580,9 @@ to top, and pad the top `s - c` rows with `0`:
 
 `paddedExponent p e q j` is the entry in column `q`, row `j`: when `s - c ≤ j`
 it returns the exponent at sorted position `j - (s - c)` inside the `q`-fiber
-(via `sortedEquiv`), otherwise `0`. Padding every column to the common height
-`s` lets each row be multiplied into one invariant factor; the within-column
-sorting is exactly what makes those factors satisfy `d_j | d_{j+1}`. -/
+(using `sortedEquiv`), otherwise `0`. The padding to a common height `s` lets
+each row be collected into one product, and the within-column sorting is what
+makes those row-products form a non-decreasing divisibility chain. -/
 noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p)
     (j : Fin (invariantFactorCount p)) : ℕ :=
@@ -8599,35 +8596,37 @@ noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fin
         omega⟩).1
   else 0
 
-/-- `elementaryPrime`: see the surrounding section documentation.
+/-- `elementaryPrime`
 
-Textbook math: the natural coercion of an index `i : ι` to its prime label,
-`elementaryPrime p i = p i`, packaged as an element of `elementaryPrimes p`.
-It witnesses that `p i` is one of the distinct primes attained by `p`. -/
+Auxiliary construction. Textbook math: the coercion of an index `i : ι` to its
+label, `elementaryPrime p i = p i`, packaged as an element of `elementaryPrimes p`.
+It records that `p i` is one of the distinct labels attained by `p`. -/
 def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (i : ι) : elementaryPrimes p :=
   ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
 
-/-- `sortedPrimeFiberEquiv`: see the surrounding section documentation.
+/-- `sortedPrimeFiberEquiv`
 
-Textbook math: the canonical order-isomorphism
-`Fin (primeMultiplicity p q) ≃ { i : ι // p i = q }` obtained by applying
-`sortedEquiv` to the `q`-fiber, sorting its elements by their exponent `e i`.
-It numbers the `q`-summands `0, …, c-1` in non-decreasing order of exponent;
-this is the sorted enumeration inside column `q` used by `paddedExponent`. -/
+Auxiliary construction. Textbook math: the order-isomorphism
+`Fin (primeMultiplicity p q) ≃ { i : ι // p i = q }` that sorts the `q`-fiber
+by the exponent `e i`, numbering its elements `0, …, c-1` in non-decreasing
+order of exponent. It is obtained by applying `sortedEquiv` to the fiber, with
+`primeMultiplicity p q` giving the fiber's cardinality. -/
 noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
     Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
   sortedEquiv fun i : primeFiber p q.1 => e i.1
 
-/-- `elementaryColumn`: see the surrounding section documentation.
+/-- `elementaryColumn`
 
-Textbook math: the inverse of the padding placement. Given a summand index `i`,
-let `q = p i` and `k` be the position of `i` in the sorted `q`-fiber
-(`sortedPrimeFiberEquiv p e q` applied to `i`). Then `elementaryColumn p e i`
-returns the row `s - c + k` in the padded rectangle — i.e. the row into which
-the exponent `e i` is placed. The offset `s - c` puts the `q`-column's entries
-in the bottom `c` rows, as required by `paddedExponent`. -/
+Auxiliary construction (inverse to the padding placement). Textbook math: given
+a summand index `i`, let `q = p i` and let `k` be the position of `i` in the
+sorted `q`-fiber (supplied by `sortedPrimeFiberEquiv p e q`). Then
+`elementaryColumn p e i` returns the row `s - c + k` of the padded rectangle,
+i.e. the row into which the exponent `e i` is placed; here `s` and `c` are
+`invariantFactorCount p` and `primeMultiplicity p q`. The offset `s - c` puts
+the `q`-entries in the bottom `c` rows, matching the placement performed by
+`paddedExponent`. -/
 noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
     Fin (invariantFactorCount p) := by
@@ -8639,19 +8638,17 @@ noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [F
     have hc := primeMultiplicity_le_invariantFactorCount p q
     omega⟩
 
-/-- `paddedExponent_elementaryColumn`: see the surrounding section documentation.
+/-- `paddedExponent_elementaryColumn`
 
-Textbook math: this is the losslessness of the embedding into the padded
-rectangle. For every summand `i`, the entry placed at row
-`elementaryColumn p e i` of column `elementaryPrime p i` recovers the original
-exponent:
+Key lemma (losslessness of the embedding). Textbook math: the entry placed at
+row `elementaryColumn p e i` of column `elementaryPrime p i` recovers the
+original exponent,
 `paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i`.
 Proof idea: `elementaryColumn p e i = s - c + k` where `k` is `i`'s position in
 the sorted `q`-fiber, so the `if s - c ≤ j` branch of `paddedExponent` is taken
-and the inner index is `j - (s - c) = k`; then `sortedEquiv`/`sortedPrimeFiberEquiv`
-returns `i` again (its own `symm` application), giving `e i`. Thus every
-original elementary-divisor exponent appears exactly once as a matrix entry, so
-the invariant-factor form faithfully encodes the same decomposition. -/
+and the inner index is `j - (s - c) = k`; then `sortedPrimeFiberEquiv` returns
+`i` again via its own `symm` map, giving `e i`. Hence every original exponent
+appears exactly once as an entry of the padded rectangle. -/
 theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
     paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i := by
@@ -8674,13 +8671,25 @@ theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type
   rw [harg]
   exact congrArg Subtype.val
     ((sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
-/-- `invariantCells`: see the surrounding section documentation. -/
+/-- `invariantCells`
+
+Auxiliary construction. Textbook math: the subset of the `s × (#distinct labels)`
+rectangle consisting of the *occupied* cells,
+`{ (q, j) : elementaryPrimes p × Fin s // paddedExponent p e q j ≠ 0 }`.
+Equivalently, it is the support of the padded-exponent matrix: one point for
+each summand, recorded at the row and column where its exponent sits. -/
 abbrev invariantCells {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) :=
   {x : elementaryPrimes p × Fin (invariantFactorCount p) //
     paddedExponent p e x.1 x.2 ≠ 0}
 
-/-- `indexEquivSigmaPrimeFiber`: see the surrounding section documentation. -/
+/-- `indexEquivSigmaPrimeFiber`
+
+Auxiliary construction (reindexing by label). Textbook math: the canonical
+bijection `ι ≃ Σ q : elementaryPrimes p, primeFiber p q` that regroups the
+index set `ι` as the disjoint union of its fibers over the distinct labels `q`.
+Every index belongs to exactly one fiber, so this is just a reorganization by
+label. The proof is trivial (definitional unpacking/repacking). -/
 def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :
     ι ≃ Σ q : elementaryPrimes p, primeFiber p q.1 where
@@ -8693,7 +8702,20 @@ def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintyp
     subst q
     rfl
 
-/-- `sigmaPrimeFiberEquivInvariantCells`: see the surrounding section documentation. -/
+/-- `sigmaPrimeFiberEquivInvariantCells`
+
+Auxiliary construction (placement equivalence). Textbook math: the bijection
+`(Σ q : elementaryPrimes p, Fin (primeMultiplicity p q)) ≃ invariantCells p e`
+that places each summand into its occupied rectangle cell. It sends the `k`-th
+element of prime `q`'s fiber to row `s - c + k` (the padded position), where
+`s = invariantFactorCount p` and `c = primeMultiplicity p q`; the hypothesis
+`0 < e i` for all `i` ensures that cell is indeed occupied (nonzero entry).
+
+Proof idea: `toFun` builds the cell `(q, s - c + k)` and uses `paddedExponent`
+with `dif_pos` together with `sortedPrimeFiberEquiv` to show its entry equals
+`e (…)` `≠ 0`; `invFun` recovers `k = j - (s - c)` using `dif_neg` on the
+complement of the occupied rows; the two-sided inverses are discharged by
+`omega` from the row arithmetic. -/
 noncomputable def sigmaPrimeFiberEquivInvariantCells
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
@@ -8755,7 +8777,15 @@ noncomputable def sigmaPrimeFiberEquivInvariantCells
         rw [paddedExponent, dif_neg h]
       change s - c + (j.1 - (s - c)) = j.1
       omega
-/-- `elementaryIndexEquivInvariantCells`: see the surrounding section documentation. -/
+/-- `elementaryIndexEquivInvariantCells`
+
+Key construction. Textbook math: the composite bijection
+`ι ≃ invariantCells p e` assigning to each summand its occupied cell in the
+padded rectangle. It is the chain `indexEquivSigmaPrimeFiber` (regroup by
+label), then `Equiv.sigmaCongrRight (sortedPrimeFiberEquiv p e q).symm` (number
+each fiber `0, …, c-1` by exponent), then `sigmaPrimeFiberEquivInvariantCells`
+(place into the rectangle). The proof is trivial (transitivity of
+-equivalences). -/
 noncomputable def elementaryIndexEquivInvariantCells
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
@@ -8764,7 +8794,12 @@ noncomputable def elementaryIndexEquivInvariantCells
     (Equiv.sigmaCongrRight fun q => (sortedPrimeFiberEquiv p e q).symm).trans
       (sigmaPrimeFiberEquivInvariantCells p e he)
 
-/-- `elementaryIndexEquivInvariantCells_prime`: see the surrounding section documentation. -/
+/-- `elementaryIndexEquivInvariantCells_prime`
+
+Auxiliary lemma (prime component). Textbook math: the label component of the
+cell assigned to `i` is `p i`,
+`(elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i`.
+The proof is trivial (`rfl`, following from the definitions). -/
 @[simp]
 theorem elementaryIndexEquivInvariantCells_prime
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
@@ -8772,7 +8807,12 @@ theorem elementaryIndexEquivInvariantCells_prime
     (elementaryIndexEquivInvariantCells p e he i).1.1.1 = p i := by
   rfl
 
-/-- `elementaryIndexEquivInvariantCells_apply`: see the surrounding section documentation. -/
+/-- `elementaryIndexEquivInvariantCells_apply`
+
+Key lemma (explicit description). Textbook math: the equivalence sends `i` to
+the cell `(elementaryPrime p i, elementaryColumn p e i)` — i.e. prime `p i` and
+the row computed by `elementaryColumn`. The proof is trivial (`Prod.ext` and
+`Fin.ext`, following from the definitions). -/
 theorem elementaryIndexEquivInvariantCells_apply
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
@@ -8782,7 +8822,14 @@ theorem elementaryIndexEquivInvariantCells_apply
   · rfl
   · apply Fin.ext; rfl
 
-/-- `elementaryIndexEquivInvariantCells_exponent`: see the surrounding section documentation. -/
+/-- `elementaryIndexEquivInvariantCells_exponent`
+
+Key lemma (exponent preservation). Textbook math: the padded-exponent entry at
+the cell assigned to `i` recovers the original exponent,
+`paddedExponent p e (…).1.1 (…).1.2 = e i`.
+Proof idea: rewrite the cell via `elementaryIndexEquivInvariantCells_apply` to
+`(elementaryPrime p i, elementaryColumn p e i)`, then apply
+`paddedExponent_elementaryColumn`. -/
 @[simp]
 theorem elementaryIndexEquivInvariantCells_exponent
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
@@ -8799,36 +8846,64 @@ variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R
 variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 
 omit [DecidableEq ι] in
-/-- `principal_of_mem_image`: see the surrounding section documentation. -/
+/-- `principal_of_mem_image`
+
+Auxiliary lemma. Textbook math: every distinct prime ideal `q` occurring among
+the `p i` is principal, because `R` is a principal ideal ring. The proof is
+trivial (immediate from the `IsPrincipalIdealRing` instance). -/
 theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
     (q.1 : Ideal R).IsPrincipal :=
   IsPrincipalIdealRing.principal q.1
 
-/-- `gen`: see the surrounding section documentation. -/
+/-- `gen`
+
+Auxiliary construction. Textbook math: `gen p q` is a generator of the
+principal ideal `q` (so `q = R·gen p q`); it is the "prime element"
+representing the prime `q` in the factorization. -/
 noncomputable def gen (p : ι → Ideal R) (q : elementaryPrimes p) : R :=
   Submodule.IsPrincipal.generator q.1
 
 omit [DecidableEq ι] in
-/-- `span_singleton_gen`: see the surrounding section documentation. -/
+/-- `span_singleton_gen`
+
+Auxiliary lemma. Textbook math: the ideal generated by `gen p q` is `q` itself,
+`R·gen p q = q`. The proof is trivial (definitional, from the principal-ideal
+structure). -/
 theorem span_singleton_gen (p : ι → Ideal R) (q : elementaryPrimes p) :
     (R ∙ gen p q : Ideal R) = q.1 :=
   Submodule.IsPrincipal.span_singleton_generator q.1
 
 omit [IsPrincipalIdealRing R] [DecidableEq ι] in
-/-- `isMaximal_of_mem_elementaryPrimes`: see the surrounding section documentation. -/
+/-- `isMaximal_of_mem_elementaryPrimes`
+
+Auxiliary lemma. Textbook math: if every summand ideal `p i` is maximal, then
+every distinct prime ideal `q` among them is maximal. The proof is trivial
+(unpack membership of `elementaryPrimes` and apply the hypothesis). -/
 theorem isMaximal_of_mem_elementaryPrimes (p : ι → Ideal R)
     (hmax : ∀ i, (p i).IsMaximal) (q : elementaryPrimes p) :
     (q.1 : Ideal R).IsMaximal := by
   rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
   exact hi ▸ hmax i
 
-/-- `invariantFactor`: see the surrounding section documentation. -/
+/-- `invariantFactor`
+
+Key construction. Textbook math: the `j`-th invariant factor is the product
+across the distinct primes `q` of `gen p q` raised to the padded-exponent in
+column `q`, row `j`:
+`invariantFactor p e j = ∏_q gen p q ^ paddedExponent p e q j`.
+Thus it is exactly the product of the `j`-th row of the padded rectangle, i.e.
+the element of `R` carried by the `j`-th invariant-factor position. -/
 noncomputable def invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
     (j : Fin (invariantFactorCount p)) : R :=
   ∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j
 
 omit [IsPrincipalIdealRing R] [DecidableEq ι] in
-/-- `isCoprime_pow_pow_ideal`: see the surrounding section documentation. -/
+/-- `isCoprime_pow_pow_ideal`
+
+Auxiliary lemma (coprimality). Textbook math: distinct maximal ideals stay
+coprime after taking powers, `IsCoprime (q^a) (r^b)` for `q ≠ r` among the
+distinct primes. Proof idea: distinct maximal ideals are coprime (a standard
+fact), and coprimality is preserved under taking powers. -/
 theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
     {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
     IsCoprime ((q.1 : Ideal R) ^ a) ((r.1 : Ideal R) ^ b) := by
@@ -8838,7 +8913,13 @@ theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaxi
   exact (Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne).pow_left (m := a) |>.pow_right (n := b)
 
 omit [DecidableEq ι] in
-/-- `isCoprime_generator_pow_pow`: see the surrounding section documentation. -/
+/-- `isCoprime_generator_pow_pow`
+
+Auxiliary lemma (coprimality of generators). Textbook math: distinct prime
+generators remain coprime after powering, `IsCoprime (gen p q ^ a)
+(gen p r ^ b)` for `q ≠ r`. Proof idea: by `span_singleton_gen` the generators'
+ideals are `q` and `r`; apply coprimality of the distinct maximal ideals, then
+pass through the span-singleton-coprimality equivalence and raise to powers. -/
 theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
     {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
     IsCoprime (gen p q ^ a) (gen p r ^ b) := by
@@ -8852,7 +8933,13 @@ theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).Is
     |>.pow_left (m := a) |>.pow_right (n := b)
 
 omit [IsPrincipalIdealRing R] in
-/-- `monotone_paddedExponent`: see the surrounding section documentation. -/
+/-- `monotone_paddedExponent`
+
+Key lemma (column monotonicity). Textbook math: for each prime `q`, the column
+entries `paddedExponent p e q j` are non-decreasing in the row index `j`, so
+each column respects the divisibility order. Proof idea: in the bottom block
+(`s - c ≤ j`) the entries are the sorted exponents (via `monotone_sortedEquiv`)
+and hence non-decreasing; above the block they are `0`, which is `≤` any entry. -/
 theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
     (q : elementaryPrimes p) :
     Monotone (paddedExponent p e q) := by
@@ -8867,7 +8954,14 @@ theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
   · rw [paddedExponent, dif_neg hj]
     exact Nat.zero_le _
 omit [IsPrincipalIdealRing R] in
-/-- `exists_pos_paddedExponent`: see the surrounding section documentation. -/
+/-- `exists_pos_paddedExponent`
+
+Auxiliary lemma (positivity). Textbook math: every row `j` of the rectangle has
+at least one positive entry, `∃ q, 0 < paddedExponent p e q j` (assuming all
+exponents `e i` are positive). Proof idea: the fiber of maximal multiplicity
+`c = s` supplies, in each row `j`, an occupied (hence positive) entry; this is
+obtained from `primeMultiplicity p q = invariantFactorCount p` at a prime
+realizing the supremum. -/
 theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : ∀ i, 0 < e i)
     (j : Fin (invariantFactorCount p)) :
     ∃ q : elementaryPrimes p, 0 < paddedExponent p e q j := by
@@ -8891,7 +8985,13 @@ theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : �
   rw [dif_pos (by omega)]
   exact he _
 
-/-- `not_isUnit_invariantFactor`: see the surrounding section documentation. -/
+/-- `not_isUnit_invariantFactor`
+
+Key lemma (non-unit). Textbook math: each invariant factor
+`invariantFactor p e j` is not a unit. Proof idea: pick a prime `q` with a
+positive entry in row `j` (`exists_pos_paddedExponent`); then `gen p q` divides
+the factor, so if the factor were a unit, `gen p q` would be a unit, forcing its
+maximal ideal `q` to be the unit ideal — a contradiction. -/
 theorem not_isUnit_invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i)
     (j : Fin (invariantFactorCount p)) : ¬ IsUnit (invariantFactor p e j) := by
@@ -8907,7 +9007,14 @@ theorem not_isUnit_invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
   rw [← span_singleton_gen p q]
   exact Ideal.span_singleton_eq_top.mpr huq
 
-/-- `invariantFactor_dvd_succ`: see the surrounding section documentation. -/
+/-- `invariantFactor_dvd_succ`
+
+Main lemma of this section (divisibility chain). Textbook math: consecutive
+invariant factors divide,
+`invariantFactor p e j ∣ invariantFactor p e (j+1)`.
+Proof idea: the factor is a product over primes of `gen p q ^ (column entry)`;
+since each column is monotone in `j` (`monotone_paddedExponent`), every exponent
+non-decreases, so each prime-power factor divides and the whole product divides. -/
 theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
     (j : Fin (invariantFactorCount p - 1)) :
     invariantFactor p e ⟨j.1, by omega⟩ ∣
@@ -8918,8 +9025,12 @@ theorem invariantFactor_dvd_succ (p : ι → Ideal R) (e : ι → ℕ)
     (monotone_paddedExponent p e q (Fin.mk_le_mk.mpr (by omega)))
 
 omit [DecidableEq ι] in
-/-- `gen_ne_zero`: the generator of a nonzero elementary prime ideal is
-nonzero (in an integral domain). -/
+/-- `gen_ne_zero`
+
+Auxiliary lemma. Textbook math: if the prime ideal `q` is nonzero, then its
+generator `gen p q` is nonzero (in an integral domain `R`). The proof is
+trivial: if `gen p q` were `0` then the ideal `R·gen p q = q` would be `0`,
+contradicting the hypothesis. -/
 theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
     (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
     (q : elementaryPrimes p) : gen p q ≠ 0 := by
@@ -8928,8 +9039,12 @@ theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
   rw [h, Submodule.span_singleton_eq_bot.mpr rfl] at hsp
   exact hne q hsp.symm
 
-/-- `invariantFactor_ne_zero`: an invariant factor (a product of powers of
-generators of nonzero prime ideals) is nonzero in an integral domain. -/
+/-- `invariantFactor_ne_zero`
+
+Auxiliary lemma. Textbook math: each invariant factor is nonzero, assuming the
+prime ideals are nonzero, in an integral domain `R`. Proof idea: it is a product
+of powers of the nonzero generators `gen p q` (`gen_ne_zero`), and a product of
+nonzero elements in a domain is nonzero. -/
 theorem invariantFactor_ne_zero [IsDomain R] (p : ι → Ideal R) (e : ι → ℕ)
     (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
     (j : Fin (invariantFactorCount p)) : invariantFactor p e j ≠ 0 := by
@@ -8941,7 +9056,15 @@ theorem invariantFactor_ne_zero [IsDomain R] (p : ι → Ideal R) (e : ι → �
 end PID
 /-! ## Generic product reindexing linear equivalences -/
 
-/-- `piCongrLinearEquiv`: see the surrounding section documentation. -/
+/-- `piCongrLinearEquiv`
+
+Auxiliary construction (linear reindexing). Textbook math: given a bijection
+`h : α ≃ β` and, for each `i : α`, a linear isomorphism
+`e i : A i ≃ₗ[R] B (h i)`, this is the induced linear isomorphism between the
+dependent product spaces, `(Π i, A i) ≃ₗ[R] (Π j, B j)`. It is the linear
+version of reindexing a Pi-type by `h` and applying `e` at each coordinate.
+Proof idea: take the underlying `Equiv.piCongr` and check `additivity` and
+scalar multiplication coordinatewise, using that each `e i` is linear. -/
 noncomputable def piCongrLinearEquiv {R : Type*} [Semiring R] {α β : Type*} (A : α → Type*)
     (B : β → Type*) [∀ i, AddCommMonoid (A i)] [∀ j, AddCommMonoid (B j)]
     [∀ i, Module R (A i)] [∀ j, Module R (B j)]
@@ -8964,7 +9087,14 @@ noncomputable def piCongrLinearEquiv {R : Type*} [Semiring R] {α β : Type*} (A
     rw [Equiv.piCongr_apply_apply, Equiv.piCongr_apply_apply]
     exact map_smul (e i) r (f i)
 
-/-- `piProdSwapLinearEquiv`: see the surrounding section documentation. -/
+/-- `piProdSwapLinearEquiv`
+
+Auxiliary construction. Textbook math: the canonical linear isomorphism that
+swaps the two index positions of a doubly-indexed family,
+`(Π (i, j) : ι × κ, A i j) ≃ₗ[R] (Π j, Π i, A i j)` — i.e. it re-associates /
+curries the product by exchanging the order of the indices. The proof is
+trivial (definitional: the maps are the evident swaps, and all equations are
+`rfl`). -/
 def piProdSwapLinearEquiv {R : Type*} [Semiring R] {ι κ : Type*} (A : ι → κ → Type*)
     [∀ i j, AddCommMonoid (A i j)] [∀ i j, Module R (A i j)] :
     ((x : ι × κ) → A x.1 x.2) ≃ₗ[R] ((j : κ) → (i : ι) → A i j) where
@@ -8975,7 +9105,17 @@ def piProdSwapLinearEquiv {R : Type*} [Semiring R] {ι κ : Type*} (A : ι → �
   map_add' _ _ := rfl
   map_smul' _ _ := rfl
 
-/-- `quotientInfLinearEquivPiQuotient`: see the surrounding section documentation. -/
+/-- `quotientInfLinearEquivPiQuotient`
+
+Key construction (Chinese Remainder Theorem, module form). Textbook math: when
+the ideals `f i` are pairwise coprime, the quotient by their infimum is linearly
+isomorphic to the product of the individual quotients,
+`R ⧸ ⨅ i, f i ≃ₗ[R] Π i, R ⧸ f i`.
+Proof idea: wrap the existing ring isomorphism
+`Ideal.quotientInfRingEquivPiQuotient` and verify it is `R`-linear: additivity
+follows from `quotientInfToPiQuotient.map_add`, and scalar multiplication is
+checked by descending to quotient representatives (`induction_on`) and using
+the `Quotient.mk_smul` rule at each coordinate. -/
 noncomputable def quotientInfLinearEquivPiQuotient {R : Type*} [CommRing R] {ι : Type*}
     [Fintype ι] (f : ι → Ideal R) (hf : Pairwise (IsCoprime on f)) :
     (R ⧸ ⨅ i, f i) ≃ₗ[R] ((i : ι) → R ⧸ f i) := by
@@ -9010,7 +9150,16 @@ section PID
 variable {R : Type*} [CommRing R] [IsPrincipalIdealRing R] [DecidableEq (Ideal R)]
 variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 
-/-- `piRectangleEquivInvariantCells`: see the surrounding section documentation. -/
+/-- `piRectangleEquivInvariantCells`
+
+Auxiliary construction. Textbook math: the family of quotient modules indexed
+by the *full* rectangle `elementaryPrimes p × Fin s` is linearly isomorphic to
+the subfamily indexed by the *occupied* cells `invariantCells p e`. The
+unoccupied cells have padded exponent `0`, hence quotient `R/⊤ ≅ 0`, and
+contribute nothing. Proof idea: `toFun` restricts a full-rectangle family to
+the occupied cells; `invFun` extends back, sending unoccupied cells to `0`
+(their quotient is a zero module, hence subsingleton). The two-sided inverses
+and linearity are checked coordinatewise (`rfl` / subsingleton elimination). -/
 noncomputable def piRectangleEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ) :
     ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
       R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
@@ -9039,7 +9188,12 @@ noncomputable def piRectangleEquivInvariantCells (p : ι → Ideal R) (e : ι �
   map_add' := by intro f g; funext x; rfl
   map_smul' := by intro r f; funext x; rfl
 
-/-- `piInvariantCellsEquivPiRectangle`: see the surrounding section documentation. -/
+/-- `piInvariantCellsEquivPiRectangle`
+
+Auxiliary construction (inverse). Textbook math: the inverse linear equivalence
+to `piRectangleEquivInvariantCells`, extending an occupied-cells family back to
+the full rectangle (filling the unoccupied, zero-module cells with `0`). The
+proof is trivial (symmetry of a linear equivalence). -/
 noncomputable def piInvariantCellsEquivPiRectangle (p : ι → Ideal R) (e : ι → ℕ) :
     ((x : invariantCells p e) →
       R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) ≃ₗ[R]
@@ -9047,7 +9201,17 @@ noncomputable def piInvariantCellsEquivPiRectangle (p : ι → Ideal R) (e : ι 
       R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
   (piRectangleEquivInvariantCells p e).symm
 
-/-- `piElementaryEquivInvariantCells`: see the surrounding section documentation. -/
+/-- `piElementaryEquivInvariantCells`
+
+Auxiliary construction. Textbook math: the family of elementary-divisor
+quotient modules `(Π i, R/(p i)^{e i})` is linearly isomorphic to the family
+indexed by the occupied rectangle cells,
+`(Π i, R/(p i)^{e i}) ≃ₗ[R] (Π_{occupied cells}, R/(q)^{padded(q,·)})`.
+Proof idea: apply `piCongrLinearEquiv` using the index bijection
+`elementaryIndexEquivInvariantCells`, then at each coordinate use
+`Submodule.quotEquivOfEq` to identify the two quotients, since the padded
+exponent at the assigned cell equals `e i`
+(`elementaryIndexEquivInvariantCells_exponent`). -/
 noncomputable def piElementaryEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ)
     (he : ∀ i, 0 < e i) :
     ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
@@ -9061,7 +9225,18 @@ noncomputable def piElementaryEquivInvariantCells (p : ι → Ideal R) (e : ι �
   refine Submodule.quotEquivOfEq _ _ ?_
   rw [elementaryIndexEquivInvariantCells_exponent p e he i]
   congr 1
-/-- `columnEquiv`: see the surrounding section documentation. -/
+/-- `columnEquiv`
+
+Key construction (column Chinese Remainder Theorem). Textbook math: for a fixed
+row `j`, the product of the row's prime-power quotients is the quotient by the
+invariant factor `d_j`,
+`(Π_q R/(q)^{padded(q,j)}) ≃ₗ[R] R/(d_j)`.
+Proof idea: the ideals `f q = q^{padded(q,j)}` are pairwise coprime (distinct
+maximal ideals stay coprime, `isCoprime_pow_pow_ideal`); their infimum equals
+`R·d_j` (expand the product of principal ideals using coprimality and
+`span_singleton_gen`/`isCoprime_generator_pow_pow`); then apply the CRT linear
+equivalence `quotientInfLinearEquivPiQuotient` and identify the quotients via
+`Submodule.quotEquivOfEq`. -/
 noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) (j : Fin (invariantFactorCount p)) :
     ((q : elementaryPrimes p) → R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j)) ≃ₗ[R]
@@ -9090,7 +9265,14 @@ noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
         rfl
   exact (quotientInfLinearEquivPiQuotient f hf).symm.trans (Submodule.quotEquivOfEq _ _ hinf)
 
-/-- `piRectangleEquivInvariantFactors`: see the surrounding section documentation. -/
+/-- `piRectangleEquivInvariantFactors`
+
+Auxiliary construction. Textbook math: the full rectangle of quotient modules is
+linearly isomorphic to the row-indexed family of invariant-factor quotient
+modules, `(Π_{(q,j)}, R/(q)^{padded(q,j)}) ≃ₗ[R] (Π_j, R/(d_j))`.
+Proof idea: first swap the `q`/`j` indices (`piProdSwapLinearEquiv`) so the
+family is grouped by row, then apply `columnEquiv` at each row. The proof is
+trivial (transitivity of linear equivalences). -/
 noncomputable def piRectangleEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) :
     ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
@@ -9102,7 +9284,17 @@ noncomputable def piRectangleEquivInvariantFactors (p : ι → Ideal R) (e : ι 
       R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j))).trans
     (LinearEquiv.piCongrRight fun j => columnEquiv p e hmax j)
 
-/-- `piPrimePowerEquivInvariantFactors`: see the surrounding section documentation. -/
+/-- `piPrimePowerEquivInvariantFactors`
+
+Key construction (main reindexing equivalence). Textbook math: the family of
+prime-power quotient modules is linearly isomorphic to the family of
+invariant-factor quotient modules,
+`(Π i, R/(p i)^{e i}) ≃ₗ[R] (Π_j, R/(d_j))`.
+Proof idea: compose the three preceding equivalences — send the elementary
+family to the occupied cells (`piElementaryEquivInvariantCells`), then to the
+full rectangle (`piInvariantCellsEquivPiRectangle`), then to the
+invariant-factor family (`piRectangleEquivInvariantFactors`). The proof is
+trivial (transitivity of linear equivalences). -/
 noncomputable def piPrimePowerEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) (he : ∀ i, 0 < e i) :
     ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
@@ -9111,7 +9303,14 @@ noncomputable def piPrimePowerEquivInvariantFactors (p : ι → Ideal R) (e : ι
   exact (piElementaryEquivInvariantCells p e he).trans
     ((piInvariantCellsEquivPiRectangle p e).trans (piRectangleEquivInvariantFactors p e hmax))
 
-/-- `piPrimePowerNeZeroLinearEquiv`: see the surrounding section documentation. -/
+/-- `piPrimePowerNeZeroLinearEquiv`
+
+Auxiliary construction. Textbook math: the family of prime-power quotient
+modules is linearly isomorphic to the subfamily indexed by the indices with
+`e i ≠ 0`; the summands with zero exponent have quotient `R/⊤ ≅ 0` and
+contribute nothing. Proof idea: restrict to the nonzero-exponent indices and
+extend back by `0` on the dropped (zero-module) indices, using subsingleton
+elimination for those cells. -/
 noncomputable def piPrimePowerNeZeroLinearEquiv (p : ι → Ideal R) (e : ι → ℕ) :
     ((i : ι) → R ⧸ (p i : Ideal R)^(e i)) ≃ₗ[R]
     ((i : {i : ι // e i ≠ 0}) → R ⧸ (p i.1 : Ideal R)^(e i.1)) where
@@ -9138,7 +9337,13 @@ noncomputable def piPrimePowerNeZeroLinearEquiv (p : ι → Ideal R) (e : ι →
   map_smul' := by intro r f; funext i; rfl
 
 end PID
-/-- `piSpanPowerEquivIdealPow`: see the surrounding section documentation. -/
+/-- `piSpanPowerEquivIdealPow`
+
+Auxiliary construction. Textbook math: the coordinatewise linear isomorphism
+that identifies the quotient by `R·(a_i^{e_i})` with the quotient by
+`(R·a_i)^{e_i}`, using the identity `(R·a)^n = R·(a^n)`. Proof idea: apply
+`piCongrLinearEquiv` with the identity index and `Submodule.quotEquivOfEq` at
+each coordinate, justified by `Ideal.span_singleton_pow`. -/
 noncomputable def piSpanPowerEquivIdealPow (R : Type*) [CommRing R]
     {ι : Type*} (pElem : ι → R) (e : ι → ℕ) :
     ((i : ι) → R ⧸ R ∙ (pElem i ^ e i)) ≃ₗ[R]
@@ -9157,7 +9362,22 @@ namespace Module
 
 open scoped BigOperators
 
-/-- `exists_linearEquiv_free_prod_invariantFactors`: see the surrounding section documentation. -/
+/-- `exists_linearEquiv_free_prod_invariantFactors`
+
+Main theorem (invariant-factor structure theorem for finitely generated modules
+over a PID). Textbook math: under the hypotheses, `M` is isomorphic as an
+`R`-module to a free part of rank `r` times a torsion part that is a product of
+cyclic modules in invariant-factor form,
+`M ≅ₗ[R] (R^r) × (∏_j R/(n_j))`,
+where each `n_j` is nonzero, a non-unit, and `n_j ∣ n_{j+1}`.
+
+Proof idea: start from the elementary/primary decomposition
+(`Module.equiv_free_prod_directSum`), drop the zero-exponent summands
+(`piPrimePowerNeZeroLinearEquiv`), identify `R·(a^{e_i})` with `(R·a)^{e_i}`
+(`piSpanPowerEquivIdealPow`), then reindex the CRT product of prime-power
+quotients into the invariant-factor product (`piPrimePowerEquivInvariantFactors`).
+The required properties of the `n_j` follow from `invariantFactor_ne_zero`,
+`not_isUnit_invariantFactor`, and `invariantFactor_dvd_succ`. -/
 theorem exists_linearEquiv_free_prod_invariantFactors
     (R M : Type*) [CommRing R] [IsPrincipalIdealRing R] [IsDomain R]
     [AddCommGroup M] [Module R M] [Module.Finite R M] :
@@ -9202,7 +9422,17 @@ theorem exists_linearEquiv_free_prod_invariantFactors
       (LinearEquiv.refl (R := R) (M := Fin r →₀ R))
       (e1.trans (e2.trans (e3.trans e4))))⟩
 
-/-- `exists_addEquiv_free_prod_invariantFactors_zmod`: see the surrounding section documentation. -/
+/-- `exists_addEquiv_free_prod_invariantFactors_zmod`
+
+Main theorem (finitely generated abelian groups, invariant-factor form).
+Textbook math: a finitely generated abelian group decomposes as
+`G ≅ (ℤ^r) × (∏_j ℤ/|n_j|)` with `n_j ≠ 0`, non-units, and `n_j ∣ n_{j+1}`
+(here `ZMod (n_j).natAbs` is `ℤ/|n_j|`).
+
+Proof idea: instantiate the PID theorem with `R = ℤ` (a PID and a domain), turn
+the resulting `R`-linear isomorphism into an additive-group isomorphism
+(`toAddEquiv`), and convert each quotient ring `ℤ/⟨n_j⟩` into the cyclic group
+`ZMod (n_j).natAbs` via `Int.quotientSpanEquivZMod`. -/
 theorem exists_addEquiv_free_prod_invariantFactors_zmod
     (G : Type*) [AddCommGroup G] [AddGroup.FG G] :
     ∃ (r s : ℕ) (n : Fin s → ℤ),
