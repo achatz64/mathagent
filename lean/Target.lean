@@ -5,6 +5,8 @@ import Mathlib.RingTheory.Polynomial.GaussLemma
 import Mathlib.RingTheory.Polynomial.Eisenstein.Criterion
 import Mathlib.RingTheory.Localization.Rat
 import Mathlib.LinearAlgebra.Finsupp.LinearCombination
+import Mathlib.Algebra.AlgebraicCard
+import Mathlib.NumberTheory.Transcendental.Liouville.LiouvilleNumber
 
 /-!
 # Provenance
@@ -360,5 +362,36 @@ theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRi
   IsField.of_isDomain_of_finite F R
 
 end SubringGeneratedBySubset
+
+section TranscendentalNumbers
+
+open scoped Nat
+
+/-- FT `ef22`. The set of algebraic numbers is countable.
+
+Delegates to Mathlib's `Algebraic.countable` for the countable domain `ℚ` acting on `ℂ`
+(`ℚ[X]` is countable and each nonzero polynomial has finitely many roots). -/
+theorem algebraic_numbers_countable : {x : ℂ | IsAlgebraic ℚ x}.Countable :=
+  Algebraic.countable ℚ ℂ
+
+/-- FT `ef23`, bridge lemma: a real number transcendental over `ℤ` is transcendental over
+`ℚ`.  This is `IsFractionRing.isAlgebraic_iff` for the fraction field `ℚ` of `ℤ`: a
+nonzero polynomial in `ℤ[X]` remains nonzero over the fraction field. -/
+theorem transcendental_of_transcendental_int {x : ℝ} (h : Transcendental ℤ x) :
+    Transcendental ℚ x :=
+  fun hq => h ((IsFractionRing.isAlgebraic_iff (A := ℤ) (K := ℚ) (C := ℝ)).mpr hq)
+
+/-- FT `ef23`. **Liouville's theorem**: the number `α = ∑ 1 / 2 ^ (n!)` is transcendental
+over `ℚ`.
+
+Milne's `α` is exactly Mathlib's Liouville constant `liouvilleNumber 2` (the defining
+`tsum` matches definitionally, hence `rfl`), for which Mathlib proves
+`Transcendental ℤ` via `transcendental_liouvilleNumber`; the bridge lemma
+`FT.transcendental_of_transcendental_int` transfers this to `ℚ`. -/
+theorem liouville_transcendental :
+    Transcendental ℚ (∑' n : ℕ, (1 / (2 : ℝ) ^ ((n)! : ℕ))) :=
+  transcendental_of_transcendental_int (transcendental_liouvilleNumber (m := 2) le_rfl)
+
+end TranscendentalNumbers
 
 end FT
