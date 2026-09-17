@@ -1,3 +1,6 @@
 # Mathlib-certification package (separate, gitignored; see upstream/README and
 # tmp/MATLIB_E2E_EXPLORATION.md). It builds its own cached mathlib in upstream/.lake.
 upstream/
+
+# Milne FT source (copyright: CC-BY-NC-ND, no redistribution in this repo)
+test/FT/
