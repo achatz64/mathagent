@@ -3,6 +3,8 @@ import Mathlib.LinearAlgebra.FiniteDimensional.Basic
 import Mathlib.RingTheory.Ideal.Basic
 import Mathlib.RingTheory.Polynomial.GaussLemma
 import Mathlib.RingTheory.Polynomial.Eisenstein.Criterion
+import Mathlib.RingTheory.Localization.Rat
+import Mathlib.LinearAlgebra.Finsupp.LinearCombination
 
 /-!
 # Provenance
@@ -38,6 +40,9 @@ script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
 
 namespace FT
 
+open scoped Polynomial
+open scoped Pointwise
+
 /-!
 ## Basic Definitions and Results
 -/
@@ -55,17 +60,43 @@ theorem isField_iff_forall_ideal_eq_bot_or_eq_top {R : Type*} [CommRing R] [Nont
     · exact hI.ne' hIBot
     · exact hItop.ne hITop⟩
 
-/-- FT `ef14`. Let `R` be an integral domain containing a subfield `F` (as a subring).
-If `R` is finite-dimensional as an `F`-vector space, then it is a field. -/
-theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRing R] [IsDomain R]
-    [Algebra F R] [FiniteDimensional F R] : IsField R :=
-  IsField.of_isDomain_of_finite F R
-
 end Fields
 
 section FactoringPolynomials
 
 open Polynomial
+
+/-- FT `ef4`. Rational root divisibility: if `r = c/d ∈ ℚ` (in lowest terms, here `r.num`
+and `r.den`, which are automatically coprime) is a root of `f ∈ ℤ[X]`, then
+`c ∣ a₀` and `d ∣ aₘ`, where `a₀ = f.coeff 0` and `aₘ = f.coeff f.natDegree` is the
+leading coefficient.
+
+Delegates to Mathlib's rational root theorem `num_dvd_of_is_root` / `den_dvd_of_is_root`
+for the UFD `ℤ` inside its fraction field `ℚ`, transferring the divisibility statements
+from `IsFractionRing.num ℤ r` / `IsFractionRing.den ℤ r` to `r.num` / `r.den` along the
+unit-equivalence `Rat.associated_num_den`. -/
+theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree {f : ℤ[X]} {r : ℚ}
+    (hr : Polynomial.aeval r f = 0) :
+    (r.num : ℤ) ∣ f.coeff 0 ∧ (r.den : ℤ) ∣ f.coeff f.natDegree := by
+  have h1 : IsFractionRing.num ℤ r ∣ f.coeff 0 := num_dvd_of_is_root hr
+  have h2 : (IsFractionRing.den ℤ r : ℤ) ∣ f.leadingCoeff := den_dvd_of_is_root hr
+  rw [show f.leadingCoeff = f.coeff f.natDegree from rfl] at h2
+  have hassoc := Rat.associated_num_den r
+  exact ⟨hassoc.1.dvd_iff_dvd_left.mp h1, hassoc.2.dvd_iff_dvd_left.mp h2⟩
+
+/-- Bridge between the `aeval` reading and the `eval ∘ map (algebraMap ℤ ℚ)` reading of
+"`r` is a root of `f : ℤ[X]`". -/
+theorem aeval_eq_eval_map_algebraMap (f : ℤ[X]) (r : ℚ) :
+    Polynomial.aeval r f = Polynomial.eval r (Polynomial.map (algebraMap ℤ ℚ) f) := by
+  rw [Polynomial.aeval_def, Polynomial.eval_map]
+
+/-- FT `ef4`, `eval`-form hypothesis: `r` is a root of `f` viewed in `ℚ[X]` via the
+inclusion `ℤ → ℚ`. -/
+theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree' {f : ℤ[X]} {r : ℚ}
+    (hr : Polynomial.eval r (Polynomial.map (algebraMap ℤ ℚ) f) = 0) :
+    (r.num : ℤ) ∣ f.coeff 0 ∧ (r.den : ℤ) ∣ f.coeff f.natDegree := by
+  rw [← aeval_eq_eval_map_algebraMap] at hr
+  exact num_dvd_coeff_zero_and_den_dvd_coeff_natDegree hr
 
 /-- FT `ef7` (integer version). Eisenstein's criterion in `ℤ[X]`: if the primitive polynomial
 `f ∈ ℤ[X]` has all coefficients of degree `< f.natDegree` divisible by the prime `p`, its
@@ -177,5 +208,127 @@ theorem eisenstein_irreducible (f : ℤ[X]) (p : ℕ) (hp : p.Prime)
   exact hassoc.irreducible hgcast
 
 end FactoringPolynomials
+
+section Extensions
+
+variable {F E L : Type*} [Field F] [Field E] [Field L]
+  [Algebra F E] [Algebra E L] [Algebra F L] [IsScalarTower F E L]
+
+/-- A ring homomorphism out of a field into a nontrivial ring is injective. -/
+private theorem injective_of_field {K S : Type*} [Field K] [Ring S] [Nontrivial S]
+    (g : K →+* S) : Function.Injective g := by
+  intro a b h
+  by_contra hab
+  have hne : a - b ≠ 0 := sub_ne_zero.mpr hab
+  have h0 : g (a - b) = 0 := by rw [map_sub, h, sub_self]
+  have h1 : (1 : S) = 0 := by
+    rw [← map_one g, ← mul_inv_cancel₀ hne, map_mul, h0, zero_mul]
+  exact one_ne_zero h1
+
+/-- FT `ef10`, finiteness half: `L/F` has finite degree if and only if both `L/E` and
+`E/F` have finite degree.
+
+`(→)` an `F`-spanning set of `L` also `E`-spans it (`Module.Finite.of_restrictScalars_finite`),
+and `E` embeds `F`-linearly into the finite `F`-space `L`
+(`Module.Finite.of_injective` on `IsScalarTower.toAlgHom F E L`, injective because `E`
+is a field); `(←)` is `Module.Finite.trans`. -/
+theorem finite_degree_iff :
+    Module.Finite F L ↔ Module.Finite E L ∧ Module.Finite F E := by
+  constructor
+  · intro h
+    exact ⟨Module.Finite.of_restrictScalars_finite F E L,
+      Module.Finite.of_injective (IsScalarTower.toAlgHom F E L).toLinearMap
+        (injective_of_field _)⟩
+  · rintro ⟨hEL, hFE⟩
+    haveI := hEL
+    haveI := hFE
+    exact Module.Finite.trans (R := F) E L
+
+/-- FT `ef10`, degree formula: when both `E/F` and `L/E` are finite,
+`[L:F] = [L:E]·[E:F]` (as a product of natural numbers, via `Module.finrank`). -/
+theorem finrank_tower_mul [Module.Finite F E] [Module.Finite E L] :
+    Module.finrank F L = Module.finrank F E * Module.finrank E L :=
+  (Module.finrank_mul_finrank F E L).symm
+
+/-- FT `ef10`: if `[L:F] < ∞`, then `[L:E] < ∞` and `[E:F] < ∞`, and
+`[L:F] = [L:E]·[E:F]`. -/
+theorem finrank_mul_of_finite [Module.Finite F L] :
+    Module.Finite E L ∧ Module.Finite F E ∧
+      Module.finrank F L = Module.finrank F E * Module.finrank E L := by
+  obtain ⟨hEL, hFE⟩ := finite_degree_iff (F := F) (E := E) (L := L) |>.mp ‹Module.Finite F L›
+  haveI := hEL
+  haveI := hFE
+  exact ⟨hEL, hFE, finrank_tower_mul⟩
+
+end Extensions
+
+section SubringGeneratedBySubset
+
+variable {F E : Type*} [CommRing F] [CommRing E] [Algebra F E]
+
+/-- Supporting definition for FT `ef13`: the monomials in elements of `S ⊆ E`: all
+products `α₁ ⋯ αₙ` of a finite list of elements of `S` (the empty list gives `1`, and
+repetitions of an `α ∈ S` give the powers `α^i`). These are the coefficient-free parts
+of the sums `Σ a_{i₁…iₙ} α₁^{i₁}⋯αₙ^{iₙ}` of FT `ef13`. -/
+def monomials (S : Set E) : Set E :=
+  Set.range fun l : List S => (l.map ((↑) : S → E)).prod
+
+/-- Supporting lemma for FT `ef13`: the `F`-span of the monomials in `S` is the `F`-span
+of the submonoid generated by `S`, i.e. the underlying `F`-module of `F[S]` (by
+`Algebra.adjoin_eq_span`). -/
+theorem span_closure_eq_span_monomials (S : Set E) :
+    Submodule.span F ↑(Submonoid.closure S) = Submodule.span F (monomials S) := by
+  have hle : Submodule.span F (monomials S * monomials S) ≤ Submodule.span F (monomials S) := by
+    rw [Submodule.span_le]
+    intro m hm
+    obtain ⟨u, ⟨l₁, rfl⟩, v, ⟨l₂, rfl⟩, rfl⟩ := Set.mem_mul.mp hm
+    exact Submodule.subset_span ⟨l₁ ++ l₂, by simp only [List.map_append, List.prod_append]⟩
+  apply le_antisymm
+  · rw [Submodule.span_le]
+    intro y hy
+    induction hy using Submonoid.closure_induction with
+    | mem a ha => exact Submodule.subset_span ⟨[⟨a, ha⟩], by simp⟩
+    | one => exact Submodule.subset_span ⟨[], rfl⟩
+    | mul x y _ _ hx hy =>
+        refine hle ?_
+        rw [← Submodule.span_mul_span]
+        exact Submodule.mul_mem_mul hx hy
+  · rw [Submodule.span_le]
+    rintro y ⟨l, rfl⟩
+    refine Submodule.subset_span (list_prod_mem (l := l.map ((↑) : S → E)) fun z hz => ?_)
+    obtain ⟨a, -, rfl⟩ := List.mem_map.mp hz
+    exact Submonoid.subset_closure a.2
+
+/-- FT `ef13`. The ring `F[S]` consists of the elements of `E` expressible as finite
+`F`-linear sums of monomials `α₁^{i₁}⋯αₙ^{iₙ}` with `αⱼ ∈ S`: membership in
+`Algebra.adjoin F S` is membership in the `F`-span of `FT.monomials S`, the set of all
+products of finite lists of elements of `S` (repetitions give the powers `α^i`, and the
+empty list gives the pure-constant summand `1`).
+
+Proof: `Algebra.adjoin_eq_span` identifies `F[S]` with the `F`-span of
+`Submonoid.closure S`, and `Submonoid.closure S` consists exactly of the finite products
+of elements of `S` (induction on `Submonoid.closure_induction` one way,
+`Submonoid.list_prod_mem` the other). -/
+theorem mem_adjoin_iff_mem_span_monomials (S : Set E) (x : E) :
+    x ∈ Algebra.adjoin F S ↔ x ∈ Submodule.span F (monomials S) := by
+  have h1 : x ∈ Algebra.adjoin F S ↔ x ∈ Subalgebra.toSubmodule (Algebra.adjoin F S) := Iff.rfl
+  rw [h1, Algebra.adjoin_eq_span F S, span_closure_eq_span_monomials]
+
+/-- FT `ef13` (`eq7`), explicit finite-sums form: `x ∈ F[S]` iff `x = Σ_l a_l · monomial(l)`
+for some finitely supported coefficient function `c : List S →₀ F` (each summand is a
+monomial `α₁^{i₁}⋯αₙ^{iₙ}` with `αⱼ ∈ S` and coefficient `a_l ∈ F`). -/
+theorem mem_adjoin_iff_exists_finsupp (S : Set E) (x : E) :
+    x ∈ Algebra.adjoin F S ↔
+      ∃ c : List S →₀ F, (c.sum fun l a => a • (l.map ((↑) : S → E)).prod) = x := by
+  rw [mem_adjoin_iff_mem_span_monomials]
+  exact Finsupp.mem_span_range_iff_exists_finsupp
+
+/-- FT `ef14`. Let `R` be an integral domain containing a subfield `F` (as a subring).
+If `R` is finite-dimensional as an `F`-vector space, then it is a field. -/
+theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRing R] [IsDomain R]
+    [Algebra F R] [FiniteDimensional F R] : IsField R :=
+  IsField.of_isDomain_of_finite F R
+
+end SubringGeneratedBySubset
 
 end FT
