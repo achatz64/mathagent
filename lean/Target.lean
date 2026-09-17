@@ -1,4 +1,9 @@
 import Extlib.GroupTheory.Mil21
+-- AUDIT-GAP (audit of commit a86787d, dead import): no declaration of `Extlib.GroupTheory.Mil21`
+-- (namespace `GT`) is referenced anywhere in this target, and the file compiles unchanged when
+-- this import is removed (verified by compiling a copy without it).  `Mil21.lean` declares
+-- external axioms (`feitThompson`, `krullSchmidt_rotman_6_36`), so keeping the import needlessly
+-- pulls axiom-bearing code into the import closure and inflates build cost.  Remove this import.
 import Mathlib.LinearAlgebra.FiniteDimensional.Basic
 import Mathlib.RingTheory.Ideal.Basic
 import Mathlib.RingTheory.Polynomial.GaussLemma
@@ -44,6 +49,12 @@ source-hooks = ["labels"]
 Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
 script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
 
+AUDIT-GAP (audit of commit a86787d, missing script hooks): FORMALIZATION.md and
+AUDIT.md prescribe `INVENTORY-SCRIPT` and `COVERAGE-SCRIPT` hook markers in the
+target, from which the script paths are to be discovered by search.  This target
+only references `lean/tools/ft_inventory.py` and `lean/tools/ft_coverage.py` in
+prose; the standard hook markers are absent.  Add them.
+
 AUDIT-GAP (full audit of commit 22eea5c, coverage audit, expected for
 work-in-progress): the target covers chapter 1 only.  Of the 24 chapter-1
 theorem-like labels, 16 are mentioned; `ef24`-`ef31` (straight-edge-and-compass
@@ -52,6 +63,16 @@ Galois theory, ...; the `ft`/`sf`/`te`/`ag`/`cg`/`ig`/`ca` label clusters) are
 entirely absent from the target although in scope per the provenance `scope`
 field (which omits only exercises, solutions, and expositional material).  To
 be recorded in the final ledger as pending or as AUDIT-DEFERRED.
+
+AUDIT-GAP (audit of commit a86787d, coverage re-run): the paragraph above is
+stale in one respect: `ef24`-`ef31` have since been formalized, and
+`lean/tools/ft_coverage.py` now reports every chapter-1 label as mentioned (0
+unmentioned; 265 source labels total, 47 mentioned overall).  However, chapters
+2-7 remain entirely absent: 218 of 265 labels are unmentioned, among them 116
+theorem-like labels (`ft1`-`ft26`, `sf1`-`sf16`, `te1`-`te22`, `ag1`-`ag41`,
+`cg1`-`cg25`, `ig1`-`ig19`, `ca0`-`ca2`, `B65`-`B81`; only 25 of the 141
+theorem-like labels of the whole book are mentioned, all from chapter 1).
+Still to be recorded in the final ledger as pending or as AUDIT-DEFERRED.
 -/
 
 namespace FT
@@ -880,6 +901,21 @@ section ConstructionsStraightEdgeCompass
 open Polynomial
 open scoped IntermediateField
 
+-- AUDIT-GAP (audit of commit a86787d, documentation audit): the docstrings of numerous
+-- auxiliary declarations forward-reference their consumers, which the documentation rule
+-- forbids (a consumer's documentation may list its dependencies; a dependency's
+-- documentation may not mention its users).  Examples in this file:
+-- `ef24_sq_add_sq_eq_zero`, `ef24_two_mem`, `ef24_four_mem`, `ef24_exists_prop_coeff`,
+-- `ef24_line_param`, `ef24_line_param_mem`, `ef24_circle_quad_iff`, `ef24_quad_disc`,
+-- `ef24_quad_root_exists` ("Helper for FT `ef24`"), `constructible_of_ratCast`
+-- ("Helper for `ef25`/`ef26`"), `quadTower_finrank_pow` ("FT `ef26`/`ef27`, degree input"),
+-- `nat_dvd_two_pow` ("FT `ef27`'s arithmetic input"), `three_ne_two_pow`,
+-- `exists_root_of_not_irreducible_cubic`, `finrank_adjoin_eq_three_of_irreducible_cubic`,
+-- `not_constructible_of_irreducible_cubic`, `aeval_two_rpow_third`,
+-- `irreducible_X_pow_three_sub_two` ("Aux for FT `ef28`/`ef29`"),
+-- `comp_X_add_C_comp_X_sub_C`, `isUnit_comp_X_add_C_iff`, `comp_X_sub_C_comp_X_add_C`,
+-- `isUnit_comp_X_sub_C_iff`, `irreducible_comp_X_add_C_iff` ("used in the proof of
+-- FT `ef31`).  Reword the dependency side so it stands alone.
 /-- Helper for FT `ef24`: on the real line, `x² + y² = 0` forces `x = y = 0`. -/
 theorem ef24_sq_add_sq_eq_zero {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 ∧ y = 0 := by
   have h1 : 0 ≤ y ^ 2 := sq_nonneg y
@@ -984,6 +1020,15 @@ where `√e` is the real square root `Real.sqrt e` (so `F[√e]` is realized ins
 def InQuadPlane (F : Subfield ℝ) (e : ℝ) (p : ℝ × ℝ) : Prop :=
   ∃ u v w z : ℝ, u ∈ F ∧ v ∈ F ∧ w ∈ F ∧ z ∈ F ∧ p.1 = u + v * Real.sqrt e ∧ p.2 = w + z * Real.sqrt e
 
+-- AUDIT-GAP (audit of commit a86787d, coding conventions): the declarations below are named
+-- after TeX labels instead of descriptive Mathlib-style names, against the provenance `scope`
+-- ("Declaration names follow Mathlib conventions") and the FORMALIZATION.md convention that
+-- stable TeX labels live in source comments while Lean names follow Mathlib conventions:
+-- `ef24_1`, `ef24_2`, `ef24_3`, `ef28`, `ef29`, `ef30`, and the helpers
+-- `ef24_sq_add_sq_eq_zero`, `ef24_two_mem`, `ef24_four_mem`, `ef24_exists_prop_coeff`,
+-- `ef24_line_param`, `ef24_line_param_mem`, `ef24_circle_quad_iff`, `ef24_quad_disc`,
+-- `ef24_quad_root_exists`.  Rename descriptively (e.g. `ef29` as
+-- `cos_pi_div_nine_not_constructible`) and keep the labels in comments/docstrings.
 /-- FT `ef24`, clause (1).  Let `L ≠ L′` be `F`-lines.  Then `L ∩ L′ = ∅` or consists of a single
 `F`-point.
 
@@ -2040,5 +2085,16 @@ theorem finrank_adjoin_exp_two_pi_i_over_prime {p : ℕ} (hp : p.Prime) :
     natDegree_cyclotomic, Nat.totient_prime hp]
 
 end ConstructionsStraightEdgeCompass
+
+/-!
+AUDIT-GAP (audit of commit a86787d, obligation to external library): the required
+`### Improvements for Mathlib` comment section (AUDIT.md, "Obligation to external library
+audit"; FORMALIZATION.md, "Obligation to Mathlib and other external libraries") is missing
+from this target entirely, so it cannot be verified that upstream obligations were
+discharged.  Candidate to evaluate when creating the section:
+`FT.exists_root_of_not_irreducible_cubic` (a nonzero degree-3 polynomial over a field that
+is not irreducible has a root) — apply the content and absence checks (broad `rg` over
+Mathlib, REPL replay from this target's import closure) before recording it.
+-/
 
 end FT
