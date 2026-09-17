@@ -45,6 +45,36 @@ open scoped Pointwise
 
 /-!
 ## Basic Definitions and Results
+
+### Scope notes for omitted material (expositional by the provenance rule)
+
+- `ef0` (definition of a field): mapped to the Mathlib `Field` class.
+- `ef2` (examples of fields): `ℚ`, `ℝ`, `ℂ`, `ZMod p` for prime `p` are all
+  `Field` instances in Mathlib.
+- `ef3` (characteristic of a ring, prime field): Mathlib `RingChar`,
+  `CharP`, `PrimeField`.
+- `ef3a` (polynomial ring review): Mathlib `Polynomial`, `Polynomial.R `.
+- `ef3b` (division algorithm): Mathlib `EuclideanDomain`,
+  `Polynomial.modX_eq_sub_eval` / `Polynomial.div_by_monic` API.
+- `ef3c` (factor theorem): Mathlib `Polynomial.eval_sub_factor` /
+  `Polynomial.factor_theorem`-style lemmas (`Polynomial.eval` root and `X - C a`
+  divisibility).
+- `ef3d` (Euclid's algorithm for `F[X]`): Mathlib `EuclideanDomain.gcd`,
+  `euclidAkgcd_eq_gcd`-style API for polynomial GCDs.
+- `ef3e` (ideals of `F[X]` are principal): `PrincipalIdealRing` instance on
+  `Polynomial` over a field (`EuclideanDomain.instPrincipal`).
+- `ef3f` (field of fractions `F(X)`): Mathlib `FractionRing (F[X])` = `F(X)`.
+- `ef5` (example: `X³ - 3X - 1` irreducible by root test): instance of the
+  cubic-root criterion; omitted as an example.
+- `ef6n` (aside: alternative proof of `ef6m` via algebraic integers):
+  expositional aside; the integrally-closed-domain route is Mathlib's
+  `IsIntegrallyClosed` API used by `Polynomial.GaussLemma.lean`.
+- `ef8`, `ef8m` (remarks: factoring algorithm, content mod `p` observation):
+  expositional; the mod-`p` content observation is subsumed by
+  `eisenstein_irreducible_int` below.
+- `ef9` (examples: `[ℂ:ℝ] = 2`, `[ℝ:ℚ] = ∞`): `Complex.finrank_real_complex`
+  in Mathlib gives (a); (b) is a cardinality observation.
+- `ef15` (example: `ℚ[π]`): instance of `mem_adjoin_iff_exists_finsupp` below.
 -/
 
 section Fields
