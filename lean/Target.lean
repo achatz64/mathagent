@@ -38,6 +38,53 @@ source-hooks = ["labels"]
 
 Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
 script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
+
+AUDIT-GAP (full documentation audit, 2026-09-17, minor): the documentation
+standard requires every theorem docstring to document the ideas entering the
+proof, or to declare the proof trivial when only unpacking/repacking occurs.
+The following docstrings state the theorem but do neither:
+
+- trivial/delegation proofs (add "the proof is trivial" or name the delegated
+  fact): `isField_iff_forall_ideal_eq_bot_or_eq_top`,
+  `aeval_eq_eval_map_algebraMap`,
+  `num_dvd_coeff_zero_and_den_dvd_coeff_natDegree'`, `monic_factor_eq_map`,
+  `eisenstein_irreducible_int`, `finrank_tower_mul`, `finrank_mul_of_finite`,
+  `mem_adjoin_iff_exists_finsupp`, `isField_of_isDomain_of_finiteDimensional`,
+  `isAlgebraic_of_finite`, `finiteType_of_finite`,
+  `finite_of_generated_by_finite_algebraic`,
+  `finite_iff_algebraic_and_finiteType`, `isAlgebraic_tower_trans`,
+  `isAlgClosure_of_isAlgClosed_of_isAlgebraic`,
+  `isAlgClosed_of_isAlgebraic_of_splits`,
+  `isAlgClosed_and_isAlgebraic_intermediateFieldIsAlgebraic`;
+- proofs with a genuine idea that the docstring omits (add the textbook proof
+  idea): `degree_pos_of_nonunit_dvd_of_isPrimitive` (non-unit divisor of a
+  primitive polynomial has positive degree, else it is a constant dividing the
+  content), `exists_factorization_of_map_of_isPrimitive` (irreducibility of
+  the mapped primitive polynomial would contradict the hypothesis, so the
+  integer factorization exists and its factors have positive degree by the
+  auxiliary lemma), `exists_factorization_of_map` (factor out the content,
+  apply the primitive-step auxiliary to the primitive part, absorb the content
+  as a unit factor), `span_closure_eq_span_monomials` (products of monomials
+  are monomials, so one span is closed under multiplication; conversely
+  generators of the submonoid are monomials),
+  `isField_of_subring_of_isAlgebraic` (R is closed under polynomial
+  evaluation, and the inverse of a nonzero algebraic element is a polynomial
+  in it), `isAlgClosed_iff_exists_root` (it suffices to test irreducible
+  polynomials, which have positive degree),
+  `isAlgClosed_iff_irreducible_degree_eq_one` (nonconstant polynomials have
+  irreducible factors, of degree 1 by hypothesis, hence roots),
+  `isAlgClosed_iff_algebraMap_surjective_of_finite` (test the quotient
+  `k[X]/(q)` for an irreducible factor `q` of `p`; clause (4) forces a root
+  back into `k`).
+
+Excluded from this list: `mem_intermediateFieldIsAlgebraic`,
+`coe_intermediateFieldIsAlgebraic`,
+`isAlgClosure_iff_isAlgClosed_and_isAlgebraic` (already flagged by the
+per-declaration AUDIT-GAP at `mem_intermediateFieldIsAlgebraic` below) and
+the docstrings already carrying a proof-idea account (`num_dvd_coeff_zero_and_den_dvd_coeff_natDegree`,
+`finite_degree_iff`, `mem_adjoin_iff_mem_span_monomials`,
+`liouville_transcendental`, `isAlgClosure_intermediateFieldIsAlgebraic`,
+`eisenstein_irreducible`, and the sf11/ac3 construction docstrings).
 -/
 
 namespace FT
