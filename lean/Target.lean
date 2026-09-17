@@ -130,6 +130,101 @@ theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree' {f : ℤ[X]} {r : ℚ}
   rw [← aeval_eq_eval_map_algebraMap] at hr
   exact num_dvd_coeff_zero_and_den_dvd_coeff_natDegree hr
 
+/-- FT `ef6` (auxiliary).  A non-unit divisor of a primitive polynomial in `ℤ[X]`
+has positive degree. -/
+theorem degree_pos_of_nonunit_dvd_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimitive)
+    {a : ℤ[X]} (ha0 : a ≠ 0) (ha : ¬IsUnit a) (hdvd : a ∣ P) : 0 < a.degree := by
+  by_contra hneg
+  rcases lt_or_eq_of_le ((Polynomial.zero_le_degree_iff).mpr ha0) with hcontra | hdeg
+  · exact hneg hcontra
+  have hC : a = C (a.coeff 0) := Polynomial.eq_C_of_degree_eq_zero hdeg.symm
+  refine ha ?_
+  rw [hC]
+  exact Polynomial.isUnit_C.mpr
+    ((Polynomial.isPrimitive_iff_isUnit_of_C_dvd.mp hP) (a.coeff 0) (hC ▸ hdvd))
+
+/-- FT `ef6` (auxiliary, primitive step).  If a primitive polynomial `P ∈ ℤ[X]` factors
+nontrivially in `ℚ[X]`, then it factors nontrivially in `ℤ[X]`. -/
+theorem exists_factorization_of_map_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimitive)
+    {p q : ℚ[X]} (hp : 0 < p.degree) (hq : 0 < q.degree)
+    (h : Polynomial.map (Int.castRingHom ℚ) P = p * q) :
+    ∃ r s : ℤ[X], P = r * s ∧ 0 < r.degree ∧ 0 < s.degree := by
+  have hnotmap : ¬Irreducible (Polynomial.map (Int.castRingHom ℚ) P) := fun Hirr =>
+    (Hirr.isUnit_or_isUnit h).elim
+      (fun hu => Polynomial.not_isUnit_of_degree_pos p hp hu)
+      (fun hu => Polynomial.not_isUnit_of_degree_pos q hq hu)
+  have hPnu : ¬IsUnit P := fun hu => by
+    obtain ⟨u, huunit, hPu⟩ := Polynomial.isUnit_iff.mp hu
+    have hu0 : (Int.castRingHom ℚ) u ≠ 0 := by
+      rw [show (Int.castRingHom ℚ) u = ((u : ℤ) : ℚ) from rfl]
+      exact_mod_cast huunit.ne_zero
+    have h1 : (p * q).degree = 0 := by
+      rw [← h, ← hPu, Polynomial.map_C, Polynomial.degree_C hu0]
+    rw [Polynomial.degree_mul] at h1
+    have hqz : q ≠ 0 := fun hqz => by simp [hqz] at hq
+    have hlt : (0 : WithBot ℕ) < p.degree + q.degree :=
+      lt_of_lt_of_le hp
+        (le_add_of_nonneg_right ((Polynomial.zero_le_degree_iff).mpr hqz))
+    rw [h1] at hlt
+    exact lt_irrefl _ hlt
+  rcases irreducible_or_factor hPnu with hPirr | ⟨a, b, ha, hb, hab⟩
+  · exact absurd
+      ((Polynomial.IsPrimitive.Int.irreducible_iff_irreducible_map_cast hP).mp hPirr) hnotmap
+  · have ha0 : a ≠ 0 := fun hz => hP.ne_zero (by rw [hab, hz, zero_mul])
+    have hb0 : b ≠ 0 := fun hz => hP.ne_zero (by rw [hab, hz, mul_zero])
+    refine ⟨a, b, hab, ?_, ?_⟩
+    · exact degree_pos_of_nonunit_dvd_of_isPrimitive hP ha0 ha (Dvd.intro b hab.symm)
+    · exact degree_pos_of_nonunit_dvd_of_isPrimitive hP hb0 hb
+        (Dvd.intro a (by rw [mul_comm]; exact hab.symm))
+
+/-- FT `ef6`.  **Gauss's Lemma.**  Let `f ∈ ℤ[X]`.  If `f` factors nontrivially in `ℚ[X]`
+(that is, `map (algebraMap ℤ ℚ) f = p * q` with both factors of positive degree), then
+`f` factors nontrivially in `ℤ[X]`. -/
+theorem exists_factorization_of_map {f : ℤ[X]} {p q : ℚ[X]} (hp : 0 < p.degree)
+    (hq : 0 < q.degree) (h : Polynomial.map (algebraMap ℤ ℚ) f = p * q) :
+    ∃ r s : ℤ[X], f = r * s ∧ 0 < r.degree ∧ 0 < s.degree := by
+  have hf0 : f ≠ 0 := by
+    intro hf
+    rw [hf, Polynomial.map_zero] at h
+    rcases mul_eq_zero.mp h.symm with hz | hz
+    · simp [hz] at hp
+    · simp [hz] at hq
+  have hc0 : f.content ≠ 0 := fun hc => hf0 (Polynomial.content_eq_zero_iff.mp hc)
+  have hmap : Polynomial.map (algebraMap ℤ ℚ) f
+      = C ((f.content : ℚ)) * Polynomial.map (Int.castRingHom ℚ) f.primPart := by
+    conv_lhs => rw [f.eq_C_content_mul_primPart, Polynomial.map_mul, Polynomial.map_C]
+    rfl
+  have hgpq : Polynomial.map (Int.castRingHom ℚ) f.primPart
+      = C ((f.content : ℚ))⁻¹ * p * q := by
+    have h1 : C ((f.content : ℚ)) * Polynomial.map (Int.castRingHom ℚ) f.primPart
+        = p * q := by
+      rw [← hmap]; exact h
+    rw [mul_assoc, ← h1, ← mul_assoc, ← Polynomial.C_mul,
+      inv_mul_cancel₀ (show ((f.content : ℚ)) ≠ 0 by exact_mod_cast hc0), C_1, one_mul]
+  have hp' : 0 < (C ((f.content : ℚ))⁻¹ * p).degree := by
+    rw [Polynomial.degree_mul,
+      Polynomial.degree_C (inv_ne_zero (show ((f.content : ℚ)) ≠ 0 by
+        exact_mod_cast hc0)), zero_add]
+    exact hp
+  obtain ⟨a, b, hab, hadeg, hbdeg⟩ :=
+    exists_factorization_of_map_of_isPrimitive (Polynomial.isPrimitive_primPart f)
+      hp' hq hgpq
+  have hfab : f = C f.content * a * b := by
+    conv_lhs => rw [f.eq_C_content_mul_primPart]
+    rw [hab, mul_assoc]
+  refine ⟨C f.content * a, b, hfab, ?_, hbdeg⟩
+  · rw [Polynomial.degree_mul, Polynomial.degree_C hc0, zero_add]
+    exact hadeg
+
+/-- FT `ef6m`.  If `f ∈ ℤ[X]` is monic, then every monic factor `g` of `f` in `ℚ[X]`
+lies in `ℤ[X]`: `g = map (algebraMap ℤ ℚ) h` for a (necessarily monic) `h ∈ ℤ[X]`. -/
+theorem monic_factor_eq_map {f : ℤ[X]} (hf : f.Monic) {g : ℚ[X]} (hg : g.Monic)
+    (hdvd : g ∣ Polynomial.map (algebraMap ℤ ℚ) f) :
+    ∃ h : ℤ[X], Polynomial.map (algebraMap ℤ ℚ) h = g := by
+  obtain ⟨h, hh⟩ := IsIntegrallyClosed.eq_map_mul_C_of_dvd (K := ℚ) hf hdvd
+  refine ⟨h, ?_⟩
+  rw [← hh, hg.leadingCoeff, C_1, mul_one]
+
 /-- FT `ef7` (integer version). Eisenstein's criterion in `ℤ[X]`: if the primitive polynomial
 `f ∈ ℤ[X]` has all coefficients of degree `< f.natDegree` divisible by the prime `p`, its
 leading coefficient not divisible by `p`, and its constant coefficient not divisible by `p ^ 2`,
