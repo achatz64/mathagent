@@ -6,7 +6,7 @@
     },
     "lean": {
       "tools": ["read", "grep", "lean_repl"],
-      "model": "openrouter/tencent/hy3",
+      "model": "openrouter/z-ai/glm-5.3-flash",
       "thinkingLevel": "high"
     }
   }
