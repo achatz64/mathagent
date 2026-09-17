@@ -42,9 +42,40 @@ def clean_tex(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def heading(line: str, command: str) -> str | None:
-    match = re.search(rf"\\{command}\{{(.*?)\}}", line)
-    return clean_tex(match.group(1)) if match else None
+def _balanced_end(text: str) -> int | None:
+    """Index of the brace matching an assumed opening '{' at the start of text.
+
+    Escaped braces (\{, \}) are skipped; returns None while unbalanced.
+    """
+    depth = 1
+    index = 1
+    while index < len(text):
+        char = text[index]
+        if char == "\\":
+            index += 2
+            continue
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+        index += 1
+    return None
+
+
+def heading(lines: list[str], index: int, command: str) -> str | None:
+    """Extract a brace-balanced heading argument, continuing across line breaks."""
+    match = re.search(rf"\\{command}\{{", lines[index])
+    if not match:
+        return None
+    argument = lines[index][match.end() :]
+    while (close := _balanced_end(argument)) is None:
+        index += 1
+        if index >= len(lines):
+            return None
+        argument += "\n" + lines[index]
+    return clean_tex(argument[:close])
 
 
 def extract(path: Path) -> list[dict[str, object]]:
@@ -57,11 +88,11 @@ def extract(path: Path) -> list[dict[str, object]]:
 
     while index < len(lines):
         line = lines[index]
-        if value := heading(line, "chapter"):
+        if value := heading(lines, index, "chapter"):
             chapter, section, subsection = value, "", ""
-        elif value := heading(line, "section"):
+        elif value := heading(lines, index, "section"):
             section, subsection = value, ""
-        elif value := heading(line, "subsection"):
+        elif value := heading(lines, index, "subsection"):
             subsection = value
 
         begin = re.search(r"\\begin\{([^}]+)\}", line)
