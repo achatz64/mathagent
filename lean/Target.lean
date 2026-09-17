@@ -38,6 +38,15 @@ source-hooks = ["labels"]
 
 Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
 script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
+
+AUDIT-GAP (full audit of commit 22eea5c, coverage audit, expected for
+work-in-progress): the target covers chapter 1 only.  Of the 24 chapter-1
+theorem-like labels, 16 are mentioned; `ef24`-`ef31` (straight-edge-and-compass
+section) are pending.  Chapters 2-7 (splitting fields, fundamental theorem of
+Galois theory, ...; the `ft`/`sf`/`te`/`ag`/`cg`/`ig`/`ca` label clusters) are
+entirely absent from the target although in scope per the provenance `scope`
+field (which omits only exercises, solutions, and expositional material).  To
+be recorded in the final ledger as pending or as AUDIT-DEFERRED.
 -/
 
 namespace FT
@@ -634,6 +643,13 @@ end TranscendentalNumbers
 
 /-!
 ### Algebraically closed fields
+
+AUDIT-GAP (full audit of commit 22eea5c, provenance/scope audit, minor;
+re-flags the gap closed incompletely by remediation commit 5d9c02e, which
+removed the earlier marker without adding the citation): the chapter-1 aside
+`ac3a` (historical aside on Steinitz 1910) is omitted by the provenance scope
+but has no scope citation in this file, unlike the other omitted expositional
+items of the chapter (see the ef0-ef31 cluster of scope notes above).
 
 Scope note: `sf10`'s source phrasing "hence an algebraic closure of `F`" is
 exposed through `isAlgClosure_of_isAlgebraic_of_splits` alongside the bare
