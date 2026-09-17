@@ -140,7 +140,11 @@ survive agent turnover.
 
 ### Suggested fix (optional)
 
-The auditor's standing briefing (role, pre-reading list, deliverable format,
-commit protocol) could live in a committed file (e.g. extend AUDIT.md or a
-companion `AUDITOR_BRIEF.md`) that the launcher passes internally; the
-launcher itself remains argument-free from the main agent's perspective.
+The launcher itself embeds the auditor briefing (role, pre-reading list,
+protocol) and injects exactly two fixed facts: the audit target — by default
+`lean/Target.lean` — and the deliverable rule (one commit; main picks up
+`AUDIT-GAP` markers and the deliverable commit when the call returns). No
+briefing file is added to the repository. Making the target configurable (so
+the launcher can later serve other targets, e.g. audited promotion candidates)
+is deferred future work; the first version is allowed to hard-code
+`lean/Target.lean`.

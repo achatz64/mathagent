@@ -77,6 +77,13 @@ open scoped Pointwise
 - `ef9` (examples: `[ℂ:ℝ] = 2`, `[ℝ:ℚ] = ∞`): `Complex.finrank_real_complex`
   in Mathlib gives (a); (b) is a cardinality observation.
 - `ef15` (example: `ℚ[π]`): instance of `mem_adjoin_iff_exists_finsupp` below.
+
+AUDIT-GAP (audit 8ba70b2, documentation audit, minor): the chapter-1
+expositional items `ef11`, `ef12`, `ef16`, `ef17`, `ef18` are omitted by the
+provenance scope (examples/remarks) but have no scope citation in this block,
+unlike the other omitted items of the chapter (ef0-ef15 cluster).  Either add
+scope citations for them or state once that all remaining examples/remarks of
+the chapter are omitted by scope.
 -/
 
 section Fields
