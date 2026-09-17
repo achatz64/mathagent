@@ -8764,76 +8764,91 @@ sum of cyclic modules `R/(p_i^{e_i})` (elementary divisors), where each `p_i`
 is a prime element/ideal. Fix a finite index set `ι` and a labeling
 `p : ι → α` recording, for each summand `i`, which prime `p i` it uses, together
 with its exponent `e i`. The constructions here organize this data into the
-Smith normal form rectangle: `elementaryPrimes p` are the distinct primes,
-`primeFiber p q` the `q`-summands, `primeMultiplicity p q` their count, and
+Smith normal form rectangle: `attainedLabels p` are the distinct primes,
+`labelFiber p q` the `q`-summands, `labelMultiplicity p q` their count, and
 `invariantFactorCount p` the maximal count (the rectangle height `s`).
 `paddedExponent` places the sorted `q`-exponents into the bottom `c` rows of
-column `q` and pads the top with zeros; `elementaryColumn`/`elementaryPrime`
+column `q` and pads the top with zeros; `elementaryColumn`/`labelOf`
 invert this placement, and `paddedExponent_elementaryColumn` records that the
 embedding is lossless. Downstream, row-products of these entries give the
-invariant factors `d_j` with `d_j | d_{j+1}`. -/
+invariant factors `d_j` with `d_j | d_{j+1}`.
 
-/-- `elementaryPrimes`
+Naming audit resolution (2026-08-20 rule): the labeling gadgets below are named
+neutrally (`attainedLabels`, `labelFiber`, `labelMultiplicity`, `labelOf`,
+`sortedLabelFiberEquiv`, `indexEquivSigmaLabelFiber`), independent of the
+ring-theoretic application; several were renamed from `prime*`/`elementary*`
+names in response to the 2026-08-20 coding-conventions rule.
+-/
+
+/-- `attainedLabels`
 
 Auxiliary construction. Textbook math: for a finite labeling `p : ι → α`, this
 is the subtype `{ q : α // q ∈ image(p) }` of distinct values actually attained
-by `p` — equivalently, the set of labels appearing in the list `p`. The name
-reflects the intended application (the labels are primes there), but the
-construction itself is independent of any prime structure. -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic image-subtype gadget named after its ring-theoretic application; the docstring itself notes independence from prime structure — cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally (e.g. `imageLabel`) or document as a resolved false positive.
-abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+by `p` — equivalently, the set of labels appearing in the list `p`.
+
+Naming audit resolution (2026-08-20 rule): `attainedLabels` is the neutral,
+contextual name for this purely set-theoretic image-subtype gadget (formerly
+`elementaryPrimes`); the construction is independent of any prime structure.
+-/
+abbrev attainedLabels {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :=
   {q : α // q ∈ Finset.univ.image p}
 
-/-- `primeFiber`
+/-- `labelFiber`
 
 Auxiliary construction. Textbook math: for a labeling `p : ι → α` and a value
 `q : α`, this is the subtype `{ i : ι // p i = q }` of indices whose label is
 `q` — the fiber of `p` over `q`. In the intended application the labels are
-primes, so this collects the summands attached to the prime `q`. -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic fiber gadget named after its ring-theoretic application (`primeFiber`); cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally (e.g. `labelFiber`) or document as a resolved false positive.
-abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
+primes, so this collects the summands attached to the prime `q`.
+
+Naming audit resolution (2026-08-20 rule): neutral contextual rename of the
+former `primeFiber` — a plain fiber of the labeling `p`.
+-/
+abbrev labelFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
   {i : ι // p i = q}
 
-/-- `primeMultiplicity`
+/-- `labelMultiplicity`
 
-Auxiliary construction. Textbook math: `primeMultiplicity p q = |{ i : p i = q }|`,
+Auxiliary construction. Textbook math: `labelMultiplicity p q = |{ i : p i = q }|`,
 the number of indices labeled by `q` — equivalently the cardinality of the
-fiber `primeFiber p q`. In the intended application this is how many times the
-label `q` occurs. -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic fiber-cardinality gadget named after its ring-theoretic application (`primeMultiplicity`); cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally or document as a resolved false positive.
-noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
-    (p : ι → α) (q : elementaryPrimes p) : ℕ :=
-  Fintype.card (primeFiber p q.1)
+fiber `labelFiber p q`. In the intended application this is how many times the
+label `q` occurs.
+
+Naming audit resolution (2026-08-20 rule): neutral contextual rename of the
+former `primeMultiplicity` — the cardinality of the fiber `labelFiber p q`.
+-/
+noncomputable def labelMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (q : attainedLabels p) : ℕ :=
+  Fintype.card (labelFiber p q.1)
 
 /-- `invariantFactorCount`
 
 Auxiliary construction (key quantity). Textbook math:
-`invariantFactorCount p = sup_q (primeMultiplicity p q)`, the maximum size of a
+`invariantFactorCount p = sup_q (labelMultiplicity p q)`, the maximum size of a
 fiber of `p` over any label `q`. Equivalently, it is the largest number of
 indices sharing the same label. -/
 noncomputable def invariantFactorCount {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) : ℕ :=
-  Finset.univ.sup (primeMultiplicity p)
+  Finset.univ.sup (labelMultiplicity p)
 
-/-- `primeMultiplicity_le_invariantFactorCount`
+/-- `labelMultiplicity_le_invariantFactorCount`
 
 Technical lemma. Textbook math: every fiber is no larger than the maximum
-fiber, `primeMultiplicity p q ≤ invariantFactorCount p`. Both the statement and
+fiber, `labelMultiplicity p q ≤ invariantFactorCount p`. Both the statement and
 the proof are trivial: the inequality is the defining property of a supremum,
 and the proof is the single library call `Finset.le_sup` at the membership
 `q ∈ Finset.univ`. -/
-theorem primeMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
+theorem labelMultiplicity_le_invariantFactorCount {α : Type*} [DecidableEq α]
     {ι : Type*} [Fintype ι] [DecidableEq ι]
-    (p : ι → α) (q : elementaryPrimes p) :
-    primeMultiplicity p q ≤ invariantFactorCount p := by
-  exact Finset.le_sup (f := primeMultiplicity p) (Finset.mem_univ q)
+    (p : ι → α) (q : attainedLabels p) :
+    labelMultiplicity p q ≤ invariantFactorCount p := by
+  exact Finset.le_sup (f := labelMultiplicity p) (Finset.mem_univ q)
 /-- `paddedExponent`
 
 Key construction. Textbook math: lay the elementary-divisor data into an
 `s × (#labels)` rectangle, one column per distinct label `q` and one row per
 index `j : Fin s`, where `s = invariantFactorCount p` is the maximal fiber size
-and `c = primeMultiplicity p q` is the size of column `q`. Fill the *bottom*
+and `c = labelMultiplicity p q` is the size of column `q`. Fill the *bottom*
 `c` rows of column `q` with the `c` exponents of the `q`-summands, sorted
 non-decreasingly from bottom to top, and pad the top `s - c` rows with `0`:
 
@@ -8848,119 +8863,127 @@ it returns the exponent at sorted position `j - (s - c)` inside the `q`-fiber
 each row be collected into one product, and the within-column sorting is what
 makes those row-products form a non-decreasing divisibility chain. -/
 noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
-    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p)
+    [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (q : attainedLabels p)
     (j : Fin (invariantFactorCount p)) : ℕ :=
-  let c := primeMultiplicity p q
+  let c := labelMultiplicity p q
   let s := invariantFactorCount p
   if h : s - c ≤ j.1 then
-    e (sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+    e (sortedEquiv (fun i : labelFiber p q.1 => e i.1)
       ⟨j.1 - (s - c), by
         change j.1 - (s - c) < c
-        have hc := primeMultiplicity_le_invariantFactorCount p q
+        have hc := labelMultiplicity_le_invariantFactorCount p q
         omega⟩).1
   else 0
 
-/-- `elementaryPrime`
+/-- `labelOf`
 
 Auxiliary construction. Textbook math: the coercion of an index `i : ι` to its
-label, `elementaryPrime p i = p i`, packaged as an element of `elementaryPrimes p`.
-It records that `p i` is one of the distinct labels attained by `p`. -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): a pure index-to-label coercion named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally (e.g. `labelOf`) or document as a resolved false positive.
-def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
-    (p : ι → α) (i : ι) : elementaryPrimes p :=
+label, `labelOf p i = p i`, packaged as an element of `attainedLabels p`.
+It records that `p i` is one of the distinct labels attained by `p`.
+
+Naming audit resolution (2026-08-20 rule): neutral contextual rename of the
+former `elementaryPrime` — the index-to-label coercion. -/
+def labelOf {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (i : ι) : attainedLabels p :=
   ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
 
-/-- `sortedPrimeFiberEquiv`
+/-- `sortedLabelFiberEquiv`
 
 Auxiliary construction. Textbook math: the order-isomorphism
-`Fin (primeMultiplicity p q) ≃ { i : ι // p i = q }` that sorts the `q`-fiber
+`Fin (labelMultiplicity p q) ≃ { i : ι // p i = q }` that sorts the `q`-fiber
 by the exponent `e i`, numbering its elements `0, …, c-1` in non-decreasing
 order of exponent. It is obtained by applying `sortedEquiv` to the fiber, with
-`primeMultiplicity p q` giving the fiber's cardinality. -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic sorted-fiber bijection named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally (e.g. `sortedFiberEquiv`) or document as a resolved false positive.
-noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
-    (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
-    Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
-  sortedEquiv fun i : primeFiber p q.1 => e i.1
+`labelMultiplicity p q` giving the fiber's cardinality.
+
+Naming audit resolution (2026-08-20 rule): neutral contextual rename of the
+former `sortedPrimeFiberEquiv` — a sorted-fiber bijection for any labeling.
+-/
+noncomputable def sortedLabelFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+    (p : ι → α) (e : ι → ℕ) (q : attainedLabels p) :
+    Fin (labelMultiplicity p q) ≃ labelFiber p q.1 :=
+  sortedEquiv fun i : labelFiber p q.1 => e i.1
 
 /-- `elementaryColumn`
 
 Auxiliary construction (inverse to the padding placement). Textbook math: given
 a summand index `i`, let `q = p i` and let `k` be the position of `i` in the
-sorted `q`-fiber (supplied by `sortedPrimeFiberEquiv p e q`). Then
+sorted `q`-fiber (supplied by `sortedLabelFiberEquiv p e q`). Then
 `elementaryColumn p e i` returns the row `s - c + k` of the padded rectangle,
 i.e. the row into which the exponent `e i` is placed; here `s` and `c` are
-`invariantFactorCount p` and `primeMultiplicity p q`. The offset `s - c` puts
+`invariantFactorCount p` and `labelMultiplicity p q`. The offset `s - c` puts
 the `q`-entries in the bottom `c` rows, matching the placement performed by
 `paddedExponent`. -/
 noncomputable def elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
     Fin (invariantFactorCount p) := by
-  let q := elementaryPrime p i
-  let c := primeMultiplicity p q
+  let q := labelOf p i
+  let c := labelMultiplicity p q
   let s := invariantFactorCount p
-  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
+  let k := (sortedLabelFiberEquiv p e q).symm ⟨i, rfl⟩
   exact ⟨s - c + k.1, by
-    have hc := primeMultiplicity_le_invariantFactorCount p q
+    have hc := labelMultiplicity_le_invariantFactorCount p q
     omega⟩
 
 /-- `paddedExponent_elementaryColumn`
 
 Key lemma (losslessness of the embedding). Textbook math: the entry placed at
-row `elementaryColumn p e i` of column `elementaryPrime p i` recovers the
+row `elementaryColumn p e i` of column `labelOf p i` recovers the
 original exponent,
-`paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i`.
+`paddedExponent p e (labelOf p i) (elementaryColumn p e i) = e i`.
 Proof idea: `elementaryColumn p e i = s - c + k` where `k` is `i`'s position in
 the sorted `q`-fiber, so the `if s - c ≤ j` branch of `paddedExponent` is taken
-and the inner index is `j - (s - c) = k`; then `sortedPrimeFiberEquiv` returns
+and the inner index is `j - (s - c) = k`; then `sortedLabelFiberEquiv` returns
 `i` again via its own `symm` map, giving `e i`. Hence every original exponent
 appears exactly once as an entry of the padded rectangle. -/
 theorem paddedExponent_elementaryColumn {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     [DecidableEq ι] (p : ι → α) (e : ι → ℕ) (i : ι) :
-    paddedExponent p e (elementaryPrime p i) (elementaryColumn p e i) = e i := by
-  let q := elementaryPrime p i
-  let c := primeMultiplicity p q
+    paddedExponent p e (labelOf p i) (elementaryColumn p e i) = e i := by
+  let q := labelOf p i
+  let c := labelMultiplicity p q
   let s := invariantFactorCount p
-  let k := (sortedPrimeFiberEquiv p e q).symm ⟨i, rfl⟩
-  have hc := primeMultiplicity_le_invariantFactorCount p q
+  let k := (sortedLabelFiberEquiv p e q).symm ⟨i, rfl⟩
+  have hc := labelMultiplicity_le_invariantFactorCount p q
   change (if h : s - c ≤ s - c + k.1 then
-      e (sortedEquiv (fun x : primeFiber p q.1 => e x.1)
+      e (sortedEquiv (fun x : labelFiber p q.1 => e x.1)
         ⟨s - c + k.1 - (s - c), by
           change s - c + k.1 - (s - c) < c
           omega⟩).1 else 0) = e i
   rw [dif_pos (show s - c ≤ s - c + k.1 by omega)]
   congr 1
-  change (sortedPrimeFiberEquiv p e q
+  change (sortedLabelFiberEquiv p e q
     ⟨s - c + k.1 - (s - c), _⟩).1 = i
   have harg : (⟨s - c + k.1 - (s - c), by
       omega⟩ : Fin c) = k := Fin.ext (Nat.add_sub_cancel_left _ _)
   rw [harg]
   exact congrArg Subtype.val
-    ((sortedPrimeFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
+    ((sortedLabelFiberEquiv p e q).apply_symm_apply ⟨i, rfl⟩)
 /-- `invariantCells`
 
 Auxiliary construction. Textbook math: the subset of the `s × (#distinct labels)`
 rectangle consisting of the *occupied* cells,
-`{ (q, j) : elementaryPrimes p × Fin s // paddedExponent p e q j ≠ 0 }`.
+`{ (q, j) : attainedLabels p × Fin s // paddedExponent p e q j ≠ 0 }`.
 Equivalently, it is the support of the padded-exponent matrix: one point for
 each summand, recorded at the row and column where its exponent sits. -/
 abbrev invariantCells {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) :=
-  {x : elementaryPrimes p × Fin (invariantFactorCount p) //
+  {x : attainedLabels p × Fin (invariantFactorCount p) //
     paddedExponent p e x.1 x.2 ≠ 0}
 
-/-- `indexEquivSigmaPrimeFiber`
+/-- `indexEquivSigmaLabelFiber`
 
 Auxiliary construction (reindexing by label). Textbook math: the canonical
-bijection `ι ≃ Σ q : elementaryPrimes p, primeFiber p q` that regroups the
+bijection `ι ≃ Σ q : attainedLabels p, labelFiber p q` that regroups the
 index set `ι` as the disjoint union of its fibers over the distinct labels `q`.
 Every index belongs to exactly one fiber, so this is just a reorganization by
-label. The proof is trivial (definitional unpacking/repacking). -/
--- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic regrouping bijection named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally or document as a resolved false positive.
-def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
+label. The proof is trivial (definitional unpacking/repacking).
+
+Naming audit resolution (2026-08-20 rule): neutral contextual rename of the
+former `indexEquivSigmaPrimeFiber` — a regrouping bijection for any labeling.
+-/
+def indexEquivSigmaLabelFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :
-    ι ≃ Σ q : elementaryPrimes p, primeFiber p q.1 where
-  toFun i := ⟨elementaryPrime p i, ⟨i, rfl⟩⟩
+    ι ≃ Σ q : attainedLabels p, labelFiber p q.1 where
+  toFun i := ⟨labelOf p i, ⟨i, rfl⟩⟩
   invFun x := x.2.1
   left_inv _ := rfl
   right_inv x := by
@@ -8969,29 +8992,29 @@ def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintyp
     subst q
     rfl
 
-/-- `sigmaPrimeFiberEquivInvariantCells`
+/-- `sigmaLabelFiberEquivInvariantCells`
 
 Auxiliary construction (placement equivalence). Textbook math: the bijection
-`(Σ q : elementaryPrimes p, Fin (primeMultiplicity p q)) ≃ invariantCells p e`
+`(Σ q : attainedLabels p, Fin (labelMultiplicity p q)) ≃ invariantCells p e`
 that places each summand into its occupied rectangle cell. It sends the `k`-th
 element of prime `q`'s fiber to row `s - c + k` (the padded position), where
-`s = invariantFactorCount p` and `c = primeMultiplicity p q`; the hypothesis
+`s = invariantFactorCount p` and `c = labelMultiplicity p q`; the hypothesis
 `0 < e i` for all `i` ensures that cell is indeed occupied (nonzero entry).
 
 Proof idea: `toFun` builds the cell `(q, s - c + k)` and uses `paddedExponent`
-with `dif_pos` together with `sortedPrimeFiberEquiv` to show its entry equals
+with `dif_pos` together with `sortedLabelFiberEquiv` to show its entry equals
 `e (…)` `≠ 0`; `invFun` recovers `k = j - (s - c)` using `dif_neg` on the
 complement of the occupied rows; the two-sided inverses are discharged by
 `omega` from the row arithmetic. -/
-noncomputable def sigmaPrimeFiberEquivInvariantCells
+noncomputable def sigmaLabelFiberEquivInvariantCells
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
-    (Σ q : elementaryPrimes p, Fin (primeMultiplicity p q)) ≃ invariantCells p e where
+    (Σ q : attainedLabels p, Fin (labelMultiplicity p q)) ≃ invariantCells p e where
   toFun x := by
     rcases x with ⟨q, k⟩
-    let c := primeMultiplicity p q
+    let c := labelMultiplicity p q
     let s := invariantFactorCount p
-    have hc := primeMultiplicity_le_invariantFactorCount p q
+    have hc := labelMultiplicity_le_invariantFactorCount p q
     let j : Fin s := ⟨s - c + k.1, by omega⟩
     refine ⟨(q, j), ?_⟩
     rw [paddedExponent, dif_pos (show s - c ≤ j.1 by
@@ -9000,16 +9023,16 @@ noncomputable def sigmaPrimeFiberEquivInvariantCells
         change s - c + k.1 - (s - c) < c
         omega⟩ : Fin c) = k := by
       apply Fin.ext; simp [j]
-    change e (sortedPrimeFiberEquiv p e q
+    change e (sortedLabelFiberEquiv p e q
       ⟨j.1 - (s - c), _⟩).1 ≠ 0
     rw [harg]
-    exact ne_of_gt (he (sortedPrimeFiberEquiv p e q k).1)
+    exact ne_of_gt (he (sortedLabelFiberEquiv p e q k).1)
   invFun x := by
     let q := x.1.1
     let j := x.1.2
-    let c := primeMultiplicity p q
+    let c := labelMultiplicity p q
     let s := invariantFactorCount p
-    have hc := primeMultiplicity_le_invariantFactorCount p q
+    have hc := labelMultiplicity_le_invariantFactorCount p q
     have hj : s - c ≤ j.1 := by
       by_contra h
       apply x.2
@@ -9018,14 +9041,14 @@ noncomputable def sigmaPrimeFiberEquivInvariantCells
   left_inv x := by
     rcases x with ⟨q, k⟩
     change (⟨q, ⟨invariantFactorCount p -
-      primeMultiplicity p q + k.1 -
-      (invariantFactorCount p - primeMultiplicity p q), by
-        omega⟩⟩ : Σ q, Fin (primeMultiplicity p q)) = ⟨q, k⟩
+      labelMultiplicity p q + k.1 -
+      (invariantFactorCount p - labelMultiplicity p q), by
+        omega⟩⟩ : Σ q, Fin (labelMultiplicity p q)) = ⟨q, k⟩
     rw [Sigma.ext_iff]
     refine ⟨rfl, heq_of_eq ?_⟩
     apply Fin.ext
-    change invariantFactorCount p - primeMultiplicity p q + k.1 -
-      (invariantFactorCount p - primeMultiplicity p q) = k.1
+    change invariantFactorCount p - labelMultiplicity p q + k.1 -
+      (invariantFactorCount p - labelMultiplicity p q) = k.1
     omega
   right_inv x := by
     apply Subtype.ext
@@ -9035,9 +9058,9 @@ noncomputable def sigmaPrimeFiberEquivInvariantCells
       simp only
       let q := x.1.1
       let j := x.1.2
-      let c := primeMultiplicity p q
+      let c := labelMultiplicity p q
       let s := invariantFactorCount p
-      have hc := primeMultiplicity_le_invariantFactorCount p q
+      have hc := labelMultiplicity_le_invariantFactorCount p q
       have hj : s - c ≤ j.1 := by
         by_contra h
         apply x.2
@@ -9048,18 +9071,18 @@ noncomputable def sigmaPrimeFiberEquivInvariantCells
 
 Key construction. Textbook math: the composite bijection
 `ι ≃ invariantCells p e` assigning to each summand its occupied cell in the
-padded rectangle. It is the chain `indexEquivSigmaPrimeFiber` (regroup by
-label), then `Equiv.sigmaCongrRight (sortedPrimeFiberEquiv p e q).symm` (number
-each fiber `0, …, c-1` by exponent), then `sigmaPrimeFiberEquivInvariantCells`
+padded rectangle. It is the chain `indexEquivSigmaLabelFiber` (regroup by
+label), then `Equiv.sigmaCongrRight (sortedLabelFiberEquiv p e q).symm` (number
+each fiber `0, …, c-1` by exponent), then `sigmaLabelFiberEquivInvariantCells`
 (place into the rectangle). The proof is trivial (transitivity of
 -equivalences). -/
 noncomputable def elementaryIndexEquivInvariantCells
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) :
     ι ≃ invariantCells p e :=
-  (indexEquivSigmaPrimeFiber p).trans <|
-    (Equiv.sigmaCongrRight fun q => (sortedPrimeFiberEquiv p e q).symm).trans
-      (sigmaPrimeFiberEquivInvariantCells p e he)
+  (indexEquivSigmaLabelFiber p).trans <|
+    (Equiv.sigmaCongrRight fun q => (sortedLabelFiberEquiv p e q).symm).trans
+      (sigmaLabelFiberEquivInvariantCells p e he)
 
 /-- `elementaryIndexEquivInvariantCells_prime`
 
@@ -9077,14 +9100,14 @@ theorem elementaryIndexEquivInvariantCells_prime
 /-- `elementaryIndexEquivInvariantCells_apply`
 
 Key lemma (explicit description). Textbook math: the equivalence sends `i` to
-the cell `(elementaryPrime p i, elementaryColumn p e i)` — i.e. prime `p i` and
+the cell `(labelOf p i, elementaryColumn p e i)` — i.e. prime `p i` and
 the row computed by `elementaryColumn`. The proof is trivial (`Prod.ext` and
 `Fin.ext`, following from the definitions). -/
 theorem elementaryIndexEquivInvariantCells_apply
     {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι] [DecidableEq ι]
     (p : ι → α) (e : ι → ℕ) (he : ∀ i, 0 < e i) (i : ι) :
     (elementaryIndexEquivInvariantCells p e he i).1 =
-      (elementaryPrime p i, elementaryColumn p e i) := by
+      (labelOf p i, elementaryColumn p e i) := by
   apply Prod.ext
   · rfl
   · apply Fin.ext; rfl
@@ -9095,7 +9118,7 @@ Key lemma (exponent preservation). Textbook math: the padded-exponent entry at
 the cell assigned to `i` recovers the original exponent,
 `paddedExponent p e (…).1.1 (…).1.2 = e i`.
 Proof idea: rewrite the cell via `elementaryIndexEquivInvariantCells_apply` to
-`(elementaryPrime p i, elementaryColumn p e i)`, then apply
+`(labelOf p i, elementaryColumn p e i)`, then apply
 `paddedExponent_elementaryColumn`. -/
 @[simp]
 theorem elementaryIndexEquivInvariantCells_exponent
@@ -9118,7 +9141,7 @@ omit [DecidableEq ι] in
 Auxiliary lemma. Textbook math: every distinct prime ideal `q` occurring among
 the `p i` is principal, because `R` is a principal ideal ring. The proof is
 trivial (immediate from the `IsPrincipalIdealRing` instance). -/
-theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
+theorem principal_of_mem_image (p : ι → Ideal R) (q : attainedLabels p) :
     (q.1 : Ideal R).IsPrincipal :=
   IsPrincipalIdealRing.principal q.1
 
@@ -9127,7 +9150,7 @@ theorem principal_of_mem_image (p : ι → Ideal R) (q : elementaryPrimes p) :
 Auxiliary construction. Textbook math: `gen p q` is a generator of the
 principal ideal `q` (so `q = R·gen p q`); it is the "prime element"
 representing the prime `q` in the factorization. -/
-noncomputable def gen (p : ι → Ideal R) (q : elementaryPrimes p) : R :=
+noncomputable def gen (p : ι → Ideal R) (q : attainedLabels p) : R :=
   Submodule.IsPrincipal.generator q.1
 
 omit [DecidableEq ι] in
@@ -9136,18 +9159,18 @@ omit [DecidableEq ι] in
 Auxiliary lemma. Textbook math: the ideal generated by `gen p q` is `q` itself,
 `R·gen p q = q`. The proof is trivial (definitional, from the principal-ideal
 structure). -/
-theorem span_singleton_gen (p : ι → Ideal R) (q : elementaryPrimes p) :
+theorem span_singleton_gen (p : ι → Ideal R) (q : attainedLabels p) :
     (R ∙ gen p q : Ideal R) = q.1 :=
   Submodule.IsPrincipal.span_singleton_generator q.1
 
 omit [IsPrincipalIdealRing R] [DecidableEq ι] in
-/-- `isMaximal_of_mem_elementaryPrimes`
+/-- `isMaximal_of_mem_attainedLabels`
 
 Auxiliary lemma. Textbook math: if every summand ideal `p i` is maximal, then
 every distinct prime ideal `q` among them is maximal. The proof is trivial
-(unpack membership of `elementaryPrimes` and apply the hypothesis). -/
-theorem isMaximal_of_mem_elementaryPrimes (p : ι → Ideal R)
-    (hmax : ∀ i, (p i).IsMaximal) (q : elementaryPrimes p) :
+(unpack membership of `attainedLabels` and apply the hypothesis). -/
+theorem isMaximal_of_mem_attainedLabels (p : ι → Ideal R)
+    (hmax : ∀ i, (p i).IsMaximal) (q : attainedLabels p) :
     (q.1 : Ideal R).IsMaximal := by
   rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
   exact hi ▸ hmax i
@@ -9162,7 +9185,7 @@ Thus it is exactly the product of the `j`-th row of the padded rectangle, i.e.
 the element of `R` carried by the `j`-th invariant-factor position. -/
 noncomputable def invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
     (j : Fin (invariantFactorCount p)) : R :=
-  ∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j
+  ∏ q : attainedLabels p, gen p q ^ paddedExponent p e q j
 
 omit [IsPrincipalIdealRing R] [DecidableEq ι] in
 /-- `isCoprime_pow_pow_ideal`
@@ -9172,11 +9195,11 @@ coprime after taking powers, `IsCoprime (q^a) (r^b)` for `q ≠ r` among the
 distinct primes. Proof idea: distinct maximal ideals are coprime (a standard
 fact), and coprimality is preserved under taking powers. -/
 theorem isCoprime_pow_pow_ideal (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
-    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    {q r : attainedLabels p} (hqr : q ≠ r) (a b : ℕ) :
     IsCoprime ((q.1 : Ideal R) ^ a) ((r.1 : Ideal R) ^ b) := by
   have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
-  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
-  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_attainedLabels p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_attainedLabels p hmax r
   exact (Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne).pow_left (m := a) |>.pow_right (n := b)
 
 omit [DecidableEq ι] in
@@ -9188,11 +9211,11 @@ generators remain coprime after powering, `IsCoprime (gen p q ^ a)
 ideals are `q` and `r`; apply coprimality of the distinct maximal ideals, then
 pass through the span-singleton-coprimality equivalence and raise to powers. -/
 theorem isCoprime_generator_pow_pow (p : ι → Ideal R) (hmax : ∀ i, (p i).IsMaximal)
-    {q r : elementaryPrimes p} (hqr : q ≠ r) (a b : ℕ) :
+    {q r : attainedLabels p} (hqr : q ≠ r) (a b : ℕ) :
     IsCoprime (gen p q ^ a) (gen p r ^ b) := by
   have hne : q.1 ≠ r.1 := fun h => hqr (Subtype.ext h)
-  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
-  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax r
+  haveI : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_attainedLabels p hmax q
+  haveI : (r.1 : Ideal R).IsMaximal := isMaximal_of_mem_attainedLabels p hmax r
   have hc : IsCoprime (R ∙ gen p q) (R ∙ gen p r) := by
     rw [span_singleton_gen p q, span_singleton_gen p r]
     exact Ideal.isCoprime_of_isMaximal (I := q.1) (J := r.1) hne
@@ -9208,15 +9231,15 @@ each column respects the divisibility order. Proof idea: in the bottom block
 (`s - c ≤ j`) the entries are the sorted exponents (via `monotone_sortedEquiv`)
 and hence non-decreasing; above the block they are `0`, which is `≤` any entry. -/
 theorem monotone_paddedExponent (p : ι → Ideal R) (e : ι → ℕ)
-    (q : elementaryPrimes p) :
+    (q : attainedLabels p) :
     Monotone (paddedExponent p e q) := by
   intro j k hjk
-  let c := primeMultiplicity p q
+  let c := labelMultiplicity p q
   let s := invariantFactorCount p
   by_cases hj : s - c ≤ j.1
   · have hk : s - c ≤ k.1 := hj.trans hjk
     rw [paddedExponent, dif_pos hj, paddedExponent, dif_pos hk]
-    apply monotone_sortedEquiv (fun i : primeFiber p q.1 => e i.1)
+    apply monotone_sortedEquiv (fun i : labelFiber p q.1 => e i.1)
     exact Fin.mk_le_mk.mpr (Nat.sub_le_sub_right hjk _)
   · rw [paddedExponent, dif_neg hj]
     exact Nat.zero_le _
@@ -9227,11 +9250,11 @@ Auxiliary lemma (positivity). Textbook math: every row `j` of the rectangle has
 at least one positive entry, `∃ q, 0 < paddedExponent p e q j` (assuming all
 exponents `e i` are positive). Proof idea: the fiber of maximal multiplicity
 `c = s` supplies, in each row `j`, an occupied (hence positive) entry; this is
-obtained from `primeMultiplicity p q = invariantFactorCount p` at a prime
+obtained from `labelMultiplicity p q = invariantFactorCount p` at a prime
 realizing the supremum. -/
 theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : ∀ i, 0 < e i)
     (j : Fin (invariantFactorCount p)) :
-    ∃ q : elementaryPrimes p, 0 < paddedExponent p e q j := by
+    ∃ q : attainedLabels p, 0 < paddedExponent p e q j := by
   have hs : 0 < invariantFactorCount p := Nat.zero_lt_of_lt j.2
   haveI : Nonempty ι := by
     cases isEmpty_or_nonempty ι with
@@ -9241,14 +9264,14 @@ theorem exists_pos_paddedExponent (p : ι → Ideal R) (e : ι → ℕ) (he : �
         omega
     | inr h => exact h
   let i₀ := Classical.choice (inferInstance : Nonempty ι)
-  have hP : (Finset.univ : Finset (elementaryPrimes p)).Nonempty :=
-    ⟨elementaryPrime p i₀, Finset.mem_univ _⟩
+  have hP : (Finset.univ : Finset (attainedLabels p)).Nonempty :=
+    ⟨labelOf p i₀, Finset.mem_univ _⟩
   obtain ⟨q, _, hq⟩ := Finset.exists_mem_eq_sup
-    (Finset.univ : Finset (elementaryPrimes p)) hP (primeMultiplicity p)
-  have hmult : primeMultiplicity p q = invariantFactorCount p := hq.symm
+    (Finset.univ : Finset (attainedLabels p)) hP (labelMultiplicity p)
+  have hmult : labelMultiplicity p q = invariantFactorCount p := hq.symm
   refine ⟨q, ?_⟩
   rw [paddedExponent]
-  have hzero : invariantFactorCount p - primeMultiplicity p q = 0 := by omega
+  have hzero : invariantFactorCount p - labelMultiplicity p q = 0 := by omega
   rw [dif_pos (by omega)]
   exact he _
 
@@ -9269,7 +9292,7 @@ theorem not_isUnit_invariantFactor (p : ι → Ideal R) (e : ι → ℕ)
     simpa using (pow_dvd_pow (gen p q) (Nat.succ_le_of_lt hpos)).trans hdvd_pow
   intro hu
   have huq : IsUnit (gen p q) := isUnit_of_dvd_unit hdvd hu
-  have hqmax : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_elementaryPrimes p hmax q
+  have hqmax : (q.1 : Ideal R).IsMaximal := isMaximal_of_mem_attainedLabels p hmax q
   apply hqmax.ne_top
   rw [← span_singleton_gen p q]
   exact Ideal.span_singleton_eq_top.mpr huq
@@ -9299,8 +9322,8 @@ generator `gen p q` is nonzero (in an integral domain `R`). The proof is
 trivial: if `gen p q` were `0` then the ideal `R·gen p q = q` would be `0`,
 contradicting the hypothesis. -/
 theorem gen_ne_zero [IsDomain R] (p : ι → Ideal R)
-    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
-    (q : elementaryPrimes p) : gen p q ≠ 0 := by
+    (hne : ∀ q : attainedLabels p, (q.1 : Ideal R) ≠ ⊥)
+    (q : attainedLabels p) : gen p q ≠ 0 := by
   intro h
   have hsp : R ∙ gen p q = (q.1 : Ideal R) := span_singleton_gen p q
   rw [h, Submodule.span_singleton_eq_bot.mpr rfl] at hsp
@@ -9313,7 +9336,7 @@ prime ideals are nonzero, in an integral domain `R`. Proof idea: it is a product
 of powers of the nonzero generators `gen p q` (`gen_ne_zero`), and a product of
 nonzero elements in a domain is nonzero. -/
 theorem invariantFactor_ne_zero [IsDomain R] (p : ι → Ideal R) (e : ι → ℕ)
-    (hne : ∀ q : elementaryPrimes p, (q.1 : Ideal R) ≠ ⊥)
+    (hne : ∀ q : attainedLabels p, (q.1 : Ideal R) ≠ ⊥)
     (j : Fin (invariantFactorCount p)) : invariantFactor p e j ≠ 0 := by
   show (∏ q, gen p q ^ paddedExponent p e q j) ≠ 0
   apply Finset.prod_ne_zero_iff.mpr
@@ -9420,7 +9443,7 @@ variable {ι : Type*} [Fintype ι] [DecidableEq ι]
 /-- `piRectangleEquivInvariantCells`
 
 Auxiliary construction. Textbook math: the family of quotient modules indexed
-by the *full* rectangle `elementaryPrimes p × Fin s` is linearly isomorphic to
+by the *full* rectangle `attainedLabels p × Fin s` is linearly isomorphic to
 the subfamily indexed by the *occupied* cells `invariantCells p e`. The
 unoccupied cells have padded exponent `0`, hence quotient `R/⊤ ≅ 0`, and
 contribute nothing. Proof idea: `toFun` restricts a full-rectangle family to
@@ -9428,7 +9451,7 @@ the occupied cells; `invFun` extends back, sending unoccupied cells to `0`
 (their quotient is a zero module, hence subsingleton). The two-sided inverses
 and linearity are checked coordinatewise (`rfl` / subsingleton elimination). -/
 noncomputable def piRectangleEquivInvariantCells (p : ι → Ideal R) (e : ι → ℕ) :
-    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+    ((x : attainedLabels p × Fin (invariantFactorCount p)) →
       R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
     ((x : invariantCells p e) →
       R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) where
@@ -9464,7 +9487,7 @@ proof is trivial (symmetry of a linear equivalence). -/
 noncomputable def piInvariantCellsEquivPiRectangle (p : ι → Ideal R) (e : ι → ℕ) :
     ((x : invariantCells p e) →
       R ⧸ (x.1.1.1 : Ideal R)^(paddedExponent p e x.1.1 x.1.2)) ≃ₗ[R]
-    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+    ((x : attainedLabels p × Fin (invariantFactorCount p)) →
       R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) :=
   (piRectangleEquivInvariantCells p e).symm
 
@@ -9506,17 +9529,17 @@ equivalence `quotientInfLinearEquivPiQuotient` and identify the quotients via
 `Submodule.quotEquivOfEq`. -/
 noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) (j : Fin (invariantFactorCount p)) :
-    ((q : elementaryPrimes p) → R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j)) ≃ₗ[R]
+    ((q : attainedLabels p) → R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j)) ≃ₗ[R]
     (R ⧸ R ∙ invariantFactor p e j) := by
   classical
-  let f : elementaryPrimes p → Ideal R := fun q => (q.1 : Ideal R) ^ paddedExponent p e q j
+  let f : attainedLabels p → Ideal R := fun q => (q.1 : Ideal R) ^ paddedExponent p e q j
   have hf : Pairwise (IsCoprime on f) := by
     intro q r hqr
     exact isCoprime_pow_pow_ideal p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j)
-  have hinf : (⨅ q : elementaryPrimes p, f q) = R ∙ invariantFactor p e j := by
+  have hinf : (⨅ q : attainedLabels p, f q) = R ∙ invariantFactor p e j := by
     calc
-      (⨅ q : elementaryPrimes p, f q) =
-          ⨅ q : elementaryPrimes p, Ideal.span {gen p q ^ paddedExponent p e q j} := by
+      (⨅ q : attainedLabels p, f q) =
+          ⨅ q : attainedLabels p, Ideal.span {gen p q ^ paddedExponent p e q j} := by
         apply iInf_congr
         intro q
         calc
@@ -9525,7 +9548,7 @@ noncomputable def columnEquiv (p : ι → Ideal R) (e : ι → ℕ)
             rw [span_singleton_gen p q]
           _ = Ideal.span {gen p q ^ paddedExponent p e q j} := by
             rw [Ideal.span_singleton_pow]
-      _ = Ideal.span {∏ q : elementaryPrimes p, gen p q ^ paddedExponent p e q j} := by
+      _ = Ideal.span {∏ q : attainedLabels p, gen p q ^ paddedExponent p e q j} := by
         exact Ideal.iInf_span_singleton (fun q r hqr =>
           isCoprime_generator_pow_pow p hmax hqr (paddedExponent p e q j) (paddedExponent p e r j))
       _ = R ∙ invariantFactor p e j := by
@@ -9542,11 +9565,11 @@ family is grouped by row, then apply `columnEquiv` at each row. The proof is
 trivial (transitivity of linear equivalences). -/
 noncomputable def piRectangleEquivInvariantFactors (p : ι → Ideal R) (e : ι → ℕ)
     (hmax : ∀ i, (p i).IsMaximal) :
-    ((x : elementaryPrimes p × Fin (invariantFactorCount p)) →
+    ((x : attainedLabels p × Fin (invariantFactorCount p)) →
       R ⧸ (x.1.1 : Ideal R)^(paddedExponent p e x.1 x.2)) ≃ₗ[R]
     ((j : Fin (invariantFactorCount p)) → R ⧸ R ∙ invariantFactor p e j) := by
   classical
-  exact (piProdSwapLinearEquiv (fun (q : elementaryPrimes p)
+  exact (piProdSwapLinearEquiv (fun (q : attainedLabels p)
       (j : Fin (invariantFactorCount p)) =>
       R ⧸ (q.1 : Ideal R)^(paddedExponent p e q j))).trans
     (LinearEquiv.piCongrRight fun j => columnEquiv p e hmax j)
@@ -9666,7 +9689,7 @@ theorem exists_linearEquiv_free_prod_invariantFactors
   let e' : ι' → ℕ := fun i => e i.1
   have he' : ∀ i : ι', 0 < e' i := fun i => Nat.pos_of_ne_zero i.2
   have hmax' : ∀ i : ι', (p' i).IsMaximal := fun i => hmax i.1
-  have hne : ∀ q : PIDInvariantFactors.elementaryPrimes p',
+  have hne : ∀ q : PIDInvariantFactors.attainedLabels p',
       (q.1 : Ideal R) ≠ ⊥ := by
     intro q
     rcases Finset.mem_image.mp q.2 with ⟨i, _, hi⟩
