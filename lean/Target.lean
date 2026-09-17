@@ -1005,6 +1005,14 @@ def InQuadPlane (F : Subfield ℝ) (e : ℝ) (p : ℝ × ℝ) : Prop :=
   ∃ u v w z : ℝ, u ∈ F ∧ v ∈ F ∧ w ∈ F ∧ z ∈ F ∧ p.1 = u + v * Real.sqrt e ∧ p.2 = w + z * Real.sqrt e
 
 -- `cos_pi_div_nine_not_constructible`) and keep the labels in comments/docstrings.
+/-!
+AUDIT-GAP (documentation audit): dangling comment fragment — the `--` line just
+above this marker, "`cos_pi_div_nine_not_constructible`) and keep the labels in
+comments/docstrings.", is an incomplete leftover sentence that also references
+the outdated declaration name `cos_pi_div_nine_not_constructible` (the target
+declares `FT.not_constructible_cos_pi_div_nine`); remove or repair the
+fragment.
+-/
 /-- FT `ef24`, clause (1).  Let `L ≠ L′` be `F`-lines.  Then `L ∩ L′ = ∅` or consists of a single
 `F`-point.
 
@@ -1297,6 +1305,29 @@ encoding, FT `ef25` becomes the closure properties of the predicate (its intro r
 FT `ef26` (i) says the predicate is the carrier of a subfield of ℝ, and FT `ef26` (ii) is
 the quadratic-tower characterisation; the geometric input of FT's `ef24` (constructed
 points lie in `F[√e]`) is the separate item `ef24` above and is not needed here.
+-/
+
+/-!
+AUDIT-GAP (semantic audit, encoding bridge missing): the source defines
+*constructible* geometrically (FT, section *Constructions with straight-edge and
+compass*: a real number is constructible if it "can be constructed by forming
+successive intersections of lines through two points already constructed and
+circles with centre a point already constructed and radius a constructed
+length") and proves `ef25` (a), (b) and `ef26` (i) as *geometric* theorems using
+`ef24`.  This target replaces the geometric definition by the inductive
+predicate `Constructible` (closure of `ℚ` under the field operations and square
+roots of positive elements), so `ef25`/`ef26` (i) become definitional
+trivialities, and no declaration links `Constructible` to the geometric notion:
+neither "every straight-edge-and-compass constructible length satisfies
+`Constructible`" (which, by induction on construction steps over the already
+formalized `ef24` intersections, would turn `FT.ef28`–`FT.ef30` into genuine geometric impossibility statements) nor the converse is formalized, and the
+geometric input `ef24` is deliberately left unused ("is not needed here").  As
+it stands the source claims "impossible to duplicate the cube / trisect an
+angle / square the circle *by straight-edge and compass constructions*"
+(`ef28`–`ef30`) are only established for the substitute predicate.  Remediation:
+either formalize at least the forward geometric bridge (constructed lengths are
+`Constructible`), or record the encoding substitution explicitly in the
+provenance `scope` field / final ledger.
 -/
 
 /-- **FT `ef25`, encoding.**  A real number is *constructible* iff it is generated from the
@@ -2082,6 +2113,22 @@ The development above exposes the following plausible upstream improvement.
   `Irreducible f ↔ ∀ x, f.eval x ≠ 0`.  Absence check: broad `rg` over Mathlib
   for cubic/degree-three root-irreducibility equivalences returned only
   degree-2 packaging.
+
+  AUDIT-GAP (obligation to external library audit): this entry fails the
+  absence check — Mathlib already packages the proposed upstream statement.
+  `Polynomial.irreducible_iff_roots_eq_zero_of_degree_le_three`
+  (Mathlib/Algebra/Polynomial/SpecificDegree.lean) gives
+  `Irreducible p ↔ p.roots = 0` for `2 ≤ natDegree p ≤ 3` over a field (also in
+  `Monic` form), and `Polynomial.irreducible_of_degree_le_three_of_not_isRoot`
+  (same file) gives `natDegree p ∈ Icc 1 3 → (∀ x, ¬IsRoot p x) → Irreducible p`.
+  The proposed criterion "for `f ≠ 0` with `f.natDegree ≤ 3`,
+  `Irreducible f ↔ ∀ x, f.eval x ≠ 0`" is therefore available upstream up to
+  the epsilon (compose the degree ≤ 3 case with the characterization of
+  `p.roots = 0` for `p ≠ 0` and handle `natDegree p ≤ 1` via
+  `Polynomial.irreducible_of_degree_eq_one`), so the claim "Mathlib currently
+  packages the degree-2 analogue ... but not the cubic one" and the recorded
+  absence check are incorrect.  The entry must be corrected or removed — it is
+  not a substantive obligation under the content/absence criteria.
 -/
 
 end FT
