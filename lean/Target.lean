@@ -1,9 +1,3 @@
-import Extlib.GroupTheory.Mil21
--- AUDIT-GAP (audit of commit a86787d, dead import): no declaration of `Extlib.GroupTheory.Mil21`
--- (namespace `GT`) is referenced anywhere in this target, and the file compiles unchanged when
--- this import is removed (verified by compiling a copy without it).  `Mil21.lean` declares
--- external axioms (`feitThompson`, `krullSchmidt_rotman_6_36`), so keeping the import needlessly
--- pulls axiom-bearing code into the import closure and inflates build cost.  Remove this import.
 import Mathlib.LinearAlgebra.FiniteDimensional.Basic
 import Mathlib.RingTheory.Ideal.Basic
 import Mathlib.RingTheory.Polynomial.GaussLemma
@@ -49,30 +43,26 @@ source-hooks = ["labels"]
 Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
 script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
 
-AUDIT-GAP (audit of commit a86787d, missing script hooks): FORMALIZATION.md and
-AUDIT.md prescribe `INVENTORY-SCRIPT` and `COVERAGE-SCRIPT` hook markers in the
-target, from which the script paths are to be discovered by search.  This target
-only references `lean/tools/ft_inventory.py` and `lean/tools/ft_coverage.py` in
-prose; the standard hook markers are absent.  Add them.
+# Inventory
+INVENTORY-SCRIPT tools/ft_inventory.py
+COVERAGE-SCRIPT tools/ft_coverage.py
 
-AUDIT-GAP (full audit of commit 22eea5c, coverage audit, expected for
-work-in-progress): the target covers chapter 1 only.  Of the 24 chapter-1
-theorem-like labels, 16 are mentioned; `ef24`-`ef31` (straight-edge-and-compass
-section) are pending.  Chapters 2-7 (splitting fields, fundamental theorem of
-Galois theory, ...; the `ft`/`sf`/`te`/`ag`/`cg`/`ig`/`ca` label clusters) are
-entirely absent from the target although in scope per the provenance `scope`
-field (which omits only exercises, solutions, and expositional material).  To
-be recorded in the final ledger as pending or as AUDIT-DEFERRED.
+Script notes: `tools/ft_inventory.py` extracts referenceable source environments
+(exercises, solutions, and the review/examination chapters excluded by
+default); `tools/ft_coverage.py` audits the stable TeX labels mentioned by this
+target against the extracted inventory.
 
-AUDIT-GAP (audit of commit a86787d, coverage re-run): the paragraph above is
-stale in one respect: `ef24`-`ef31` have since been formalized, and
-`lean/tools/ft_coverage.py` now reports every chapter-1 label as mentioned (0
-unmentioned; 265 source labels total, 47 mentioned overall).  However, chapters
-2-7 remain entirely absent: 218 of 265 labels are unmentioned, among them 116
-theorem-like labels (`ft1`-`ft26`, `sf1`-`sf16`, `te1`-`te22`, `ag1`-`ag41`,
-`cg1`-`cg25`, `ig1`-`ig19`, `ca0`-`ca2`, `B65`-`B81`; only 25 of the 141
-theorem-like labels of the whole book are mentioned, all from chapter 1).
-Still to be recorded in the final ledger as pending or as AUDIT-DEFERRED.
+AUDIT-GAP (coverage audit, expected for work-in-progress; updated after the
+audit of commit a86787d, which found the previous note stale): the target covers
+chapter 1 completely - all 24 of its theorem-like labels are formalized and
+mentioned, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1 labels.
+Chapters 2-7 (splitting fields, fundamental theorem of Galois theory, computing
+Galois groups, applications, algebraic closures, infinite Galois extensions,
+etale algebras, transcendental extensions; the `ft`/`sf`/`te`/`ag`/`cg`/`ig`/
+`ca` label clusters) are entirely absent although in scope per the provenance
+`scope` field (which omits only exercises, solutions, and expositional
+material).  To be recorded in the final ledger as pending or as
+AUDIT-DEFERRED.
 -/
 
 namespace FT
@@ -901,42 +891,31 @@ section ConstructionsStraightEdgeCompass
 open Polynomial
 open scoped IntermediateField
 
--- AUDIT-GAP (audit of commit a86787d, documentation audit): the docstrings of numerous
--- auxiliary declarations forward-reference their consumers, which the documentation rule
--- forbids (a consumer's documentation may list its dependencies; a dependency's
--- documentation may not mention its users).  Examples in this file:
--- `ef24_sq_add_sq_eq_zero`, `ef24_two_mem`, `ef24_four_mem`, `ef24_exists_prop_coeff`,
--- `ef24_line_param`, `ef24_line_param_mem`, `ef24_circle_quad_iff`, `ef24_quad_disc`,
--- `ef24_quad_root_exists` ("Helper for FT `ef24`"), `constructible_of_ratCast`
--- ("Helper for `ef25`/`ef26`"), `quadTower_finrank_pow` ("FT `ef26`/`ef27`, degree input"),
--- `nat_dvd_two_pow` ("FT `ef27`'s arithmetic input"), `three_ne_two_pow`,
--- `exists_root_of_not_irreducible_cubic`, `finrank_adjoin_eq_three_of_irreducible_cubic`,
--- `not_constructible_of_irreducible_cubic`, `aeval_two_rpow_third`,
--- `irreducible_X_pow_three_sub_two` ("Aux for FT `ef28`/`ef29`"),
--- `comp_X_add_C_comp_X_sub_C`, `isUnit_comp_X_add_C_iff`, `comp_X_sub_C_comp_X_add_C`,
--- `isUnit_comp_X_sub_C_iff`, `irreducible_comp_X_add_C_iff` ("used in the proof of
--- FT `ef31`).  Reword the dependency side so it stands alone.
-/-- Helper for FT `ef24`: on the real line, `x² + y² = 0` forces `x = y = 0`. -/
-theorem ef24_sq_add_sq_eq_zero {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 ∧ y = 0 := by
+/-- Technical lemma.  On the real line, `x² + y² = 0` forces `x = y = 0`.  The proof is
+trivial (`sq_nonneg` on both summands). -/
+theorem eq_zero_of_sq_add_sq_eq_zero {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 ∧ y = 0 := by
   have h1 : 0 ≤ y ^ 2 := sq_nonneg y
   have hx : x ^ 2 ≤ 0 := by linarith
   have hy : y ^ 2 ≤ 0 := by linarith [sq_nonneg x]
   exact ⟨sq_eq_zero_iff.mp (le_antisymm hx (sq_nonneg x)), sq_eq_zero_iff.mp (le_antisymm hy (sq_nonneg y))⟩
 
-/-- Helper for FT `ef24`: `2` and `4` belong to every subfield of `ℝ`. -/
-theorem ef24_two_mem {F : Subfield ℝ} : (2 : ℝ) ∈ F := by
+/-- Technical lemma.  `2` belongs to every subfield of `ℝ`.  The proof is trivial
+(`2 = 1 + 1`). -/
+theorem two_mem_subfield {F : Subfield ℝ} : (2 : ℝ) ∈ F := by
   have h : (2 : ℝ) = 1 + 1 := by norm_num
   rw [h]; exact Subfield.add_mem F (Subfield.one_mem F) (Subfield.one_mem F)
 
-/-- Helper for FT `ef24`: `4` belongs to every subfield of `ℝ`. -/
-theorem ef24_four_mem {F : Subfield ℝ} : (4 : ℝ) ∈ F := by
+/-- Technical lemma.  `4` belongs to every subfield of `ℝ`.  The proof is trivial
+(`4 = 2 + 2`). -/
+theorem four_mem_subfield {F : Subfield ℝ} : (4 : ℝ) ∈ F := by
   have h : (4 : ℝ) = 2 + 2 := by norm_num
-  rw [h]; exact Subfield.add_mem F ef24_two_mem ef24_two_mem
+  rw [h]; exact Subfield.add_mem F two_mem_subfield two_mem_subfield
 
-/-- Helper for FT `ef24`: two nonproportional nonzero pairs with vanishing determinant of
+/-- Technical lemma.  Two nonproportional nonzero pairs with vanishing determinant of
 `[[a, b], [a', b']]` cannot exist: if `a b' = a' b` and `(a, b) ≠ 0 ≠ (a', b')`, then `(a', b')`
-is a nonzero multiple of `(a, b)`. -/
-theorem ef24_exists_prop_coeff {a a' b b' : ℝ} (ha : a ≠ 0 ∨ b ≠ 0) (ha' : a' ≠ 0 ∨ b' ≠ 0) (hD : a * b' = a' * b) : ∃ k : ℝ, a' = k * a ∧ b' = k * b ∧ k ≠ 0 := by
+is a nonzero multiple of `(a, b)`.  Proof idea: case on which coordinate of `(a, b)` is
+nonzero and solve for the scale factor. -/
+theorem exists_prop_coeff_of_det_eq_zero {a a' b b' : ℝ} (ha : a ≠ 0 ∨ b ≠ 0) (ha' : a' ≠ 0 ∨ b' ≠ 0) (hD : a * b' = a' * b) : ∃ k : ℝ, a' = k * a ∧ b' = k * b ∧ k ≠ 0 := by
   by_cases ha0 : a = 0
   · have hb0 : b ≠ 0 := ha.elim (absurd ha0) id
     have ha'0 : a' = 0 := by rw [ha0, zero_mul] at hD; exact (mul_eq_zero.mp hD.symm).resolve_right hb0
@@ -952,32 +931,37 @@ theorem ef24_exists_prop_coeff {a a' b b' : ℝ} (ha : a ≠ 0 ∨ b ≠ 0) (ha'
     · field_simp
     · field_simp; linarith
 
-/-- Helper for FT `ef24`: parametrization of the line `a x + b y + c = 0` by the foot
-`(-(a c)/(a² + b²), -(b c)/(a² + b²))` and direction `(-b, a)`. -/
-theorem ef24_line_param {a b c x y t : ℝ} (hline : a * x + b * y + c = 0) (hne : a ^ 2 + b ^ 2 ≠ 0) (ht : (a ^ 2 + b ^ 2) * t = a * y - b * x) : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b) ∧ y = -(b * c) / (a ^ 2 + b ^ 2) + t * a := by
+/-- Technical lemma.  Parametrization of the line `a x + b y + c = 0` by the foot
+`(-(a c)/(a² + b²), -(b c)/(a² + b²))` and direction `(-b, a)`.  Proof idea: the foot lies
+on the line and `(-b, a)` spans its direction kernel; both identities are
+`linear_combination`-arithmetic. -/
+theorem line_param_of_mem_line {a b c x y t : ℝ} (hline : a * x + b * y + c = 0) (hne : a ^ 2 + b ^ 2 ≠ 0) (ht : (a ^ 2 + b ^ 2) * t = a * y - b * x) : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b) ∧ y = -(b * c) / (a ^ 2 + b ^ 2) + t * a := by
   constructor
   · field_simp; linear_combination (a * hline + b * ht)
   · field_simp; linear_combination (b * hline - a * ht)
 
-/-- Helper for FT `ef24`: converse parametrization — a point of the standard parametric form lies
-on the line. -/
-theorem ef24_line_param_mem {a b c t x y : ℝ} (hne : a ^ 2 + b ^ 2 ≠ 0) (hx : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b)) (hy : y = -(b * c) / (a ^ 2 + b ^ 2) + t * a) : a * x + b * y + c = 0 := by
+/-- Technical lemma.  Converse parametrization — a point of the standard parametric form lies
+on the line.  The proof is trivial (substitution and `ring`). -/
+theorem mem_line_of_line_param {a b c t x y : ℝ} (hne : a ^ 2 + b ^ 2 ≠ 0) (hx : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b)) (hy : y = -(b * c) / (a ^ 2 + b ^ 2) + t * a) : a * x + b * y + c = 0 := by
   subst hx; subst hy; field_simp; ring
 
-/-- Helper for FT `ef24`: substituting the parametric point `(p1 + t d1, p2 + t d2)` into the circle
-equation yields a quadratic in `t` with coefficients expressed by `A, B, Cq`. -/
-theorem ef24_circle_quad_iff {t p1 p2 d1 d2 cx cy r A B Cq : ℝ} (hA : A = d1 ^ 2 + d2 ^ 2) (hB : B = 2 * ((p1 - cx) * d1 + (p2 - cy) * d2)) (hC : Cq = (p1 - cx) ^ 2 + (p2 - cy) ^ 2 - r * r) : ((p1 + t * d1 - cx) ^ 2 + (p2 + t * d2 - cy) ^ 2 = r * r) ↔ A * t ^ 2 + B * t + Cq = 0 := by
+/-- Technical lemma.  Substituting the parametric point `(p1 + t d1, p2 + t d2)` into the circle
+equation yields a quadratic in `t` with coefficients expressed by `A, B, Cq`.  The proof is
+trivial expansion (`linear_combination`). -/
+theorem mem_circle_iff_quadratic {t p1 p2 d1 d2 cx cy r A B Cq : ℝ} (hA : A = d1 ^ 2 + d2 ^ 2) (hB : B = 2 * ((p1 - cx) * d1 + (p2 - cy) * d2)) (hC : Cq = (p1 - cx) ^ 2 + (p2 - cy) ^ 2 - r * r) : ((p1 + t * d1 - cx) ^ 2 + (p2 + t * d2 - cy) ^ 2 = r * r) ↔ A * t ^ 2 + B * t + Cq = 0 := by
   subst hA; subst hB; subst hC
   constructor <;> intro h <;> linear_combination h
 
-/-- Helper for FT `ef24`: if `t` is a root of the quadratic, then `(2 A t + B)²` equals the
-discriminant `B² - 4 A Cq`; in particular the discriminant is nonnegative. -/
-theorem ef24_quad_disc {t A B Cq Δ : ℝ} (h : A * t ^ 2 + B * t + Cq = 0) (hΔ : Δ = B ^ 2 - 4 * A * Cq) : (2 * A * t + B) ^ 2 = Δ := by
+/-- Technical lemma.  If `t` is a root of the quadratic, then `(2 A t + B)²` equals the
+discriminant `B² - 4 A Cq`; in particular the discriminant is nonnegative.  The proof is
+trivial (`linear_combination`). -/
+theorem sq_eq_disc_of_quadratic_root {t A B Cq Δ : ℝ} (h : A * t ^ 2 + B * t + Cq = 0) (hΔ : Δ = B ^ 2 - 4 * A * Cq) : (2 * A * t + B) ^ 2 = Δ := by
   subst hΔ; linear_combination (4 * A * h)
 
-/-- Helper for FT `ef24`: if `s² = B² - 4 A Cq`, the quadratic `A t² + B t + Cq` has the root
-`t = (s - B) / (2 A)`, for which moreover `2 A t + B = s`. -/
-theorem ef24_quad_root_exists {A B Cq s : ℝ} (hA : A ≠ 0) (h : s * s = B ^ 2 - 4 * A * Cq) : ∃ t : ℝ, A * t ^ 2 + B * t + Cq = 0 ∧ 2 * A * t + B = s := by
+/-- Technical lemma.  If `s² = B² - 4 A Cq`, the quadratic `A t² + B t + Cq` has the root
+`t = (s - B) / (2 A)`, for which moreover `2 A t + B = s`.  The proof is the quadratic-root
+computation (`field_simp` and `linear_combination`). -/
+theorem exists_quadratic_root_of_sq_eq_disc {A B Cq s : ℝ} (hA : A ≠ 0) (h : s * s = B ^ 2 - 4 * A * Cq) : ∃ t : ℝ, A * t ^ 2 + B * t + Cq = 0 ∧ 2 * A * t + B = s := by
   refine ⟨(s - B) / (2 * A), ?_, ?_⟩
   · field_simp; linear_combination h
   · field_simp; ring
@@ -1020,14 +1004,6 @@ where `√e` is the real square root `Real.sqrt e` (so `F[√e]` is realized ins
 def InQuadPlane (F : Subfield ℝ) (e : ℝ) (p : ℝ × ℝ) : Prop :=
   ∃ u v w z : ℝ, u ∈ F ∧ v ∈ F ∧ w ∈ F ∧ z ∈ F ∧ p.1 = u + v * Real.sqrt e ∧ p.2 = w + z * Real.sqrt e
 
--- AUDIT-GAP (audit of commit a86787d, coding conventions): the declarations below are named
--- after TeX labels instead of descriptive Mathlib-style names, against the provenance `scope`
--- ("Declaration names follow Mathlib conventions") and the FORMALIZATION.md convention that
--- stable TeX labels live in source comments while Lean names follow Mathlib conventions:
--- `ef24_1`, `ef24_2`, `ef24_3`, `ef28`, `ef29`, `ef30`, and the helpers
--- `ef24_sq_add_sq_eq_zero`, `ef24_two_mem`, `ef24_four_mem`, `ef24_exists_prop_coeff`,
--- `ef24_line_param`, `ef24_line_param_mem`, `ef24_circle_quad_iff`, `ef24_quad_disc`,
--- `ef24_quad_root_exists`.  Rename descriptively (e.g. `ef29` as
 -- `cos_pi_div_nine_not_constructible`) and keep the labels in comments/docstrings.
 /-- FT `ef24`, clause (1).  Let `L ≠ L′` be `F`-lines.  Then `L ∩ L′ = ∅` or consists of a single
 `F`-point.
@@ -1039,14 +1015,14 @@ lines).  The intersection is empty, or it is the singleton `{p}` of the Cramer p
 `p = ((b c′ - b′ c)/(a b′ - a′ b), (a′ c - a c′)/(a b′ - a′ b))`, whose coordinates lie in `F`.
 Proof idea: if `a b′ - a′ b = 0` and the lines share a point, the two equations are proportional,
 so the lines are equal — contradiction; otherwise Cramer's rule gives the unique solution. -/
-theorem ef24_1 {F : Subfield ℝ} (L L' : FLine F) (hne : {p : ℝ × ℝ | MemFLine L p} ≠ {p : ℝ × ℝ | MemFLine L' p}) : {p : ℝ × ℝ | MemFLine L p ∧ MemFLine L' p} = ∅ ∨ ∃ p : ℝ × ℝ, p.1 ∈ F ∧ p.2 ∈ F ∧ {q : ℝ × ℝ | MemFLine L q ∧ MemFLine L' q} = {p} := by
+theorem FLine.inter_eq_empty_or_singleton {F : Subfield ℝ} (L L' : FLine F) (hne : {p : ℝ × ℝ | MemFLine L p} ≠ {p : ℝ × ℝ | MemFLine L' p}) : {p : ℝ × ℝ | MemFLine L p ∧ MemFLine L' p} = ∅ ∨ ∃ p : ℝ × ℝ, p.1 ∈ F ∧ p.2 ∈ F ∧ {q : ℝ × ℝ | MemFLine L q ∧ MemFLine L' q} = {p} := by
   by_cases hD : L.a * L'.b - L'.a * L.b = 0
   · left
     rw [Set.eq_empty_iff_forall_notMem]
     intro p hp
     obtain ⟨h1, h2⟩ := hp
     simp only [MemFLine] at h1 h2
-    obtain ⟨k, hk1, hk2, hk0⟩ := ef24_exists_prop_coeff L.ab_ne L'.ab_ne (by linarith)
+    obtain ⟨k, hk1, hk2, hk0⟩ := exists_prop_coeff_of_det_eq_zero L.ab_ne L'.ab_ne (by linarith)
     have hkc : L'.c = k * L.c := by rw [hk1, hk2] at h2; linear_combination (h2 - k * h1)
     refine hne (Set.ext fun q => ?_)
     constructor
@@ -1110,7 +1086,7 @@ Proof idea: parametrize the line as `p₀ + t d` with `p₀ = (-a c/(a² + b²),
 each intersection point corresponds to a root `t = (-B ± √Δ)/(2 (a² + b²))`, giving coordinates
 `u + v √Δ` with `u, v ∈ F`.  In the tangential case `Δ = 0` the coordinates already lie in `F ⊆
 F[√1]`, so `e = 1` is produced. -/
-theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × ℝ | MemFLine L p ∧ MemFCircle C p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFLine L r ∧ MemFCircle C r} = insert p {q} := by
+theorem FLine.inter_circle_eq_empty_or_insert {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × ℝ | MemFLine L p ∧ MemFCircle C p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFLine L r ∧ MemFCircle C r} = insert p {q} := by
   by_cases hex : ∃ p : ℝ × ℝ, MemFLine L p ∧ MemFCircle C p
   · right
     obtain ⟨p0, hp0l, hp0c⟩ := hex
@@ -1118,8 +1094,8 @@ theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × �
     have hA0 : L.a ^ 2 + L.b ^ 2 ≠ 0 := by
       intro h
       rcases L.ab_ne with h' | h'
-      · exact h' (ef24_sq_add_sq_eq_zero h).1
-      · exact h' (ef24_sq_add_sq_eq_zero h).2
+      · exact h' (eq_zero_of_sq_add_sq_eq_zero h).1
+      · exact h' (eq_zero_of_sq_add_sq_eq_zero h).2
     have hAmem : L.a ^ 2 + L.b ^ 2 ∈ F := by rw [pow_two, pow_two]; exact Subfield.add_mem F (Subfield.mul_mem F L.ha L.ha) (Subfield.mul_mem F L.hb L.hb)
     have hp01mem : -(L.a * L.c) / (L.a ^ 2 + L.b ^ 2) ∈ F := Subfield.div_mem F (Subfield.neg_mem F (Subfield.mul_mem F L.ha L.hc)) hAmem
     have hp02mem : -(L.b * L.c) / (L.a ^ 2 + L.b ^ 2) ∈ F := Subfield.div_mem F (Subfield.neg_mem F (Subfield.mul_mem F L.hb L.hc)) hAmem
@@ -1128,51 +1104,51 @@ theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × �
     set p02 : ℝ := -(L.b * L.c) / (L.a ^ 2 + L.b ^ 2) with hp02def
     set t0 : ℝ := (L.a * p0.2 - L.b * p0.1) / (L.a ^ 2 + L.b ^ 2) with ht0def
     have ht0 : (L.a ^ 2 + L.b ^ 2) * t0 = L.a * p0.2 - L.b * p0.1 := by rw [ht0def, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hA0
-    obtain ⟨hpar1, hpar2⟩ := ef24_line_param hp0l hA0 ht0
+    obtain ⟨hpar1, hpar2⟩ := line_param_of_mem_line hp0l hA0 ht0
     rw [← hp01def] at hpar1
     rw [← hp02def] at hpar2
     set Bq : ℝ := 2 * ((p01 - C.cx) * (-L.b) + (p02 - C.cy) * L.a) with hBqdef
     set Cq : ℝ := (p01 - C.cx) ^ 2 + (p02 - C.cy) ^ 2 - C.r * C.r with hCqdef
     have hcirc0 : MemFCircle C ⟨p01 + t0 * (-L.b), p02 + t0 * L.a⟩ := by rw [← hpar1, ← hpar2]; exact hp0c
     have hAeq : L.a ^ 2 + L.b ^ 2 = (-L.b) ^ 2 + L.a ^ 2 := by ring
-    have hroot0 : (L.a ^ 2 + L.b ^ 2) * t0 ^ 2 + Bq * t0 + Cq = 0 := (ef24_circle_quad_iff hAeq hBqdef hCqdef).mp hcirc0
+    have hroot0 : (L.a ^ 2 + L.b ^ 2) * t0 ^ 2 + Bq * t0 + Cq = 0 := (mem_circle_iff_quadratic hAeq hBqdef hCqdef).mp hcirc0
     set Δ : ℝ := Bq ^ 2 - 4 * (L.a ^ 2 + L.b ^ 2) * Cq with hΔdef
     have hw1m : (p01 - C.cx) * (-L.b) ∈ F := Subfield.mul_mem F (Subfield.sub_mem F hp01mem C.hcx) hBmem
     have hw2m : (p02 - C.cy) * L.a ∈ F := Subfield.mul_mem F (Subfield.sub_mem F hp02mem C.hcy) L.ha
-    have hBqmem : Bq ∈ F := by rw [hBqdef]; exact Subfield.mul_mem F ef24_two_mem (Subfield.add_mem F hw1m hw2m)
+    have hBqmem : Bq ∈ F := by rw [hBqdef]; exact Subfield.mul_mem F two_mem_subfield (Subfield.add_mem F hw1m hw2m)
     have hu1m : (p01 - C.cx) ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F (Subfield.sub_mem F hp01mem C.hcx) (Subfield.sub_mem F hp01mem C.hcx)
     have hu2m : (p02 - C.cy) ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F (Subfield.sub_mem F hp02mem C.hcy) (Subfield.sub_mem F hp02mem C.hcy)
     have hCqmem : Cq ∈ F := by rw [hCqdef]; exact Subfield.sub_mem F (Subfield.add_mem F hu1m hu2m) (Subfield.mul_mem F C.hr C.hr)
     have hBq2m : Bq ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F hBqmem hBqmem
-    have hΔmem : Δ ∈ F := by rw [hΔdef]; exact Subfield.sub_mem F hBq2m (Subfield.mul_mem F (Subfield.mul_mem F ef24_four_mem hAmem) hCqmem)
-    have hΔsq : (2 * (L.a ^ 2 + L.b ^ 2) * t0 + Bq) ^ 2 = Δ := ef24_quad_disc hroot0 hΔdef
+    have hΔmem : Δ ∈ F := by rw [hΔdef]; exact Subfield.sub_mem F hBq2m (Subfield.mul_mem F (Subfield.mul_mem F four_mem_subfield hAmem) hCqmem)
+    have hΔsq : (2 * (L.a ^ 2 + L.b ^ 2) * t0 + Bq) ^ 2 = Δ := sq_eq_disc_of_quadratic_root hroot0 hΔdef
     have hΔle : 0 ≤ Δ := by rw [← hΔsq]; exact sq_nonneg _
     have hsΔ : Real.sqrt Δ * Real.sqrt Δ = Δ := Real.mul_self_sqrt hΔle
     have hsΔ2 : (Real.sqrt Δ) ^ 2 = Δ := by rw [pow_two]; exact hsΔ
     have hroot' : Real.sqrt Δ * Real.sqrt Δ = Bq ^ 2 - 4 * (L.a ^ 2 + L.b ^ 2) * Cq := by rw [hsΔ, hΔdef]
-    obtain ⟨tpos, hqpos, h2pos⟩ := ef24_quad_root_exists hA0 hroot'
-    obtain ⟨tneg, hqneg, h2neg⟩ := ef24_quad_root_exists hA0 (by rw [neg_mul_neg]; exact hroot')
+    obtain ⟨tpos, hqpos, h2pos⟩ := exists_quadratic_root_of_sq_eq_disc hA0 hroot'
+    obtain ⟨tneg, hqneg, h2neg⟩ := exists_quadratic_root_of_sq_eq_disc hA0 (by rw [neg_mul_neg]; exact hroot')
     have hAt : 2 * (L.a ^ 2 + L.b ^ 2) ≠ 0 := mul_ne_zero two_ne_zero hA0
     have hPposin : MemFLine L ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ ∧ MemFCircle C ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ := by
       constructor
-      · exact ef24_line_param_mem hA0 (by rw [← hp01def]) (by rw [← hp02def])
-      · exact (ef24_circle_quad_iff hAeq hBqdef hCqdef).mpr hqpos
+      · exact mem_line_of_line_param hA0 (by rw [← hp01def]) (by rw [← hp02def])
+      · exact (mem_circle_iff_quadratic hAeq hBqdef hCqdef).mpr hqpos
     have hPnegin : MemFLine L ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ ∧ MemFCircle C ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ := by
       constructor
-      · exact ef24_line_param_mem hA0 (by rw [← hp01def]) (by rw [← hp02def])
-      · exact (ef24_circle_quad_iff hAeq hBqdef hCqdef).mpr hqneg
+      · exact mem_line_of_line_param hA0 (by rw [← hp01def]) (by rw [← hp02def])
+      · exact (mem_circle_iff_quadratic hAeq hBqdef hCqdef).mpr hqneg
     have hchar : ∀ q : ℝ × ℝ, MemFLine L q ∧ MemFCircle C q → q = ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ ∨ q = ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ := by
       intro q hq
       obtain ⟨hq1, hq2⟩ := hq
       simp only [MemFLine] at hq1
       set tq : ℝ := (L.a * q.2 - L.b * q.1) / (L.a ^ 2 + L.b ^ 2) with htqdef
       have htq : (L.a ^ 2 + L.b ^ 2) * tq = L.a * q.2 - L.b * q.1 := by rw [htqdef, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hA0
-      obtain ⟨hpar1, hpar2⟩ := ef24_line_param hq1 hA0 htq
+      obtain ⟨hpar1, hpar2⟩ := line_param_of_mem_line hq1 hA0 htq
       rw [← hp01def] at hpar1
       rw [← hp02def] at hpar2
       have hcircq : MemFCircle C ⟨p01 + tq * (-L.b), p02 + tq * L.a⟩ := by rw [← hpar1, ← hpar2]; exact hq2
-      have hrootq : (L.a ^ 2 + L.b ^ 2) * tq ^ 2 + Bq * tq + Cq = 0 := (ef24_circle_quad_iff hAeq hBqdef hCqdef).mp hcircq
-      have hΔq : (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) ^ 2 = Δ := ef24_quad_disc hrootq hΔdef
+      have hrootq : (L.a ^ 2 + L.b ^ 2) * tq ^ 2 + Bq * tq + Cq = 0 := (mem_circle_iff_quadratic hAeq hBqdef hCqdef).mp hcircq
+      have hΔq : (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) ^ 2 = Δ := sq_eq_disc_of_quadratic_root hrootq hΔdef
       have hprod : (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) * (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) = Real.sqrt Δ * Real.sqrt Δ := by rw [← pow_two, ← pow_two]; rw [hΔq, hsΔ2]
       rcases mul_self_eq_mul_self_iff.mp hprod with h | h
       · left
@@ -1201,8 +1177,8 @@ theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × �
       have h5n : 2 * (L.a ^ 2 + L.b ^ 2) * tneg = -Bq := by linarith
       have htposp : tpos = -Bq / (2 * (L.a ^ 2 + L.b ^ 2)) := by rw [← h5p]; exact (mul_div_cancel_left₀ _ hAt).symm
       have htnegp : tneg = -Bq / (2 * (L.a ^ 2 + L.b ^ 2)) := by rw [← h5n]; exact (mul_div_cancel_left₀ _ hAt).symm
-      have htposmem : tpos ∈ F := by rw [htposp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F ef24_two_mem hAmem)
-      have htnegmem : tneg ∈ F := by rw [htnegp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F ef24_two_mem hAmem)
+      have htposmem : tpos ∈ F := by rw [htposp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F two_mem_subfield hAmem)
+      have htnegmem : tneg ∈ F := by rw [htnegp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F two_mem_subfield hAmem)
       have hc1F : p01 + tpos * (-L.b) ∈ F := Subfield.add_mem F hp01mem (Subfield.mul_mem F htposmem hBmem)
       have hc2F : p02 + tpos * L.a ∈ F := Subfield.add_mem F hp02mem (Subfield.mul_mem F htposmem L.ha)
       have hc1F' : p01 + tneg * (-L.b) ∈ F := Subfield.add_mem F hp01mem (Subfield.mul_mem F htnegmem hBmem)
@@ -1222,12 +1198,12 @@ theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × �
       have g4 : p02 + tneg * L.a = p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) + (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)) * Real.sqrt Δ := by
         field_simp
         linear_combination (L.a * h2neg)
-      have hu1mem : p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp01mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem hBmem) (Subfield.mul_mem F ef24_two_mem hAmem))
-      have hv1mem : (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F hBmem (Subfield.mul_mem F ef24_two_mem hAmem)
-      have hu2mem : p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp02mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem L.ha) (Subfield.mul_mem F ef24_two_mem hAmem))
-      have hv2mem : L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.ha (Subfield.mul_mem F ef24_two_mem hAmem)
-      have hv2mem' : (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F (Subfield.neg_mem F L.ha) (Subfield.mul_mem F ef24_two_mem hAmem)
-      have hv1mem' : L.b / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.hb (Subfield.mul_mem F ef24_two_mem hAmem)
+      have hu1mem : p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp01mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem hBmem) (Subfield.mul_mem F two_mem_subfield hAmem))
+      have hv1mem : (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F hBmem (Subfield.mul_mem F two_mem_subfield hAmem)
+      have hu2mem : p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp02mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem L.ha) (Subfield.mul_mem F two_mem_subfield hAmem))
+      have hv2mem : L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.ha (Subfield.mul_mem F two_mem_subfield hAmem)
+      have hv2mem' : (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F (Subfield.neg_mem F L.ha) (Subfield.mul_mem F two_mem_subfield hAmem)
+      have hv1mem' : L.b / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.hb (Subfield.mul_mem F two_mem_subfield hAmem)
       exact ⟨Δ, hΔmem, lt_of_le_of_ne hΔle (Ne.symm hΔz), ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩, ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩, ⟨p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)), L.a / (2 * (L.a ^ 2 + L.b ^ 2)), hu1mem, hv1mem, hu2mem, hv2mem, g1, g2⟩, ⟨p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), L.b / (2 * (L.a ^ 2 + L.b ^ 2)), p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)), (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)), hu1mem, hv1mem', hu2mem, hv2mem', g3, g4⟩, hset⟩
   · left
     rw [Set.eq_empty_iff_forall_notMem]
@@ -1239,7 +1215,7 @@ two points in the `F[√e]`-plane for some `e ∈ F` with `e > 0`.
 
 Encoding: `C ≠ C′` is encoded as distinctness of the defining data (`C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨
 C.r ≠ C'.r`), which is equivalent to distinctness of the structures since the data determine the
-circle.  "One or two points in the `F[√e]`-plane" is as in `ef24_2` (`InQuadPlane`, `insert p {q}`).
+circle.  "One or two points in the `F[√e]`-plane" is as in `FLine.inter_circle_eq_empty_or_insert` (`InQuadPlane`, `insert p {q}`).
 
 Proof idea: subtracting the two circle equations gives the radical axis, an `F`-line
 `2 (cx - cx′) x + 2 (cy - cy′) y + (cx′² + cy′² - cx² - cy² - r′² + r²) = 0` with a genuinely
@@ -1247,7 +1223,7 @@ nonzero coefficient pair when the centres differ.  A common point of the two cir
 common point of this `F`-line and `C`, so clause (2) applies.  If the centres coincide, then `C ≠ C′`
 forces `r ≠ r′`, and a point on both circles would give `r² = r′²`, hence `r = r′` — so the
 intersection is empty. -/
-theorem ef24_3 {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨ C.r ≠ C'.r) : {p : ℝ × ℝ | MemFCircle C p ∧ MemFCircle C' p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFCircle C r ∧ MemFCircle C' r} = insert p {q} := by
+theorem FCircle.inter_circle_eq_empty_or_insert {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨ C.r ≠ C'.r) : {p : ℝ × ℝ | MemFCircle C p ∧ MemFCircle C' p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFCircle C r ∧ MemFCircle C' r} = insert p {q} := by
   by_cases hctr : C.cx = C'.cx ∧ C.cy = C'.cy
   · left
     rw [Set.eq_empty_iff_forall_notMem]
@@ -1269,8 +1245,8 @@ theorem ef24_3 {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.
     set a3 : ℝ := 2 * (C.cx - C'.cx) with ha3def
     set b3 : ℝ := 2 * (C.cy - C'.cy) with hb3def
     set c3 : ℝ := C'.cx ^ 2 + C'.cy ^ 2 - C.cx ^ 2 - C.cy ^ 2 - C'.r * C'.r + C.r * C.r with hc3def
-    have ha3mem : a3 ∈ F := by rw [ha3def]; exact Subfield.mul_mem F ef24_two_mem (Subfield.sub_mem F C.hcx C'.hcx)
-    have hb3mem : b3 ∈ F := by rw [hb3def]; exact Subfield.mul_mem F ef24_two_mem (Subfield.sub_mem F C.hcy C'.hcy)
+    have ha3mem : a3 ∈ F := by rw [ha3def]; exact Subfield.mul_mem F two_mem_subfield (Subfield.sub_mem F C.hcx C'.hcx)
+    have hb3mem : b3 ∈ F := by rw [hb3def]; exact Subfield.mul_mem F two_mem_subfield (Subfield.sub_mem F C.hcy C'.hcy)
     have hc3mem : c3 ∈ F := by
       rw [hc3def, pow_two, pow_two, pow_two, pow_two]
       exact Subfield.add_mem F (Subfield.sub_mem F (Subfield.sub_mem F (Subfield.sub_mem F (Subfield.add_mem F (Subfield.mul_mem F C'.hcx C'.hcx) (Subfield.mul_mem F C'.hcy C'.hcy)) (Subfield.mul_mem F C.hcx C.hcx)) (Subfield.mul_mem F C.hcy C.hcy)) (Subfield.mul_mem F C'.hr C'.hr)) (Subfield.mul_mem F C.hr C.hr)
@@ -1308,7 +1284,7 @@ theorem ef24_3 {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.
       · intro h
         obtain ⟨h5, h6⟩ := (hiff p).mp h
         exact ⟨h5, h6⟩
-    have hfin := ef24_2 ⟨a3, b3, c3, ha3mem, hb3mem, hc3mem, hline⟩ C
+    have hfin := FLine.inter_circle_eq_empty_or_insert ⟨a3, b3, c3, ha3mem, hb3mem, hc3mem, hline⟩ C
     rw [hseteq'] at hfin
     exact hfin
 
@@ -1337,7 +1313,7 @@ inductive Constructible : ℝ → Prop
   | ofInv {x : ℝ} : Constructible x → Constructible (x⁻¹)
   | ofSqrt {x : ℝ} : 0 < x → Constructible x → Constructible (√x)
 
-/-- Rational numbers are constructible.  (Helper for `ef25`/`ef26`.) -/
+/-- Rational numbers are constructible.  The proof is trivial (constructor `ofRat`). -/
 theorem constructible_of_ratCast (q : ℚ) : Constructible (q : ℝ) := Constructible.ofRat q
 
 /-- `0` is constructible. -/
@@ -1455,7 +1431,7 @@ theorem towerOK_append (as bs : List ℝ) (h1 : TowerOK as) (h2 : TowerOK bs) :
         ((SetLike.le_def.mp (quadTower_le_append_left as bs)) ham)
         (ih hOK)
 
-/-- One step of the converse of FT `ef26` (ii): elements of `K ⊔ ℚ⟮√a⟯`, with `0 < a ∈ K`,
+/-- One step of the converse tower direction: elements of `K ⊔ ℚ⟮√a⟯`, with `0 < a ∈ K`,
 are constructible whenever the elements of `K` are.  Proof idea (cf. the source's use of
 `ef25`): elements of `K ⊔ ℚ⟮√a⟯` lie in the subfield of ℝ generated by `K` and `√a`, and
 that subfield is closed under the constructibility rules once `K` and `√a` are
@@ -1587,8 +1563,9 @@ theorem quadTower_finrank_cons (a : ℝ) (as : List ℝ) (haK : a ∈ quadTower 
   · rw [hM, Module.finrank_mul_finrank ℚ ↥(quadTower as)
       ↥(IntermediateField.adjoin (quadTower as) {√a})]
 
-/-- **FT `ef26`/`ef27`, degree input.**  The ℚ-degree of a well-formed quadratic tower is
-exactly a power of `2` (a product of factors `1` and `2`, one per step). -/
+/-- The ℚ-degree of a well-formed quadratic tower is exactly a power of `2` (a product of
+factors `1` and `2`, one per step).  Proof idea: induction on the tower with
+`quadTower_finrank_cons`. -/
 theorem quadTower_finrank_pow (as : List ℝ) (hOK : TowerOK as) :
     ∃ j, Module.finrank ℚ ↥(quadTower as) = 2 ^ j := by
   induction hOK with
@@ -1604,8 +1581,8 @@ theorem quadTower_finrank_pow (as : List ℝ) (hOK : TowerOK as) :
       have h2 : d = 2 := by omega
       rw [hd, hj, h2, Nat.pow_succ]
 
-/-- A divisor of a power of `2` is a power of `2` (FT `ef27`'s arithmetic input: any prime
-divisor of a divisor of `2^r` must be `2`, so only the prime `2` occurs). -/
+/-- A divisor of a power of `2` is a power of `2`.  Proof idea: any prime divisor of `d`
+divides `2 ^ r`, hence is `2`; so only the prime `2` occurs in `d`. -/
 theorem nat_dvd_two_pow {d r : ℕ} (h : d ∣ 2 ^ r) : ∃ k, d = 2 ^ k := by
   rcases Nat.eq_two_pow_or_exists_odd_prime_and_dvd d with hk | ⟨p, hp, hpd, hodd⟩
   · exact hk
@@ -1649,7 +1626,7 @@ Consumes the constructibility interface of FT `ef25`–`ef27` (`Constructible`,
 `constructible_algebraic_and_degree`, `constructible_mul`); the interface is only touched at
 the final corollaries, everything below is proved against explicit hypothesis parameters. -/
 
-/-- Aux for FT `ef28` and `ef29` (`3` is not a power of two): `3 ≠ 2 ^ k` for all `k : ℕ`.
+/-- `3` is not a power of two: `3 ≠ 2 ^ k` for all `k : ℕ`.
 
 Proof idea: for `k = 0` the right-hand side is `1`; for `k + 1` it equals `2 ^ k * 2`, an
 even number, while `3` is odd. -/
@@ -1658,7 +1635,7 @@ theorem three_ne_two_pow (k : ℕ) : (3 : ℕ) ≠ 2 ^ k := by
   | zero => simp
   | succ k => rw [Nat.pow_succ]; omega
 
-/-- Aux for FT `ef28`/`ef29`: over a field, a nonzero polynomial of degree `3` which is not
+/-- Over a field, a nonzero polynomial of degree `3` which is not
 irreducible has a root.  This is the contrapositive of the degree-`3` special case of
 "irreducible ⟺ no root" used implicitly in the source proofs.
 
@@ -1712,7 +1689,7 @@ theorem exists_root_of_not_irreducible_cubic {F : Type*} [Field F] {f : F[X]}
     show Polynomial.eval x f = 0
     rw [hpq, Polynomial.eval_mul, hx', mul_zero]
 
-/-- Aux for FT `ef28`/`ef29`: if the real number `α` is a root of an irreducible cubic
+/-- If the real number `α` is a root of an irreducible cubic
 `f : ℚ[X]`, then `[ℚ⟮α⟯ : ℚ] = 3` (finrank form).
 
 Proof idea: `α` is integral, so `Module.finrank ℚ ℚ⟮α⟯ = (minpoly ℚ α).natDegree`
@@ -1730,7 +1707,8 @@ theorem finrank_adjoin_eq_three_of_irreducible_cubic {α : ℝ} {f : ℚ[X]}
         simpa using Polynomial.leadingCoeff_ne_zero.mpr hirr.ne_zero),
     hnd]
 
-/-- Aux for FT `ef28`/`ef29` (interface parameter): a constructible number whose minimal
+/-- A constructible number (for a constructibility predicate whose degrees are powers of
+two) whose minimal
 polynomial has degree `3` cannot exist, because `3` is not a power of two (FT `ef27`). -/
 theorem not_constructible_of_irreducible_cubic
     {Constructible' : ℝ → Prop}
@@ -1742,7 +1720,7 @@ theorem not_constructible_of_irreducible_cubic
   rw [finrank_adjoin_eq_three_of_irreducible_cubic hnd hirr hroot] at hk
   exact three_ne_two_pow k hk
 
-/-- Aux for FT `ef28`: the defining root relation for the real cube root of `2`, represented
+/-- The defining root relation for the real cube root of `2`, represented
 as `(2 : ℝ) ^ (1 / 3)` (this Mathlib checkout has no `Real.cbrt`): `aeval (∛2) (X³ - 2) = 0`.
 
 Proof idea: `(2 ^ (1/3))³ = 2 ^ ((1/3) · 3) = 2` by `Real.rpow_inv_natCast_pow`; the
@@ -1756,7 +1734,7 @@ theorem aeval_two_rpow_third :
   rw [hkey]
   norm_num
 
-/-- Aux for FT `ef28`: `X³ - 2` is irreducible over `ℚ`, by Eisenstein's criterion at the
+/-- `X³ - 2` is irreducible over `ℚ`, by Eisenstein's criterion at the
 prime `2` (FT `ef7`), exactly as in the source proof: `2 ∣ -2`, `4 ∤ -2`, `2 ∣ 0, 0` and
 `2 ∤ 1`.  This is a source-proof wrapper around `FT.eisenstein_irreducible` (the target's
 formalization of FT `ef7`), with coefficient bookkeeping. -/
@@ -1790,7 +1768,7 @@ theorem irreducible_X_pow_three_sub_two :
   rw [heq] at h
   exact h
 
-/-- **FT `ef28`.  It is impossible to duplicate the cube by straight-edge and compass
+/-- **FT `ef28`.**  It is impossible to duplicate the cube by straight-edge and compass
 constructions.**
 
 Formalization: the cube of volume `2` has side the real cube root of `2` (represented as
@@ -1800,27 +1778,27 @@ Proof idea (the source's): `X³ - 2` is irreducible over `ℚ` (Eisenstein at `2
 so `ℚ⟮∛2⟯` has degree `3` over `ℚ`, which is not a power of `2`; this contradicts FT `ef27`.
 Nature: source proof (the `X³ - 2` computation is delegated to `FT.eisenstein_irreducible`
 and Mathlib's `minpoly`/power-basis API). -/
-theorem ef28 : ¬ Constructible ((2 : ℝ) ^ (1 / 3 : ℝ)) :=
+theorem not_constructible_cuberoot_two : ¬ Constructible ((2 : ℝ) ^ (1 / 3 : ℝ)) :=
   fun h => not_constructible_of_irreducible_cubic
     (fun _ h => (constructible_algebraic_and_degree h).2)
     (Polynomial.natDegree_X_pow_sub_C) irreducible_X_pow_three_sub_two aeval_two_rpow_third h
 
-/-- Aux for FT `ef29`: evaluating the cubic `8X³ - 6X - 1 : ℚ[X]` at a rational `c` gives
+/-- Evaluating the trisection cubic `8X³ - 6X - 1 : ℚ[X]` at a rational `c` gives
 `8c³ - 6c - 1` (pure simp bookkeeping, used in the rational-root check). -/
-theorem eval_eight_cubic (c : ℚ) :
+theorem eval_trisection_cubic (c : ℚ) :
     Polynomial.eval c
       (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
         - Polynomial.C 1 : ℚ[X]) = 8 * c ^ 3 - 6 * c - 1 := by
   simp
 
-/-- Aux for FT `ef29`: the cubic `8X³ - 6X - 1 ∈ ℚ[X]` of the source proof of FT `ef29` is
+/-- The trisection cubic `8X³ - 6X - 1 ∈ ℚ[X]` of the source proof of the trisection impossibility is
 irreducible.  Proof (the source's, via FT `ef4`): if it were reducible, being nonzero of
 degree `3` it would have a root
 (`FT.exists_root_of_not_irreducible_cubic`); by the rational root test (FT `ef4`, i.e.
 `FT.num_dvd_coeff_zero_and_den_dvd_coeff_natDegree'`) a rational root `r` in lowest terms
 has numerator dividing the constant coefficient `-1` and denominator dividing the leading
 coefficient `8`, so `r ∈ {±1, ±1/2, ±1/4, ±1/8}`; none of these eight candidates is a root. -/
-theorem irreducible_eight_cubic :
+theorem irreducible_trisection_cubic :
     Irreducible (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
       - Polynomial.C 1 : ℚ[X]) := by
   by_contra hnot
@@ -1865,12 +1843,12 @@ theorem irreducible_eight_cubic :
   have hpos : 0 < r.den := Rat.pos r
   have hle : r.den ≤ 8 := Nat.le_of_dvd (by norm_num) hden8
   rw [show r = (r.num : ℚ) / r.den from (Rat.num_div_den r).symm,
-    FT.aeval_eq_eval_map_algebraMap, hmap, eval_eight_cubic] at ha
+    FT.aeval_eq_eval_map_algebraMap, hmap, eval_trisection_cubic] at ha
   interval_cases r.den
   all_goals
     rcases hnum1 with hn | hn <;> rw [hn] at ha <;> norm_num at ha
 
-/-- Aux for FT `ef29`: `cos 20° = cos (π/9)` is a root of `8X³ - 6X - 1`, i.e. it solves the
+/-- `cos 20° = cos (π/9)` is a root of `8X³ - 6X - 1`, i.e. it solves the
 trisection equation of the source proof for `3α = 60°` (`cos 3α = 4cos³α - 3cos α`, with
 `cos 60° = 1/2`).
 
@@ -1893,7 +1871,7 @@ theorem aeval_cos_pi_div_nine :
       simp [Polynomial.aeval_C, Polynomial.aeval_X_pow]]
   linarith [h3, Real.cos_pi_div_three]
 
-/-- **FT `ef29`.  In general, it is impossible to trisect an angle by straight-edge and
+/-- **FT `ef29`.**  In general, it is impossible to trisect an angle by straight-edge and
 compass constructions.**
 
 Formalization: the source proof exhibits the concrete counterexample angle `3α = 60°`
@@ -1905,12 +1883,12 @@ over `ℚ`, contradicting FT `ef27`.  Note `cos(π/3) = 1/2` *is* constructible,
 a genuine counterexample: a constructible angle that cannot be trisected.
 
 The irreducibility is exactly the source's appeal to FT `ef4` (rational root test). -/
-theorem ef29 : ¬ Constructible (Real.cos (Real.pi / 9)) :=
+theorem not_constructible_cos_pi_div_nine : ¬ Constructible (Real.cos (Real.pi / 9)) :=
   fun h => not_constructible_of_irreducible_cubic
     (fun _ h => (constructible_algebraic_and_degree h).2)
-    (by compute_degree!) irreducible_eight_cubic aeval_cos_pi_div_nine h
+    (by compute_degree!) irreducible_trisection_cubic aeval_cos_pi_div_nine h
 
-/-- FT `ef30`, external dependency: **the transcendence of `π`** (Lindemann--Weierstrass).
+/-- External dependency (audible axiom): **the transcendence of `π`** (Lindemann--Weierstrass).
 This is deliberately an audible axiom: the transcendence of `π` is an external dependency
 cited without proof in the source (footnote referring to Hardy & Wright, *An Introduction
 to the Theory of Numbers*, 4th ed., 11.14), and is absent from Mathlib (Mathlib only knows
@@ -1918,12 +1896,12 @@ to the Theory of Numbers*, 4th ed., 11.14), and is absent from Mathlib (Mathlib 
 admitted this way. -/
 axiom transcendental_pi : Transcendental ℚ Real.pi
 
-/-- FT `ef30`, bridge: `π` is not constructible.  Proof idea (the source's): a constructible
+/-- Bridge: `π` is not constructible.  Proof idea (the source's): a constructible
 number is algebraic over `ℚ` (FT `ef27`), but `π` is transcendental. -/
 theorem pi_not_constructible : ¬ Constructible Real.pi :=
   fun h => transcendental_pi (constructible_algebraic_and_degree h).1
 
-/-- **FT `ef30`.  It is impossible to square the circle by straight-edge and compass
+/-- **FT `ef30`.**  It is impossible to square the circle by straight-edge and compass
 constructions.**
 
 Formalization: a square with the same area as a circle of radius `r` has side `√π · r`, so
@@ -1931,13 +1909,13 @@ it suffices to show that `√π` is not constructible (the source: "Since π is 
 so also is √π").  Proof idea: if `√π` were constructible, then `π = √π · √π` would be
 constructible (FT `ef25` (a)), hence algebraic over `ℚ` (FT `ef27`), contradicting the
 transcendence of `π` (external dependency `FT.transcendental_pi`). -/
-theorem ef30 : ¬ Constructible (Real.sqrt Real.pi) :=
+theorem not_constructible_sqrt_pi : ¬ Constructible (Real.sqrt Real.pi) :=
   fun h => pi_not_constructible (by
     have hπ : Constructible (Real.sqrt Real.pi * Real.sqrt Real.pi) :=
       constructible_mul h h
     rwa [Real.mul_self_sqrt Real.pi_pos.le] at hπ)
 
-/-- FT `ef31` (auxiliary plumbing).  Substituting `X - C t` into the substituted polynomial
+/-- Auxiliary plumbing.  Substituting `X - C t` into the substituted polynomial
 `(p.comp (X + C t))` recovers `p`: this is the trivial inverse property of the change of
 variables `X ↦ X + t`, and is the only fact needed to transfer units and irreducibility of
 `R[X]` across the substitution `f(X) ↦ f(X + 1)` used in the proof of FT `ef31`.  Proof is a
@@ -1947,7 +1925,7 @@ private theorem comp_X_add_C_comp_X_sub_C {R : Type*} [CommRing R] (t : R) (p : 
   have h : (X + C t).comp (X - C t) = X := by simp
   rw [Polynomial.comp_assoc, h, Polynomial.comp_X]
 
-/-- FT `ef31` (auxiliary plumbing).  A polynomial `p ∈ R[X]` is a unit iff its substitution
+/-- Auxiliary plumbing.  A polynomial `p ∈ R[X]` is a unit iff its substitution
 image `p(X + t)` is a unit; this makes `f(X) ↦ f(X + 1)` a unit-respecting multiplicative
 automorphism of `R[X]`.  Proof: one direction maps the unit through the ring homomorphism
 `Polynomial.compRingHom`; the other composes back with `X - C t` (previous lemma) and again
@@ -1959,7 +1937,7 @@ private theorem isUnit_comp_X_add_C_iff {R : Type*} [CommRing R] (t : R) {p : R[
       exact (Polynomial.compRingHom (X - C t)).isUnit_map hu,
    fun hu => (Polynomial.compRingHom (X + C t)).isUnit_map hu⟩
 
-/-- FT `ef31` (auxiliary plumbing).  Mirror of `comp_X_add_C_comp_X_sub_C` for the
+/-- Auxiliary plumbing.  Mirror of `comp_X_add_C_comp_X_sub_C` for the
 substitution `X ↦ X - t`: `(p(X - t))(X + t) = p(X)`.  Proof is the same trivial
 `Polynomial.comp_assoc` computation. -/
 private theorem comp_X_sub_C_comp_X_add_C {R : Type*} [CommRing R] (t : R) (p : R[X]) :
@@ -1967,7 +1945,7 @@ private theorem comp_X_sub_C_comp_X_add_C {R : Type*} [CommRing R] (t : R) (p : 
   have h : (X - C t).comp (X + C t) = X := by simp
   rw [Polynomial.comp_assoc, h, Polynomial.comp_X]
 
-/-- FT `ef31` (auxiliary plumbing).  A polynomial `p ∈ R[X]` is a unit iff its substitution
+/-- Auxiliary plumbing.  A polynomial `p ∈ R[X]` is a unit iff its substitution
 image `p(X - t)` is a unit.  Proof identical to `isUnit_comp_X_add_C_iff`. -/
 private theorem isUnit_comp_X_sub_C_iff {R : Type*} [CommRing R] (t : R) {p : R[X]} :
     IsUnit (p.comp (X - C t)) ↔ IsUnit p :=
@@ -1976,7 +1954,7 @@ private theorem isUnit_comp_X_sub_C_iff {R : Type*} [CommRing R] (t : R) {p : R[
       exact (Polynomial.compRingHom (X + C t)).isUnit_map hu,
    fun hu => (Polynomial.compRingHom (X - C t)).isUnit_map hu⟩
 
-/-- FT `ef31` (auxiliary plumbing).  The substitution `f(X) ↦ f(X + t)` is a multiplicative
+/-- Auxiliary plumbing.  The substitution `f(X) ↦ f(X + t)` is a multiplicative
 automorphism of `R[X]`, hence preserves irreducibility.  This is the standard step in the
 Eisenstein proof of the irreducibility of `X ^ (p - 1) + ⋯ + 1`: Eisenstein's criterion
 applies to `f(X + 1)`, and irreducibility is transported back to `f`.  Proof: expand both
@@ -2001,7 +1979,7 @@ private theorem irreducible_comp_X_add_C_iff {R : Type*} [CommRing R] (t : R) {p
     · exact Or.inl (isUnit_comp_X_sub_C_iff t |>.1 h')
     · exact Or.inr (isUnit_comp_X_sub_C_iff t |>.1 h')
 
-/-- FT `ef31` (auxiliary lemma: the Eisenstein step).  With `f(X) = X ^ (p - 1) + ⋯ + 1 =
+/-- Auxiliary lemma (the Eisenstein step).  With `f(X) = X ^ (p - 1) + ⋯ + 1 =
 ∑ i ∈ range p, X ^ i` (so `(X - 1) * f = X ^ p - 1`, i.e. `f` is Milne's `(X ^ p - 1)/(X - 1)`,
 and `f = Φ_p`, the `p`-th cyclotomic polynomial, for prime `p`), the substituted polynomial
 `f(X + 1) = ((X + 1) ^ p - 1) / X` is Eisenstein at the prime `p`: its non-leading
@@ -2020,7 +1998,7 @@ theorem geom_sum_prime_comp_X_add_one_isEisensteinAt {p : ℕ} (hp : p.Prime) :
   rw [← hcyc]
   exact cyclotomic_prime_pow_comp_X_add_one_isEisensteinAt p 0
 
-/-- FT `ef31` (auxiliary lemma).  For a prime `p`, the polynomial `X ^ (p - 1) + ⋯ + 1` is
+/-- Auxiliary lemma.  For a prime `p`, the polynomial `X ^ (p - 1) + ⋯ + 1` is
 irreducible in `ℤ[X]`.  Proof follows the source: by the Eisenstein criterion in prime-ideal
 form (`Polynomial.IsEisensteinAt.irreducible` at the prime ideal `pℤ`; the composition with
 the monic `X + C 1` is monic, hence primitive, and has degree `φ(p) = p - 1 > 0`),
@@ -2087,14 +2065,23 @@ theorem finrank_adjoin_exp_two_pi_i_over_prime {p : ℕ} (hp : p.Prime) :
 end ConstructionsStraightEdgeCompass
 
 /-!
-AUDIT-GAP (audit of commit a86787d, obligation to external library): the required
-`### Improvements for Mathlib` comment section (AUDIT.md, "Obligation to external library
-audit"; FORMALIZATION.md, "Obligation to Mathlib and other external libraries") is missing
-from this target entirely, so it cannot be verified that upstream obligations were
-discharged.  Candidate to evaluate when creating the section:
-`FT.exists_root_of_not_irreducible_cubic` (a nonzero degree-3 polynomial over a field that
-is not irreducible has a root) — apply the content and absence checks (broad `rg` over
-Mathlib, REPL replay from this target's import closure) before recording it.
+### Improvements for Mathlib
+
+The development above exposes the following plausible upstream improvement.
+
+* `Polynomial.exists_isRoot_of_natDegree_eq_three` — a nonzero cubic `f : F[X]`
+  over a field with `f.natDegree = 3` that is *not* irreducible has a root.
+  Mathlib currently packages the degree-2 analogue of this irreducibility test
+  but not the cubic one.  The project declaration
+  `FT.exists_root_of_not_irreducible_cubic` (in section
+  `ConstructionsStraightEdgeCompass`) is exactly this statement, proved via
+  `irreducible_or_factor`, `Polynomial.natDegree_mul` and
+  `Polynomial.exists_root_of_degree_eq_one` — a checked proof route.  A
+  plausible upstream statement is the contrapositive packaged as an
+  irreducibility criterion: for `f ≠ 0` with `f.natDegree ≤ 3`,
+  `Irreducible f ↔ ∀ x, f.eval x ≠ 0`.  Absence check: broad `rg` over Mathlib
+  for cubic/degree-three root-irreducibility equivalences returned only
+  degree-2 packaging.
 -/
 
 end FT
