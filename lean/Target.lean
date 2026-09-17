@@ -879,6 +879,393 @@ section ConstructionsStraightEdgeCompass
 open Polynomial
 open scoped IntermediateField
 
+/-- Helper for FT `ef24`: on the real line, `x² + y² = 0` forces `x = y = 0`. -/
+theorem ef24_sq_add_sq_eq_zero {x y : ℝ} (h : x ^ 2 + y ^ 2 = 0) : x = 0 ∧ y = 0 := by
+  have h1 : 0 ≤ y ^ 2 := sq_nonneg y
+  have hx : x ^ 2 ≤ 0 := by linarith
+  have hy : y ^ 2 ≤ 0 := by linarith [sq_nonneg x]
+  exact ⟨sq_eq_zero_iff.mp (le_antisymm hx (sq_nonneg x)), sq_eq_zero_iff.mp (le_antisymm hy (sq_nonneg y))⟩
+
+/-- Helper for FT `ef24`: `2` and `4` belong to every subfield of `ℝ`. -/
+theorem ef24_two_mem {F : Subfield ℝ} : (2 : ℝ) ∈ F := by
+  have h : (2 : ℝ) = 1 + 1 := by norm_num
+  rw [h]; exact Subfield.add_mem F (Subfield.one_mem F) (Subfield.one_mem F)
+
+/-- Helper for FT `ef24`: `4` belongs to every subfield of `ℝ`. -/
+theorem ef24_four_mem {F : Subfield ℝ} : (4 : ℝ) ∈ F := by
+  have h : (4 : ℝ) = 2 + 2 := by norm_num
+  rw [h]; exact Subfield.add_mem F ef24_two_mem ef24_two_mem
+
+/-- Helper for FT `ef24`: two nonproportional nonzero pairs with vanishing determinant of
+`[[a, b], [a', b']]` cannot exist: if `a b' = a' b` and `(a, b) ≠ 0 ≠ (a', b')`, then `(a', b')`
+is a nonzero multiple of `(a, b)`. -/
+theorem ef24_exists_prop_coeff {a a' b b' : ℝ} (ha : a ≠ 0 ∨ b ≠ 0) (ha' : a' ≠ 0 ∨ b' ≠ 0) (hD : a * b' = a' * b) : ∃ k : ℝ, a' = k * a ∧ b' = k * b ∧ k ≠ 0 := by
+  by_cases ha0 : a = 0
+  · have hb0 : b ≠ 0 := ha.elim (absurd ha0) id
+    have ha'0 : a' = 0 := by rw [ha0, zero_mul] at hD; exact (mul_eq_zero.mp hD.symm).resolve_right hb0
+    have hb'0 : b' ≠ 0 := ha'.elim (absurd ha'0) id
+    refine ⟨b' / b, ?_, ?_, div_ne_zero hb'0 hb0⟩
+    · rw [ha'0, ha0, mul_zero]
+    · field_simp
+  · have ha'0 : a' ≠ 0 := by
+      intro h0
+      rw [h0, zero_mul] at hD
+      exact ha'.elim (absurd h0) fun h => absurd ((mul_eq_zero.mp hD).resolve_left ha0) h
+    refine ⟨a' / a, ?_, ?_, div_ne_zero ha'0 ha0⟩
+    · field_simp
+    · field_simp; linarith
+
+/-- Helper for FT `ef24`: parametrization of the line `a x + b y + c = 0` by the foot
+`(-(a c)/(a² + b²), -(b c)/(a² + b²))` and direction `(-b, a)`. -/
+theorem ef24_line_param {a b c x y t : ℝ} (hline : a * x + b * y + c = 0) (hne : a ^ 2 + b ^ 2 ≠ 0) (ht : (a ^ 2 + b ^ 2) * t = a * y - b * x) : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b) ∧ y = -(b * c) / (a ^ 2 + b ^ 2) + t * a := by
+  constructor
+  · field_simp; linear_combination (a * hline + b * ht)
+  · field_simp; linear_combination (b * hline - a * ht)
+
+/-- Helper for FT `ef24`: converse parametrization — a point of the standard parametric form lies
+on the line. -/
+theorem ef24_line_param_mem {a b c t x y : ℝ} (hne : a ^ 2 + b ^ 2 ≠ 0) (hx : x = -(a * c) / (a ^ 2 + b ^ 2) + t * (-b)) (hy : y = -(b * c) / (a ^ 2 + b ^ 2) + t * a) : a * x + b * y + c = 0 := by
+  subst hx; subst hy; field_simp; ring
+
+/-- Helper for FT `ef24`: substituting the parametric point `(p1 + t d1, p2 + t d2)` into the circle
+equation yields a quadratic in `t` with coefficients expressed by `A, B, Cq`. -/
+theorem ef24_circle_quad_iff {t p1 p2 d1 d2 cx cy r A B Cq : ℝ} (hA : A = d1 ^ 2 + d2 ^ 2) (hB : B = 2 * ((p1 - cx) * d1 + (p2 - cy) * d2)) (hC : Cq = (p1 - cx) ^ 2 + (p2 - cy) ^ 2 - r * r) : ((p1 + t * d1 - cx) ^ 2 + (p2 + t * d2 - cy) ^ 2 = r * r) ↔ A * t ^ 2 + B * t + Cq = 0 := by
+  subst hA; subst hB; subst hC
+  constructor <;> intro h <;> linear_combination h
+
+/-- Helper for FT `ef24`: if `t` is a root of the quadratic, then `(2 A t + B)²` equals the
+discriminant `B² - 4 A Cq`; in particular the discriminant is nonnegative. -/
+theorem ef24_quad_disc {t A B Cq Δ : ℝ} (h : A * t ^ 2 + B * t + Cq = 0) (hΔ : Δ = B ^ 2 - 4 * A * Cq) : (2 * A * t + B) ^ 2 = Δ := by
+  subst hΔ; linear_combination (4 * A * h)
+
+/-- Helper for FT `ef24`: if `s² = B² - 4 A Cq`, the quadratic `A t² + B t + Cq` has the root
+`t = (s - B) / (2 A)`, for which moreover `2 A t + B = s`. -/
+theorem ef24_quad_root_exists {A B Cq s : ℝ} (hA : A ≠ 0) (h : s * s = B ^ 2 - 4 * A * Cq) : ∃ t : ℝ, A * t ^ 2 + B * t + Cq = 0 ∧ 2 * A * t + B = s := by
+  refine ⟨(s - B) / (2 * A), ?_, ?_⟩
+  · field_simp; linear_combination h
+  · field_simp; ring
+
+/-- An `F`-line (FT, *Constructions with straight-edge and compass*): the line in `ℝ × ℝ` given by
+`a x + b y + c = 0` with `a, b, c ∈ F` and `(a, b) ≠ 0`. -/
+structure FLine (F : Subfield ℝ) where
+  /-- x-coefficient -/
+  a : ℝ
+  /-- y-coefficient -/
+  b : ℝ
+  /-- constant term -/
+  c : ℝ
+  ha : a ∈ F
+  hb : b ∈ F
+  hc : c ∈ F
+  ab_ne : a ≠ 0 ∨ b ≠ 0
+
+/-- Membership of a point in the `F`-line `a x + b y + c = 0`. -/
+def MemFLine {F : Subfield ℝ} (L : FLine F) (p : ℝ × ℝ) : Prop := L.a * p.1 + L.b * p.2 + L.c = 0
+
+/-- An `F`-circle (FT): centre `(cx, cy)` with `cx, cy ∈ F` and radius `r ∈ F`, `r ≥ 0`. -/
+structure FCircle (F : Subfield ℝ) where
+  /-- x-coordinate of the centre -/
+  cx : ℝ
+  /-- y-coordinate of the centre -/
+  cy : ℝ
+  /-- radius -/
+  r : ℝ
+  hcx : cx ∈ F
+  hcy : cy ∈ F
+  hr : r ∈ F
+  hr_nonneg : 0 ≤ r
+
+/-- Membership of a point in the `F`-circle `(x - cx)² + (y - cy)² = r²`. -/
+def MemFCircle {F : Subfield ℝ} (C : FCircle F) (p : ℝ × ℝ) : Prop := (p.1 - C.cx) ^ 2 + (p.2 - C.cy) ^ 2 = C.r * C.r
+
+/-- `p` lies in the `F[√e]`-plane: both coordinates are of the form `u + v √e` with `u, v ∈ F`,
+where `√e` is the real square root `Real.sqrt e` (so `F[√e]` is realized inside `ℝ`). -/
+def InQuadPlane (F : Subfield ℝ) (e : ℝ) (p : ℝ × ℝ) : Prop :=
+  ∃ u v w z : ℝ, u ∈ F ∧ v ∈ F ∧ w ∈ F ∧ z ∈ F ∧ p.1 = u + v * Real.sqrt e ∧ p.2 = w + z * Real.sqrt e
+
+/-- FT `ef24`, clause (1).  Let `L ≠ L′` be `F`-lines.  Then `L ∩ L′ = ∅` or consists of a single
+`F`-point.
+
+Encoding: an `F`-line is the solution set in `ℝ × ℝ` of `a x + b y + c = 0` with `a, b, c ∈ F` and
+`(a, b) ≠ 0` (`FLine`, `MemFLine`).  Since such coefficient triples are not unique, the hypothesis
+`L ≠ L′` is encoded as distinctness of the two solution sets (the geometric meaning of distinct
+lines).  The intersection is empty, or it is the singleton `{p}` of the Cramer point
+`p = ((b c′ - b′ c)/(a b′ - a′ b), (a′ c - a c′)/(a b′ - a′ b))`, whose coordinates lie in `F`.
+Proof idea: if `a b′ - a′ b = 0` and the lines share a point, the two equations are proportional,
+so the lines are equal — contradiction; otherwise Cramer's rule gives the unique solution. -/
+theorem ef24_1 {F : Subfield ℝ} (L L' : FLine F) (hne : {p : ℝ × ℝ | MemFLine L p} ≠ {p : ℝ × ℝ | MemFLine L' p}) : {p : ℝ × ℝ | MemFLine L p ∧ MemFLine L' p} = ∅ ∨ ∃ p : ℝ × ℝ, p.1 ∈ F ∧ p.2 ∈ F ∧ {q : ℝ × ℝ | MemFLine L q ∧ MemFLine L' q} = {p} := by
+  by_cases hD : L.a * L'.b - L'.a * L.b = 0
+  · left
+    rw [Set.eq_empty_iff_forall_notMem]
+    intro p hp
+    obtain ⟨h1, h2⟩ := hp
+    simp only [MemFLine] at h1 h2
+    obtain ⟨k, hk1, hk2, hk0⟩ := ef24_exists_prop_coeff L.ab_ne L'.ab_ne (by linarith)
+    have hkc : L'.c = k * L.c := by rw [hk1, hk2] at h2; linear_combination (h2 - k * h1)
+    refine hne (Set.ext fun q => ?_)
+    constructor
+    · intro hq
+      simp only [Set.mem_setOf_eq, MemFLine] at hq ⊢
+      rw [hk1, hk2, hkc]
+      linear_combination (k * hq)
+    · intro hq
+      simp only [Set.mem_setOf_eq, MemFLine] at hq ⊢
+      rw [hk1, hk2, hkc] at hq
+      have hkey : k * (L.a * q.1 + L.b * q.2 + L.c) = 0 := by linear_combination hq
+      exact (mul_eq_zero.mp hkey).resolve_left hk0
+  · right
+    have hD0 : L.a * L'.b - L'.a * L.b ≠ 0 := hD
+    have hDmem : L.a * L'.b - L'.a * L.b ∈ F := Subfield.sub_mem F (Subfield.mul_mem F L.ha L'.hb) (Subfield.mul_mem F L'.ha L.hb)
+    set p1 : ℝ := (L.b * L'.c - L'.b * L.c) / (L.a * L'.b - L'.a * L.b) with hp1def
+    set p2 : ℝ := (L'.a * L.c - L.a * L'.c) / (L.a * L'.b - L'.a * L.b) with hp2def
+    have hclear1 : L.a * (L.b * L'.c - L'.b * L.c) + L.b * (L'.a * L.c - L.a * L'.c) + L.c * (L.a * L'.b - L'.a * L.b) = 0 := by ring
+    have hclear2 : L'.a * (L.b * L'.c - L'.b * L.c) + L'.b * (L'.a * L.c - L.a * L'.c) + L'.c * (L.a * L'.b - L'.a * L.b) = 0 := by ring
+    have hmem1 : p1 ∈ F := by rw [hp1def]; exact Subfield.div_mem F (Subfield.sub_mem F (Subfield.mul_mem F L.hb L'.hc) (Subfield.mul_mem F L'.hb L.hc)) hDmem
+    have hmem2 : p2 ∈ F := by rw [hp2def]; exact Subfield.div_mem F (Subfield.sub_mem F (Subfield.mul_mem F L'.ha L.hc) (Subfield.mul_mem F L.ha L'.hc)) hDmem
+    have hDp1 : (L.a * L'.b - L'.a * L.b) * p1 = L.b * L'.c - L'.b * L.c := by rw [hp1def, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hD0
+    have hDp2 : (L.a * L'.b - L'.a * L.b) * p2 = L'.a * L.c - L.a * L'.c := by rw [hp2def, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hD0
+    have hon1 : MemFLine L ⟨p1, p2⟩ := by
+      show L.a * p1 + L.b * p2 + L.c = 0
+      have hz : (L.a * L'.b - L'.a * L.b) * (L.a * p1 + L.b * p2 + L.c) = 0 := by
+        linear_combination (L.a * hDp1 + L.b * hDp2 + hclear1)
+      exact (mul_eq_zero.mp hz).resolve_left hD0
+    have hon2 : MemFLine L' ⟨p1, p2⟩ := by
+      show L'.a * p1 + L'.b * p2 + L'.c = 0
+      have hz : (L.a * L'.b - L'.a * L.b) * (L'.a * p1 + L'.b * p2 + L'.c) = 0 := by
+        linear_combination (L'.a * hDp1 + L'.b * hDp2 + hclear2)
+      exact (mul_eq_zero.mp hz).resolve_left hD0
+    refine ⟨⟨p1, p2⟩, hmem1, hmem2, ?_⟩
+    ext q
+    simp only [Set.mem_setOf_eq, Set.mem_singleton_iff]
+    constructor
+    · rintro ⟨hq1, hq2⟩
+      simp only [MemFLine] at hq1 hq2
+      have hc1 : (L.a * L'.b - L'.a * L.b) * q.1 = L.b * L'.c - L'.b * L.c := by linear_combination (L'.b * hq1 - L.b * hq2)
+      have hc2 : (L.a * L'.b - L'.a * L.b) * q.2 = L'.a * L.c - L.a * L'.c := by linear_combination (L.a * hq2 - L'.a * hq1)
+      refine Prod.ext ?_ ?_
+      · rw [eq_div_iff hD0]; linear_combination hc1
+      · rw [eq_div_iff hD0]; linear_combination hc2
+    · rintro h
+      rw [h]; exact ⟨hon1, hon2⟩
+
+/-- FT `ef24`, clause (2).  Let `L` be an `F`-line and `C` an `F`-circle.  Then `L ∩ C = ∅` or
+consists of one or two points in the `F[√e]`-plane for some `e ∈ F` with `e > 0`.
+
+Encoding: an `F`-circle is given by centre `(cx, cy)` with `cx, cy ∈ F` and radius `r ∈ F`, `r ≥ 0`
+(`FCircle`, `MemFCircle`); a point lies in the `F[√e]`-plane (`InQuadPlane`) when both coordinates
+have the form `u + v √e` with `u, v ∈ F`, where `√e` is the real square root `Real.sqrt e` (so
+`F[√e]` is realized as the subfield of `ℝ` generated by `F` and `√e`).  "One or two points" is
+encoded as equality with `insert p {q}` (which also covers the single-point case `p = q`).
+
+Proof idea: parametrize the line as `p₀ + t d` with `p₀ = (-a c/(a² + b²), -b c/(a² + b²))` and
+`d = (-b, a)`; substitution into the circle equation gives a genuine quadratic
+`(a² + b²) t² + B t + C = 0` over `F`.  If the intersection is nonempty its discriminant
+`Δ = B² - 4 (a² + b²) C` is a square `(2 (a² + b²) t₀ + B)²` of a real number, hence `Δ ≥ 0`, and
+each intersection point corresponds to a root `t = (-B ± √Δ)/(2 (a² + b²))`, giving coordinates
+`u + v √Δ` with `u, v ∈ F`.  In the tangential case `Δ = 0` the coordinates already lie in `F ⊆
+F[√1]`, so `e = 1` is produced. -/
+theorem ef24_2 {F : Subfield ℝ} (L : FLine F) (C : FCircle F) : {p : ℝ × ℝ | MemFLine L p ∧ MemFCircle C p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFLine L r ∧ MemFCircle C r} = insert p {q} := by
+  by_cases hex : ∃ p : ℝ × ℝ, MemFLine L p ∧ MemFCircle C p
+  · right
+    obtain ⟨p0, hp0l, hp0c⟩ := hex
+    simp only [MemFLine] at hp0l
+    have hA0 : L.a ^ 2 + L.b ^ 2 ≠ 0 := by
+      intro h
+      rcases L.ab_ne with h' | h'
+      · exact h' (ef24_sq_add_sq_eq_zero h).1
+      · exact h' (ef24_sq_add_sq_eq_zero h).2
+    have hAmem : L.a ^ 2 + L.b ^ 2 ∈ F := by rw [pow_two, pow_two]; exact Subfield.add_mem F (Subfield.mul_mem F L.ha L.ha) (Subfield.mul_mem F L.hb L.hb)
+    have hp01mem : -(L.a * L.c) / (L.a ^ 2 + L.b ^ 2) ∈ F := Subfield.div_mem F (Subfield.neg_mem F (Subfield.mul_mem F L.ha L.hc)) hAmem
+    have hp02mem : -(L.b * L.c) / (L.a ^ 2 + L.b ^ 2) ∈ F := Subfield.div_mem F (Subfield.neg_mem F (Subfield.mul_mem F L.hb L.hc)) hAmem
+    have hBmem : -L.b ∈ F := Subfield.neg_mem F L.hb
+    set p01 : ℝ := -(L.a * L.c) / (L.a ^ 2 + L.b ^ 2) with hp01def
+    set p02 : ℝ := -(L.b * L.c) / (L.a ^ 2 + L.b ^ 2) with hp02def
+    set t0 : ℝ := (L.a * p0.2 - L.b * p0.1) / (L.a ^ 2 + L.b ^ 2) with ht0def
+    have ht0 : (L.a ^ 2 + L.b ^ 2) * t0 = L.a * p0.2 - L.b * p0.1 := by rw [ht0def, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hA0
+    obtain ⟨hpar1, hpar2⟩ := ef24_line_param hp0l hA0 ht0
+    rw [← hp01def] at hpar1
+    rw [← hp02def] at hpar2
+    set Bq : ℝ := 2 * ((p01 - C.cx) * (-L.b) + (p02 - C.cy) * L.a) with hBqdef
+    set Cq : ℝ := (p01 - C.cx) ^ 2 + (p02 - C.cy) ^ 2 - C.r * C.r with hCqdef
+    have hcirc0 : MemFCircle C ⟨p01 + t0 * (-L.b), p02 + t0 * L.a⟩ := by rw [← hpar1, ← hpar2]; exact hp0c
+    have hAeq : L.a ^ 2 + L.b ^ 2 = (-L.b) ^ 2 + L.a ^ 2 := by ring
+    have hroot0 : (L.a ^ 2 + L.b ^ 2) * t0 ^ 2 + Bq * t0 + Cq = 0 := (ef24_circle_quad_iff hAeq hBqdef hCqdef).mp hcirc0
+    set Δ : ℝ := Bq ^ 2 - 4 * (L.a ^ 2 + L.b ^ 2) * Cq with hΔdef
+    have hw1m : (p01 - C.cx) * (-L.b) ∈ F := Subfield.mul_mem F (Subfield.sub_mem F hp01mem C.hcx) hBmem
+    have hw2m : (p02 - C.cy) * L.a ∈ F := Subfield.mul_mem F (Subfield.sub_mem F hp02mem C.hcy) L.ha
+    have hBqmem : Bq ∈ F := by rw [hBqdef]; exact Subfield.mul_mem F ef24_two_mem (Subfield.add_mem F hw1m hw2m)
+    have hu1m : (p01 - C.cx) ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F (Subfield.sub_mem F hp01mem C.hcx) (Subfield.sub_mem F hp01mem C.hcx)
+    have hu2m : (p02 - C.cy) ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F (Subfield.sub_mem F hp02mem C.hcy) (Subfield.sub_mem F hp02mem C.hcy)
+    have hCqmem : Cq ∈ F := by rw [hCqdef]; exact Subfield.sub_mem F (Subfield.add_mem F hu1m hu2m) (Subfield.mul_mem F C.hr C.hr)
+    have hBq2m : Bq ^ 2 ∈ F := by rw [pow_two]; exact Subfield.mul_mem F hBqmem hBqmem
+    have hΔmem : Δ ∈ F := by rw [hΔdef]; exact Subfield.sub_mem F hBq2m (Subfield.mul_mem F (Subfield.mul_mem F ef24_four_mem hAmem) hCqmem)
+    have hΔsq : (2 * (L.a ^ 2 + L.b ^ 2) * t0 + Bq) ^ 2 = Δ := ef24_quad_disc hroot0 hΔdef
+    have hΔle : 0 ≤ Δ := by rw [← hΔsq]; exact sq_nonneg _
+    have hsΔ : Real.sqrt Δ * Real.sqrt Δ = Δ := Real.mul_self_sqrt hΔle
+    have hsΔ2 : (Real.sqrt Δ) ^ 2 = Δ := by rw [pow_two]; exact hsΔ
+    have hroot' : Real.sqrt Δ * Real.sqrt Δ = Bq ^ 2 - 4 * (L.a ^ 2 + L.b ^ 2) * Cq := by rw [hsΔ, hΔdef]
+    obtain ⟨tpos, hqpos, h2pos⟩ := ef24_quad_root_exists hA0 hroot'
+    obtain ⟨tneg, hqneg, h2neg⟩ := ef24_quad_root_exists hA0 (by rw [neg_mul_neg]; exact hroot')
+    have hAt : 2 * (L.a ^ 2 + L.b ^ 2) ≠ 0 := mul_ne_zero two_ne_zero hA0
+    have hPposin : MemFLine L ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ ∧ MemFCircle C ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ := by
+      constructor
+      · exact ef24_line_param_mem hA0 (by rw [← hp01def]) (by rw [← hp02def])
+      · exact (ef24_circle_quad_iff hAeq hBqdef hCqdef).mpr hqpos
+    have hPnegin : MemFLine L ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ ∧ MemFCircle C ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ := by
+      constructor
+      · exact ef24_line_param_mem hA0 (by rw [← hp01def]) (by rw [← hp02def])
+      · exact (ef24_circle_quad_iff hAeq hBqdef hCqdef).mpr hqneg
+    have hchar : ∀ q : ℝ × ℝ, MemFLine L q ∧ MemFCircle C q → q = ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ ∨ q = ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ := by
+      intro q hq
+      obtain ⟨hq1, hq2⟩ := hq
+      simp only [MemFLine] at hq1
+      set tq : ℝ := (L.a * q.2 - L.b * q.1) / (L.a ^ 2 + L.b ^ 2) with htqdef
+      have htq : (L.a ^ 2 + L.b ^ 2) * tq = L.a * q.2 - L.b * q.1 := by rw [htqdef, ← mul_div_assoc]; exact mul_div_cancel_left₀ _ hA0
+      obtain ⟨hpar1, hpar2⟩ := ef24_line_param hq1 hA0 htq
+      rw [← hp01def] at hpar1
+      rw [← hp02def] at hpar2
+      have hcircq : MemFCircle C ⟨p01 + tq * (-L.b), p02 + tq * L.a⟩ := by rw [← hpar1, ← hpar2]; exact hq2
+      have hrootq : (L.a ^ 2 + L.b ^ 2) * tq ^ 2 + Bq * tq + Cq = 0 := (ef24_circle_quad_iff hAeq hBqdef hCqdef).mp hcircq
+      have hΔq : (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) ^ 2 = Δ := ef24_quad_disc hrootq hΔdef
+      have hprod : (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) * (2 * (L.a ^ 2 + L.b ^ 2) * tq + Bq) = Real.sqrt Δ * Real.sqrt Δ := by rw [← pow_two, ← pow_two]; rw [hΔq, hsΔ2]
+      rcases mul_self_eq_mul_self_iff.mp hprod with h | h
+      · left
+        have hteq : tq = tpos := mul_left_cancel₀ hAt (by linarith [h, h2pos])
+        refine Prod.ext ?_ ?_
+        · rw [hpar1, hteq]
+        · rw [hpar2, hteq]
+      · right
+        have hteq : tq = tneg := mul_left_cancel₀ hAt (by linarith [h, h2neg])
+        refine Prod.ext ?_ ?_
+        · rw [hpar1, hteq]
+        · rw [hpar2, hteq]
+    have hset : {r : ℝ × ℝ | MemFLine L r ∧ MemFCircle C r} = insert ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ {⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩} := by
+      ext r
+      simp only [Set.mem_setOf_eq, Set.mem_insert_iff, Set.mem_singleton_iff]
+      constructor
+      · intro hr
+        exact hchar r hr
+      · rintro (h | h)
+        · rw [h]; exact hPposin
+        · rw [h]; exact hPnegin
+    by_cases hΔz : Δ = 0
+    · have hs0 : Real.sqrt Δ = 0 := by rw [hΔz]; exact Real.sqrt_zero
+      rw [hs0] at h2pos h2neg
+      have h5p : 2 * (L.a ^ 2 + L.b ^ 2) * tpos = -Bq := by linarith
+      have h5n : 2 * (L.a ^ 2 + L.b ^ 2) * tneg = -Bq := by linarith
+      have htposp : tpos = -Bq / (2 * (L.a ^ 2 + L.b ^ 2)) := by rw [← h5p]; exact (mul_div_cancel_left₀ _ hAt).symm
+      have htnegp : tneg = -Bq / (2 * (L.a ^ 2 + L.b ^ 2)) := by rw [← h5n]; exact (mul_div_cancel_left₀ _ hAt).symm
+      have htposmem : tpos ∈ F := by rw [htposp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F ef24_two_mem hAmem)
+      have htnegmem : tneg ∈ F := by rw [htnegp]; exact Subfield.div_mem F (Subfield.neg_mem F hBqmem) (Subfield.mul_mem F ef24_two_mem hAmem)
+      have hc1F : p01 + tpos * (-L.b) ∈ F := Subfield.add_mem F hp01mem (Subfield.mul_mem F htposmem hBmem)
+      have hc2F : p02 + tpos * L.a ∈ F := Subfield.add_mem F hp02mem (Subfield.mul_mem F htposmem L.ha)
+      have hc1F' : p01 + tneg * (-L.b) ∈ F := Subfield.add_mem F hp01mem (Subfield.mul_mem F htnegmem hBmem)
+      have hc2F' : p02 + tneg * L.a ∈ F := Subfield.add_mem F hp02mem (Subfield.mul_mem F htnegmem L.ha)
+      have hiP1 : InQuadPlane F 1 ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩ := ⟨p01 + tpos * (-L.b), 0, p02 + tpos * L.a, 0, hc1F, Subfield.zero_mem F, hc2F, Subfield.zero_mem F, by show p01 + tpos * (-L.b) = p01 + tpos * (-L.b) + 0 * Real.sqrt 1; ring, by show p02 + tpos * L.a = p02 + tpos * L.a + 0 * Real.sqrt 1; ring⟩
+      have hiP2 : InQuadPlane F 1 ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩ := ⟨p01 + tneg * (-L.b), 0, p02 + tneg * L.a, 0, hc1F', Subfield.zero_mem F, hc2F', Subfield.zero_mem F, by show p01 + tneg * (-L.b) = p01 + tneg * (-L.b) + 0 * Real.sqrt 1; ring, by show p02 + tneg * L.a = p02 + tneg * L.a + 0 * Real.sqrt 1; ring⟩
+      exact ⟨1, Subfield.one_mem F, zero_lt_one, ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩, ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩, hiP1, hiP2, hset⟩
+    · have g1 : p01 + tpos * (-L.b) = p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) + (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) * Real.sqrt Δ := by
+        field_simp
+        linear_combination ((-L.b) * h2pos)
+      have g2 : p02 + tpos * L.a = p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) + L.a / (2 * (L.a ^ 2 + L.b ^ 2)) * Real.sqrt Δ := by
+        field_simp
+        linear_combination (L.a * h2pos)
+      have g3 : p01 + tneg * (-L.b) = p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) + L.b / (2 * (L.a ^ 2 + L.b ^ 2)) * Real.sqrt Δ := by
+        field_simp
+        linear_combination ((-L.b) * h2neg)
+      have g4 : p02 + tneg * L.a = p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) + (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)) * Real.sqrt Δ := by
+        field_simp
+        linear_combination (L.a * h2neg)
+      have hu1mem : p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp01mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem hBmem) (Subfield.mul_mem F ef24_two_mem hAmem))
+      have hv1mem : (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F hBmem (Subfield.mul_mem F ef24_two_mem hAmem)
+      have hu2mem : p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.sub_mem F hp02mem (Subfield.div_mem F (Subfield.mul_mem F hBqmem L.ha) (Subfield.mul_mem F ef24_two_mem hAmem))
+      have hv2mem : L.a / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.ha (Subfield.mul_mem F ef24_two_mem hAmem)
+      have hv2mem' : (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F (Subfield.neg_mem F L.ha) (Subfield.mul_mem F ef24_two_mem hAmem)
+      have hv1mem' : L.b / (2 * (L.a ^ 2 + L.b ^ 2)) ∈ F := Subfield.div_mem F L.hb (Subfield.mul_mem F ef24_two_mem hAmem)
+      exact ⟨Δ, hΔmem, lt_of_le_of_ne hΔle (Ne.symm hΔz), ⟨p01 + tpos * (-L.b), p02 + tpos * L.a⟩, ⟨p01 + tneg * (-L.b), p02 + tneg * L.a⟩, ⟨p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)), L.a / (2 * (L.a ^ 2 + L.b ^ 2)), hu1mem, hv1mem, hu2mem, hv2mem, g1, g2⟩, ⟨p01 - Bq * (-L.b) / (2 * (L.a ^ 2 + L.b ^ 2)), L.b / (2 * (L.a ^ 2 + L.b ^ 2)), p02 - Bq * L.a / (2 * (L.a ^ 2 + L.b ^ 2)), (-L.a) / (2 * (L.a ^ 2 + L.b ^ 2)), hu1mem, hv1mem', hu2mem, hv2mem', g3, g4⟩, hset⟩
+  · left
+    rw [Set.eq_empty_iff_forall_notMem]
+    intro p hp
+    exact hex ⟨p, hp⟩
+
+/-- FT `ef24`, clause (3).  Let `C ≠ C′` be `F`-circles.  Then `C ∩ C′ = ∅` or consists of one or
+two points in the `F[√e]`-plane for some `e ∈ F` with `e > 0`.
+
+Encoding: `C ≠ C′` is encoded as distinctness of the defining data (`C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨
+C.r ≠ C'.r`), which is equivalent to distinctness of the structures since the data determine the
+circle.  "One or two points in the `F[√e]`-plane" is as in `ef24_2` (`InQuadPlane`, `insert p {q}`).
+
+Proof idea: subtracting the two circle equations gives the radical axis, an `F`-line
+`2 (cx - cx′) x + 2 (cy - cy′) y + (cx′² + cy′² - cx² - cy² - r′² + r²) = 0` with a genuinely
+nonzero coefficient pair when the centres differ.  A common point of the two circles is exactly a
+common point of this `F`-line and `C`, so clause (2) applies.  If the centres coincide, then `C ≠ C′`
+forces `r ≠ r′`, and a point on both circles would give `r² = r′²`, hence `r = r′` — so the
+intersection is empty. -/
+theorem ef24_3 {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨ C.r ≠ C'.r) : {p : ℝ × ℝ | MemFCircle C p ∧ MemFCircle C' p} = ∅ ∨ ∃ e : ℝ, e ∈ F ∧ 0 < e ∧ ∃ p q : ℝ × ℝ, InQuadPlane F e p ∧ InQuadPlane F e q ∧ {r : ℝ × ℝ | MemFCircle C r ∧ MemFCircle C' r} = insert p {q} := by
+  by_cases hctr : C.cx = C'.cx ∧ C.cy = C'.cy
+  · left
+    rw [Set.eq_empty_iff_forall_notMem]
+    intro p hp
+    obtain ⟨h1, h2⟩ := hp
+    simp only [MemFCircle] at h1 h2
+    rcases hC with h | h | h
+    · exact absurd hctr.1 h
+    · exact absurd hctr.2 h
+    · rw [← hctr.1, ← hctr.2] at h2
+      have hrr : C.r * C.r = C'.r * C'.r := by linarith
+      rcases mul_self_eq_mul_self_iff.mp hrr with h0 | h0
+      · exact h h0
+      · exact h (by linarith [h0, C.hr_nonneg, C'.hr_nonneg])
+  · have hctr' : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy := by
+      by_cases h1 : C.cx = C'.cx
+      · right; intro h2; exact hctr ⟨h1, h2⟩
+      · left; exact h1
+    set a3 : ℝ := 2 * (C.cx - C'.cx) with ha3def
+    set b3 : ℝ := 2 * (C.cy - C'.cy) with hb3def
+    set c3 : ℝ := C'.cx ^ 2 + C'.cy ^ 2 - C.cx ^ 2 - C.cy ^ 2 - C'.r * C'.r + C.r * C.r with hc3def
+    have ha3mem : a3 ∈ F := by rw [ha3def]; exact Subfield.mul_mem F ef24_two_mem (Subfield.sub_mem F C.hcx C'.hcx)
+    have hb3mem : b3 ∈ F := by rw [hb3def]; exact Subfield.mul_mem F ef24_two_mem (Subfield.sub_mem F C.hcy C'.hcy)
+    have hc3mem : c3 ∈ F := by
+      rw [hc3def, pow_two, pow_two, pow_two, pow_two]
+      exact Subfield.add_mem F (Subfield.sub_mem F (Subfield.sub_mem F (Subfield.sub_mem F (Subfield.add_mem F (Subfield.mul_mem F C'.hcx C'.hcx) (Subfield.mul_mem F C'.hcy C'.hcy)) (Subfield.mul_mem F C.hcx C.hcx)) (Subfield.mul_mem F C.hcy C.hcy)) (Subfield.mul_mem F C'.hr C'.hr)) (Subfield.mul_mem F C.hr C.hr)
+    have hline : a3 ≠ 0 ∨ b3 ≠ 0 := by
+      rcases hctr' with h | h
+      · left
+        intro h0
+        rw [ha3def] at h0
+        exact h (by linarith)
+      · right
+        intro h0
+        rw [hb3def] at h0
+        exact h (by linarith)
+    have hiff : ∀ p : ℝ × ℝ, (MemFCircle C p ∧ MemFCircle C' p) ↔ (a3 * p.1 + b3 * p.2 + c3 = 0 ∧ MemFCircle C p) := by
+      intro p
+      constructor
+      · rintro ⟨h1, h2⟩
+        simp only [MemFCircle] at h1 h2
+        refine ⟨?_, h1⟩
+        have e1 : (p.1 - C'.cx) ^ 2 - (p.1 - C.cx) ^ 2 = 2 * (C.cx - C'.cx) * p.1 + (C'.cx ^ 2 - C.cx ^ 2) := by ring
+        have e2 : (p.2 - C'.cy) ^ 2 - (p.2 - C.cy) ^ 2 = 2 * (C.cy - C'.cy) * p.2 + (C'.cy ^ 2 - C.cy ^ 2) := by ring
+        linarith
+      · rintro ⟨h3, h1⟩
+        simp only [MemFCircle] at h1 ⊢
+        refine ⟨h1, ?_⟩
+        have e1 : (p.1 - C'.cx) ^ 2 - (p.1 - C.cx) ^ 2 = 2 * (C.cx - C'.cx) * p.1 + (C'.cx ^ 2 - C.cx ^ 2) := by ring
+        have e2 : (p.2 - C'.cy) ^ 2 - (p.2 - C.cy) ^ 2 = 2 * (C.cy - C'.cy) * p.2 + (C'.cy ^ 2 - C.cy ^ 2) := by ring
+        linarith
+    have hseteq' : {p : ℝ × ℝ | MemFLine ⟨a3, b3, c3, ha3mem, hb3mem, hc3mem, hline⟩ p ∧ MemFCircle C p} = {p : ℝ × ℝ | MemFCircle C p ∧ MemFCircle C' p} := by
+      ext p
+      simp only [Set.mem_setOf_eq]
+      constructor
+      · rintro ⟨h5, h6⟩
+        exact (hiff p).mpr ⟨h5, h6⟩
+      · intro h
+        obtain ⟨h5, h6⟩ := (hiff p).mp h
+        exact ⟨h5, h6⟩
+    have hfin := ef24_2 ⟨a3, b3, c3, ha3mem, hb3mem, hc3mem, hline⟩ C
+    rw [hseteq'] at hfin
+    exact hfin
+
 /-- FT `ef31` (auxiliary plumbing).  Substituting `X - C t` into the substituted polynomial
 `(p.comp (X + C t))` recovers `p`: this is the trivial inverse property of the change of
 variables `X ↦ X + t`, and is the only fact needed to transfer units and irreducibility of
