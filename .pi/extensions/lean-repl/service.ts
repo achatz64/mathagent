@@ -177,7 +177,7 @@ export type SharedReplLease = {
   readonly id: string;
   readonly pid: number | undefined;
   request(cmd: string, env?: number, replId?: string): Promise<ReplResponse>;
-  initImports(imports: string): Promise<void>;
+  initImports(imports: string): Promise<"initialized" | "already-running">;
   status(): SharedReplStatus;
   release(): Promise<void>;
 };
@@ -295,7 +295,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
   const acquired = entry;
   let released = false;
 
-  async function initImports(imports: string): Promise<void> {
+  async function initImports(imports: string): Promise<"initialized" | "already-running"> {
     const previous = acquired.serial;
     let release!: () => void;
     acquired.serial = new Promise<void>((resolveSerial) => { release = resolveSerial; });
@@ -303,12 +303,18 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     try {
       if (released) throw new Error("Lean REPL lease has been released");
       if (acquired.repl?.alive) {
-        throw new Error("REPL already initialized — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
+        // Idempotent re-import: an automatic restart on request may already
+        // have brought up a REPL with exactly this import block.
+        if (acquired.imports !== undefined && imports.trim() === acquired.imports.trim()) {
+          return "already-running";
+        }
+        throw new Error("REPL already initialized with a different import block — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
       }
       acquired.imports = imports;
       acquired.repl = new SharedRepl(key, imports, ++registry.generation);
       // Eagerly initialize the root environment
       await acquired.repl.rootEnvironment();
+      return "initialized";
     } finally {
       release();
     }

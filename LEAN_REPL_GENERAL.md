@@ -37,8 +37,10 @@ target-local declarations directly without pasting them into branches.
 If the REPL dies (e.g. after a timeout), it restarts automatically on the next
 request, reusing the last import block configured via `lean_repl_import`. A
 main agent that just killed the REPL to change imports may therefore see the
-new root appear before its own `lean_repl_import` call arrives; check the
-`imports` field of the response rather than assuming the call order.
+new root appear before its own `lean_repl_import` call arrives; with an
+unchanged import block the call is an idempotent no-op (`status:
+"already-running"`), with a changed block it refuses. Check the `imports`
+field of the response rather than assuming the call order.
 
 ## Development and builds
 

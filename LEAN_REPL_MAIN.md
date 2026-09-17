@@ -11,8 +11,13 @@ lean_repl_import({ imports: "import Mathlib\nimport Target" })
 ```
 
 `lean_repl_import` only works when the REPL is uninitialized or the old process
-has been killed. It refuses on a live REPL (kill requires `bash`, which only the
-main agent has).
+has been killed. It refuses on a live REPL whose import block differs (killing
+requires `bash`, which only the main agent has). It is idempotent: re-sending
+exactly the live REPL's current import block succeeds as a no-op and reports
+`status: "already-running"`. This matters after a build-restart cycle: an
+automatic restart on request reuses the last configured import block, so the
+new root may already be live when the main agent's own `lean_repl_import`
+arrives — with the same block this succeeds, with a different block it refuses.
 
 The default import block should include:
 

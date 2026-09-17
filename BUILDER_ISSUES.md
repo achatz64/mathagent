@@ -151,3 +151,42 @@ is deferred future work; the first version is allowed to hard-code
 `lean/Target.lean`. 
 
 
+
+---
+
+## Builder resolution (2026-09-17)
+
+All four issues investigated and confirmed real. Fixes implemented and tested
+with fresh `pi -p` processes (TESTING.md).
+
+- **Issue 1 — fixed.** `subagent_spawn` takes an optional `label` (defaults to
+  the first task line, whitespace-collapsed, truncated to 80 chars). The label
+  is echoed in `subagent_status` snapshots, in spawn/wait/wait_any/collect
+  content text (`wN (label)` first line), and in failed-worker errors. Note:
+  the id-scrambling symptom is explained by id assignment at spawn *completion*
+  order, not call order; ids remain completion-ordered — match by label.
+  Documented in SUBAGENTS.md.
+- **Issue 2 — fixed.** Workers carry a `delivered` flag, set when
+  wait/wait_any/collect hands the current result to the caller and reset by
+  `subagent_send`. `wait_any` prefers undelivered completions, otherwise waits
+  on live workers, and returns an explicit "No uncollected completions in the
+  watched set" response instead of replaying. Tested: no replay, explicit
+  no-uncollected message. SUBAGENTS.md watch-set guidance updated.
+- **Issue 3 — fixed.** `lean_repl_import` is now idempotent: if the live REPL's
+  import block matches the request (after trim), it succeeds as a no-op and
+  reports `status: "already-running"`; a different import block on a live REPL
+  still refuses with an explicit "different import block" message. Response
+  carries a `status` field (`initialized` | `already-running`). Documented in
+  LEAN_REPL_MAIN.md and LEAN_REPL_GENERAL.md (auto-restart reuse of the last
+  import block was already documented there).
+- **Issue 4 — built.** New extension `.pi/extensions/auditor/index.ts` with
+  tool `audit_launch`: zero parameters, synchronous (blocks until the audit is
+  finished), embedded briefing (role, mandatory pre-reading AGENTS.md →
+  RULES.md → AUDIT.md → PROVENANCE.md → target incl. provenance header and
+  INVENTORY/COVERAGE hooks → FORMALIZATION.md, self-determined scope,
+  AUDIT-GAP-only edit rights, no .pi/ or documentation changes). Injects
+  exactly two fixed facts: target `lean/Target.lean` and the deliverable rule
+  (markers in target + exactly one commit, message beginning `audit: `).
+  Tools: read, grep, bash, edit. Concurrency guard: one audit at a time.
+  Smoke-tested end to end (session machinery, briefing delivery, clean
+  exit); no briefing file added to the repository.

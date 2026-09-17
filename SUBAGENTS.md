@@ -91,6 +91,11 @@ checkpoints; it includes REPL health. Abort stalled workers and investigate any
 REPL warning before adding work or starting a build.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
+  Supply a short `label` tag for each task (defaults to the first task line);
+  it is echoed beside the id in status, wait, and collect output so results can
+  be mapped to tasks without reading result bodies. Note that ids `w1..wN` are
+  assigned by spawn *completion* order, not call order — always match results
+  by label, never by id order.
 - Use profile name `lean*`. The tested limit is four concurrent workers.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
@@ -98,7 +103,10 @@ REPL warning before adding work or starting a build.
   shared Lean REPL health, so review the worker and queue/process state together.
 - For multiple live workers, use `subagent_wait_any` with their IDs. It returns
   as soon as one worker completes, allowing immediate review and follow-up;
-  remove that worker from the next watched set and wait again.
+  every completion is delivered exactly once — an already-delivered result is
+  never replayed, and if every watched worker's result was already delivered,
+  it waits on the live ones or reports "no uncollected completions". The
+  result text begins with the worker id and task label.
 - Use `subagent_wait` when watching one worker. Never wrap several waits in
   `multi_tool_use.parallel`: that creates an all-workers barrier and delays
   handling a worker that completed early. Never poll through Bash.

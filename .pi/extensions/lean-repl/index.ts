@@ -8,18 +8,19 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl_import",
     label: "Lean REPL Import",
-    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Only works when REPL is uninitialized or dead; to change imports, kill the process via bash (kill -TERM -<pid>) first.",
+    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Idempotent: if the live REPL already runs with exactly this import block, it succeeds as a no-op with status \"already-running\". To change imports on a live REPL, kill the process via bash (kill -TERM -<pid>) first.",
     parameters: Type.Object({
       imports: Type.String({ description: "Lean import block, e.g. 'import Mathlib\\nimport Extlib.GroupTheory.Mil21'" }),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       lease ??= acquireSharedRepl(`${ctx.cwd}/lean`);
-      await lease.initImports(params.imports);
+      const result = await lease.initImports(params.imports);
       const details = {
         env: 0,
         repl: lease.id,
         pid: lease.pid,
         initialized: true,
+        status: result,
         imports: params.imports,
       };
       return {

@@ -19,6 +19,7 @@ type WorkerState = "starting" | "running" | "idle" | "done" | "failed" | "aborte
 type Worker = {
   id: string;
   task: string;
+  label: string;
   profile: string;
   session: AgentSession;
   state: WorkerState;
@@ -26,6 +27,9 @@ type Worker = {
   currentTool?: string;
   latestText: string;
   finalText: string;
+  // Set when a completion event (wait, wait_any, collect) has handed this
+  // worker's current result to the caller; reset when new output is requested.
+  delivered: boolean;
   error?: string;
   run: Promise<void>;
   listeners: Set<() => void>;
@@ -67,6 +71,13 @@ function isLeanProfile(name: string): boolean {
   return name === "lean" || name.startsWith("lean-");
 }
 
+// Stable short tag identifying the task in status/wait/collect output, so the
+// caller can map a result to its spawn call without reading the result body.
+function taskLabel(label: string | undefined, task: string): string {
+  const source = (label ?? task).trim().replace(/\s+/g, " ");
+  return source.length > 80 ? `${source.slice(0, 77)}…` : source;
+}
+
 function splitModelRef(ref: string, fallbackProvider: string): [string, string] {
   const slash = ref.indexOf("/");
   return slash < 0
@@ -95,6 +106,7 @@ async function disposeSession(session: AgentSession): Promise<void> {
 function snapshot(worker: Worker) {
   return {
     id: worker.id,
+    label: worker.label,
     state: worker.state,
     profile: worker.profile,
     elapsedSeconds: Math.round((Date.now() - worker.startedAt) / 1000),
@@ -127,6 +139,7 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       task: Type.String(),
       profile: Type.Optional(Type.String({ description: "Configured profile name; defaults to research" })),
+      label: Type.Optional(Type.String({ description: "Short task tag echoed in status/wait/collect output; defaults to the first line of the task" })),
     }),
     async execute(_id, params, signal, _update, ctx) {
       const config = await loadConfig(ctx.cwd);
@@ -161,12 +174,14 @@ export default function (pi: ExtensionAPI) {
       const worker = {
         id: `w${nextId++}`,
         task: params.task,
+        label: taskLabel(params.label, params.task),
         profile: profileName,
         session,
         state: "starting" as WorkerState,
         startedAt: Date.now(),
         latestText: "",
         finalText: "",
+        delivered: false,
         listeners: new Set<() => void>(),
         run: Promise.resolve(),
       } satisfies Worker;
@@ -191,7 +206,7 @@ export default function (pi: ExtensionAPI) {
         worker.state = signal?.aborted ? "aborted" : "failed";
       }).finally(() => notify(worker));
 
-      return { content: [{ type: "text", text: `Started ${worker.id}` }], details: snapshot(worker) };
+      return { content: [{ type: "text", text: `Started ${worker.id} (${worker.label})` }], details: snapshot(worker) };
     },
   });
 
@@ -206,6 +221,8 @@ export default function (pi: ExtensionAPI) {
       const message = isLeanProfile(worker.profile)
         ? leanFollowupReminder + params.message
         : params.message;
+      // Any send produces new output; the previous completion was delivered.
+      worker.delivered = false;
       if (worker.session.isStreaming) {
         if (params.followUp) await worker.session.followUp(message);
         else await worker.session.steer(message);
@@ -255,8 +272,10 @@ export default function (pi: ExtensionAPI) {
         worker.listeners.delete(update);
         signal?.removeEventListener("abort", abort);
       }
-      if (worker.state === "failed") throw new Error(worker.error ?? "Subagent failed");
-      return { content: [{ type: "text", text: worker.finalText || worker.latestText || "(no output)" }], details: snapshot(worker) };
+      if (worker.state === "failed") throw new Error(`${worker.id} (${worker.label}): ${worker.error ?? "Subagent failed"}`);
+      worker.delivered = true;
+      const text = worker.finalText || worker.latestText || worker.error || "(no output)";
+      return { content: [{ type: "text", text: `${worker.id} (${worker.label})\n${text}` }], details: snapshot(worker) };
     },
   });
 
@@ -286,17 +305,33 @@ export default function (pi: ExtensionAPI) {
         abortListener = () => reject(new Error("Subagent wait cancelled"));
         signal?.addEventListener("abort", abortListener, { once: true });
       });
+      const isTerminal = (worker: Worker) =>
+        worker.state === "done" || worker.state === "failed" || worker.state === "aborted";
       try {
-        const already = selected.find((worker) =>
-          worker.state === "done" || worker.state === "failed" || worker.state === "aborted");
-        const worker = already ?? await Promise.race([
-          ...selected.map((candidate) => candidate.run.then(() => candidate)),
-          aborted,
-        ]);
-        if (worker.state === "failed") throw new Error(`${worker.id}: ${worker.error ?? "Subagent failed"}`);
+        // Prefer a completion that has not been delivered yet over a live
+        // worker; never replay an already-delivered completion.
+        const fresh = selected.find((worker) => isTerminal(worker) && !worker.delivered);
+        let worker: Worker;
+        if (fresh) {
+          worker = fresh;
+        } else {
+          const live = selected.filter((worker) => !isTerminal(worker));
+          if (live.length === 0) {
+            return {
+              content: [{ type: "text", text: "No uncollected completions in the watched set; every selected worker's current result has already been delivered." }],
+              details: selected.map(snapshot),
+            };
+          }
+          worker = await Promise.race([
+            ...live.map((candidate) => candidate.run.then(() => candidate)),
+            aborted,
+          ]);
+        }
+        worker.delivered = true;
+        if (worker.state === "failed") throw new Error(`${worker.id} (${worker.label}): ${worker.error ?? "Subagent failed"}`);
         const text = worker.finalText || worker.latestText || worker.error || "(no output)";
         return {
-          content: [{ type: "text", text: `${worker.id}\n${text}` }],
+          content: [{ type: "text", text: `${worker.id} (${worker.label})\n${text}` }],
           details: snapshot(worker),
         };
       } finally {
@@ -332,12 +367,13 @@ export default function (pi: ExtensionAPI) {
       const worker = workers.get(params.id);
       if (!worker) throw new Error(`Unknown worker ${params.id}`);
       if (worker.state === "running" || worker.state === "starting") throw new Error(`${worker.id} is still running`);
+      worker.delivered = true;
       const text = worker.finalText || worker.latestText || worker.error || "(no output)";
       if (params.dispose ?? true) {
         await disposeSession(worker.session);
         workers.delete(worker.id);
       }
-      return { content: [{ type: "text", text }], details: snapshot(worker) };
+      return { content: [{ type: "text", text: `${worker.id} (${worker.label})\n${text}` }], details: snapshot(worker) };
     },
   });
 
