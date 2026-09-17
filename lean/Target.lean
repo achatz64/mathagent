@@ -11,6 +11,7 @@ import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Roots
 import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
 import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
 /-!
 # Provenance
@@ -1265,6 +1266,631 @@ theorem ef24_3 {F : Subfield ℝ} (C C' : FCircle F) (hC : C.cx ≠ C'.cx ∨ C.
     have hfin := ef24_2 ⟨a3, b3, c3, ha3mem, hb3mem, hc3mem, hline⟩ C
     rw [hseteq'] at hfin
     exact hfin
+
+/-!
+**Encoding note (FT `ef25`–`ef30`).**  FT defines constructible numbers geometrically
+(coordinates of points obtained by ruler-and-compass constructions, cf. `ef24`).  We
+formalise constructibility as an inductive predicate `Constructible : ℝ → Prop` generated
+by the rationals, the field operations, and square roots of positive elements.  With this
+encoding, FT `ef25` becomes the closure properties of the predicate (its intro rules),
+FT `ef26` (i) says the predicate is the carrier of a subfield of ℝ, and FT `ef26` (ii) is
+the quadratic-tower characterisation; the geometric input of FT's `ef24` (constructed
+points lie in `F[√e]`) is the separate item `ef24` above and is not needed here.
+-/
+
+/-- **FT `ef25`, encoding.**  A real number is *constructible* iff it is generated from the
+rationals by addition, negation, multiplication, inversion, and square roots of positive
+elements — equivalently (FT `ef26` (ii)) iff it lies in a quadratic tower
+`ℚ[√a₁, …, √a_r]` over ℚ inside ℝ.  The intro rules mirror the straight-edge-and-compass
+operations: rational points, sums, differences, products, quotients, and lengths of
+diagonals (square roots). -/
+inductive Constructible : ℝ → Prop
+  | ofRat (q : ℚ) : Constructible (q : ℝ)
+  | ofAdd {x y : ℝ} : Constructible x → Constructible y → Constructible (x + y)
+  | ofNeg {x : ℝ} : Constructible x → Constructible (-x)
+  | ofMul {x y : ℝ} : Constructible x → Constructible y → Constructible (x * y)
+  | ofInv {x : ℝ} : Constructible x → Constructible (x⁻¹)
+  | ofSqrt {x : ℝ} : 0 < x → Constructible x → Constructible (√x)
+
+/-- Rational numbers are constructible.  (Helper for `ef25`/`ef26`.) -/
+theorem constructible_of_ratCast (q : ℚ) : Constructible (q : ℝ) := Constructible.ofRat q
+
+/-- `0` is constructible. -/
+theorem constructible_zero : Constructible (0 : ℝ) := by
+  rw [← Rat.cast_zero (α := ℝ)]
+  exact Constructible.ofRat 0
+
+/-- `1` is constructible. -/
+theorem constructible_one : Constructible (1 : ℝ) := by
+  rw [← Rat.cast_one (α := ℝ)]
+  exact Constructible.ofRat 1
+
+/-- **FT `ef25` (a), part 1.**  Constructible numbers are closed under addition.
+The source proves this geometrically (perpendiculars/parallels, similar triangles); here it
+is the defining closure of the constructibility predicate. -/
+theorem constructible_add {c d : ℝ} (hc : Constructible c) (hd : Constructible d) :
+    Constructible (c + d) := Constructible.ofAdd hc hd
+
+/-- **FT `ef25` (a), part 2.**  Constructible numbers are closed under negation. -/
+theorem constructible_neg {c : ℝ} (hc : Constructible c) : Constructible (-c) :=
+  Constructible.ofNeg hc
+
+/-- **FT `ef25` (a), part 3.**  Constructible numbers are closed under multiplication. -/
+theorem constructible_mul {c d : ℝ} (hc : Constructible c) (hd : Constructible d) :
+    Constructible (c * d) := Constructible.ofMul hc hd
+
+/-- **FT `ef25` (a), part 4.**  Constructible numbers are closed under inversion
+(no `c ≠ 0` hypothesis is needed since `0⁻¹ = 0` is constructible). -/
+theorem constructible_inv {c : ℝ} (hc : Constructible c) : Constructible (c⁻¹) :=
+  Constructible.ofInv hc
+
+/-- **FT `ef25` (a), part 4'.**  Constructible numbers are closed under division
+(`d ≠ 0` in FT's statement is automatic: `c / 0 = 0`). -/
+theorem constructible_div {c d : ℝ} (hc : Constructible c) (hd : Constructible d) :
+    Constructible (c / d) := by
+  rw [div_eq_mul_inv]
+  exact Constructible.ofMul hc (Constructible.ofInv hd)
+
+/-- **FT `ef25` (b).**  If `c > 0` is constructible then so is `√c` (the positive square
+root in ℝ, cf. FT's construction with the circle of radius `(c+1)/2`). -/
+theorem constructible_sqrt {c : ℝ} (hc : 0 < c) (h : Constructible c) : Constructible (√c) :=
+  Constructible.ofSqrt hc h
+
+/-- **FT `ef26` (i).**  The set of constructible numbers is a field: it is the carrier of
+this subfield of ℝ, by definition closed under `0, 1, +, -, *, ⁻¹` (this restates
+`ef25` (a) together with the constructibility of `0` and `1`). -/
+def ConstructibleField : Subfield ℝ where
+  carrier := {x | Constructible x}
+  zero_mem' := constructible_zero
+  one_mem' := constructible_one
+  add_mem' hx hy := Constructible.ofAdd hx hy
+  neg_mem' hx := Constructible.ofNeg hx
+  mul_mem' hx hy := Constructible.ofMul hx hy
+  inv_mem' _x hx := Constructible.ofInv hx
+
+/-- Membership in `ConstructibleField` is exactly constructibility. -/
+theorem mem_ConstructibleField_iff (x : ℝ) : x ∈ ConstructibleField ↔ Constructible x :=
+  Iff.rfl
+
+/-- **FT `ef26` (ii), encoding.**  The quadratic tower obtained from ℚ by successively
+adjoining the square roots of the elements of a list.  The list is read *right-to-left*:
+the head is adjoined last, over the tower generated by the remaining elements, so that
+`quadTower (a :: as) = quadTower as ⊔ ℚ⟮√a⟯`.  Reading the list backwards gives the
+textbook order `ℚ[√a₁, …, √a_r]`. -/
+noncomputable def quadTower : List ℝ → IntermediateField ℚ ℝ
+  | [] => ⊥
+  | a :: as =>
+      IntermediateField.restrictScalars ℚ
+        (IntermediateField.adjoin (quadTower as) {√a})
+
+/-- **FT `ef26` (ii), encoding.**  Well-formedness of a quadratic tower: each listed element
+`a` is positive (`a > 0`) and lies in the previous stage (the tower generated by the
+elements to its right, i.e. by the earlier elements in textbook order). -/
+inductive TowerOK : List ℝ → Prop
+  | nil : TowerOK []
+  | cons {a : ℝ} {as : List ℝ} (ha : 0 < a) (ham : a ∈ quadTower as) (h : TowerOK as) :
+      TowerOK (a :: as)
+
+/-- The empty tower is ℚ (as a subfield of ℝ). -/
+theorem quadTower_nil : quadTower [] = ⊥ := rfl
+
+/-- Each tower step is `K ⊔ ℚ⟮√a⟯` over the previous stage `K`. -/
+theorem quadTower_cons (a : ℝ) (as : List ℝ) :
+    quadTower (a :: as) = quadTower as ⊔ IntermediateField.adjoin ℚ {√a} :=
+  IntermediateField.restrictScalars_adjoin_eq_sup ℚ _ _
+
+/-- Concatenating towers: the left tower is contained in the concatenated tower
+(used to find a common tower for sums and products). -/
+theorem quadTower_le_append_left (as bs : List ℝ) :
+    quadTower as ≤ quadTower (as ++ bs) := by
+  induction as with
+  | nil => exact bot_le
+  | cons a as ih =>
+    rw [List.cons_append, quadTower_cons, quadTower_cons]
+    exact sup_le_sup_right ih _
+
+/-- Concatenating towers: the right tower is contained in the concatenation. -/
+theorem quadTower_le_append_right (as bs : List ℝ) :
+    quadTower bs ≤ quadTower (as ++ bs) := by
+  induction as with
+  | nil => exact le_rfl
+  | cons a as ih =>
+    rw [List.cons_append, quadTower_cons]
+    exact ih.trans (le_sup_left (b := IntermediateField.adjoin ℚ {√a}))
+
+/-- Concatenating two well-formed towers yields a well-formed tower. -/
+theorem towerOK_append (as bs : List ℝ) (h1 : TowerOK as) (h2 : TowerOK bs) :
+    TowerOK (as ++ bs) := by
+  induction as with
+  | nil => exact h2
+  | cons a as ih =>
+    cases h1 with
+    | cons ha ham hOK =>
+      exact TowerOK.cons ha
+        ((SetLike.le_def.mp (quadTower_le_append_left as bs)) ham)
+        (ih hOK)
+
+/-- One step of the converse of FT `ef26` (ii): elements of `K ⊔ ℚ⟮√a⟯`, with `0 < a ∈ K`,
+are constructible whenever the elements of `K` are.  Proof idea (cf. the source's use of
+`ef25`): elements of `K ⊔ ℚ⟮√a⟯` lie in the subfield of ℝ generated by `K` and `√a`, and
+that subfield is closed under the constructibility rules once `K` and `√a` are
+constructible (`Subfield.closure_induction`). -/
+theorem constructible_of_mem_sup {K : IntermediateField ℚ ℝ}
+    (hK : ∀ x ∈ K, Constructible (x : ℝ)) {a : ℝ} (haK : a ∈ K) (hapos : 0 < a) {x : ℝ}
+    (hx : x ∈ K ⊔ IntermediateField.adjoin ℚ {√a}) : Constructible x := by
+  have hxc : x ∈ Subfield.closure ((K.toSubfield : Set ℝ) ∪ {√a}) := by
+    have h1 : (K ⊔ IntermediateField.adjoin ℚ {√a}).toSubfield ≤
+        Subfield.closure ((K.toSubfield : Set ℝ) ∪ {√a}) := by
+      rw [IntermediateField.sup_toSubfield, IntermediateField.adjoin_toSubfield]
+      refine sup_le ?_ ?_
+      · exact SetLike.le_def.mpr fun z hz =>
+          Subfield.subset_closure (Set.mem_union_left _ hz)
+      · refine Subfield.closure_le.2 ?_
+        refine Set.union_subset ?_ ?_
+        · rintro y ⟨q, rfl⟩
+          exact Subfield.subset_closure (Set.mem_union_left _
+            (IntermediateField.mem_toSubfield K _ |>.2 (IntermediateField.algebraMap_mem K q)))
+        · exact fun z hz => Subfield.subset_closure (Set.mem_union_right _ hz)
+    exact h1 ((IntermediateField.mem_toSubfield _ _).2 hx)
+  refine Subfield.closure_induction (s := (K.toSubfield : Set ℝ) ∪ {√a})
+    (p := fun y _ => Constructible y) ?_ constructible_one
+    (fun _ _ _ _ hpx hpy => Constructible.ofAdd hpx hpy)
+    (fun _ _ hpx => Constructible.ofNeg hpx) (fun _ _ hpx => Constructible.ofInv hpx)
+    (fun _ _ _ _ hpx hpy => Constructible.ofMul hpx hpy) hxc
+  rintro z (hzK | rfl)
+  · exact hK z (IntermediateField.mem_toSubfield K z |>.1 hzK)
+  · exact Constructible.ofSqrt hapos (hK a haK)
+
+/-- **FT `ef26` (ii), (⇐).**  Every element of a well-formed quadratic tower is
+constructible, by induction over the tower: the base case is ℚ (elementary by `ofRat`),
+and the step case is `constructible_of_mem_sup` — this is the induction of the source's
+proof ("if all elements of ℚ[√a₁,…,√a_{i-1}] are constructible, then √a_i is constructible
+by ef25 b, and so are all elements of ℚ[√a₁,…,√a_i] by ef25 a"). -/
+theorem constructible_of_towerOK (as : List ℝ) (hOK : TowerOK as) :
+    ∀ x ∈ quadTower as, Constructible x := by
+  induction hOK with
+  | nil =>
+    intro x hx
+    rw [quadTower_nil] at hx
+    obtain ⟨q, hq⟩ := IntermediateField.mem_bot.mp hx
+    subst hq
+    exact constructible_of_ratCast q
+  | @cons a as ha ham hOK ih =>
+    intro x hx
+    rw [quadTower_cons] at hx
+    exact constructible_of_mem_sup ih ham ha hx
+
+/-- **FT `ef26` (ii), (⇒).**  Every constructible number lies in some well-formed quadratic
+tower over ℚ.  Proof idea: induction on the construction.  Rational inputs give the empty
+tower; field operations combine the two input towers into their concatenation
+(`quadTower_le_append_left/right`, `towerOK_append`); and adjoining `√x` on top of a tower
+containing `x > 0` is exactly one more well-formed step. -/
+theorem towerOK_of_constructible {x : ℝ} (h : Constructible x) :
+    ∃ as : List ℝ, TowerOK as ∧ x ∈ quadTower as := by
+  induction h with
+  | ofRat q =>
+    exact ⟨[], TowerOK.nil, by rw [quadTower_nil]; exact IntermediateField.mem_bot.2 ⟨q, rfl⟩⟩
+  | @ofAdd x y hx hy ihx ihy =>
+    obtain ⟨as, hOK, hxm⟩ := ihx
+    obtain ⟨bs, hOK', hym⟩ := ihy
+    refine ⟨as ++ bs, towerOK_append as bs hOK hOK', ?_⟩
+    exact add_mem
+      (SetLike.le_def.mp (quadTower_le_append_left as bs) hxm)
+      (SetLike.le_def.mp (quadTower_le_append_right as bs) hym)
+  | @ofNeg x hx ihx =>
+    obtain ⟨as, hOK, hxm⟩ := ihx
+    exact ⟨as, hOK, neg_mem hxm⟩
+  | @ofMul x y hx hy ihx ihy =>
+    obtain ⟨as, hOK, hxm⟩ := ihx
+    obtain ⟨bs, hOK', hym⟩ := ihy
+    refine ⟨as ++ bs, towerOK_append as bs hOK hOK', ?_⟩
+    exact mul_mem
+      (SetLike.le_def.mp (quadTower_le_append_left as bs) hxm)
+      (SetLike.le_def.mp (quadTower_le_append_right as bs) hym)
+  | @ofInv x hx ihx =>
+    obtain ⟨as, hOK, hxm⟩ := ihx
+    exact ⟨as, hOK, inv_mem hxm⟩
+  | @ofSqrt x hpos hx ihx =>
+    obtain ⟨as, hOK, hxm⟩ := ihx
+    refine ⟨x :: as, TowerOK.cons hpos hxm hOK, ?_⟩
+    rw [quadTower_cons]
+    exact SetLike.le_def.mp (le_sup_right (a := quadTower as))
+      (IntermediateField.mem_adjoin_simple_self ℚ √x)
+
+/-- **FT `ef26` (ii).**  A number is constructible if and only if it is contained in a
+subfield of ℝ of the form `ℚ[√a₁, …, √a_r]` with `a_i > 0` in the previous stage: the
+towers of the formalisation are `quadTower as` for well-formed lists `as` (read in reverse
+textbook order). -/
+theorem constructible_iff_exists_tower (x : ℝ) :
+    Constructible x ↔ ∃ as : List ℝ, TowerOK as ∧ x ∈ quadTower as :=
+  ⟨fun h => towerOK_of_constructible h, fun ⟨as, hOK, hx⟩ => constructible_of_towerOK as hOK x hx⟩
+
+/-- Auxiliary: `(√a)² - a = 0` in ℝ when `0 < a` lies in the intermediate field `K`
+(the coefficient `a` is viewed as an element of `K`). -/
+theorem aeval_sqrt_two_sub_C {K : IntermediateField ℚ ℝ} {a : ℝ} (haK : a ∈ K) (hapos : 0 < a) :
+    (Polynomial.aeval √a) (Polynomial.X ^ 2 - Polynomial.C (⟨a, haK⟩ : K)) = 0 := by
+  simp [Real.sq_sqrt hapos.le]
+
+/-- `√a` is integral over `K` when `0 < a ∈ K`: it is a root of `X² - a`. -/
+theorem isIntegral_sqrt_of_mem {K : IntermediateField ℚ ℝ} {a : ℝ} (haK : a ∈ K) (hapos : 0 < a) :
+    IsIntegral K √a :=
+  ⟨Polynomial.X ^ 2 - Polynomial.C (⟨a, haK⟩ : K), Polynomial.monic_X_pow_sub_C _ (by norm_num),
+    aeval_sqrt_two_sub_C haK hapos⟩
+
+/-- A single quadratic step `K⟮√a⟯` (with `0 < a ∈ K`) has relative degree at most `2`:
+`[K⟮√a⟯ : K] = deg (minpoly K √a)` divides the degree of `X² - a`, which is `2`. -/
+theorem finrank_adjoin_sqrt_le (K : IntermediateField ℚ ℝ) {a : ℝ} (haK : a ∈ K) (hapos : 0 < a) :
+    Module.finrank ↥K ↥(IntermediateField.adjoin K {√a}) ≤ 2 := by
+  rw [IntermediateField.adjoin.finrank (isIntegral_sqrt_of_mem haK hapos)]
+  have hdvd : minpoly K √a ∣ (Polynomial.X ^ 2 - Polynomial.C (⟨a, haK⟩ : K)) :=
+    minpoly.dvd K √a (aeval_sqrt_two_sub_C haK hapos)
+  refine le_trans (Polynomial.natDegree_le_of_dvd hdvd ?_) ?_
+  · exact Polynomial.X_pow_sub_C_ne_zero (by norm_num) _
+  · rw [Polynomial.natDegree_X_pow_sub_C]
+
+/-- Each well-formed step multiplies the ℚ-degree by a factor `d ∈ {1, 2}`: the tower law
+`[K₁ : ℚ] = [K₁ : K₀] [K₀ : ℚ]` with `[K₁ : K₀] = deg (minpoly K₀ √a) ∈ {1, 2}`. -/
+theorem quadTower_finrank_cons (a : ℝ) (as : List ℝ) (haK : a ∈ quadTower as) (hapos : 0 < a) :
+    ∃ d : ℕ, 1 ≤ d ∧ d ≤ 2 ∧
+      Module.finrank ℚ ↥(quadTower (a :: as)) = Module.finrank ℚ ↥(quadTower as) * d := by
+  have hM : Module.finrank ℚ ↥(quadTower (a :: as))
+      = Module.finrank ℚ ↥(IntermediateField.adjoin (quadTower as) {√a}) := rfl
+  refine ⟨Module.finrank ↥(quadTower as) ↥(IntermediateField.adjoin (quadTower as) {√a}),
+    ?_, finrank_adjoin_sqrt_le _ haK hapos, ?_⟩
+  · rw [IntermediateField.adjoin.finrank (isIntegral_sqrt_of_mem haK hapos)]
+    exact minpoly.natDegree_pos (isIntegral_sqrt_of_mem haK hapos)
+  · rw [hM, Module.finrank_mul_finrank ℚ ↥(quadTower as)
+      ↥(IntermediateField.adjoin (quadTower as) {√a})]
+
+/-- **FT `ef26`/`ef27`, degree input.**  The ℚ-degree of a well-formed quadratic tower is
+exactly a power of `2` (a product of factors `1` and `2`, one per step). -/
+theorem quadTower_finrank_pow (as : List ℝ) (hOK : TowerOK as) :
+    ∃ j, Module.finrank ℚ ↥(quadTower as) = 2 ^ j := by
+  induction hOK with
+  | nil => exact ⟨0, by rw [quadTower_nil, pow_zero]; exact IntermediateField.finrank_bot⟩
+  | @cons a as ha ham hOK ih =>
+    obtain ⟨d, hd1, hd2, hd⟩ := quadTower_finrank_cons a as ham ha
+    obtain ⟨j, hj⟩ := ih
+    rcases Nat.lt_or_ge d 2 with h | h
+    · refine ⟨j, ?_⟩
+      have h1 : d = 1 := by omega
+      rw [hd, hj, h1, mul_one]
+    · refine ⟨j + 1, ?_⟩
+      have h2 : d = 2 := by omega
+      rw [hd, hj, h2, Nat.pow_succ]
+
+/-- A divisor of a power of `2` is a power of `2` (FT `ef27`'s arithmetic input: any prime
+divisor of a divisor of `2^r` must be `2`, so only the prime `2` occurs). -/
+theorem nat_dvd_two_pow {d r : ℕ} (h : d ∣ 2 ^ r) : ∃ k, d = 2 ^ k := by
+  rcases Nat.eq_two_pow_or_exists_odd_prime_and_dvd d with hk | ⟨p, hp, hpd, hodd⟩
+  · exact hk
+  · exfalso
+    have hp2 : p ∣ 2 := hp.dvd_of_dvd_pow (hpd.trans h)
+    have h' : p = 2 := (Nat.prime_dvd_prime_iff_eq hp Nat.prime_two).mp hp2
+    rw [h'] at hodd
+    obtain ⟨m, hm⟩ := hodd
+    omega
+
+/-- **FT `ef27`.**  If `α` is constructible then `α` is algebraic over ℚ and
+`[ℚ[α] : ℚ]` is a power of `2`.  Here `[ℚ[α] : ℚ]` is read as
+`Module.finrank ℚ ↥(ℚ⟮α⟯)`, the degree of the (simple) ℚ-field generated by `α` inside ℝ;
+this agrees with the degree of the ring `ℚ[α]` because a constructible `α` is algebraic.
+Proof (following the source): `α` lies in a well-formed tower `K` with `[K : ℚ] = 2^j`;
+`ℚ⟮α⟯ ≤ K`, so `[ℚ⟮α⟯ : ℚ]` divides `2^j` (tower law, i.e. FT `ef10`), and a divisor of a
+power of `2` is a power of `2`; `α` is algebraic because `K` is finite-dimensional over ℚ. -/
+theorem constructible_algebraic_and_degree {α : ℝ} (h : Constructible α) :
+    IsAlgebraic ℚ α ∧ ∃ j, Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {α}) = 2 ^ j := by
+  obtain ⟨as, hOK, hα⟩ := towerOK_of_constructible h
+  obtain ⟨j, hj⟩ := quadTower_finrank_pow as hOK
+  have hsub : IntermediateField.adjoin ℚ {α} ≤ quadTower as :=
+    IntermediateField.adjoin_le_iff.mpr (by simpa using hα)
+  have hdvd : Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {α}) ∣
+      Module.finrank ℚ ↥(quadTower as) := IntermediateField.finrank_dvd_of_le_right hsub
+  refine ⟨?_, ?_⟩
+  · have hf : 0 < Module.finrank ℚ ↥(quadTower as) := by
+      rw [hj]
+      positivity
+    haveI hfin : Module.Finite ℚ ↥(quadTower as) := Module.finite_of_finrank_pos hf
+    have hint : IsIntegral ℚ (⟨α, hα⟩ : ↥(quadTower as)) := IsIntegral.of_finite ℚ _
+    have halpha : IsIntegral ℚ α :=
+      IsIntegral.map (IsScalarTower.toAlgHom ℚ ↥(quadTower as) ℝ) hint
+    exact IsIntegral.isAlgebraic halpha
+  · rw [hj] at hdvd
+    exact nat_dvd_two_pow hdvd
+
+/-! #### FT `ef28`, `ef29`, `ef30`: the three classical straight-edge-and-compass impossibilities.
+
+Consumes the constructibility interface of FT `ef25`–`ef27` (`Constructible`,
+`constructible_algebraic_and_degree`, `constructible_mul`); the interface is only touched at
+the final corollaries, everything below is proved against explicit hypothesis parameters. -/
+
+/-- Aux for FT `ef28` and `ef29` (`3` is not a power of two): `3 ≠ 2 ^ k` for all `k : ℕ`.
+
+Proof idea: for `k = 0` the right-hand side is `1`; for `k + 1` it equals `2 ^ k * 2`, an
+even number, while `3` is odd. -/
+theorem three_ne_two_pow (k : ℕ) : (3 : ℕ) ≠ 2 ^ k := by
+  cases k with
+  | zero => simp
+  | succ k => rw [Nat.pow_succ]; omega
+
+/-- Aux for FT `ef28`/`ef29`: over a field, a nonzero polynomial of degree `3` which is not
+irreducible has a root.  This is the contrapositive of the degree-`3` special case of
+"irreducible ⟺ no root" used implicitly in the source proofs.
+
+Proof idea: a non-unit `f` factors nontrivially (`irreducible_or_factor`); since
+`natDegree f = natDegree p + natDegree q = 3` with both factors nonconstant (a nonunit
+nonzero factor has `natDegree ≥ 1`), one factor has degree `1`; a degree-one polynomial
+over a field has a root (`Polynomial.exists_root_of_degree_eq_one`), which is then a root
+of `f`. -/
+theorem exists_root_of_not_irreducible_cubic {F : Type*} [Field F] {f : F[X]}
+    (hf : f ≠ 0) (hnd : f.natDegree = 3) (hirr : ¬ Irreducible f) : ∃ x, f.IsRoot x := by
+  have hfu : ¬ IsUnit f := by
+    intro hu
+    have h0 : f.natDegree = 0 := Polynomial.natDegree_eq_zero_of_isUnit hu
+    omega
+  rcases irreducible_or_factor hfu with h | ⟨p, q, hpu, hqu, hpq⟩
+  · exact absurd h hirr
+  have hp0 : p ≠ 0 := by
+    intro h0; rw [h0, zero_mul] at hpq; exact hf hpq
+  have hq0 : q ≠ 0 := by
+    intro h0; rw [h0, mul_zero] at hpq; exact hf hpq
+  have hpos : ∀ g : F[X], ¬IsUnit g → g ∣ f → 0 < g.natDegree := by
+    intro g hgu hgf
+    have h0 : g.natDegree ≠ 0 := by
+      intro h0
+      have hgc : g = C (g.coeff 0) := Polynomial.eq_C_of_natDegree_eq_zero h0
+      have hcne : g.coeff 0 ≠ 0 := by
+        intro hc
+        rw [hgc, hc, C_0] at hgf
+        exact hf (zero_dvd_iff.mp hgf)
+      have hu' : IsUnit g := by
+        rw [hgc]
+        exact Polynomial.isUnit_C.mpr (isUnit_iff_ne_zero.mpr hcne)
+      exact hgu hu'
+    exact Nat.pos_of_ne_zero h0
+  have hd : f.natDegree = p.natDegree + q.natDegree := by
+    rw [hpq, Polynomial.natDegree_mul hp0 hq0]
+  have hpd : 0 < p.natDegree := hpos p hpu ⟨q, hpq⟩
+  have hqd : 0 < q.natDegree := hpos q hqu ⟨p, by rw [mul_comm]; exact hpq⟩
+  have hone : p.natDegree = 1 ∨ q.natDegree = 1 := by omega
+  rcases hone with h1 | h1
+  · obtain ⟨x, hx⟩ := Polynomial.exists_root_of_degree_eq_one
+      (show p.degree = 1 by rw [Polynomial.degree_eq_natDegree hp0, h1]; simp)
+    have hx' : Polynomial.eval x p = 0 := hx
+    refine ⟨x, ?_⟩
+    show Polynomial.eval x f = 0
+    rw [hpq, Polynomial.eval_mul, hx', zero_mul]
+  · obtain ⟨x, hx⟩ := Polynomial.exists_root_of_degree_eq_one
+      (show q.degree = 1 by rw [Polynomial.degree_eq_natDegree hq0, h1]; simp)
+    have hx' : Polynomial.eval x q = 0 := hx
+    refine ⟨x, ?_⟩
+    show Polynomial.eval x f = 0
+    rw [hpq, Polynomial.eval_mul, hx', mul_zero]
+
+/-- Aux for FT `ef28`/`ef29`: if the real number `α` is a root of an irreducible cubic
+`f : ℚ[X]`, then `[ℚ⟮α⟯ : ℚ] = 3` (finrank form).
+
+Proof idea: `α` is integral, so `Module.finrank ℚ ℚ⟮α⟯ = (minpoly ℚ α).natDegree`
+(`IntermediateField.adjoin.finrank`); the minimal polynomial is `f` up to the unit
+`C (leadingCoeff f)⁻¹` (`minpoly.eq_of_irreducible`), hence has the same degree `3`
+(`Polynomial.natDegree_mul_C`). -/
+theorem finrank_adjoin_eq_three_of_irreducible_cubic {α : ℝ} {f : ℚ[X]}
+    (hnd : f.natDegree = 3) (hirr : Irreducible f) (hroot : Polynomial.aeval α f = 0) :
+    Module.finrank ℚ (IntermediateField.adjoin ℚ {α}) = 3 := by
+  have hint : IsIntegral ℚ α := isAlgebraic_iff_isIntegral.mp ⟨f, hirr.ne_zero, hroot⟩
+  have hmin : f * C f.leadingCoeff⁻¹ = minpoly ℚ α := minpoly.eq_of_irreducible hirr hroot
+  rw [IntermediateField.adjoin.finrank hint, ← hmin,
+    Polynomial.natDegree_mul_C (a := f.leadingCoeff⁻¹)
+      (show (f.leadingCoeff⁻¹ : ℚ) ≠ 0 by
+        simpa using Polynomial.leadingCoeff_ne_zero.mpr hirr.ne_zero),
+    hnd]
+
+/-- Aux for FT `ef28`/`ef29` (interface parameter): a constructible number whose minimal
+polynomial has degree `3` cannot exist, because `3` is not a power of two (FT `ef27`). -/
+theorem not_constructible_of_irreducible_cubic
+    {Constructible' : ℝ → Prop}
+    (hpow : ∀ α : ℝ, Constructible' α →
+      ∃ k : ℕ, Module.finrank ℚ (IntermediateField.adjoin ℚ {α}) = 2 ^ k)
+    {α : ℝ} {f : ℚ[X]} (hnd : f.natDegree = 3) (hirr : Irreducible f)
+    (hroot : Polynomial.aeval α f = 0) (h : Constructible' α) : False := by
+  obtain ⟨k, hk⟩ := hpow α h
+  rw [finrank_adjoin_eq_three_of_irreducible_cubic hnd hirr hroot] at hk
+  exact three_ne_two_pow k hk
+
+/-- Aux for FT `ef28`: the defining root relation for the real cube root of `2`, represented
+as `(2 : ℝ) ^ (1 / 3)` (this Mathlib checkout has no `Real.cbrt`): `aeval (∛2) (X³ - 2) = 0`.
+
+Proof idea: `(2 ^ (1/3))³ = 2 ^ ((1/3) · 3) = 2` by `Real.rpow_inv_natCast_pow`; the
+`aeval` computation is simp. -/
+theorem aeval_two_rpow_third :
+    Polynomial.aeval ((2 : ℝ) ^ (1 / 3 : ℝ)) (Polynomial.X ^ 3 - Polynomial.C 2 : ℚ[X]) = 0 := by
+  have hkey : ((2 : ℝ) ^ (1 / 3 : ℝ)) ^ 3 = 2 := by
+    rw [show ((1 : ℝ) / 3) = (3 : ℝ)⁻¹ from by norm_num]
+    exact Real.rpow_inv_natCast_pow (by norm_num) (by norm_num)
+  simp only [Polynomial.aeval_C, Polynomial.aeval_X_pow, map_sub]
+  rw [hkey]
+  norm_num
+
+/-- Aux for FT `ef28`: `X³ - 2` is irreducible over `ℚ`, by Eisenstein's criterion at the
+prime `2` (FT `ef7`), exactly as in the source proof: `2 ∣ -2`, `4 ∤ -2`, `2 ∣ 0, 0` and
+`2 ∤ 1`.  This is a source-proof wrapper around `FT.eisenstein_irreducible` (the target's
+formalization of FT `ef7`), with coefficient bookkeeping. -/
+theorem irreducible_X_pow_three_sub_two :
+    Irreducible (Polynomial.X ^ 3 - Polynomial.C 2 : ℚ[X]) := by
+  have hnd : (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X]).natDegree = 3 :=
+    Polynomial.natDegree_X_pow_sub_C
+  have hc0 : (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X]).coeff 0 = -2 := by simp
+  have hlead : ¬ ((2 : ℤ) ∣ (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X]).coeff
+      (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X]).natDegree) := by
+    rw [hnd]
+    have hc3 : (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X]).coeff 3 = 1 := by simp
+    rw [hc3]
+    rintro ⟨k, hk⟩
+    omega
+  have h := FT.eisenstein_irreducible (Polynomial.X ^ 3 - Polynomial.C 2) 2 Nat.prime_two
+    (by rw [hc0]; exact ⟨-1, by norm_num⟩)
+    (by rw [hc0]; rintro ⟨k, hk⟩; omega)
+    (by intro i hi; rw [hnd] at hi; interval_cases i
+        · rw [hc0]; exact ⟨-1, by norm_num⟩
+        · simp
+        · simp)
+    hlead
+  have heq : Polynomial.map (algebraMap ℤ ℚ)
+      (Polynomial.X ^ 3 - Polynomial.C 2 : ℤ[X])
+      = (Polynomial.X ^ 3 - Polynomial.C 2 : ℚ[X]) := by
+    ext i
+    rcases i with _ | i
+    · simp
+    · simp
+  rw [heq] at h
+  exact h
+
+/-- **FT `ef28`.  It is impossible to duplicate the cube by straight-edge and compass
+constructions.**
+
+Formalization: the cube of volume `2` has side the real cube root of `2` (represented as
+`(2 : ℝ) ^ (1 / 3)`, the real root of `X³ - 2`), and that number is not constructible.
+
+Proof idea (the source's): `X³ - 2` is irreducible over `ℚ` (Eisenstein at `2`, FT `ef7`),
+so `ℚ⟮∛2⟯` has degree `3` over `ℚ`, which is not a power of `2`; this contradicts FT `ef27`.
+Nature: source proof (the `X³ - 2` computation is delegated to `FT.eisenstein_irreducible`
+and Mathlib's `minpoly`/power-basis API). -/
+theorem ef28 : ¬ Constructible ((2 : ℝ) ^ (1 / 3 : ℝ)) :=
+  fun h => not_constructible_of_irreducible_cubic
+    (fun _ h => (constructible_algebraic_and_degree h).2)
+    (Polynomial.natDegree_X_pow_sub_C) irreducible_X_pow_three_sub_two aeval_two_rpow_third h
+
+/-- Aux for FT `ef29`: evaluating the cubic `8X³ - 6X - 1 : ℚ[X]` at a rational `c` gives
+`8c³ - 6c - 1` (pure simp bookkeeping, used in the rational-root check). -/
+theorem eval_eight_cubic (c : ℚ) :
+    Polynomial.eval c
+      (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+        - Polynomial.C 1 : ℚ[X]) = 8 * c ^ 3 - 6 * c - 1 := by
+  simp
+
+/-- Aux for FT `ef29`: the cubic `8X³ - 6X - 1 ∈ ℚ[X]` of the source proof of FT `ef29` is
+irreducible.  Proof (the source's, via FT `ef4`): if it were reducible, being nonzero of
+degree `3` it would have a root
+(`FT.exists_root_of_not_irreducible_cubic`); by the rational root test (FT `ef4`, i.e.
+`FT.num_dvd_coeff_zero_and_den_dvd_coeff_natDegree'`) a rational root `r` in lowest terms
+has numerator dividing the constant coefficient `-1` and denominator dividing the leading
+coefficient `8`, so `r ∈ {±1, ±1/2, ±1/4, ±1/8}`; none of these eight candidates is a root. -/
+theorem irreducible_eight_cubic :
+    Irreducible (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℚ[X]) := by
+  by_contra hnot
+  have hnd : (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℚ[X]).natDegree = 3 := by compute_degree!
+  have hne : (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℚ[X]) ≠ 0 := by
+    intro h; rw [h, Polynomial.natDegree_zero] at hnd; omega
+  obtain ⟨r, hr⟩ := exists_root_of_not_irreducible_cubic hne hnd hnot
+  have hmap : Polynomial.map (algebraMap ℤ ℚ)
+      (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+        - Polynomial.C 1 : ℤ[X])
+      = (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+        - Polynomial.C 1 : ℚ[X]) := by
+    rw [Polynomial.map_sub, Polynomial.map_sub, Polynomial.map_mul, Polynomial.map_C,
+      Polynomial.map_pow, Polynomial.map_X, Polynomial.map_mul, Polynomial.map_C,
+      Polynomial.map_X, Polynomial.map_C]
+    simp
+  have ha : Polynomial.aeval r (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℤ[X]) = 0 := by
+    rw [FT.aeval_eq_eval_map_algebraMap, hmap]
+    exact hr
+  obtain ⟨hnum, hden⟩ := FT.num_dvd_coeff_zero_and_den_dvd_coeff_natDegree ha
+  have hnd0 : (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℤ[X]).natDegree = 3 := by compute_degree!
+  rw [hnd0] at hden
+  have hc0 : (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℤ[X]).coeff 0 = -1 := by simp
+  have hc3 : (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+      - Polynomial.C 1 : ℤ[X]).coeff 3 = 8 := by
+    simp [Polynomial.coeff_X, Polynomial.coeff_one]
+  rw [hc0] at hnum
+  rw [hc3] at hden
+  have hnum1 : (r.num : ℤ) = 1 ∨ (r.num : ℤ) = -1 := by
+    have h1 : (r.num : ℤ) ∣ (1 : ℤ) := Int.dvd_neg.mp hnum
+    have habs : (r.num : ℤ).natAbs = 1 :=
+      Nat.dvd_one.mp (Int.dvd_natCast.mp h1)
+    rcases Int.natAbs_eq (r.num : ℤ) with he | he
+    · left; omega
+    · right; omega
+  have hden8 : r.den ∣ (8 : ℕ) := Int.natCast_dvd_natCast.mp hden
+  have hpos : 0 < r.den := Rat.pos r
+  have hle : r.den ≤ 8 := Nat.le_of_dvd (by norm_num) hden8
+  rw [show r = (r.num : ℚ) / r.den from (Rat.num_div_den r).symm,
+    FT.aeval_eq_eval_map_algebraMap, hmap, eval_eight_cubic] at ha
+  interval_cases r.den
+  all_goals
+    rcases hnum1 with hn | hn <;> rw [hn] at ha <;> norm_num at ha
+
+/-- Aux for FT `ef29`: `cos 20° = cos (π/9)` is a root of `8X³ - 6X - 1`, i.e. it solves the
+trisection equation of the source proof for `3α = 60°` (`cos 3α = 4cos³α - 3cos α`, with
+`cos 60° = 1/2`).
+
+Proof idea: the triple-angle formula `Real.cos_three_mul` at `x = π/9` together with
+`Real.cos_pi_div_three : cos (π/3) = 1/2` gives `4c³ - 3c = 1/2`, i.e. `8c³ - 6c - 1 = 0`;
+the `aeval` computation itself is simp. -/
+theorem aeval_cos_pi_div_nine :
+    Polynomial.aeval (Real.cos (Real.pi / 9))
+      (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+        - Polynomial.C 1 : ℚ[X]) = 0 := by
+  have h3 : Real.cos (Real.pi / 3)
+      = 4 * Real.cos (Real.pi / 9) ^ 3 - 3 * Real.cos (Real.pi / 9) := by
+    rw [← Real.cos_three_mul]
+    congr 1
+    ring
+  rw [show (Polynomial.aeval (Real.cos (Real.pi / 9))
+      (Polynomial.C 8 * Polynomial.X ^ 3 - Polynomial.C 6 * Polynomial.X
+        - Polynomial.C 1 : ℚ[X]))
+      = 8 * Real.cos (Real.pi / 9) ^ 3 - 6 * Real.cos (Real.pi / 9) - 1 from by
+      simp [Polynomial.aeval_C, Polynomial.aeval_X_pow]]
+  linarith [h3, Real.cos_pi_div_three]
+
+/-- **FT `ef29`.  In general, it is impossible to trisect an angle by straight-edge and
+compass constructions.**
+
+Formalization: the source proof exhibits the concrete counterexample angle `3α = 60°`
+("knowing an angle is equivalent to knowing the cosine of the angle", so constructing the
+trisection of `60° = π/3` amounts to constructing `cos(20°) = cos(π/9)`), and shows that
+`cos(π/9)` is a root of the irreducible cubic `8X³ - 6X - 1` (trisection equation
+`cos 3α = 4cos³α - 3cos α` with `cos 60° = 1/2`), whence `ℚ⟮cos(π/9)⟯` has degree `3`
+over `ℚ`, contradicting FT `ef27`.  Note `cos(π/3) = 1/2` *is* constructible, so this is
+a genuine counterexample: a constructible angle that cannot be trisected.
+
+The irreducibility is exactly the source's appeal to FT `ef4` (rational root test). -/
+theorem ef29 : ¬ Constructible (Real.cos (Real.pi / 9)) :=
+  fun h => not_constructible_of_irreducible_cubic
+    (fun _ h => (constructible_algebraic_and_degree h).2)
+    (by compute_degree!) irreducible_eight_cubic aeval_cos_pi_div_nine h
+
+/-- FT `ef30`, external dependency: **the transcendence of `π`** (Lindemann--Weierstrass).
+This is deliberately an audible axiom: the transcendence of `π` is an external dependency
+cited without proof in the source (footnote referring to Hardy & Wright, *An Introduction
+to the Theory of Numbers*, 4th ed., 11.14), and is absent from Mathlib (Mathlib only knows
+`Irrational Real.pi`, which is strictly weaker).  No result proved in the source is
+admitted this way. -/
+axiom transcendental_pi : Transcendental ℚ Real.pi
+
+/-- FT `ef30`, bridge: `π` is not constructible.  Proof idea (the source's): a constructible
+number is algebraic over `ℚ` (FT `ef27`), but `π` is transcendental. -/
+theorem pi_not_constructible : ¬ Constructible Real.pi :=
+  fun h => transcendental_pi (constructible_algebraic_and_degree h).1
+
+/-- **FT `ef30`.  It is impossible to square the circle by straight-edge and compass
+constructions.**
+
+Formalization: a square with the same area as a circle of radius `r` has side `√π · r`, so
+it suffices to show that `√π` is not constructible (the source: "Since π is transcendental,
+so also is √π").  Proof idea: if `√π` were constructible, then `π = √π · √π` would be
+constructible (FT `ef25` (a)), hence algebraic over `ℚ` (FT `ef27`), contradicting the
+transcendence of `π` (external dependency `FT.transcendental_pi`). -/
+theorem ef30 : ¬ Constructible (Real.sqrt Real.pi) :=
+  fun h => pi_not_constructible (by
+    have hπ : Constructible (Real.sqrt Real.pi * Real.sqrt Real.pi) :=
+      constructible_mul h h
+    rwa [Real.mul_self_sqrt Real.pi_pos.le] at hπ)
 
 /-- FT `ef31` (auxiliary plumbing).  Substituting `X - C t` into the substituted polynomial
 `(p.comp (X + C t))` recovers `p`: this is the trivial inverse property of the change of
