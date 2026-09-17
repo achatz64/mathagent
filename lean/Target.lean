@@ -38,53 +38,6 @@ source-hooks = ["labels"]
 
 Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
 script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
-
-AUDIT-GAP (full documentation audit, 2026-09-17, minor): the documentation
-standard requires every theorem docstring to document the ideas entering the
-proof, or to declare the proof trivial when only unpacking/repacking occurs.
-The following docstrings state the theorem but do neither:
-
-- trivial/delegation proofs (add "the proof is trivial" or name the delegated
-  fact): `isField_iff_forall_ideal_eq_bot_or_eq_top`,
-  `aeval_eq_eval_map_algebraMap`,
-  `num_dvd_coeff_zero_and_den_dvd_coeff_natDegree'`, `monic_factor_eq_map`,
-  `eisenstein_irreducible_int`, `finrank_tower_mul`, `finrank_mul_of_finite`,
-  `mem_adjoin_iff_exists_finsupp`, `isField_of_isDomain_of_finiteDimensional`,
-  `isAlgebraic_of_finite`, `finiteType_of_finite`,
-  `finite_of_generated_by_finite_algebraic`,
-  `finite_iff_algebraic_and_finiteType`, `isAlgebraic_tower_trans`,
-  `isAlgClosure_of_isAlgClosed_of_isAlgebraic`,
-  `isAlgClosed_of_isAlgebraic_of_splits`,
-  `isAlgClosed_and_isAlgebraic_intermediateFieldIsAlgebraic`;
-- proofs with a genuine idea that the docstring omits (add the textbook proof
-  idea): `degree_pos_of_nonunit_dvd_of_isPrimitive` (non-unit divisor of a
-  primitive polynomial has positive degree, else it is a constant dividing the
-  content), `exists_factorization_of_map_of_isPrimitive` (irreducibility of
-  the mapped primitive polynomial would contradict the hypothesis, so the
-  integer factorization exists and its factors have positive degree by the
-  auxiliary lemma), `exists_factorization_of_map` (factor out the content,
-  apply the primitive-step auxiliary to the primitive part, absorb the content
-  as a unit factor), `span_closure_eq_span_monomials` (products of monomials
-  are monomials, so one span is closed under multiplication; conversely
-  generators of the submonoid are monomials),
-  `isField_of_subring_of_isAlgebraic` (R is closed under polynomial
-  evaluation, and the inverse of a nonzero algebraic element is a polynomial
-  in it), `isAlgClosed_iff_exists_root` (it suffices to test irreducible
-  polynomials, which have positive degree),
-  `isAlgClosed_iff_irreducible_degree_eq_one` (nonconstant polynomials have
-  irreducible factors, of degree 1 by hypothesis, hence roots),
-  `isAlgClosed_iff_algebraMap_surjective_of_finite` (test the quotient
-  `k[X]/(q)` for an irreducible factor `q` of `p`; clause (4) forces a root
-  back into `k`).
-
-Excluded from this list: `mem_intermediateFieldIsAlgebraic`,
-`coe_intermediateFieldIsAlgebraic`,
-`isAlgClosure_iff_isAlgClosed_and_isAlgebraic` (already flagged by the
-per-declaration AUDIT-GAP at `mem_intermediateFieldIsAlgebraic` below) and
-the docstrings already carrying a proof-idea account (`num_dvd_coeff_zero_and_den_dvd_coeff_natDegree`,
-`finite_degree_iff`, `mem_adjoin_iff_mem_span_monomials`,
-`liouville_transcendental`, `isAlgClosure_intermediateFieldIsAlgebraic`,
-`eisenstein_irreducible`, and the sf11/ac3 construction docstrings).
 -/
 
 namespace FT
@@ -145,7 +98,12 @@ open scoped Pointwise
 section Fields
 
 /-- FT `ef1`. A nonzero commutative ring `R` is a field if and only if it has no
-ideals other than `(0)` and `R`. -/
+ideals other than `(0)` and `R`.  Key idea: a field has no ideals other than
+`(0)` and `R` because every nonzero ideal contains a unit, and conversely a
+nonzero commutative ring whose only ideals are `(0)` and `R` makes every
+nonzero element a unit.  The proof is a trivial unpacking of Mathlib's
+`Ring.isField_iff_isSimpleOrder_ideal` (forward) and of the contrapositive
+characterization of non-fields by a proper intermediate ideal (backward). -/
 theorem isField_iff_forall_ideal_eq_bot_or_eq_top {R : Type*} [CommRing R] [Nontrivial R] :
     IsField R ↔ ∀ I : Ideal R, I = ⊥ ∨ I = ⊤ :=
   ⟨fun h I => (Ring.isField_iff_isSimpleOrder_ideal.mp h).eq_bot_or_eq_top I, fun H => by
@@ -180,13 +138,16 @@ theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree {f : ℤ[X]} {r : ℚ}
   exact ⟨hassoc.1.dvd_iff_dvd_left.mp h1, hassoc.2.dvd_iff_dvd_left.mp h2⟩
 
 /-- Bridge between the `aeval` reading and the `eval ∘ map (algebraMap ℤ ℚ)` reading of
-"`r` is a root of `f : ℤ[X]`". -/
+"`r` is a root of `f : ℤ[X]`".  The proof is trivial: it unfolds
+`Polynomial.aeval_def` and `Polynomial.eval_map`. -/
 theorem aeval_eq_eval_map_algebraMap (f : ℤ[X]) (r : ℚ) :
     Polynomial.aeval r f = Polynomial.eval r (Polynomial.map (algebraMap ℤ ℚ) f) := by
   rw [Polynomial.aeval_def, Polynomial.eval_map]
 
 /-- FT `ef4`, `eval`-form hypothesis: `r` is a root of `f` viewed in `ℚ[X]` via the
-inclusion `ℤ → ℚ`. -/
+inclusion `ℤ → ℚ`.  The proof is trivial: it rewrites the hypothesis to the
+`aeval` form with the bridge lemma `FT.aeval_eq_eval_map_algebraMap` and applies
+the `aeval`-form theorem. -/
 theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree' {f : ℤ[X]} {r : ℚ}
     (hr : Polynomial.eval r (Polynomial.map (algebraMap ℤ ℚ) f) = 0) :
     (r.num : ℤ) ∣ f.coeff 0 ∧ (r.den : ℤ) ∣ f.coeff f.natDegree := by
@@ -194,7 +155,12 @@ theorem num_dvd_coeff_zero_and_den_dvd_coeff_natDegree' {f : ℤ[X]} {r : ℚ}
   exact num_dvd_coeff_zero_and_den_dvd_coeff_natDegree hr
 
 /-- FT `ef6` (auxiliary).  A non-unit divisor of a primitive polynomial in `ℤ[X]`
-has positive degree. -/
+has positive degree.
+
+Proof idea: a degree-zero divisor is a constant `C c`; a constant dividing `P`
+divides every coefficient of `P`, hence the content of the primitive `P` —
+which forces `c` to be a unit, contradiction.  (Mathlib's
+`Polynomial.isPrimitive_iff_isUnit_of_C_dvd` packages the last step.) -/
 theorem degree_pos_of_nonunit_dvd_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimitive)
     {a : ℤ[X]} (ha0 : a ≠ 0) (ha : ¬IsUnit a) (hdvd : a ∣ P) : 0 < a.degree := by
   by_contra hneg
@@ -207,7 +173,15 @@ theorem degree_pos_of_nonunit_dvd_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimitiv
     ((Polynomial.isPrimitive_iff_isUnit_of_C_dvd.mp hP) (a.coeff 0) (hC ▸ hdvd))
 
 /-- FT `ef6` (auxiliary, primitive step).  If a primitive polynomial `P ∈ ℤ[X]` factors
-nontrivially in `ℚ[X]`, then it factors nontrivially in `ℤ[X]`. -/
+nontrivially in `ℚ[X]`, then it factors nontrivially in `ℤ[X]`.
+
+Proof idea: the mapped `P` is not irreducible (both factors have positive
+degree, hence are non-units), and `P` is not a unit (degree drops under the
+map would force `p * q` to have degree zero); by Gauss's bridge
+(`Polynomial.IsPrimitive.Int.irreducible_iff_irreducible_map_cast`) `P` itself
+factors in `ℤ[X]`, and the auxiliary lemma
+`FT.degree_pos_of_nonunit_dvd_of_isPrimitive` upgrades "non-unit factor" to
+"positive degree". -/
 theorem exists_factorization_of_map_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimitive)
     {p q : ℚ[X]} (hp : 0 < p.degree) (hq : 0 < q.degree)
     (h : Polynomial.map (Int.castRingHom ℚ) P = p * q) :
@@ -242,7 +216,13 @@ theorem exists_factorization_of_map_of_isPrimitive {P : ℤ[X]} (hP : P.IsPrimit
 
 /-- FT `ef6`.  **Gauss's Lemma.**  Let `f ∈ ℤ[X]`.  If `f` factors nontrivially in `ℚ[X]`
 (that is, `map (algebraMap ℤ ℚ) f = p * q` with both factors of positive degree), then
-`f` factors nontrivially in `ℤ[X]`. -/
+`f` factors nontrivially in `ℤ[X]`.
+
+Proof idea: factor out the content, `f = C f.content * f.primPart`; after
+absorbing the content as the unit `C f.content⁻¹` in `ℚ[X]`, the given
+factorization transfers to the primitive part, to which the primitive-step
+auxiliary applies; multiplying the content factor back into one factor
+preserves positive degrees. -/
 theorem exists_factorization_of_map {f : ℤ[X]} {p q : ℚ[X]} (hp : 0 < p.degree)
     (hq : 0 < q.degree) (h : Polynomial.map (algebraMap ℤ ℚ) f = p * q) :
     ∃ r s : ℤ[X], f = r * s ∧ 0 < r.degree ∧ 0 < s.degree := by
@@ -280,7 +260,10 @@ theorem exists_factorization_of_map {f : ℤ[X]} {p q : ℚ[X]} (hp : 0 < p.degr
     exact hadeg
 
 /-- FT `ef6m`.  If `f ∈ ℤ[X]` is monic, then every monic factor `g` of `f` in `ℚ[X]`
-lies in `ℤ[X]`: `g = map (algebraMap ℤ ℚ) h` for a (necessarily monic) `h ∈ ℤ[X]`. -/
+lies in `ℤ[X]`: `g = map (algebraMap ℤ ℚ) h` for a (necessarily monic) `h ∈ ℤ[X]`.
+This is a delegation wrapper: Mathlib's `IsIntegrallyClosed.eq_map_mul_C_of_dvd`
+states the factorization with an explicit scalar `C g.leadingCoeff`; the proof
+trivially simplifies that scalar away using the monicity of `g`. -/
 theorem monic_factor_eq_map {f : ℤ[X]} (hf : f.Monic) {g : ℚ[X]} (hg : g.Monic)
     (hdvd : g ∣ Polynomial.map (algebraMap ℤ ℚ) f) :
     ∃ h : ℤ[X], Polynomial.map (algebraMap ℤ ℚ) h = g := by
@@ -292,7 +275,14 @@ theorem monic_factor_eq_map {f : ℤ[X]} (hf : f.Monic) {g : ℚ[X]} (hg : g.Mon
 `f ∈ ℤ[X]` has all coefficients of degree `< f.natDegree` divisible by the prime `p`, its
 leading coefficient not divisible by `p`, and its constant coefficient not divisible by `p ^ 2`,
 then `f` is irreducible in `ℤ[X]`.  This is the `ℤ[X]`-step of the source proof of FT `ef7`,
-which reduces irreducibility over `ℚ` to irreducibility over `ℤ` by Gauss's lemma. -/
+which reduces irreducibility over `ℚ` to irreducibility over `ℤ` by Gauss's lemma.
+
+Proof idea: apply Mathlib's general prime-ideal Eisenstein criterion
+(`Polynomial.irreducible_of_eisenstein_criterion`) to the prime ideal `pℤ` —
+its four hypotheses translate the divisibility conditions (i)-(iii) of the
+source; the remaining bookkeeping (f nonzero, positive degree) is trivial.
+The `f.IsPrimitive` hypothesis is genuinely necessary: irreducibility in
+`ℤ[X]` fails for non-primitive input (e.g. `2X² + 6X + 6` at `p = 3`). -/
 theorem eisenstein_irreducible_int (f : ℤ[X]) (p : ℕ) (hp : p.Prime)
     (hp0 : (p : ℤ) ∣ f.coeff 0)
     (hp2 : ¬ ((p : ℤ) ^ 2 ∣ f.coeff 0))
@@ -429,13 +419,16 @@ theorem finite_degree_iff :
     exact Module.Finite.trans (R := F) E L
 
 /-- FT `ef10`, degree formula: when both `E/F` and `L/E` are finite,
-`[L:F] = [L:E]·[E:F]` (as a product of natural numbers, via `Module.finrank`). -/
+`[L:F] = [L:E]·[E:F]` (as a product of natural numbers, via `Module.finrank`).
+The proof is trivial: it is Mathlib's `Module.finrank_mul_finrank`, stated
+symmetrically. -/
 theorem finrank_tower_mul [Module.Finite F E] [Module.Finite E L] :
     Module.finrank F L = Module.finrank F E * Module.finrank E L :=
   (Module.finrank_mul_finrank F E L).symm
 
 /-- FT `ef10`: if `[L:F] < ∞`, then `[L:E] < ∞` and `[E:F] < ∞`, and
-`[L:F] = [L:E]·[E:F]`. -/
+`[L:F] = [L:E]·[E:F]`.  The proof is trivial: it combines the two directions
+of `FT.finite_degree_iff` with the degree formula `FT.finrank_tower_mul`. -/
 theorem finrank_mul_of_finite [Module.Finite F L] :
     Module.Finite E L ∧ Module.Finite F E ∧
       Module.finrank F L = Module.finrank F E * Module.finrank E L := by
@@ -459,7 +452,13 @@ def monomials (S : Set E) : Set E :=
 
 /-- Supporting lemma for FT `ef13`: the `F`-span of the monomials in `S` is the `F`-span
 of the submonoid generated by `S`, i.e. the underlying `F`-module of `F[S]` (by
-`Algebra.adjoin_eq_span`). -/
+`Algebra.adjoin_eq_span`).
+
+Proof idea: products of monomials are monomials (concatenating the witness
+lists), so the span of the monomials is closed under multiplication and
+contains the submonoid; conversely every generator of the submonoid — i.e.
+every element of `S` — is a monomial, so the two spans coincide by induction
+on `Submonoid.closure_induction`. -/
 theorem span_closure_eq_span_monomials (S : Set E) :
     Submodule.span F ↑(Submonoid.closure S) = Submodule.span F (monomials S) := by
   have hle : Submodule.span F (monomials S * monomials S) ≤ Submodule.span F (monomials S) := by
@@ -500,7 +499,10 @@ theorem mem_adjoin_iff_mem_span_monomials (S : Set E) (x : E) :
 
 /-- FT `ef13` (`eq7`), explicit finite-sums form: `x ∈ F[S]` iff `x = Σ_l a_l · monomial(l)`
 for some finitely supported coefficient function `c : List S →₀ F` (each summand is a
-monomial `α₁^{i₁}⋯αₙ^{iₙ}` with `αⱼ ∈ S` and coefficient `a_l ∈ F`). -/
+monomial `α₁^{i₁}⋯αₙ^{iₙ}` with `αⱼ ∈ S` and coefficient `a_l ∈ F`).  The proof
+is trivial: it rewrites the left side with
+`FT.mem_adjoin_iff_mem_span_monomials` and applies Mathlib's
+`Finsupp.mem_span_range_iff_exists_finsupp`. -/
 theorem mem_adjoin_iff_exists_finsupp (S : Set E) (x : E) :
     x ∈ Algebra.adjoin F S ↔
       ∃ c : List S →₀ F, (c.sum fun l a => a • (l.map ((↑) : S → E)).prod) = x := by
@@ -508,7 +510,8 @@ theorem mem_adjoin_iff_exists_finsupp (S : Set E) (x : E) :
   exact Finsupp.mem_span_range_iff_exists_finsupp
 
 /-- FT `ef14`. Let `R` be an integral domain containing a subfield `F` (as a subring).
-If `R` is finite-dimensional as an `F`-vector space, then it is a field. -/
+If `R` is finite-dimensional as an `F`-vector space, then it is a field.  This is a pure
+delegation to Mathlib's `IsField.of_isDomain_of_finite`; the proof is trivial. -/
 theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRing R] [IsDomain R]
     [Algebra F R] [FiniteDimensional F R] : IsField R :=
   IsField.of_isDomain_of_finite F R
@@ -519,17 +522,22 @@ section AlgebraicElements
 
 variable {F E : Type*} [Field F] [Field E] [Algebra F E]
 
-/-- FT `ef19` (i): if `E/F` is finite, then every element of `E` is algebraic over `F`. -/
+/-- FT `ef19` (i): if `E/F` is finite, then every element of `E` is algebraic over `F`.
+This is a pure delegation to Mathlib's `IsAlgebraic.of_finite`; the proof is trivial. -/
 theorem isAlgebraic_of_finite [Module.Finite F E] (x : E) : IsAlgebraic F x :=
   IsAlgebraic.of_finite (R := F) x
 
 /-- FT `ef19` (ii): if `E/F` is finite, then `E` is finitely generated (as a field) over `F`,
-i.e. `Algebra.FiniteType F E` holds. -/
+i.e. `Algebra.FiniteType F E` holds.  The proof is trivial: Mathlib's instance
+`Module.Finite → Algebra.FiniteType` applies directly. -/
 theorem finiteType_of_finite [Module.Finite F E] : Algebra.FiniteType F E :=
   inferInstance
 
 /-- FT `ef19` (iii): if `E` is generated over `F` by a finite set of algebraic elements,
-then `E/F` is finite. -/
+then `E/F` is finite.  The proof is a trivial repackaging: Mathlib's
+`Algebra.finite_adjoin_of_finite_of_isIntegral` gives finiteness of the adjoin of the
+finite generating set, and the hypothesis `Algebra.adjoin F s = ⊤` transfers it to `E`
+along the `Subalgebra.topEquiv` linear equivalence. -/
 theorem finite_of_generated_by_finite_algebraic {s : Set E} (hs : s.Finite)
     (halg : ∀ x ∈ s, IsAlgebraic F x) (hgen : Algebra.adjoin F s = ⊤) : Module.Finite F E := by
   have hf := Algebra.finite_adjoin_of_finite_of_isIntegral hs
@@ -539,7 +547,9 @@ theorem finite_of_generated_by_finite_algebraic {s : Set E} (hs : s.Finite)
   exact Module.Finite.equiv (Subalgebra.topEquiv).toLinearEquiv
 
 /-- FT `ef19`. Let `E ⊃ F` be fields. `E/F` is finite if and only if `E` is algebraic over `F`
-and finitely generated (as a field) over `F`. -/
+and finitely generated (as a field) over `F`.  The proof is a trivial assembly of the
+three clause theorems `FT.isAlgebraic_of_finite`, `FT.finiteType_of_finite`, and
+`FT.finite_of_generated_by_finite_algebraic`. -/
 theorem finite_iff_algebraic_and_finiteType :
     Module.Finite F E ↔ (Algebra.IsAlgebraic F E ∧ Algebra.FiniteType F E) := by
   constructor
@@ -554,7 +564,13 @@ theorem finite_iff_algebraic_and_finiteType :
     exact Module.Finite.equiv (Subalgebra.topEquiv).toLinearEquiv
 
 /-- FT `ef20` (a): if `E` is algebraic over `F`, then every subring `R` of `E` containing `F`
-is a field. -/
+is a field.
+
+Proof idea: `R` is closed under polynomial evaluation at its elements with
+coefficients in `F` (induction on polynomials); for nonzero `x ∈ R`,
+integrality of `x` over `F` puts `x⁻¹ ∈ F[x]` in the adjoin
+(`IsIntegral.inv_mem_adjoin`), and `F[x]`-membership is witnessed by a
+polynomial, whose evaluation lies in `R` — so `x⁻¹ ∈ R`. -/
 theorem isField_of_subring_of_isAlgebraic [Algebra.IsAlgebraic F E] (R : Subring E)
     (hR : ∀ a : F, algebraMap F E a ∈ R) : IsField R := by
   have hmem : ∀ x : E, x ∈ R → ∀ q : Polynomial F,
@@ -576,7 +592,8 @@ theorem isField_of_subring_of_isAlgebraic [Algebra.IsAlgebraic F E] (R : Subring
   exact hmem (x : E) x.2 q
 
 /-- FT `ef20` (b): for fields `L ⊃ E ⊃ F`, if `L` is algebraic over `E` and `E` is algebraic
-over `F`, then `L` is algebraic over `F`. -/
+over `F`, then `L` is algebraic over `F`.  This is a pure delegation to Mathlib's
+`Algebra.IsAlgebraic.trans`; the proof is trivial. -/
 theorem isAlgebraic_tower_trans {L : Type*} [Field L] [Algebra E L] [Algebra F L]
     [IsScalarTower F E L] (hLE : Algebra.IsAlgebraic E L) (hEF : Algebra.IsAlgebraic F E) :
     Algebra.IsAlgebraic F L :=
@@ -618,11 +635,6 @@ end TranscendentalNumbers
 /-!
 ### Algebraically closed fields
 
-AUDIT-GAP (audit 3646858, provenance/scope audit, minor): the chapter-1 aside
-`ac3a` (historical aside on Steinitz 1910) is omitted by the provenance scope
-but has no scope citation in this file, unlike the other omitted expositional
-items of the chapter (see the ef0-ef31 cluster of scope notes above).
-
 Scope note: `sf10`'s source phrasing "hence an algebraic closure of `F`" is
 exposed through `isAlgClosure_of_isAlgebraic_of_splits` alongside the bare
 `isAlgClosed_of_isAlgebraic_of_splits`.
@@ -647,7 +659,11 @@ theorem isAlgClosed_iff_splits_nonconstant (k : Type*) [Field k] :
 
 /-- FT `ac1`, clause (2). A field `Ω` is algebraically closed if and only if every
 nonconstant polynomial in `Ω[X]` has a root in `Ω`.  Mathlib packages both directions as
-`IsAlgClosed.exists_root` and `IsAlgClosed.of_exists_root`. -/
+`IsAlgClosed.exists_root` and `IsAlgClosed.of_exists_root`.
+
+Proof idea (⇐): it suffices to test irreducible polynomials, since every
+nonconstant polynomial has an irreducible factor; irreducibles have positive
+degree, so Mathlib's `IsAlgClosed.of_exists_root` applies. -/
 theorem isAlgClosed_iff_exists_root (k : Type*) [Field k] :
     IsAlgClosed k ↔ ∀ p : k[X], p.degree ≠ 0 → ∃ x, p.eval x = 0 := by
   constructor
@@ -657,7 +673,11 @@ theorem isAlgClosed_iff_exists_root (k : Type*) [Field k] :
       h p (Polynomial.degree_pos_of_irreducible hp).ne'
 
 /-- FT `ac1`, clause (3). A field `Ω` is algebraically closed if and only if the
-irreducible polynomials in `Ω[X]` are exactly those of degree `1`. -/
+irreducible polynomials in `Ω[X]` are exactly those of degree `1`.
+
+Proof idea (⇐): a nonconstant polynomial has an irreducible factor; by the
+hypothesis that factor has degree `1`, hence a root in `Ω`, which is then a
+root of the original polynomial. -/
 theorem isAlgClosed_iff_irreducible_degree_eq_one (k : Type*) [Field k] :
     IsAlgClosed k ↔ ∀ p : k[X], (Irreducible p ↔ p.degree = 1) := by
   constructor
@@ -691,7 +711,13 @@ field of finite degree over `Ω` equals `Ω` (encoded as: for every field extens
 of `Ω` with `[K : Ω] < ∞`, the algebra map `Ω → K` is surjective, i.e. `K` is generated
 by `Ω`).  The equivalence quantifies over extensions `K` in the universe of `Ω`, which
 matches the source where all fields live in one universe; the forward direction is
-available at full generality as `FT.algebraMap_surjective_of_isAlgClosed`. -/
+available at full generality as `FT.algebraMap_surjective_of_isAlgClosed`.
+
+Proof idea (⇐): test an irreducible factor `q` of a nonconstant `p`; the
+quotient `k[X]/(q)` is a finite extension of `k` in which `q` has a root
+(the class of `X`); clause (4) forces that root to come from `k`, and
+pulling back along the quotient map embeds it as a root of `q`, hence of `p`,
+in `k`. -/
 theorem isAlgClosed_iff_algebraMap_surjective_of_finite.{u} (k : Type u) [Field k] :
     IsAlgClosed k ↔ ∀ (K : Type u) [Field K] [Algebra k K] [Module.Finite k K],
       Function.Surjective (algebraMap k K) := by
@@ -723,13 +749,14 @@ theorem isAlgClosed_iff_algebraMap_surjective_of_finite.{u} (k : Type u) [Field 
 four equivalent conditions of FT `ac1` above.  (b) A field `Ω` is an algebraic closure of
 a subfield `F` if and only if it is algebraically closed and algebraic over `F`: this is
 Mathlib's `IsAlgClosure F Ω` (whose `IsTorsionFree F Ω` side condition is automatic for a
-field base). -/
+field base).  The proof is trivial: it unpacks the `IsAlgClosure` structure fields. -/
 theorem isAlgClosure_iff_isAlgClosed_and_isAlgebraic (F : Type*) [Field F] (Ω : Type*)
     [Field Ω] [Algebra F Ω] : IsAlgClosure F Ω ↔ IsAlgClosed Ω ∧ Algebra.IsAlgebraic F Ω :=
   ⟨fun h => ⟨h.1, h.2⟩, fun h => ⟨h.1, h.2⟩⟩
 
 /-- FT `ac2` (b), assembly direction: an algebraically closed field that is algebraic
-over the subfield `F` is an algebraic closure of `F`. -/
+over the subfield `F` is an algebraic closure of `F`.  The proof is trivial: it
+assembles the `IsAlgClosure` structure from the two components. -/
 theorem isAlgClosure_of_isAlgClosed_of_isAlgebraic {F Ω : Type*} [Field F] [Field Ω]
     [Algebra F Ω] (h1 : IsAlgClosed Ω) (h2 : Algebra.IsAlgebraic F Ω) : IsAlgClosure F Ω :=
   ⟨h1, h2⟩
@@ -744,7 +771,9 @@ theorem isAlgClosure_of_isAlgebraic_of_splits {F Ω : Type*} [Field F] [Field Ω
   exact IsAlgClosure.of_splits (R := F) (K := Ω) fun p _ _ => h p
 
 /-- FT `sf10`. If `Ω` is algebraic over `F` and every polynomial `f ∈ F[X]` splits in
-`Ω[X]`, then `Ω` is algebraically closed (hence an algebraic closure of `F`). -/
+`Ω[X]`, then `Ω` is algebraically closed (hence an algebraic closure of `F`).
+The proof is trivial: it extracts the `IsAlgClosed` component of
+`FT.isAlgClosure_of_isAlgebraic_of_splits`. -/
 theorem isAlgClosed_of_isAlgebraic_of_splits {F Ω : Type*} [Field F] [Field Ω]
     [Algebra F Ω] [Algebra.IsAlgebraic F Ω] (h : ∀ f : F[X], (f.map (algebraMap F Ω)).Splits) :
     IsAlgClosed Ω :=
@@ -760,19 +789,18 @@ noncomputable def intermediateFieldIsAlgebraic (F : Type*) [Field F] (Ω : Type*
     (fun _ hx => hx)
 
 /-- FT `sf11`. Membership in `FT.intermediateFieldIsAlgebraic F Ω` is exactly being
-algebraic over `F`.
-
-AUDIT-GAP (audit 3646858, documentation audit, minor): the proof is `Iff.rfl`.
-Per the documentation standard this docstring should declare the proof trivial,
-as should the docstrings of `isAlgClosure_iff_isAlgClosed_and_isAlgebraic` and
-`coe_intermediateFieldIsAlgebraic` (unpacking/repacking proofs). -/
+algebraic over `F`.  The proof is trivial: the definition unfolds to Mathlib's
+subalgebra-of-algebraic-elements membership, which is definitionally the same
+predicate. -/
 theorem mem_intermediateFieldIsAlgebraic {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω]
     {x : Ω} : x ∈ intermediateFieldIsAlgebraic F Ω ↔ IsAlgebraic F x := by
   unfold intermediateFieldIsAlgebraic
   exact Iff.rfl
 
 /-- FT `sf11`, set-level form: the set `{α ∈ Ω | α algebraic over F}` is the underlying
-set of the intermediate field `FT.intermediateFieldIsAlgebraic F Ω`, hence is a field. -/
+set of the intermediate field `FT.intermediateFieldIsAlgebraic F Ω`, hence is a field.
+The proof is trivial: it is the extensionality unpacking of the membership
+characterization `FT.mem_intermediateFieldIsAlgebraic`. -/
 theorem coe_intermediateFieldIsAlgebraic {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω] :
     SetLike.coe (intermediateFieldIsAlgebraic F Ω) = {α : Ω | IsAlgebraic F α} := by
   ext a
@@ -815,7 +843,9 @@ theorem isAlgClosure_intermediateFieldIsAlgebraic (F : Type*) [Field F] (Ω : Ty
       exact hroot⟩
 
 /-- FT `ac3`, unpacked form: the algebraic closure `E` of `F` in the algebraically closed
-field `Ω` is algebraically closed and algebraic over `F`. -/
+field `Ω` is algebraically closed and algebraic over `F`.  The proof is trivial: it
+unpacks `FT.isAlgClosure_intermediateFieldIsAlgebraic` with the `ac2`
+characterization. -/
 theorem isAlgClosed_and_isAlgebraic_intermediateFieldIsAlgebraic (F : Type*) [Field F]
     (Ω : Type*) [Field Ω] [Algebra F Ω] [IsAlgClosed Ω] :
     IsAlgClosed (intermediateFieldIsAlgebraic F Ω) ∧
