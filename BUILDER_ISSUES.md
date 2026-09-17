@@ -144,7 +144,10 @@ The launcher itself embeds the auditor briefing (role, pre-reading list,
 protocol) and injects exactly two fixed facts: the audit target — by default
 `lean/Target.lean` — and the deliverable rule (one commit; main picks up
 `AUDIT-GAP` markers and the deliverable commit when the call returns). No
-briefing file is added to the repository. Making the target configurable (so
-the launcher can later serve other targets, e.g. audited promotion candidates)
+briefing file is added to the repository.
+
+Making the target configurable (so the launcher can later serve other targets, e.g. audited promotion candidates)
 is deferred future work; the first version is allowed to hard-code
-`lean/Target.lean`.
+`lean/Target.lean`. 
+
+
