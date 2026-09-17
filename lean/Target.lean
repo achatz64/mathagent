@@ -363,6 +363,75 @@ theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRi
 
 end SubringGeneratedBySubset
 
+section AlgebraicElements
+
+variable {F E : Type*} [Field F] [Field E] [Algebra F E]
+
+/-- FT `ef19` (i): if `E/F` is finite, then every element of `E` is algebraic over `F`. -/
+theorem isAlgebraic_of_finite [Module.Finite F E] (x : E) : IsAlgebraic F x :=
+  IsAlgebraic.of_finite (R := F) x
+
+/-- FT `ef19` (ii): if `E/F` is finite, then `E` is finitely generated (as a field) over `F`,
+i.e. `Algebra.FiniteType F E` holds. -/
+theorem finiteType_of_finite [Module.Finite F E] : Algebra.FiniteType F E :=
+  inferInstance
+
+/-- FT `ef19` (iii): if `E` is generated over `F` by a finite set of algebraic elements,
+then `E/F` is finite. -/
+theorem finite_of_generated_by_finite_algebraic {s : Set E} (hs : s.Finite)
+    (halg : ∀ x ∈ s, IsAlgebraic F x) (hgen : Algebra.adjoin F s = ⊤) : Module.Finite F E := by
+  have hf := Algebra.finite_adjoin_of_finite_of_isIntegral hs
+    fun x hx => isAlgebraic_iff_isIntegral.mp (halg x hx)
+  rw [hgen] at hf
+  haveI := hf
+  exact Module.Finite.equiv (Subalgebra.topEquiv).toLinearEquiv
+
+/-- FT `ef19`. Let `E ⊃ F` be fields. `E/F` is finite if and only if `E` is algebraic over `F`
+and finitely generated (as a field) over `F`. -/
+theorem finite_iff_algebraic_and_finiteType :
+    Module.Finite F E ↔ (Algebra.IsAlgebraic F E ∧ Algebra.FiniteType F E) := by
+  constructor
+  · intro hfin
+    exact ⟨⟨fun x => isAlgebraic_of_finite x⟩, inferInstance⟩
+  · rintro ⟨halg, hfin⟩
+    obtain ⟨t, ht⟩ := hfin.out
+    have hf := Algebra.finite_adjoin_of_finite_of_isIntegral t.finite_toSet
+      fun x _ => isAlgebraic_iff_isIntegral.mp (halg.isAlgebraic x)
+    rw [ht] at hf
+    haveI := hf
+    exact Module.Finite.equiv (Subalgebra.topEquiv).toLinearEquiv
+
+/-- FT `ef20` (a): if `E` is algebraic over `F`, then every subring `R` of `E` containing `F`
+is a field. -/
+theorem isField_of_subring_of_isAlgebraic [Algebra.IsAlgebraic F E] (R : Subring E)
+    (hR : ∀ a : F, algebraMap F E a ∈ R) : IsField R := by
+  have hmem : ∀ x : E, x ∈ R → ∀ q : Polynomial F,
+      Polynomial.eval₂ (algebraMap F E) x q ∈ R := by
+    intro x hx q
+    induction q using Polynomial.induction_on' with
+    | add p r hp hr =>
+        rw [Polynomial.eval₂_add]; exact Subring.add_mem _ hp hr
+    | monomial n a =>
+        rw [Polynomial.eval₂_monomial]; exact Subring.mul_mem _ (hR a) (Subring.pow_mem _ hx n)
+  refine ⟨⟨0, 1, by norm_num⟩, mul_comm, fun {x} hx => ?_⟩
+  have hxE : (x : E) ≠ 0 := fun h => hx (Subtype.ext h)
+  have hint : IsIntegral F (x : E) :=
+    isAlgebraic_iff_isIntegral.mp (Algebra.IsAlgebraic.isAlgebraic (x : E))
+  have hinv : (x : E)⁻¹ ∈ Algebra.adjoin F {(x : E)} := IsIntegral.inv_mem_adjoin hint
+  obtain ⟨q, hq⟩ := Algebra.adjoin_mem_exists_aeval (R := F) (x := (x : E)) hinv
+  refine ⟨⟨(x : E)⁻¹, ?_⟩, Subtype.ext (mul_inv_cancel₀ hxE)⟩
+  rw [← hq, Polynomial.aeval_def]
+  exact hmem (x : E) x.2 q
+
+/-- FT `ef20` (b): for fields `L ⊃ E ⊃ F`, if `L` is algebraic over `E` and `E` is algebraic
+over `F`, then `L` is algebraic over `F`. -/
+theorem isAlgebraic_tower_trans {L : Type*} [Field L] [Algebra E L] [Algebra F L]
+    [IsScalarTower F E L] (hLE : Algebra.IsAlgebraic E L) (hEF : Algebra.IsAlgebraic F E) :
+    Algebra.IsAlgebraic F L :=
+  Algebra.IsAlgebraic.trans F E L
+
+end AlgebraicElements
+
 section TranscendentalNumbers
 
 open scoped Nat
