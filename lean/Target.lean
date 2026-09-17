@@ -7,6 +7,10 @@ import Mathlib.RingTheory.Localization.Rat
 import Mathlib.LinearAlgebra.Finsupp.LinearCombination
 import Mathlib.Algebra.AlgebraicCard
 import Mathlib.NumberTheory.Transcendental.Liouville.LiouvilleNumber
+import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
+import Mathlib.RingTheory.Polynomial.Cyclotomic.Roots
+import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
+import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
 
 /-!
 # Provenance
@@ -865,5 +869,163 @@ theorem isAlgClosed_and_isAlgebraic_intermediateFieldIsAlgebraic (F : Type*) [Fi
     (isAlgClosure_intermediateFieldIsAlgebraic F Ω)
 
 end AlgebraicallyClosedFields
+
+/-!
+### Constructions with straight-edge and compass
+-/
+
+section ConstructionsStraightEdgeCompass
+
+open Polynomial
+open scoped IntermediateField
+
+/-- FT `ef31` (auxiliary plumbing).  Substituting `X - C t` into the substituted polynomial
+`(p.comp (X + C t))` recovers `p`: this is the trivial inverse property of the change of
+variables `X ↦ X + t`, and is the only fact needed to transfer units and irreducibility of
+`R[X]` across the substitution `f(X) ↦ f(X + 1)` used in the proof of FT `ef31`.  Proof is a
+standard `Polynomial.comp_assoc` computation; mathematically trivial. -/
+private theorem comp_X_add_C_comp_X_sub_C {R : Type*} [CommRing R] (t : R) (p : R[X]) :
+    (p.comp (X + C t)).comp (X - C t) = p := by
+  have h : (X + C t).comp (X - C t) = X := by simp
+  rw [Polynomial.comp_assoc, h, Polynomial.comp_X]
+
+/-- FT `ef31` (auxiliary plumbing).  A polynomial `p ∈ R[X]` is a unit iff its substitution
+image `p(X + t)` is a unit; this makes `f(X) ↦ f(X + 1)` a unit-respecting multiplicative
+automorphism of `R[X]`.  Proof: one direction maps the unit through the ring homomorphism
+`Polynomial.compRingHom`; the other composes back with `X - C t` (previous lemma) and again
+maps a unit through a ring homomorphism. -/
+private theorem isUnit_comp_X_add_C_iff {R : Type*} [CommRing R] (t : R) {p : R[X]} :
+    IsUnit (p.comp (X + C t)) ↔ IsUnit p :=
+  ⟨fun hu => by
+      rw [← comp_X_add_C_comp_X_sub_C t p]
+      exact (Polynomial.compRingHom (X - C t)).isUnit_map hu,
+   fun hu => (Polynomial.compRingHom (X + C t)).isUnit_map hu⟩
+
+/-- FT `ef31` (auxiliary plumbing).  Mirror of `comp_X_add_C_comp_X_sub_C` for the
+substitution `X ↦ X - t`: `(p(X - t))(X + t) = p(X)`.  Proof is the same trivial
+`Polynomial.comp_assoc` computation. -/
+private theorem comp_X_sub_C_comp_X_add_C {R : Type*} [CommRing R] (t : R) (p : R[X]) :
+    (p.comp (X - C t)).comp (X + C t) = p := by
+  have h : (X - C t).comp (X + C t) = X := by simp
+  rw [Polynomial.comp_assoc, h, Polynomial.comp_X]
+
+/-- FT `ef31` (auxiliary plumbing).  A polynomial `p ∈ R[X]` is a unit iff its substitution
+image `p(X - t)` is a unit.  Proof identical to `isUnit_comp_X_add_C_iff`. -/
+private theorem isUnit_comp_X_sub_C_iff {R : Type*} [CommRing R] (t : R) {p : R[X]} :
+    IsUnit (p.comp (X - C t)) ↔ IsUnit p :=
+  ⟨fun hu => by
+      rw [← comp_X_sub_C_comp_X_add_C t p]
+      exact (Polynomial.compRingHom (X + C t)).isUnit_map hu,
+   fun hu => (Polynomial.compRingHom (X - C t)).isUnit_map hu⟩
+
+/-- FT `ef31` (auxiliary plumbing).  The substitution `f(X) ↦ f(X + t)` is a multiplicative
+automorphism of `R[X]`, hence preserves irreducibility.  This is the standard step in the
+Eisenstein proof of the irreducibility of `X ^ (p - 1) + ⋯ + 1`: Eisenstein's criterion
+applies to `f(X + 1)`, and irreducibility is transported back to `f`.  Proof: expand both
+sides with `irreducible_iff` and transfer units and factorizations through the substitution,
+using the two unit-transfer lemmas above. -/
+private theorem irreducible_comp_X_add_C_iff {R : Type*} [CommRing R] (t : R) {p : R[X]} :
+    Irreducible (p.comp (X + C t)) ↔ Irreducible p := by
+  rw [irreducible_iff, irreducible_iff]
+  constructor
+  · rintro ⟨h1, h2⟩
+    refine ⟨fun hu => h1 (isUnit_comp_X_add_C_iff t |>.2 hu), fun x y hxy => ?_⟩
+    have hp : p.comp (X + C t) = x.comp (X + C t) * y.comp (X + C t) := by
+      rw [hxy, Polynomial.mul_comp]
+    rcases h2 hp with h' | h'
+    · exact Or.inl (isUnit_comp_X_add_C_iff t |>.1 h')
+    · exact Or.inr (isUnit_comp_X_add_C_iff t |>.1 h')
+  · rintro ⟨h1, h2⟩
+    refine ⟨fun hu => h1 (isUnit_comp_X_add_C_iff t |>.1 hu), fun x y hxy => ?_⟩
+    have hp : p = x.comp (X - C t) * y.comp (X - C t) := by
+      rw [← comp_X_add_C_comp_X_sub_C t p, hxy, Polynomial.mul_comp]
+    rcases h2 hp with h' | h'
+    · exact Or.inl (isUnit_comp_X_sub_C_iff t |>.1 h')
+    · exact Or.inr (isUnit_comp_X_sub_C_iff t |>.1 h')
+
+/-- FT `ef31` (auxiliary lemma: the Eisenstein step).  With `f(X) = X ^ (p - 1) + ⋯ + 1 =
+∑ i ∈ range p, X ^ i` (so `(X - 1) * f = X ^ p - 1`, i.e. `f` is Milne's `(X ^ p - 1)/(X - 1)`,
+and `f = Φ_p`, the `p`-th cyclotomic polynomial, for prime `p`), the substituted polynomial
+`f(X + 1) = ((X + 1) ^ p - 1) / X` is Eisenstein at the prime `p`: its non-leading
+coefficients are the binomial coefficients `C(p, i + 1)`, all divisible by `p` (FT `ef3`),
+while `p ^ 2 ∤ C(p, 2)` — exactly the computation in Milne's proof.  Delegation: the
+coefficient computation is delegated to Mathlib's
+`Polynomial.cyclotomic_prime_pow_comp_X_add_one_isEisensteinAt` (at `n = 0`, using
+`Φ_p = ∑ i ∈ range p, X ^ i` from `Polynomial.cyclotomic_prime`); its proof performs precisely
+this binomial-coefficient argument. -/
+theorem geom_sum_prime_comp_X_add_one_isEisensteinAt {p : ℕ} (hp : p.Prime) :
+    ((∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i).comp (X + C 1)).IsEisensteinAt
+      (Ideal.span {(p : ℤ)}) := by
+  haveI : Fact p.Prime := ⟨hp⟩
+  rw [← cyclotomic_prime ℤ p]
+  have hcyc : cyclotomic (p ^ (0 + 1)) ℤ = cyclotomic p ℤ := by simp
+  rw [← hcyc]
+  exact cyclotomic_prime_pow_comp_X_add_one_isEisensteinAt p 0
+
+/-- FT `ef31` (auxiliary lemma).  For a prime `p`, the polynomial `X ^ (p - 1) + ⋯ + 1` is
+irreducible in `ℤ[X]`.  Proof follows the source: by the Eisenstein criterion in prime-ideal
+form (`Polynomial.IsEisensteinAt.irreducible` at the prime ideal `pℤ`; the composition with
+the monic `X + C 1` is monic, hence primitive, and has degree `φ(p) = p - 1 > 0`),
+`f(X + 1)` is irreducible; the substitution `X ↦ X + 1` is a multiplicative automorphism
+(`irreducible_comp_X_add_C_iff`), so `f` itself is irreducible. -/
+theorem geom_sum_prime_irreducible_int {p : ℕ} (hp : p.Prime) :
+    Irreducible (∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i) := by
+  haveI : Fact p.Prime := ⟨hp⟩
+  have hc : Irreducible ((∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i).comp (X + C 1)) := by
+    have hmonic : ((∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i).comp (X + C 1)).Monic := by
+      rw [← cyclotomic_prime ℤ p]
+      exact (cyclotomic.monic p ℤ).comp_X_add_C 1
+    have hprime : Prime ((p : ℤ)) := Nat.prime_iff_prime_int.mp hp
+    have hP : (Ideal.span {(p : ℤ)}).IsPrime :=
+      (Ideal.span_singleton_prime (by exact_mod_cast hp.ne_zero)).2 hprime
+    refine Polynomial.IsEisensteinAt.irreducible
+      (geom_sum_prime_comp_X_add_one_isEisensteinAt hp) hP hmonic.isPrimitive ?_
+    rw [Polynomial.natDegree_comp, Polynomial.natDegree_X_add_C, mul_one,
+      ← cyclotomic_prime ℤ p, natDegree_cyclotomic, Nat.totient_prime hp]
+    exact Nat.sub_pos_of_lt hp.two_le
+  exact (irreducible_comp_X_add_C_iff (1 : ℤ)).mp hc
+
+/-- FT `ef31` (part (i), key lemma).  If `p` is prime, then `X ^ (p - 1) + ⋯ + 1` is
+irreducible.  In the source this is `Φ_p = (X ^ p - 1) / (X - 1)` over `ℚ`; here the
+polynomial is represented as the geometric sum `∑ i ∈ Finset.range p, X ^ i` (Mathlib's
+`Polynomial.cyclotomic_prime` identifies it with `cyclotomic p`, so this is irreducibility of
+the `p`-th cyclotomic polynomial over `ℚ`).  Proof: Gauss's lemma
+(`Polynomial.IsPrimitive.irreducible_iff_irreducible_map_fraction_map`, the same reduction the
+source makes via FT `ef6`) transports irreducibility from `ℤ[X]`
+(`geom_sum_prime_irreducible_int`, i.e. Eisenstein on `Φ_p(X + 1)` per the source proof) to
+`ℚ[X]`. -/
+theorem geom_sum_prime_irreducible {p : ℕ} (hp : p.Prime) :
+    Irreducible (∑ i ∈ Finset.range p, (X : ℚ[X]) ^ i) := by
+  haveI : Fact p.Prime := ⟨hp⟩
+  have hprim : (∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i).IsPrimitive := by
+    rw [← cyclotomic_prime ℤ p]
+    exact (cyclotomic.monic p ℤ).isPrimitive
+  have hmap : (∑ i ∈ Finset.range p, (X : ℤ[X]) ^ i).map (algebraMap ℤ ℚ)
+      = ∑ i ∈ Finset.range p, (X : ℚ[X]) ^ i := by
+    simp only [Polynomial.map_sum, Polynomial.map_pow, Polynomial.map_X]
+  rw [← hmap]
+  exact (IsPrimitive.irreducible_iff_irreducible_map_fraction_map hprim).mp
+    (geom_sum_prime_irreducible_int hp)
+
+/-- FT `ef31` (part (ii), degree conclusion).  If `p` is prime, then `ℚ[e ^ (2πi / p)]` has
+degree `p - 1` over `ℚ`.  Proof: `ζ = e ^ (2πi / p)` is a primitive `p`-th root of unity
+(`Complex.isPrimitiveRoot_exp`), so `Φ_p = cyclotomic p ℚ` is its minimal polynomial over
+`ℚ` (`Polynomial.cyclotomic_eq_minpoly_rat`), whose degree is `φ(p) = p - 1`
+(`Polynomial.natDegree_cyclotomic`, `Nat.totient_prime`); the degree of a simple adjoin equals
+the degree of the minimal polynomial (`IntermediateField.adjoin.finrank`).  Combined with
+part (i), this is the source's "hence": the minimal polynomial of `ζ` is the irreducible
+degree `p - 1` polynomial `X ^ (p - 1) + ⋯ + 1`. -/
+theorem finrank_adjoin_exp_two_pi_i_over_prime {p : ℕ} (hp : p.Prime) :
+    Module.finrank ℚ (ℚ⟮Complex.exp (2 * Real.pi * Complex.I / p)⟯) = p - 1 := by
+  have hζ : IsPrimitiveRoot (Complex.exp (2 * Real.pi * Complex.I / p)) p :=
+    Complex.isPrimitiveRoot_exp p hp.pos.ne'
+  have hint : IsIntegral ℚ (Complex.exp (2 * Real.pi * Complex.I / p)) := by
+    refine ⟨cyclotomic p ℚ, cyclotomic.monic p ℚ, ?_⟩
+    rw [eval₂_eq_eval_map, map_cyclotomic, ← IsRoot.def]
+    exact IsPrimitiveRoot.isRoot_cyclotomic hp.pos hζ
+  rw [IntermediateField.adjoin.finrank hint, ← cyclotomic_eq_minpoly_rat hζ hp.pos,
+    natDegree_cyclotomic, Nat.totient_prime hp]
+
+end ConstructionsStraightEdgeCompass
 
 end FT
