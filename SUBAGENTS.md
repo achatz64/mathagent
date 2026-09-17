@@ -142,6 +142,24 @@ For every substantial returned proof:
 4. inspect `#print axioms` for each final public result and important helper;
 5. only then integrate it and run the target build.
 
+Additionally, a shared-REPL verification is weaker than a build in two known
+ways. Both fall to the **main agent only** — proof workers are read-only and
+never run builds; this duty is part of the main agent's integration review
+(from SUBAGENTS.md workflow steps 3–4):
+
+- *Import closure.* The all-`Mathlib` REPL root resolves every Mathlib name,
+  so it cannot detect that the target file does not import the module defining
+  a name used in an integrated chunk. Names that replay cleanly in the REPL
+  may still fail `lake build` with `Unknown constant`. The main agent runs
+  the target build after integrating a chunk and adds the missing imports it
+  reveals (this is expected and routine; budget for it in every batch).
+- *Statement-level drift.* The REPL validates the returned text as typed by
+  the worker; the build validates the text as integrated. Small integration
+  changes (dropped explicit named arguments, changed binder order, renamed
+  helpers) can fail the build with stuck metavariables or unsolved goals that
+  the REPL never saw. The main agent therefore always rebuilds the target
+  after any non-verbatim integration, however small.
+
 A worker should normally return one self-contained block replayed from the clean
 Mathlib root. If response size requires sequential blocks, each block may depend
 only on Mathlib and previously accepted blocks, must use final names in the

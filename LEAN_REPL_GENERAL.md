@@ -34,6 +34,12 @@ Extlib dependencies set by the main agent. Call `lean_repl_status` to inspect
 the active `imports` block and whether the REPL is `initialized`. Use
 target-local declarations directly without pasting them into branches.
 
+If the REPL dies (e.g. after a timeout), it restarts automatically on the next
+request, reusing the last import block configured via `lean_repl_import`. A
+main agent that just killed the REPL to change imports may therefore see the
+new root appear before its own `lean_repl_import` call arrives; check the
+`imports` field of the response rather than assuming the call order.
+
 ## Development and builds
 
 Use the REPL for proof development and API checks. Do not create temporary Lean
