@@ -10,9 +10,10 @@ The REPL must be explicitly initialized before any `lean_repl` call:
 lean_repl_import({ imports: "import Mathlib\nimport Target" })
 ```
 
-`lean_repl_import` only works when the REPL is uninitialized or the old process
-has been killed. It refuses on a live REPL whose import block differs (killing
-requires `bash`, which only the main agent has). It is idempotent: re-sending
+`lean_repl_import` only works when the REPL is uninitialized, the old process
+has been killed, or the live REPL already runs exactly this import block. It
+refuses only on a live REPL whose import block differs (killing requires
+`bash`, which only the main agent has). It is idempotent: re-sending
 exactly the live REPL's current import block succeeds as a no-op and reports
 `status: "already-running"`. This matters after a build-restart cycle: an
 automatic restart on request reuses the last configured import block, so the
@@ -41,7 +42,11 @@ When the target file changes or new Extlib dependencies are needed:
 3. `lean_repl_import({ imports: "<new import block>" })`
 
 Only the main agent can do this: killing requires `bash`, and
-`lean_repl_import` refuses on a live REPL.
+`lean_repl_import` refuses on a live REPL with a different import block.
+If a queued worker request auto-restarted the REPL between steps 2 and 3,
+the restart reuses the last configured block; step 3 with the new block is
+then a genuine (refused-then-retry) import change, while re-sending the old
+block is the idempotent no-op.
 
 ## Monitoring
 
@@ -73,4 +78,4 @@ REPL), and add the import when it is not.
 
 After rebuild the REPL must be restarted to include target modifications.
 
-NEVER use tmp lean files to build, always the Target or the use the REPL.
+NEVER use tmp lean files to build, always the Target or use the REPL.

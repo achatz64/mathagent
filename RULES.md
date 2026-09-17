@@ -8,6 +8,13 @@ For builder agent:
 3. Generate data for improving open source and special purpose math llms.
 4. Do not use or support powerful llms. AI safety first.
 
+For main agent:
+5. Collect and report framework feedback to the builder agent. Observing the
+   framework (tools, extensions, docs, workflows) while working is part of the
+   main agent's job; report defects and missing capabilities. The issue and
+   the goal must be well-defined; a proposed remedy/fix/implementation is
+   optional and is not the main agent's obligation.
+
 # Rules 
 
 1. YOU MUST USE THE LIMIT PARAMETER WITH THE READ TOOL. BE EXTREMELY CONSERVATIVE AND TASK AWARE WITH THE LIMIT. THE DEFAULT LIMIT OF PI IS TOO HIGH, USE 100 AS DEFAULT.
