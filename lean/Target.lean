@@ -95,6 +95,8 @@ open scoped Pointwise
   of the monic-irreducible-root characterization of minimal polynomials.
 - `ef18` (remark: PARI/GP computations): computer-algebra illustration;
   omitted.
+- `ac3a` (aside: historical remark on Steinitz 1910): historical aside;
+  omitted.
 - Unlabeled prose following `ef7` in the source: the remark that the last
   three propositions hold "mutatis mutandis" with `ℤ` replaced by a UFD `R`
   carries no stable label and is omitted as a generalization beyond the
@@ -643,13 +645,6 @@ end TranscendentalNumbers
 
 /-!
 ### Algebraically closed fields
-
-AUDIT-GAP (full audit of commit 22eea5c, provenance/scope audit, minor;
-re-flags the gap closed incompletely by remediation commit 5d9c02e, which
-removed the earlier marker without adding the citation): the chapter-1 aside
-`ac3a` (historical aside on Steinitz 1910) is omitted by the provenance scope
-but has no scope citation in this file, unlike the other omitted expositional
-items of the chapter (see the ef0-ef31 cluster of scope notes above).
 
 Scope note: `sf10`'s source phrasing "hence an algebraic closure of `F`" is
 exposed through `isAlgClosure_of_isAlgebraic_of_splits` alongside the bare
