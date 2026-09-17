@@ -1,4 +1,29 @@
 #!/usr/bin/env python3
+# ============================================================================
+# ⚠  DO NOT TRUST THIS TOOL — AUDITOR WARNING, 2026-08-20  ⚠
+# ============================================================================
+# Status: BROKEN AS OF 2026-08-20. Its output must NOT be used as audit
+# evidence. Full findings, evidence, and reproduction commands live in
+# `tools/naming_audit_handoff.md` (next to the tool). Summary:
+#
+#   1. Token classification ignores the allowlist cache: Mathlib atoms that
+#      ARE in tools/.mathlib_names.json (Equiv, Module, Action, Basis,
+#      Linear, MulEquiv, ...) are still flagged as [high] violations.
+#      Output currently contains 108 [high] findings of unknown validity.
+#   2. The BUILDER STATUS REPORT below documents SEED_ATOMS and
+#      KNOWN_EXCEPTIONS, but NEITHER exists in the code (comments only).
+#      leftCoset/Coset are therefore wrongly flagged, and the two documented
+#      intentional naming exceptions in lean/Target.lean
+#      (Group.sum_card_conjClasses_eq_card,
+#       IsPGroup.card_modEq_card_fixedPoints) have no registration path and
+#      are re-flagged as fresh violations.
+#   3. The "resolved state: 0 high-confidence findings" claim in the status
+#      report is stale (predates the PID/Coxeter name layers added in e7cbcb9).
+#
+# Auditors: for the Mathlib name-form rule, rely on manual review or a
+# repaired/replaced checker. For the contextual-naming rule (AUDIT.md,
+# tightened 2026-08-20) this tool was never applicable anyway.
+# ============================================================================
 """First-try heuristic checker for Mathlib naming-convention conformance.
 
 Scans Lean declaration heads and flags names that violate the Mathlib

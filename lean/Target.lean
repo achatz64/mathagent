@@ -82,6 +82,7 @@ section BasicDefinitions
 variable {G G' : Type*} [Group G] [Group G']
 
 /-- GT `bd4`: a nonempty subset closed under multiplication and inversion is a subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.ofNonemptyMulInvClosed (S : Set G) (hne : S.Nonempty)
     (hmul : ∀ {a b : G}, a ∈ S → b ∈ S → a * b ∈ S)
     (hinv : ∀ {a : G}, a ∈ S → a⁻¹ ∈ S) : Subgroup G where
@@ -93,12 +94,14 @@ def Subgroup.ofNonemptyMulInvClosed (S : Set G) (hne : S.Nonempty)
   inv_mem' := hinv
 
 /-- GT `bd5`: membership in an arbitrary intersection of subgroups. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.mem_sInf_iff {S : Set (Subgroup G)} {x : G} :
     x ∈ sInf S ↔ ∀ H ∈ S, x ∈ H := by
   simp
 
 /-- GT `bd7`, leastness clause: the generated subgroup is the least subgroup
 containing the set. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.closure_le_iff {S : Set G} {H : Subgroup G} :
     Subgroup.closure S ≤ H ↔ S ⊆ H :=
   Subgroup.closure_le H
@@ -136,12 +139,14 @@ theorem Subgroup.mem_closure_iff_exists_list {S : Set G} {x : G} :
 
 /-- GT `bd11` (Cayley): every group is isomorphic to a subgroup of its
 permutation group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def Equiv.Perm.cayley (G : Type*) [Group G] :
     G ≃* (MulAction.toPermHom G G).range :=
   Equiv.Perm.subgroupOfMulAction G G
 
 /-- GT `bd12`: a finite group of order `n` embeds in the symmetric group on
 `n` letters. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem exists_injective_toPerm_fin [Fintype G] {n : ℕ}
     (hcard : Fintype.card G = n) :
     ∃ f : G →* Equiv.Perm (Fin n), Function.Injective f := by
@@ -151,6 +156,7 @@ theorem exists_injective_toPerm_fin [Fintype G] {n : ℕ}
     c.injective.comp MulAction.toPerm_injective⟩
 
 /-- GT `bd14(a)`: a point of a left coset determines that coset. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.mem_leftCoset_iff_eq_leftCoset (H : Subgroup G) (a b : G) :
     a ∈ b • (H : Set G) ↔ b • (H : Set G) = a • H := by
   constructor
@@ -162,6 +168,7 @@ theorem Subgroup.mem_leftCoset_iff_eq_leftCoset (H : Subgroup G) (a b : G) :
     exact ⟨1, H.one_mem, by simp⟩
 
 /-- GT `bd14(b)`: two left cosets are equal or disjoint. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.leftCoset_eq_or_disjoint (H : Subgroup G) (a b : G) :
     a • (H : Set G) = b • H ∨ Disjoint (a • (H : Set G)) (b • H) := by
   by_cases h : a • (H : Set G) = b • H
@@ -173,50 +180,60 @@ theorem Subgroup.leftCoset_eq_or_disjoint (H : Subgroup G) (a b : G) :
       ((Subgroup.mem_leftCoset_iff_eq_leftCoset H x b).1 hxb).symm)
 
 /-- GT `bd14`, part (c): equality of left cosets. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.leftCoset_eq_leftCoset_iff (H : Subgroup G) (a b : G) :
     a • (H : Set G) = b • H ↔ a⁻¹ * b ∈ H :=
   leftCoset_eq_iff H
 
 /-- GT `bd14(d)`: every left coset is in bijection with the subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.leftCosetEquiv (H : Subgroup G) (a : G) : (a • H : Set G) ≃ H :=
   H.leftCosetEquivSubgroup a
 
 /-- GT `bd15` (Lagrange), in `Nat.card` form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.card_mul_index_eq (H : Subgroup G) :
     Nat.card H * H.index = Nat.card G :=
   H.card_mul_index
 
 /-- GT `bd15`, divisibility conclusion: the order of a subgroup divides the
 order of the ambient group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.card_dvd_card' (H : Subgroup G) :
     Nat.card H ∣ Nat.card G :=
   H.card_subgroup_dvd_card
 
 /-- GT `bd16`: the order of an element divides the order of its group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 4 lines; a routine delegation may simply declare the proof trivial).
 theorem orderOf_dvd_group_card (x : G) : orderOf x ∣ Nat.card G :=
   orderOf_dvd_natCard x
 
 /-- GT `bd19`: multiplicativity of subgroup indices in a tower. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.relIndex_mul_index_eq {K H : Subgroup G} (hKH : K ≤ H) :
     K.relIndex H * H.index = K.index :=
   Subgroup.relIndex_mul_index hKH
 
 /-- GT `bd22`: normality is equivalent to equality of left and right cosets. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.normal_iff_leftCoset_eq_rightCoset (N : Subgroup G) :
     N.Normal ↔ ∀ g : G, g • (N : Set G) = MulOpposite.op g • N :=
   normal_iff_eq_cosets N
 
 /-- GT `bd25`: if `N` is normal, the carrier of `H ⊔ N` is the pointwise product `HN`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.coe_sup_eq_mul (H N : Subgroup G) [N.Normal] :
     (↑(H ⊔ N) : Set G) = H * N :=
   Subgroup.mul_normal H N
 
 /-- GT `bd25`, second clause: the product of two normal subgroups is normal. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.sup_normal (H N : Subgroup G) [H.Normal] [N.Normal] :
     (H ⊔ N).Normal := by
   infer_instance
 
 /-- GT `bd25l`: a conjugation-stable set generates a normal subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 17 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.closure_normal_of_conjugation_stable (S : Set G)
     (hS : ∀ g x, x ∈ S → g * x * g⁻¹ ∈ S) :
     (Subgroup.closure S).Normal := by
@@ -234,6 +251,7 @@ theorem Subgroup.closure_normal_of_conjugation_stable (S : Set G)
 
 /-- GT `bd25m`: `Group.conjugatesOfSet S` is conjugation-stable and is the
 least conjugation-stable set containing `S`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 17 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.conjugatesOfSet_isLeast (S : Set G) :
     (∀ g x, x ∈ Group.conjugatesOfSet S →
         g * x * g⁻¹ ∈ Group.conjugatesOfSet S) ∧
@@ -251,15 +269,18 @@ theorem Group.conjugatesOfSet_isLeast (S : Set G) :
 
 /-- GT `fg07`: the normal subgroup generated by `S` is the subgroup generated
 by all conjugates of elements of `S`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Subgroup.normalClosure_eq_closure_conjugatesOfSet (S : Set G) :
     Subgroup.normalClosure S = Subgroup.closure (Group.conjugatesOfSet S) :=
   rfl
 
 /-- GT `bd26`: kernels of group homomorphisms are normal. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 4 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidHom.ker_normal (f : G →* G') : f.ker.Normal := by
   infer_instance
 
 /-- GT `bd27`: a normal subgroup is the kernel of its quotient map. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.ker_mk'_eq (N : Subgroup G) [N.Normal] :
     (QuotientGroup.mk' N).ker = N :=
   QuotientGroup.ker_mk' N
@@ -291,6 +312,7 @@ def QuotientGroup.liftOfLeKer (N : Subgroup G) [N.Normal] (f : G →* G')
 
 /-- GT `bd27m`: the quotient map has the full universal property: every map
 killing `N` factors through it, and the factor is unique. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 13 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.existsUnique_lift (N : Subgroup G) [N.Normal]
     (f : G →* G') (h : N ≤ f.ker) :
     ∃! lift : G ⧸ N →* G', lift.comp (QuotientGroup.mk' N) = f := by
@@ -310,6 +332,7 @@ noncomputable def QuotientGroup.quotientKerMulEquivRange (f : G →* G') :
 
 /-- GT `it01`, explicit commuting factorization: the quotient map followed by
  the canonical equivalence and the range inclusion is the original map. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.quotientKerMulEquivRange_comp_mk (f : G →* G') :
     ((f.range.subtype).comp
       (QuotientGroup.quotientKerMulEquivRange f).toMonoidHom).comp
@@ -338,6 +361,7 @@ noncomputable def MonoidHom.mapComapOrderIsoOfSurjective (f : G →* G')
     (QuotientGroup.quotientKerEquivOfSurjective f hf).mapSubgroup
 
 /-- GT `it03(1)`: corresponding subgroup inclusions have the same index. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.relIndex_map_map_eq_of_ker_le (f : G →* G')
     (H K : Subgroup G) (hH : f.ker ≤ H) (hK : f.ker ≤ K) :
     (H.map f).relIndex (K.map f) = H.relIndex K := by
@@ -345,6 +369,7 @@ theorem Subgroup.relIndex_map_map_eq_of_ker_le (f : G →* G')
 
 /-- GT `it03(2)`: under a surjection, a subgroup containing the kernel is
 normal exactly when its image is normal. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 13 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.normal_map_iff_of_surjective (f : G →* G')
     (hf : Function.Surjective f) (H : Subgroup G) (hker : f.ker ≤ H) :
     (H.map f).Normal ↔ H.Normal := by
@@ -358,6 +383,7 @@ theorem Subgroup.normal_map_iff_of_surjective (f : G →* G')
 
 /-- GT `it03(2)`: a surjection induces the quotient isomorphism attached to
 a corresponding normal subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def QuotientGroup.quotientEquivMapOfSurjective
     (f : G →* G') (hf : Function.Surjective f)
     (H : Subgroup G) [H.Normal] (hker : f.ker ≤ H) :
@@ -375,6 +401,7 @@ noncomputable def QuotientGroup.quotientEquivMapOfSurjective
       ((QuotientGroup.mk'_surjective (H.map f)).comp hf) (Subgroup.le_comap_map f H)
 
 /-- GT `it04`, normality clause for the canonical quotient correspondence. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.normal_map_mk_iff (N H : Subgroup G) [N.Normal]
     (hNH : N ≤ H) :
     (H.map (QuotientGroup.mk' N)).Normal ↔ H.Normal := by
@@ -397,11 +424,13 @@ variable {G : Type*} [Group G]
 /-- The paper's notion that multiplication identifies `H × K` with `G` as
 a group, with the specified multiplication map rather than an arbitrary
 isomorphism. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.IsInternalDirectProduct (H K : Subgroup G) : Prop :=
   ∃ e : (H × K) ≃* G, ∀ x, e x = (x.1 : G) * (x.2 : G)
 
 /-- Multiplication is an internal direct-product isomorphism exactly when it
 is bijective and the two subgroups commute elementwise. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 41 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.isInternalDirectProduct_iff_isComplement'_and_commute
     (H K : Subgroup G) :
     Subgroup.IsInternalDirectProduct H K ↔
@@ -443,6 +472,7 @@ theorem Subgroup.isInternalDirectProduct_iff_isComplement'_and_commute
 
 /-- GT `it05`: multiplication gives an internal direct product if and only
 if the factors generate `G`, intersect trivially, and commute elementwise. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Subgroup.isInternalDirectProduct_iff_sup_eq_top_disjoint_commute
     (H K : Subgroup G) :
     Subgroup.IsInternalDirectProduct H K ↔
@@ -484,6 +514,7 @@ theorem Subgroup.isInternalDirectProduct_iff_sup_eq_top_disjoint_commute
 
 /-- GT `it06`: equivalently, the commuting condition in `it05` may be
 replaced by normality of both factors. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Subgroup.isInternalDirectProduct_iff_sup_eq_top_disjoint_normal
     (H K : Subgroup G) :
     Subgroup.IsInternalDirectProduct H K ↔
@@ -546,17 +577,20 @@ noncomputable def Subgroup.prodMulEquivOfIsComplement'
   exact MulEquiv.ofBijective f h
 
 /-- The ordered pointwise product of a list of subgroups. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.orderedProduct {ι : Type*} (H : ι → Subgroup G)
     (l : List ι) : Set G :=
   (l.map fun i => (H i : Set G)).prod
 
 /-- The ordered multiplication map on a `Fin`-indexed family of subgroups. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.piMul {n : ℕ} (H : Fin n → Subgroup G)
     (x : (i : Fin n) → H i) : G :=
   (List.finRange n |>.map fun i => (x i : G)).prod
 
 /-- Multiplication identifies the external product of a finite ordered family
 of subgroups with the ambient group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subgroup.IsInternalDirectProductFamily {n : ℕ}
     (H : Fin n → Subgroup G) : Prop :=
   ∃ e : ((i : Fin n) → H i) ≃* G,
@@ -677,6 +711,7 @@ private theorem list_prod_mul_eq {ι M : Type*} [DecidableEq ι] [Monoid M]
 /-- GT `it07`: an ordered finite family is an internal direct product exactly
 when its ordered pointwise product is all of `G`, each factor meets the ordered
 product of all the other factors only in `1`, and every factor is normal. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 200 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.isInternalDirectProductFamily_iff {n : ℕ}
     (H : Fin n → Subgroup G) :
     Subgroup.IsInternalDirectProductFamily H ↔
@@ -877,6 +912,7 @@ variable {N Q : Type*} [Group N] [Group Q]
 
 /-- GT `it15`: an action gives the displayed group law on pairs; the canonical
 copies of both factors form an internal semidirect product with that action. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 42 lines; a routine delegation may simply declare the proof trivial).
 theorem SemidirectProduct.canonical_factor_properties
     (N Q : Type*) [Group N] [Group Q] (θ : Q →* MulAut N) :
     let G := N ⋊[θ] Q
@@ -919,6 +955,7 @@ theorem SemidirectProduct.canonical_factor_properties
 
 /-- GT `st14`: conjugating an action on `N` gives an isomorphic semidirect
 product via `(n,q) ↦ (α(n),q)`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def SemidirectProduct.conjugateActionMulEquiv
     (θ θ' : Q →* MulAut N) (α : MulAut N)
     (h : ∀ q : Q, θ' q = α * θ q * α⁻¹) :
@@ -939,6 +976,7 @@ theorem SemidirectProduct.conjugateActionMulEquiv_apply
 
 /-- GT `st15`: precomposing an action by an automorphism of `Q` gives an
 isomorphic semidirect product via `(n,q) ↦ (n,α(q))`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def SemidirectProduct.precompActionMulEquiv
     (θ θ' : Q →* MulAut N) (α : MulAut Q)
     (h : θ = θ'.comp α.toMonoidHom) :
@@ -1078,6 +1116,7 @@ private lemma cyclic_hom_eq_comp_mulAut_of_range_eq
 
 /-- GT `st16`: semidirect products by a finite cyclic group are isomorphic
 when the ranges of their actions are conjugate in `MulAut N`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem SemidirectProduct.nonempty_mulEquiv_of_finite_isCyclic_of_range_conjugate
     [Finite Q] [IsCyclic Q] (θ θ' : Q →* MulAut N)
     (hconj : ∃ α : MulAut N,
@@ -1345,6 +1384,7 @@ private theorem exists_family_span_eq_with_eq_zsum
     Equiv.sum_comp e (fun i => (c i : ℤ) • x i)
 
 /-- GT `it19`, finite-family span-preserving form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 15 lines; a routine delegation may simply declare the proof trivial).
 theorem exists_family_span_eq_with_eq_nsmul_sum
     {ι M : Type*} [Fintype ι] [AddCommGroup M]
     (i₀ : ι) (x : ι → M) (c : ι → ℕ)
@@ -1382,6 +1422,7 @@ theorem CommGroup.exists_mulEquiv_free_prod_prime_power
 
 /-- The gcd of two prime powers records the smaller exponent
 when the primes agree, and is one otherwise. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 12 lines; a routine delegation may simply declare the proof trivial).
 theorem Nat.gcd_prime_pow_prime_pow {p q e k : ℕ} (hp : p.Prime)
     (hq : q.Prime) : (q ^ e).gcd (p ^ k) = if q = p then p ^ min e k else 1 := by
   split_ifs with h
@@ -1394,6 +1435,7 @@ theorem Nat.gcd_prime_pow_prime_pow {p q e k : ℕ} (hp : p.Prime)
 
 /-- The gcd with a prime power is controlled by the corresponding
 prime valuation. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Nat.gcd_prime_pow_eq_pow_min_factorization {n p k : ℕ}
     (hn : n ≠ 0) (hp : p.Prime) :
     n.gcd (p ^ k) = p ^ min (n.factorization p) k := by
@@ -1407,6 +1449,7 @@ theorem Nat.gcd_prime_pow_eq_pow_min_factorization {n p k : ℕ}
 
 /-- Taking `d`-th roots of one commutes with a finite product of
 commutative groups. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def CommGroup.powEqOnePiEquiv {ι : Type*} (A : ι → Type*)
     [∀ i, CommGroup (A i)] (d : ℕ) :
     {x : ∀ i, A i // x ^ d = 1} ≃ ∀ i, {x : A i // x ^ d = 1} where
@@ -1417,6 +1460,7 @@ def CommGroup.powEqOnePiEquiv {ι : Type*} (A : ι → Type*)
 
 /-- A multiplicative equivalence restricts to an equivalence between its
 subtypes of `d`-th roots of one. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def CommGroup.powEqOneEquiv {A B : Type*} [CommGroup A] [CommGroup B]
     (h : A ≃* B) (d : ℕ) : {x : A // x ^ d = 1} ≃ {x : B // x ^ d = 1} where
   toFun x := ⟨h x.1, by
@@ -1434,6 +1478,7 @@ def CommGroup.powEqOneEquiv {A B : Type*} [CommGroup A] [CommGroup B]
 
 /-- The number of `d`-th roots of one in a finite product of finite cyclic
 groups is the product of the corresponding gcds. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.card_pow_eq_one_pi_cyclic {ι : Type*} [Fintype ι]
     (A : ι → Type*) [∀ i, CommGroup (A i)] [∀ i, Fintype (A i)]
     [∀ i, IsCyclic (A i)] (d : ℕ) :
@@ -1445,6 +1490,7 @@ theorem CommGroup.card_pow_eq_one_pi_cyclic {ι : Type*} [Fintype ι]
   exact IsCyclic.card_powMonoidHom_ker (A i) d
 
 /-- The root-count profile of a product of cyclic prime-power groups. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 16 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.card_pow_eq_one_pi_prime_power {ι : Type*} [Fintype ι]
     (q e : ι → ℕ) (hq : ∀ i, Nat.Prime (q i))
     (p : ℕ) (hp : p.Prime) (k : ℕ) :
@@ -1461,6 +1507,7 @@ theorem CommGroup.card_pow_eq_one_pi_prime_power {ι : Type*} [Fintype ι]
 
 /-- The root-count profile of a product of arbitrary nontrivial cyclic
 groups, expressed through prime valuations. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 14 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.card_pow_eq_one_pi_cyclic_factorization {ι : Type*}
     [Fintype ι] (n : ι → ℕ) (hn : ∀ i, n i ≠ 0)
     (p : ℕ) (hp : p.Prime) (k : ℕ) :
@@ -1475,6 +1522,7 @@ theorem CommGroup.card_pow_eq_one_pi_cyclic_factorization {ι : Type*}
 
 /-- Isomorphic products of nontrivial cyclic groups have identical truncated
 prime-valuation profiles. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 15 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.sum_min_factorization_eq_of_cyclic_pi_mulEquiv
     {ι κ : Type*} [Fintype ι] [Fintype κ]
     (n : ι → ℕ) (m : κ → ℕ) (hn : ∀ i, n i ≠ 0) (hm : ∀ j, m j ≠ 0)
@@ -1490,6 +1538,7 @@ theorem CommGroup.sum_min_factorization_eq_of_cyclic_pi_mulEquiv
 
 /-- Successive differences of the sum of truncated natural numbers count
 how many entries lie above the truncation point. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 14 lines; a routine delegation may simply declare the proof trivial).
 theorem Finset.sum_min_succ (s : Finset ι) (a : ι → ℕ) (k : ℕ) :
     (∑ i ∈ s, min (a i) (k + 1)) =
       (∑ i ∈ s, min (a i) k) + (s.filter fun i => k < a i).card := by
@@ -1504,6 +1553,7 @@ theorem Finset.sum_min_succ (s : Finset ι) (a : ι → ℕ) (k : ℕ) :
 
 /-- Partition the entries strictly above `k - 1` into those equal to `k`
 and those strictly above `k`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 26 lines; a routine delegation may simply declare the proof trivial).
 theorem Finset.card_filter_eq_add_card_filter_gt (s : Finset ι)
     (a : ι → ℕ) {k : ℕ} (hk : 0 < k) :
     (s.filter fun i => k - 1 < a i).card =
@@ -1530,6 +1580,7 @@ theorem Finset.card_filter_eq_add_card_filter_gt (s : Finset ι)
 
 /-- A nondecreasing finite sequence is determined by the cardinalities of
 all of its strict upper level sets. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Fin.eq_of_monotone_of_card_filter_gt_eq {s : ℕ}
     (a b : Fin s → ℕ) (ha : Monotone a) (hb : Monotone b)
     (hcard : ∀ k,
@@ -1577,6 +1628,7 @@ theorem Fin.eq_of_monotone_of_card_filter_gt_eq {s : ℕ}
 
 /-- Isomorphic products of nontrivial cyclic prime-power groups have the same
 root-count exponent profile at every prime and exponent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 19 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.sum_min_eq_of_prime_power_pi_mulEquiv
     {ι κ : Type*} [Fintype ι] [Fintype κ]
     (p e : ι → ℕ) (q f : κ → ℕ)
@@ -1698,6 +1750,7 @@ theorem Group.rank_multiplicative_eq_finrank
     exact (hle.trans_eq hcat).trans_eq (hTcard.trans hScard)
 
 /-- The free abelian group of rank `r` needs exactly `r` generators. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.rank_pi_multiplicative_int (r : ℕ) :
     Group.rank (Fin r → Multiplicative ℤ) = r := by
   show Group.rank (Multiplicative (Fin r → ℤ)) = r
@@ -1706,6 +1759,7 @@ theorem Group.rank_pi_multiplicative_int (r : ℕ) :
 
 /-- GT `it21(a)`, canonical rank interface: the free rank is invariant under
 commutative-group isomorphism. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.freeRank_eq_of_mulEquiv
     {G H : Type*} [CommGroup G] [CommGroup H] [Group.FG G] [Group.FG H]
     (e : G ≃* H) : CommGroup.freeRank G = CommGroup.freeRank H :=
@@ -1713,6 +1767,7 @@ theorem CommGroup.freeRank_eq_of_mulEquiv
 
 /-- Adjacent divisibility in a finite sequence implies divisibility of
 every earlier term into every later term. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 30 lines; a routine delegation may simply declare the proof trivial).
 theorem Fin.dvd_of_adjacent {s : ℕ} (n : Fin s → ℕ)
     (h : ∀ i : Fin (s - 1),
       n ⟨i.1, by omega⟩ ∣ n ⟨i.1 + 1, by omega⟩) :
@@ -1854,6 +1909,7 @@ def CommGroup.torsionProdEquivRight (A B : Type*) [CommGroup A] [CommGroup B]
 
 /-- Quotienting a product of a torsion-free group and a torsion group by
 its torsion subgroup recovers the first factor. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def CommGroup.quotientTorsionProdEquivLeft
     (A B : Type*) [CommGroup A] [CommGroup B] [IsMulTorsionFree A]
     (hB : Monoid.IsTorsion B) :
@@ -1888,6 +1944,7 @@ noncomputable def CommGroup.freeFactorMulEquiv
 
 /-- A displayed free factor in a finitely generated commutative-group
 decomposition has the intrinsic free rank. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 14 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.freeRank_eq_of_free_prod_torsion
     (G : Type*) [CommGroup G] [Group.FG G] {r : ℕ} (T : Type*)
     [CommGroup T] (hT : Monoid.IsTorsion T)
@@ -1902,6 +1959,7 @@ theorem CommGroup.freeRank_eq_of_free_prod_torsion
 /-- GT `it21`, full-decomposition torsion uniqueness: when two decompositions
 of the same finitely generated commutative group include their free factors,
 the invariant factors of their finite torsion factors agree. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 33 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.invariantFactors_unique_of_full_decompositions
     (G : Type*) [CommGroup G] [Group.FG G]
     {r₁ r₂ s t : ℕ} (n : Fin s → ℕ) (m : Fin t → ℕ)
@@ -1935,6 +1993,7 @@ theorem CommGroup.invariantFactors_unique_of_full_decompositions
 /-- GT `it21(a,c)`, full-decomposition elementary-divisor uniqueness:
 two prime-power decompositions have the same free rank and the same
 multiplicity for every elementary divisor `q^k`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 38 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.elementary_divisors_unique_of_full_decompositions
     (G : Type*) [CommGroup G] [Group.FG G]
     {r₁ r₂ : ℕ} {ι κ : Type*} [Fintype ι] [Fintype κ]
@@ -2001,6 +2060,7 @@ open scoped Classical in
 /-- GT `it24`, orthogonality: over a field, two unit-valued characters of a
 finite commutative group have scalar product `|G|` when equal and zero
 otherwise. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 27 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.sum_character_mul_inv_character
     {k G : Type*} [Field k] [CommGroup G] [Fintype G]
     (chi psi : G →* kˣ) :
@@ -2039,6 +2099,7 @@ open scoped Classical in
 at the identity and zero elsewhere. The finite sum is expressed as a `finsum`
 so its statement does not depend on choosing a `Fintype` instance for the
 dual group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 24 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.finsum_character_apply
     {k G : Type*} [Field k] [CommGroup G] [Fintype G]
     [HasEnoughRootsOfUnity k (Monoid.exponent G)] (g : G) :
@@ -2067,6 +2128,7 @@ def FreeGroup.liftToGroup (f : X → G) : FreeGroup X →* G :=
   FreeGroup.lift f
 
 /-- GT `fg03`: uniqueness in the universal property of the free group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem FreeGroup.lift_unique' (f : X → G) (g : FreeGroup X →* G)
     (h : ∀ x, g (.of x) = f x) : g = FreeGroup.lift f := by
   ext x
@@ -2074,12 +2136,14 @@ theorem FreeGroup.lift_unique' (f : X → G) (g : FreeGroup X →* G)
 
 /-- GT `fg05`: the canonical map from the free group on the underlying set of a
 group is surjective. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem FreeGroup.lift_id_surjective :
     Function.Surjective (FreeGroup.lift (id : G → G)) := by
   intro g
   exact ⟨FreeGroup.of g, FreeGroup.lift_apply_of⟩
 
 /-- GT `fg06` (Nielsen--Schreier): subgroups of free groups are free. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.isFreeGroup_of_isFreeGroup [IsFreeGroup G] (H : Subgroup G) :
     IsFreeGroup H := by
   infer_instance
@@ -2090,6 +2154,7 @@ def PresentedGroup.liftToGroup {rels : Set (FreeGroup X)} (f : X → G)
   PresentedGroup.toGroup h
 
 /-- GT `fg09`: uniqueness in the universal property of a presented group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 16 lines; a routine delegation may simply declare the proof trivial).
 theorem PresentedGroup.lift_unique' {rels : Set (FreeGroup X)} (f : X → G)
     (h : ∀ r ∈ rels, FreeGroup.lift f r = 1) (g : PresentedGroup rels →* G)
     (hg : ∀ x, g (.of x) = f x) : g = PresentedGroup.toGroup h := by
@@ -2106,6 +2171,7 @@ variable {G : Type u} {X : Type v} [Group G] [MulAction G X]
 open MulAction
 
 /-- GT `ga04`: stabilizers of points in the same orbit are conjugate. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.stabilizer_smul_eq (g : G) (x : X) :
     stabilizer G (g • x) = (stabilizer G x).map (MulAut.conj g).toMonoidHom :=
   MulAction.stabilizer_smul_eq_stabilizer_map_conj g x
@@ -2117,6 +2183,7 @@ noncomputable def MulAction.quotientStabilizerEquivOrbit (x : X) :
 
 /-- GT `ga07`: for a transitive action, the canonical equivalence from the
 stabilizer quotient to the set is `G`-equivariant. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 15 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.exists_quotient_stabilizer_equivariant_Equiv
     [MulAction.IsPretransitive G X] (x : X) :
     ∃ e : (G ⧸ stabilizer G x) ≃ X,
@@ -2132,6 +2199,7 @@ theorem MulAction.exists_quotient_stabilizer_equivariant_Equiv
 
 /-- GT `ga08` / `e34`: orbit cardinality equals the cardinality of the
 stabilizer quotient, without collapsing infinite cardinals to zero. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.orbit_cardinal_eq_quotient (x : X) :
     Cardinal.lift.{u} (Cardinal.mk (orbit G x)) =
       Cardinal.lift.{v} (Cardinal.mk (G ⧸ stabilizer G x)) :=
@@ -2142,6 +2210,7 @@ theorem MulAction.orbit_cardinal_eq_quotient (x : X) :
 
 /-- The conjugation orbit of a subgroup is explicitly the quotient by its
 normalizer, valid without finiteness assumptions. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def Subgroup.conjugationOrbitEquivNormalizerQuotient
     (H : Subgroup G) :
     MulAction.orbit (ConjAct G) H ≃
@@ -2215,12 +2284,14 @@ theorem Subgroup.conjugation_orbit_card_eq_normalizer_index
   exact Subgroup.index_map_equiv _ (ConjAct.toConjAct (G := G))
 
 /-- GT `ga10`: the kernel of the coset action is the normal core. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.normalCore_eq_cosetAction_ker (H : Subgroup G) :
     H.normalCore = (MulAction.toPermHom G (G ⧸ H)).ker :=
   H.normalCore_eq_ker
 
 /-- GT `ga09`: for an arbitrary transitive action, the action kernel is the
 largest normal subgroup contained in a chosen point stabilizer. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 22 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.ker_toPermHom_isGreatest_normal_le_stabilizer
     [MulAction.IsPretransitive G X] (x : X) :
     (MulAction.toPermHom G X).ker.Normal ∧
@@ -2250,6 +2321,7 @@ noncomputable def MulAction.sigmaOrbitsEquiv :
 
 /-- GT `ga11` / `e35`: for a finite acted-on set, its cardinality is the sum
 of the stabilizer indices of orbit representatives. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 15 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.card_eq_sum_index_stabilizer [Fintype X] :
     letI : Fintype (MulAction.orbitRel.Quotient G X) := Fintype.ofFinite _
     Fintype.card X = ∑ ω : MulAction.orbitRel.Quotient G X,
@@ -2265,6 +2337,7 @@ theorem MulAction.card_eq_sum_index_stabilizer [Fintype X] :
 
 /-- GT `ga39`: for a nontrivial transitive action, primitivity is equivalent
 to maximality of a point stabilizer. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.isCoatom_stabilizer_iff_isPreprimitive
     [MulAction.IsPretransitive G X] [Nontrivial X] (x : X) :
     IsCoatom (stabilizer G x) ↔ MulAction.IsPreprimitive G X :=
@@ -2272,6 +2345,7 @@ theorem MulAction.isCoatom_stabilizer_iff_isPreprimitive
 
 /-- GT `e18`: the block condition is exactly that every translate
 is either equal to the block or disjoint from it. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.isBlock_iff_smul_eq_or_disjoint (B : Set X) :
     MulAction.IsBlock G B ↔
       ∀ g : G, g • B = B ∨ Disjoint (g • B) B :=
@@ -2279,6 +2353,7 @@ theorem MulAction.isBlock_iff_smul_eq_or_disjoint (B : Set X) :
 
 /-- GT `ga37`: a nontrivial transitive action is imprimitive exactly when it
 has a proper nonsingleton block. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 19 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.not_isPreprimitive_iff_exists_proper_nonsingleton_block
     [MulAction.IsPretransitive G X] [Nontrivial X] :
     ¬ MulAction.IsPreprimitive G X ↔
@@ -2298,6 +2373,7 @@ theorem MulAction.not_isPreprimitive_iff_exists_proper_nonsingleton_block
     exact (MulAction.IsPreprimitive.isTrivialBlock_of_isBlock hB).elim hns hproper
 
 /-- Inclusion helper for GT `ga38`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.stabilizer_le_stabilizer_block
     {B : Set X} (hB : MulAction.IsBlock G B) {x : X} (hx : x ∈ B) :
     stabilizer G x ≤ stabilizer G B :=
@@ -2306,6 +2382,7 @@ theorem MulAction.stabilizer_le_stabilizer_block
 /-- GT `ga38`: in a transitive action, the point stabilizer is strictly
 contained in the stabilizer of a proper nonsingleton block, which is itself
 strictly contained in the whole group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 42 lines; a routine delegation may simply declare the proof trivial).
 theorem MulAction.stabilizer_lt_stabilizer_block_lt_top
     [MulAction.IsPretransitive G X] {B : Set X}
     (hB : MulAction.IsBlock G B) {x : X} (hx : x ∈ B)
@@ -2348,6 +2425,7 @@ variable {X : Type*}
 
 /-- GT `ga21`: a finite permutation is the product of its pairwise-disjoint
 cycle factors. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem Equiv.Perm.noncommProd_cycleFactorsFinset [Fintype X] [DecidableEq X]
     (f : Equiv.Perm X) :
     f.cycleFactorsFinset.noncommProd id
@@ -2369,6 +2447,7 @@ theorem Equiv.Perm.cycle_decomposition_unique [Finite X]
 
 /-- GT `ga22`: a permutation is a product of transpositions, and its sign is
 the parity of the displayed factorization length. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 13 lines; a routine delegation may simply declare the proof trivial).
 theorem Equiv.Perm.exists_swapFactors_with_sign [Fintype X] [LinearOrder X]
     (f : Equiv.Perm X) :
     ∃ l : List (Equiv.Perm X), l.prod = f ∧
@@ -2382,6 +2461,7 @@ theorem Equiv.Perm.exists_swapFactors_with_sign [Fintype X] [LinearOrder X]
 
 /-- The sign formula also applies to every supplied transposition
 factorization, not only Mathlib's chosen factorization. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Equiv.Perm.sign_eq_pow_length_of_swapFactors [Fintype X]
     [DecidableEq X] {f : Equiv.Perm X} (l : List (Equiv.Perm X))
     (hprod : l.prod = f) (hswap : ∀ g ∈ l, Equiv.Perm.IsSwap g) :
@@ -2390,12 +2470,14 @@ theorem Equiv.Perm.sign_eq_pow_length_of_swapFactors [Fintype X]
   exact Equiv.Perm.sign_prod_list_swap hswap
 
 /-- GT `ga23`: the alternating group is generated by three-cycles. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Equiv.Perm.closure_isThreeCycle_eq_alternating [Fintype X] [DecidableEq X] :
     Subgroup.closure {f : Equiv.Perm X | Equiv.Perm.IsThreeCycle f} = alternatingGroup X :=
   Equiv.Perm.closure_three_cycles_eq_alternating
 
 /-- GT `ga25`: finite permutations are conjugate exactly when their cycle
 types agree. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 17 lines; a routine delegation may simply declare the proof trivial).
 theorem Equiv.Perm.isConj_iff_cycleType_eq' [Fintype X] [DecidableEq X]
     {f g : Equiv.Perm X} : IsConj f g ↔ f.cycleType = g.cycleType :=
   Equiv.Perm.isConj_iff_cycleType_eq
@@ -2413,18 +2495,21 @@ self-reference `:= Group.sum_card_conjClasses_eq_card G`, and Lean's in-progress
 declaration resolution only accepts this theorem under its original name; the
 snake_case form fails to elaborate. Coding-conventions AUDIT-GAP resolved as a
 false positive (rename would break the build). -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.sum_card_conjClasses_eq_card [Finite G] :
     ∑ᶠ C : ConjClasses G, C.carrier.ncard = Nat.card G :=
   Group.sum_card_conj_classes_eq_card G
 
 /-- GT `ga12` / `e37`: the class equation, separating the centre from the
 noncentral conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.card_center_add_sum_noncenter_eq_card [Finite G] :
     Nat.card (Subgroup.center G) +
       ∑ᶠ C ∈ ConjClasses.noncenter G, Nat.card C.carrier = Nat.card G :=
   Group.nat_card_center_add_sum_card_noncenter_eq_card G
 
 /-- A chosen representative of a conjugacy class. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def ConjClasses.representative (C : ConjClasses G) : G :=
   Quotient.out C
 
@@ -2435,6 +2520,7 @@ theorem ConjClasses.mk_representative (C : ConjClasses G) :
 
 /-- The size of a conjugacy class is the index of the centralizer of a chosen
 representative. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem ConjClasses.centralizerIndex_representative [Finite G]
     (C : ConjClasses G) :
     (Subgroup.centralizer ({ConjClasses.representative C} : Set G)).index =
@@ -2446,6 +2532,7 @@ theorem ConjClasses.centralizerIndex_representative [Finite G]
 
 /-- GT `ga12` / `e36`: the class equation as a sum of centralizer indices
 of chosen conjugacy-class representatives. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.sum_centralizerIndex_representatives_eq_card [Finite G] :
     ∑ᶠ C : ConjClasses G,
       (Subgroup.centralizer ({ConjClasses.representative C} : Set G)).index =
@@ -2455,6 +2542,7 @@ theorem Group.sum_centralizerIndex_representatives_eq_card [Finite G] :
 
 /-- GT `ga12` / `e37`: the class equation split into the centre and the
 centralizer indices of representatives of non-singleton conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.nat_card_center_add_sum_centralizerIndex_noncenter_eq_card
     [Finite G] :
     Nat.card (Subgroup.center G) +
@@ -2465,6 +2553,7 @@ theorem Group.nat_card_center_add_sum_centralizerIndex_noncenter_eq_card
   exact Group.nat_card_center_add_sum_card_noncenter_eq_card G
 
 /-- GT `ga13` (Cauchy): a prime divisor of the group order occurs as an element order. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem exists_orderOf_eq_prime [Fintype G] {p : ℕ} (hp : p.Prime)
     (hdiv : p ∣ Fintype.card G) : ∃ g : G, orderOf g = p := by
   letI : Fact p.Prime := ⟨hp⟩
@@ -2472,12 +2561,14 @@ theorem exists_orderOf_eq_prime [Fintype G] {p : ℕ} (hp : p.Prime)
 
 /-- GT `ga13c`: a group is a `p`-group exactly when every element has
 prime-power order. Finiteness is unnecessary in Mathlib's formulation. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem is_p_group_iff_order_of_prime_power {p : ℕ} (hp : p.Prime) :
     IsPGroup p G ↔ ∀ g : G, ∃ k : ℕ, orderOf g = p ^ k := by
   letI : Fact p.Prime := ⟨hp⟩
   exact IsPGroup.iff_orderOf
 
 /-- GT `ga14`: a nontrivial finite `p`-group has nontrivial centre. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem IsPGroup.center_nontrivial {p : ℕ} [Fact p.Prime] (hG : IsPGroup p G)
     [Nontrivial G] [Finite G] : Nontrivial (Subgroup.center G) :=
   hG.center_nontrivial
@@ -2485,6 +2576,7 @@ theorem IsPGroup.center_nontrivial {p : ℕ} [Fact p.Prime] (hG : IsPGroup p G)
 /-- GT `ga15`: if a finite group has order `p^n`, then it has a normal
 subgroup of order `p^m` for every `m ≤ n`.  The proof inducts by pulling an
 order-`p` central subgroup back from the quotient by the preceding term. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem exists_normal_subgroup_nat_card_eq_prime_pow [Finite G]
     {p n m : ℕ} (hp : p.Prime) (hcard : Nat.card G = p ^ n) (hm : m ≤ n) :
     ∃ N : Subgroup G, N.Normal ∧ Nat.card N = p ^ m := by
@@ -2556,12 +2648,14 @@ theorem exists_normal_subgroup_nat_card_eq_prime_pow [Finite G]
       exact ⟨K, hKnormal, by simpa [Nat.succ_eq_add_one] using hKcard⟩
 
 /-- GT `ga17`: a cyclic quotient by the centre forces commutativity. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem commutative_of_quotient_center_cyclic
     [hcyc : IsCyclic (G ⧸ Subgroup.center G)] : ∀ a b : G, a * b = b * a := by
   exact (isMulCommutative_of_isCyclic_quotient_center_self G).is_comm.comm
 
 /-- GT `ga17`, in the stated generality: quotienting by any central normal
 subgroup, rather than necessarily by the full centre, suffices. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem commutative_of_quotient_cyclic_of_le_center
     (H : Subgroup G) [H.Normal] (hH : H ≤ Subgroup.center G)
     [IsCyclic (G ⧸ H)] : ∀ a b : G, a * b = b * a := by
@@ -2571,12 +2665,14 @@ theorem commutative_of_quotient_cyclic_of_le_center
     hker).is_comm.comm
 
 /-- GT `ga16`: a group of prime-square order is commutative. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem commutative_of_card_eq_prime_sq {p : ℕ} [Fact p.Prime]
     (hcard : Nat.card G = p ^ 2) : ∀ a b : G, a * b = b * a :=
   (IsPGroup.isMulCommutative_of_card_eq_prime_sq hcard).is_comm.comm
 
 /-- GT `ga16`, classification clause: a group of prime-square order is either
 cyclic of order `p²` or elementary abelian of rank two. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 56 lines; a routine delegation may simply declare the proof trivial).
 theorem exists_mulEquiv_zmod_prime_sq_or_prod {p : ℕ} [Fact p.Prime]
     (hcard : Nat.card G = p ^ 2) :
     Nonempty (G ≃* Multiplicative (ZMod (p ^ 2))) ∨
@@ -2633,12 +2729,14 @@ theorem exists_mulEquiv_zmod_prime_sq_or_prod {p : ℕ} [Fact p.Prime]
       (MulEquiv.prodMultiplicative (ZMod p) (ZMod p))⟩
 
 /-- GT `ga28`: alternating groups on at least five letters are simple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem alternatingGroup_isSimple {n : ℕ} (h : 5 ≤ n) :
     IsSimpleGroup (alternatingGroup (Fin n)) := by
   exact alternatingGroup.isSimpleGroup (by simpa using h)
 
 /-- GT `ga32`: on at least five letters, a normal subgroup of the symmetric
 group is trivial, alternating, or the whole symmetric group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Equiv.Perm.normal_subgroup_eq_bot_or_alternating_or_top
     {X : Type*} [Fintype X] [DecidableEq X]
     (N : Subgroup (Equiv.Perm X)) [N.Normal] (hX : 5 ≤ Nat.card X) :
@@ -2676,6 +2774,7 @@ theorem IsPGroup.card_modEq_card_fixedPoints {p : ℕ} [Fact p.Prime] (hG : IsPG
   hG.card_modEq_card_fixedPoints X
 
 /-- GT `st2`: Sylow I in its prime-power divisor form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.exists_subgroup_card_pow_of_dvd [Finite G] {p r : ℕ}
     (hp : p.Prime) (hdiv : p ^ r ∣ Nat.card G) :
     ∃ H : Subgroup G, Nat.card H = p ^ r := by
@@ -2683,21 +2782,25 @@ theorem Sylow.exists_subgroup_card_pow_of_dvd [Finite G] {p r : ℕ}
   exact Sylow.exists_subgroup_card_pow_prime p hdiv
 
 /-- GT `st7`: all Sylow subgroups are conjugate. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.exists_smul_eq [Fact p.Prime] [Finite (Sylow p G)]
     (P Q : Sylow p G) : ∃ g : G, g • P = Q :=
   MulAction.exists_smul_eq G P Q
 
 /-- GT `st7(b)`: the number of Sylow subgroups is one modulo `p`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.card_mod_eq_one [Fact p.Prime] [Finite (Sylow p G)] :
     Nat.card (Sylow p G) ≡ 1 [MOD p] :=
   card_sylow_modEq_one p G
 
 /-- GT `st7(b)`: the number of Sylow subgroups divides the Sylow index. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.card_dvd_index' [Fact p.Prime] [Finite (Sylow p G)] (P : Sylow p G) :
     Nat.card (Sylow p G) ∣ P.index :=
   P.card_dvd_index
 
 /-- GT `st7(c)`: every `p`-subgroup lies in a Sylow `p`-subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem IsPGroup.exists_le_sylow' {p : ℕ} [Fact p.Prime]
     {H : Subgroup G} (hH : IsPGroup p H) :
     ∃ P : Sylow p G, H ≤ P :=
@@ -2705,6 +2808,7 @@ theorem IsPGroup.exists_le_sylow' {p : ℕ} [Fact p.Prime]
 
 /-- GT `st8`: a `p`-subgroup which normalizes a Sylow `p`-subgroup is
 contained in it. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem IsPGroup.le_sylow_of_le_normalizer {p : ℕ} {H : Subgroup G}
     (hH : IsPGroup p H) (P : Sylow p G)
     (hn : H ≤ Subgroup.normalizer (P : Set G)) : H ≤ (P : Subgroup G) := by
@@ -2715,6 +2819,7 @@ theorem IsPGroup.le_sylow_of_le_normalizer {p : ℕ} {H : Subgroup G}
 
 /-- GT `st8`, explicit corollary: among Sylow `p`-subgroups, only `P` can
 normalize `P`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.eq_of_le_normalizer {p : ℕ} (P Q : Sylow p G)
     (hn : (Q : Subgroup G) ≤ Subgroup.normalizer (P : Set G)) : Q = P := by
   apply Sylow.ext
@@ -2725,6 +2830,7 @@ theorem Sylow.eq_of_le_normalizer {p : ℕ} (P Q : Sylow p G)
 has a Sylow subgroup obtained by intersecting `H` with a conjugate of `P`.
 The `comap` is precisely that intersection, expressed without coercion noise.
 -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Sylow.exists_comap_smul_eq_sylow {p : ℕ} [Fact p.Prime]
     [Finite (Sylow p G)] (P : Sylow p G) (H : Subgroup G) :
     ∃ a : G, ∃ R : Sylow p H, (a • P).comap H.subtype = R := by
@@ -2736,6 +2842,7 @@ theorem Sylow.exists_comap_smul_eq_sylow {p : ℕ} [Fact p.Prime]
 
 /-- GT `ns18`: every subgroup containing the normalizer of a Sylow subgroup
 is self-normalizing. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 36 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.normalizer_eq_of_normalizer_le {p : ℕ} [Fact p.Prime]
     [Finite (Sylow p G)] (P : Sylow p G) (H : Subgroup G)
     (hPH : Subgroup.normalizer (P : Set G) ≤ H) :
@@ -2772,6 +2879,7 @@ theorem Sylow.normalizer_eq_of_normalizer_le {p : ℕ} [Fact p.Prime]
 /-- GT `st9`: a Sylow subgroup is normal exactly when it is the unique Sylow
 subgroup.  `Subsingleton` is the proposition-level form of uniqueness because
 `Sylow p G` is already inhabited. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 14 lines; a routine delegation may simply declare the proof trivial).
 theorem Sylow.normal_iff_subsingleton [Fact p.Prime] [Finite (Sylow p G)]
     (P : Sylow p G) : P.Normal ↔ Subsingleton (Sylow p G) := by
   constructor
@@ -2807,12 +2915,14 @@ theorem Sylow.nonempty_pi_mulEquiv_of_subsingleton_of_dvd
     infer_instance
 
 /-- GT `ns21` (Frattini's argument). -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Sylow.normalizer_sup_normal_eq_top {p : ℕ} [Fact p.Prime]
     {N : Subgroup G} [N.Normal] [Finite (Sylow p N)] (P : Sylow p N) :
     Subgroup.normalizer (P.map N.subtype) ⊔ N = ⊤ :=
   P.normalizer_sup_eq_top
 
 /-- GT `it17` (Schur--Zassenhaus), right-complement form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 12 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.exists_complement_of_coprime [Finite G] (N : Subgroup G) [N.Normal]
     (hcop : Nat.Coprime (Nat.card N) N.index) :
     ∃ H : Subgroup G, Subgroup.IsComplement' H N :=
@@ -2825,6 +2935,7 @@ section SolvableAndNilpotentGroups
 variable {G G' G'' : Type*} [Group G] [Group G'] [Group G'']
 
 /-- The exact statement cited as GT `ns04` (Feit--Thompson). -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def feitThompsonStatement : Prop :=
   ∀ (H : Type) (_ : Group H) (_ : Finite H), Nat.card H % 2 = 1 → IsSolvable H
 
@@ -2838,51 +2949,60 @@ dependency visible to `#print axioms`. -/
 axiom feitThompson : feitThompsonStatement
 
 /-- GT `ns06(a)`: subgroups of solvable groups are solvable. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.isSolvable [IsSolvable G] (H : Subgroup G) :
     IsSolvable H := by
   infer_instance
 
 /-- GT `ns06(a)`: quotients of solvable groups are solvable. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.isSolvable [IsSolvable G]
     (N : Subgroup G) [N.Normal] : IsSolvable (G ⧸ N) := by
   infer_instance
 
 /-- GT `ns06(b)`: the homomorphism form of closure of solvable groups under
 extensions. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.isSolvable_of_ker_le_range (f : G' →* G) (g : G →* G'')
     (h : g.ker ≤ f.range) [IsSolvable G'] [IsSolvable G''] :
     IsSolvable G :=
   solvable_of_ker_le_range f g h
 
 /-- GT `ns07`: finite `p`-groups are solvable. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem IsPGroup.isSolvable {p : ℕ} [Fact p.Prime]
     (hG : IsPGroup p G) [Finite G] : IsSolvable G := by
   letI : Group.IsNilpotent G := hG.isNilpotent
   infer_instance
 
 /-- GT `ns09`: the commutator subgroup is characteristic. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.commutator_characteristic :
     (commutator G).Characteristic := by
   infer_instance
 
 /-- GT `ns09`: the commutator subgroup is the least normal subgroup with
 commutative quotient. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.commutator_le_iff_quotient_commutative
     (N : Subgroup G) [N.Normal] :
     commutator G ≤ N ↔ IsMulCommutative (G ⧸ N) :=
   Subgroup.Normal.quotient_commutative_iff_commutator_le.symm
 
 /-- GT `ns10`: derived-series characterization of solvability. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Group.isSolvable_iff_derivedSeries_eq_bot :
     IsSolvable G ↔ ∃ n : ℕ, derivedSeries G n = ⊥ :=
   isSolvable_def G
 
 /-- GT `ns12(a)`: subgroups of nilpotent groups are nilpotent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Subgroup.isNilpotent [Group.IsNilpotent G] (H : Subgroup G) :
     Group.IsNilpotent H := by
   infer_instance
 
 /-- GT `ns12(b)`: quotients of nilpotent groups are nilpotent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem QuotientGroup.isNilpotent [Group.IsNilpotent G]
     (N : Subgroup G) [N.Normal] : Group.IsNilpotent (G ⧸ N) := by
   infer_instance
@@ -2894,6 +3014,7 @@ private def leftNormedCommutatorList {G : Type*} [Group G] (g : G) : List G → 
   | x :: xs => leftNormedCommutatorList ⁅g, x⁆ xs
 
 /-- The left-normed commutator `[...[g 0, g 1], ... , g m]`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def leftNormedCommutator {G : Type*} [Group G] {m : ℕ}
     (g : Fin (m + 1) → G) : G :=
   leftNormedCommutatorList (g 0) (List.ofFn (Fin.tail g))
@@ -2921,6 +3042,7 @@ private lemma mem_upperCentralSeries_iff_leftNormedCommutatorList_eq_one
 
 /-- GT `ns14`: a group is nilpotent of class at most `m` iff every
 left-normed commutator of `m + 1` elements is trivial. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Group.isNilpotent_and_nilpotencyClass_le_iff_leftNormedCommutator_eq_one
     (m : ℕ) :
     (Group.IsNilpotent G ∧ Group.nilpotencyClass G ≤ m) ↔
@@ -2948,6 +3070,7 @@ theorem Group.isNilpotent_and_nilpotencyClass_le_iff_leftNormedCommutator_eq_one
 /-- GT `ns15`: quotienting by a central subgroup can lower the nilpotency
 class by at most one.  This formulation names the quotient's actual class,
 and therefore implies the book's version with an arbitrary bound `m`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Group.nilpotencyClass_le_quotient_add_one_of_le_center
     (N : Subgroup G) [N.Normal] (hN : N ≤ Subgroup.center G)
     [Group.IsNilpotent (G ⧸ N)] :
@@ -2956,6 +3079,7 @@ theorem Group.nilpotencyClass_le_quotient_add_one_of_le_center
   simpa using hN
 
 /-- GT `ns16`: finite `p`-groups are nilpotent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem IsPGroup.isNilpotent' {p : ℕ} [Fact p.Prime]
     (hG : IsPGroup p G) [Finite G] : Group.IsNilpotent G :=
   hG.isNilpotent
@@ -2987,6 +3111,7 @@ theorem group_algebra_isSemisimple
   infer_instance
 
 /-- GT `r3` (Maschke), in the paper's invariant-complement form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 16 lines; a routine delegation may simply declare the proof trivial).
 theorem representationSubmodule_exists_isCompl
     [NeZero (Nat.card G : k)] {V : Type*} [AddCommGroup V]
     [Module (MonoidAlgebra k G) V]
@@ -3003,6 +3128,7 @@ variable (R M : Type*) [Ring R] [AddCommGroup M] [Module R M]
 /-- GT `r9`: a module is semisimple exactly when it is generated by its
 simple submodules; complementedness is the definition carried by the
 `IsSemisimpleModule` class. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem sSup_simple_submodules_eq_top_iff_is_Semisimple_Module :
     sSup {N : Submodule R M | IsSimpleModule R N} = ⊤ ↔
       IsSemisimpleModule R M :=
@@ -3010,6 +3136,7 @@ theorem sSup_simple_submodules_eq_top_iff_is_Semisimple_Module :
 
 /-- GT `r7`, `r8`, and `r9`: a semisimple module is an internal direct sum
 of simple submodules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem IsSemisimpleModule.exists_linearEquiv_dfinsupp'
     [IsSemisimpleModule R M] :
     ∃ (S : Set (Submodule R M))
@@ -3020,6 +3147,7 @@ theorem IsSemisimpleModule.exists_linearEquiv_dfinsupp'
 /-- GT `r8`, retaining the specified generating family: if the simple
 submodules `S i` generate `M`, then a subfamily is an internal direct sum
 complementing any prescribed submodule `W`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 71 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.exists_isCompl_sSup_subfamily_of_iSup_eq_top
     {ι : Type*} (S : ι → Submodule R M)
     (hsimple : ∀ i, IsSimpleModule R (S i))
@@ -3091,6 +3219,7 @@ theorem Submodule.exists_isCompl_sSup_subfamily_of_iSup_eq_top
   exact hi ((le_sSup hmem).trans le_sup_right)
 
 /-- Reusable uniqueness half of GT `r10`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.compositionSeries_equivalent
     (s t : CompositionSeries (Submodule R M))
     (hhead : s.head = t.head) (hlast : s.last = t.last) :
@@ -3101,6 +3230,7 @@ theorem Submodule.compositionSeries_equivalent
 simple filtration, and every second such filtration has the same factors up
 to permutation (Mathlib's `CompositionSeries.Equivalent`).  The chapter's
 standing finite-dimensional hypothesis implies finite length. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Submodule.exists_compositionSeries_and_unique
     (hfl : IsFiniteLength R M) :
     ∃ s : CompositionSeries (Submodule R M),
@@ -3114,6 +3244,7 @@ theorem Submodule.exists_compositionSeries_and_unique
       (hslast.trans htlast.symm)⟩
 
 /-- The prefix submodule containing exactly coordinates below `k`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 private def finiteDirectSumPrefix {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
     (k : ℕ) : Submodule R ((i : Fin n) → V i) where
@@ -3127,6 +3258,7 @@ private def finiteDirectSumPrefix {n : ℕ} (V : Fin n → Type*)
     simp [hx i hi]
 
 /-- The initial and terminal prefix submodules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 16 lines; a routine delegation may simply declare the proof trivial).
 private theorem finiteDirectSumPrefix_zero {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)] :
     finiteDirectSumPrefix (R := R) V 0 = ⊥ := by
@@ -3143,6 +3275,7 @@ private theorem finiteDirectSumPrefix_top {n : ℕ} (V : Fin n → Type*)
   exact False.elim (Nat.not_le_of_lt i.isLt hi)
 
 /-- The successive quotient of prefix submodules is its newly added coordinate. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 35 lines; a routine delegation may simply declare the proof trivial).
 private theorem finiteDirectSumPrefix_factor_equiv {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
     (k : ℕ) (hk : k < n) :
@@ -3178,6 +3311,7 @@ private theorem finiteDirectSumPrefix_factor_equiv {n : ℕ} (V : Fin n → Type
     ((LinearMap.quotKerEquivRange f).trans (LinearEquiv.ofTop f.range hrange))⟩
 
 /-- Adjacent prefix submodules differ by one simple coordinate. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 private theorem finite_DirectSum_prefix_cov_by {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
     [∀ i, IsSimpleModule R (V i)]
@@ -3219,6 +3353,7 @@ private theorem finite_DirectSum_prefix_cov_by {n : ℕ} (V : Fin n → Type*)
 
 /-- A linear equivalence transports the quotient of nested submodules to the
 quotient of their images. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem Submodule.quotientEquiv_map_linearEquiv {X Y : Type*}
     [AddCommGroup X] [Module R X] [AddCommGroup Y] [Module R Y]
     (e : X ≃ₗ[R] Y) (P Q : Submodule R X) :
@@ -3257,6 +3392,7 @@ theorem Submodule.quotientEquiv_map_linearEquiv {X Y : Type*}
 
 /-- The composition series obtained by adding finite direct-sum coordinates in
 order.  Its factors are the displayed simple summands. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 private def finiteDirectSumCompositionSeries {n : ℕ} (V : Fin n → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
     [∀ i, IsSimpleModule R (V i)] :
@@ -3272,6 +3408,7 @@ private def finiteDirectSumCompositionSeries {n : ℕ} (V : Fin n → Type*)
 /-- The cardinality half of GT `r10c`: linearly equivalent finite direct sums
 of simple modules have equally many summands.  The remaining factor-matching
 half is supplied by the composition-series bridge tracked below. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): prose cross-reference "the composition-series bridge tracked below" points to a non-dependency result; state this lemma's own content and dependencies instead.
 theorem finite_directSum_simple_card_eq {s t : ℕ}
     (V : Fin s → Type*) (W : Fin t → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
@@ -3289,6 +3426,7 @@ theorem finite_directSum_simple_card_eq {s t : ℕ}
 
 /-- GT `r10c`: two finite direct sums of simple modules are linearly equivalent
 only if their summands agree up to a permutation. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 44 lines; a routine delegation may simply declare the proof trivial).
 theorem finite_directSum_simple_equiv {s t : ℕ}
     (V : Fin s → Type*) (W : Fin t → Type*)
     [∀ i, AddCommGroup (V i)] [∀ i, Module R (V i)]
@@ -3333,6 +3471,7 @@ theorem finite_directSum_simple_equiv {s t : ℕ}
 
 /-- GT `r9d`: fully invariant submodules of a semisimple module are precisely
 sums of isotypic components. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.isFullyInvariant_iff_sSup_isotypicComponents
     [IsSemisimpleModule R M] {N : Submodule R M} :
     N.IsFullyInvariant ↔
@@ -3340,17 +3479,20 @@ theorem Submodule.isFullyInvariant_iff_sSup_isotypicComponents
   _root_.isFullyInvariant_iff_sSup_isotypicComponents
 
 /-- GT `r9c`: submodules of semisimple modules are semisimple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 5 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.isSemisimpleModule [IsSemisimpleModule R M]
     (N : Submodule R M) : IsSemisimpleModule R N := by
   infer_instance
 
 /-- GT `r9c`: quotient modules of semisimple modules are semisimple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 6 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.quotient_isSemisimpleModule [IsSemisimpleModule R M]
     (N : Submodule R M) : IsSemisimpleModule R (M ⧸ N) := by
   infer_instance
 
 /-- GT `r9c`, sums clause: the sum (supremum) of any family of semisimple
 submodules is semisimple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 21 lines; a routine delegation may simply declare the proof trivial).
 theorem Submodule.iSup_isSemisimpleModule {ι : Type*}
     (p : ι → Submodule R M) (hp : ∀ i, IsSemisimpleModule R (p i)) :
     IsSemisimpleModule R ↥(iSup p) := by
@@ -3372,6 +3514,7 @@ variable {R M N : Type*} [Ring R] [AddCommGroup M] [AddCommGroup N]
 
 /-- GT `r16` (Schur): a homomorphism between simple modules is either an
 isomorphism at the level of functions or zero. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 23 lines; a routine delegation may simply declare the proof trivial).
 theorem LinearMap.bijective_or_eq_zero_of_simple
     [IsSimpleModule R M] [IsSimpleModule R N] (f : M →ₗ[R] N) :
     Function.Bijective f ∨ f = 0 :=
@@ -3406,6 +3549,7 @@ universe uF uA uV uι
 
 /-- Restriction of scalars embeds the algebra of `R`-linear endomorphisms
 into the algebra of `F`-linear endomorphisms. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def Module.End.restrictScalarsAlgHom
     (F : Type uF) (R : Type uA) (V : Type uV)
     [Field F] [Ring R] [Algebra F R]
@@ -3420,6 +3564,7 @@ noncomputable def Module.End.restrictScalarsAlgHom
 
 /-- The `R`-linear endomorphisms are exactly the `F`-linear endomorphisms
 commuting with the image of the `R`-action. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 28 lines; a routine delegation may simply declare the proof trivial).
 theorem Module.End.range_restrictScalarsAlgHom_eq_centralizer
     (F : Type uF) (R : Type uA) (V : Type uV)
     [Field F] [Ring R] [Algebra F R]
@@ -3448,6 +3593,7 @@ theorem Module.End.range_restrictScalarsAlgHom_eq_centralizer
     rfl
 
 /-- GT `r19`, reusable finite-family form of Jacobson density. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 13 lines; a routine delegation may simply declare the proof trivial).
 theorem jacobson_density_finite_family
     {R : Type uA} {V : Type uV} [Ring R]
     [AddCommGroup V] [Module R V] [IsSemisimpleModule R V]
@@ -3461,6 +3607,7 @@ theorem jacobson_density_finite_family
 
 /-- The `Module.End` form of GT `r17`: the abstract bicommutant acts through
 exactly the image of `A`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 22 lines; a routine delegation may simply declare the proof trivial).
 theorem bicommutantModuleEnd_range_eq_action_range
     {F : Type uF} {A : Type uA} {V : Type uV}
     [Field F] [Ring A] [Algebra F A]
@@ -3483,6 +3630,7 @@ theorem bicommutantModuleEnd_range_eq_action_range
 
 /-- GT `r17`: if `V` is a faithful finite-dimensional semisimple `A`-module,
 then the bicommutant of the image of `A` in `End_F(V)` is that image. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 27 lines; a routine delegation may simply declare the proof trivial).
 theorem bicommutant_eq_action_range
     {F : Type uF} {A : Type uA} {V : Type uV}
     [Field F] [Ring A] [Algebra F A]
@@ -3518,6 +3666,7 @@ theorem simpleRing_semisimple_artinian_atom_tfae [IsSimpleRing A] :
 
 /-- GT `r21a`: every finite-dimensional simple algebra over a field is
 semisimple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem finite_dimensional_simple_Algebra_is_Semisimple
     [FiniteDimensional F A] [IsSimpleRing A] : IsSemisimpleRing A := by
   haveI : IsArtinianRing A := IsArtinianRing.of_finite F A
@@ -3525,6 +3674,7 @@ theorem finite_dimensional_simple_Algebra_is_Semisimple
 
 /-- The third condition in GT `r21`: all simple left modules (in the ambient
 universe) have the same isomorphism type. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def AllSimpleModulesIsomorphic : Prop :=
   ∀ (M N : Type u) [AddCommGroup M] [Module A M]
     [AddCommGroup N] [Module A N],
@@ -3532,6 +3682,7 @@ def AllSimpleModulesIsomorphic : Prop :=
 
 /-- For a semisimple ring, isotypicity of the regular module is exactly
 uniqueness of the simple-module type. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 18 lines; a routine delegation may simply declare the proof trivial).
 theorem isIsotypic_self_iff_allSimpleModulesIsomorphic
     [IsSemisimpleRing A] :
     IsIsotypic A A ↔ AllSimpleModulesIsomorphic A := by
@@ -3550,6 +3701,7 @@ theorem isIsotypic_self_iff_allSimpleModulesIsomorphic
     exact ⟨(h I J hI hJ).some.symm⟩
 
 /-- A nonzero map out of a direct sum is nonzero on one summand. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 22 lines; a routine delegation may simply declare the proof trivial).
 private theorem exists_component_ne_zero [DecidableEq ι]
     {S : ι → Type u} {M : Type u} [∀ i, AddCommGroup (S i)]
     [∀ i, Module A (S i)] [AddCommGroup M] [Module A M]
@@ -3572,6 +3724,7 @@ private theorem exists_component_ne_zero [DecidableEq ι]
 
 /-- Reusable core of GT `r29(a)`: repetitions are allowed in a regular-module
 decomposition, while `S` indexes pairwise nonisomorphic representatives. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 49 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleModule_classification_of_regular_dfinsupp
     [DecidableEq κ] {T : κ → Type u} {S : ι → Type u}
     [∀ j, AddCommGroup (T j)] [∀ j, Module A (T j)]
@@ -3621,6 +3774,7 @@ theorem simpleModule_classification_of_regular_dfinsupp
 /-- GT `r20`: over an Artinian simple ring, any two simple modules are
 linearly equivalent. In particular, this applies to any two minimal nonzero
 left ideals. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem simpleRing_nonempty_linearEquiv_of_isSimpleModule
     [IsSimpleRing A] [IsArtinianRing A]
     (M N : Type u) [AddCommGroup M] [Module A M]
@@ -3649,6 +3803,7 @@ theorem simpleRing_exists_dfinsupp_simpleSubmodule
 
 /-- GT `r22`: the regular module of an Artinian simple ring is a finite
 direct sum of copies of any chosen simple module. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 15 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleRing_exists_linearEquiv_fun_of_isSimpleModule
     [IsSimpleRing A] [IsArtinianRing A]
     (S : Type u) [AddCommGroup S] [Module A S] [IsSimpleModule A S] :
@@ -3664,6 +3819,7 @@ theorem simpleRing_exists_linearEquiv_fun_of_isSimpleModule
 
 /-- GT `r22`, arbitrary-module form: every module over an Artinian simple ring
 is a direct sum of copies of any chosen simple module. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 17 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleRing_exists_linearEquiv_finsupp_of_isSimpleModule
     [IsSimpleRing A] [IsArtinianRing A]
     (M S : Type u) [AddCommGroup M] [Module A M]
@@ -3681,6 +3837,7 @@ theorem simpleRing_exists_linearEquiv_finsupp_of_isSimpleModule
 
 /-- GT `r22`, equal-dimension clause: finite modules with the same scalar
 field dimension are isomorphic as A-modules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 42 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleAlgebra_nonempty_linearEquiv_of_finrank_eq
     [IsSimpleRing A] [FiniteDimensional F A]
     (M N S : Type u) [AddCommGroup M] [Module A M]
@@ -3723,12 +3880,14 @@ theorem simpleAlgebra_nonempty_linearEquiv_of_finrank_eq
   exact ⟨eM.trans (eMN.trans eN.symm)⟩
 
 /-- The action homomorphism from a product presentation to its `i`th factor. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def RingEquiv.piFactorHom {ι : Type*} (B : ι → Type u) [∀ i, Ring (B i)]
     (e : A ≃+* ∀ i, B i) (i : ι) : A →+* B i :=
   (Pi.evalRingHom B i).comp e.toRingHom
 
 /-- A simple module over one factor of a finite product is simple for the
 whole product acting through the factor projection. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 20 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.is_simple_Module_pi_factor {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
     (S : ι → Type u) [∀ i, AddCommGroup (S i)] [∀ i, Module (B i) (S i)]
@@ -3749,6 +3908,7 @@ theorem RingEquiv.is_simple_Module_pi_factor {ι : Type*} [Fintype ι] [Decidabl
 
 /-- Modules induced from distinct factors of a finite product are not
 isomorphic. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 29 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.pi_factor_not_linearEquiv {ι : Type*} [Fintype ι]
     [DecidableEq ι] (B : ι → Type u) [∀ i, Ring (B i)]
     (e : A ≃+* ∀ i, B i)
@@ -3778,6 +3938,7 @@ theorem RingEquiv.pi_factor_not_linearEquiv {ι : Type*} [Fintype ι]
 
 /-- The regular module of a finite product of Artinian simple rings is the
 direct sum of repeated copies of one chosen simple module from each factor. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 33 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.exists_regular_linearEquiv_pi_factor_dfinsupp
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
@@ -3811,6 +3972,7 @@ theorem RingEquiv.exists_regular_linearEquiv_pi_factor_dfinsupp
 
 /-- GT `r21`: for a semisimple algebra, simplicity, isotypicity of the
 regular module, and uniqueness of the simple-module type are equivalent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 18 lines; a routine delegation may simply declare the proof trivial).
 theorem semisimpleAlgebra_simple_isotypic_unique_tfae
     [IsSemisimpleRing A] [Nontrivial A] :
     List.TFAE [IsSimpleRing A, IsIsotypic A A,
@@ -3829,6 +3991,7 @@ theorem semisimpleAlgebra_simple_isotypic_unique_tfae
 
 /-- GT `r15`: an Artinian simple algebra is a matrix algebra over a division
 algebra. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleAlgebra_exists_algEquiv_matrix_divisionRing
     [IsSimpleRing A] [IsArtinianRing A] :
     ∃ (n : ℕ) (_ : NeZero n) (D : Type u) (_ : DivisionRing D)
@@ -3838,6 +4001,7 @@ theorem simpleAlgebra_exists_algEquiv_matrix_divisionRing
 
 /-- GT `r15`, chapter-facing finite-dimensional form: the division algebra
 factor can also be chosen finite-dimensional over the base field. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem simpleAlgebra_exists_algEquiv_matrix_divisionRing_finite
     [IsSimpleRing A] [FiniteDimensional F A] :
     ∃ (n : ℕ) (_ : NeZero n) (D : Type u) (_ : DivisionRing D)
@@ -3848,6 +4012,7 @@ theorem simpleAlgebra_exists_algEquiv_matrix_divisionRing_finite
 
 /-- GT `r28a`: a semisimple algebra is a finite product of matrix algebras
 over division algebras. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem semisimpleAlgebra_exists_algEquiv_pi_matrix_divisionRing
     [IsSemisimpleRing A] :
     ∃ (n : ℕ) (D : Fin n → Type u) (d : Fin n → ℕ)
@@ -3858,6 +4023,7 @@ theorem semisimpleAlgebra_exists_algEquiv_pi_matrix_divisionRing
 
 /-- GT `r28a`, chapter-facing finite-dimensional form: every division
 algebra factor in the semisimple decomposition is finite-dimensional over `F`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 19 lines; a routine delegation may simply declare the proof trivial).
 theorem semisimpleAlgebra_exists_algEquiv_pi_matrix_divisionRing_finite
     [IsSemisimpleRing A] [FiniteDimensional F A] :
     ∃ (n : ℕ) (D : Fin n → Type u) (d : Fin n → ℕ)
@@ -3877,6 +4043,7 @@ variable (F A : Type u) [Field F] [IsAlgClosed F] [Ring A] [Algebra F A]
 
 /-- Generic semisimple Wedderburn--Artin interface over an algebraically
 closed field. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem semisimpleAlgebra_exists_algEquiv_pi_matrix_of_isAlgClosed
     [IsSemisimpleRing A] [FiniteDimensional F A] :
     ∃ (n : ℕ) (d : Fin n → ℕ), (∀ i, NeZero (d i)) ∧
@@ -3886,6 +4053,7 @@ theorem semisimpleAlgebra_exists_algEquiv_pi_matrix_of_isAlgClosed
 /-- GT `r26`: a finite-dimensional division algebra over an algebraically
 closed field is the field itself.  Finite-dimensionality is part of the
 chapter's standing definition of an `F`-algebra. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
     (D : Type u) [DivisionRing D] [Algebra F D] [FiniteDimensional F D] :
     D ≃ₐ[F] F :=
@@ -3895,6 +4063,7 @@ noncomputable def divisionAlgebraAlgEquivOfIsAlgClosed
 /-- GT `r29`, part (a): for a finite product of Artinian simple rings, the simple
 modules induced from chosen simple factor modules are pairwise nonisomorphic
 and exhaust all simple modules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 27 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.pi_factor_simple_Module_classification
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
@@ -3922,6 +4091,7 @@ theorem RingEquiv.pi_factor_simple_Module_classification
 /-- GT `r29(b)`, existence: every finite module over a finite product of
 Artinian simple rings is a finite direct sum of the chosen factor modules.
 The fibre cardinality of `c : Fin n → ι` over `i` is the source's `rᵢ`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 27 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.pi_factor_exists_linearEquiv_fun
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] [∀ i, IsSimpleRing (B i)]
@@ -3949,6 +4119,7 @@ theorem RingEquiv.pi_factor_exists_linearEquiv_fun
 /-- GT `r29(b)`, uniqueness: two finite sums of chosen factor modules are
 isomorphic exactly when their factor labels agree up to a permutation.  This
 is equivalent to equality of every multiplicity `rᵢ`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 30 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.pi_factor_decomposition_unique
     {ι : Type*} [Fintype ι] [DecidableEq ι]
     (B : ι → Type u) [∀ i, Ring (B i)] (e : A ≃+* ∀ i, B i)
@@ -3979,6 +4150,7 @@ theorem RingEquiv.pi_factor_decomposition_unique
 /-- GT `r31m`: in characteristic zero, the group algebra of a finite group
 over an algebraically closed field is a finite product of full matrix
 algebras over that field. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 21 lines; a routine delegation may simply declare the proof trivial).
 theorem group_algebra_exists_algEquiv_pi_matrix
     (G : Type u) [Group G] [Fintype G] [CharZero F] :
     ∃ (n : ℕ) (d : Fin n → ℕ), (∀ i, NeZero (d i)) ∧
@@ -4000,6 +4172,7 @@ variable {k : Type u} [Field k] {G : Type v} [Group G]
 
 /-- Central group-algebra elements have equal coefficients on conjugate group
 elements. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 12 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.coeff_eq_of_mem_center
     (z : Subalgebra.center k (MonoidAlgebra k G)) {a b : G} (h : IsConj a b) :
     (z : MonoidAlgebra k G) a = (z : MonoidAlgebra k G) b := by
@@ -4012,6 +4185,7 @@ theorem MonoidAlgebra.coeff_eq_of_mem_center
 The centrality transport is Mathlib's `MulEquivClass.apply_mem_center_iff`
 (the centre is preserved by a mul-equivalence); only the `k`-linear
 equivalence wrapping is target-specific. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
     [Ring B] [Algebra k B] (e : A ≃ₐ[k] B) :
     Subalgebra.center k A ≃ₗ[k] Subalgebra.center k B where
@@ -4023,6 +4197,7 @@ def AlgEquiv.centerLinearEquiv {A B : Type*} [Ring A] [Algebra k A]
   map_smul' := by intros; ext; simp
 
 /-- The centre of a finite product is the product of the centres. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def Subalgebra.centerPiLinearEquiv {ι : Type*}
     (B : ι → Type*) [∀ i, Ring (B i)] [∀ i, Algebra k (B i)] :
     Subalgebra.center k (∀ i, B i) ≃ₗ[k] ∀ i, Subalgebra.center k (B i) where
@@ -4043,6 +4218,7 @@ def Subalgebra.centerPiLinearEquiv {ι : Type*}
 
 /-- GT `r30` / `e20`: the centre of a finite group algebra is linearly
 isomorphic to the class functions, via coefficients on conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def MonoidAlgebra.centerEquivClassFunction [Fintype G] :
     Subalgebra.center k (MonoidAlgebra k G) ≃ₗ[k] (ConjClasses G → k) where
   toFun z C := (z : MonoidAlgebra k G) (ConjClasses.representative C)
@@ -4086,6 +4262,7 @@ noncomputable def MonoidAlgebra.centerEquivClassFunction [Fintype G] :
 
 /-- GT `e20`: the conjugacy-class sum belonging to `C`, defined as the
 central element corresponding to the delta function at `C`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def MonoidAlgebra.conjClassSum [Fintype G] (C : ConjClasses G) :
     Subalgebra.center k (MonoidAlgebra k G) := by
   classical
@@ -4093,6 +4270,7 @@ noncomputable def MonoidAlgebra.conjClassSum [Fintype G] (C : ConjClasses G) :
     (Pi.single (M := fun _ : ConjClasses G => k) C (1 : k))
 
 /-- The coefficient of a conjugacy-class sum is one precisely on that class. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.conjClassSum_apply [Fintype G]
     [DecidableEq (ConjClasses G)] (C : ConjClasses G) (g : G) :
     (MonoidAlgebra.conjClassSum (k := k) C : MonoidAlgebra k G) g =
@@ -4122,6 +4300,7 @@ theorem MonoidAlgebra.conjClassSumBasis_apply [Fintype G]
 
 /-- GT `r30`: the dimension of the centre of a finite group algebra is the
 number of conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.finrank_center_eq_card_conj_classes [Fintype G] :
     Module.finrank k (Subalgebra.center k (MonoidAlgebra k G)) =
       Nat.card (ConjClasses G) := by
@@ -4150,6 +4329,7 @@ theorem Matrix.isSimpleModule_pi {n : ℕ} [NeZero n] :
 
 /-- The centre of a finite product of nonzero full matrix algebras over a
 field has dimension equal to the number of factors. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 17 lines; a routine delegation may simply declare the proof trivial).
 theorem Matrix.finrank_center_pi_matrix {ι : Type*} [Fintype ι] [DecidableEq ι]
     (d : ι → ℕ) [∀ i, NeZero (d i)] :
     Module.finrank k
@@ -4167,6 +4347,7 @@ theorem Matrix.finrank_center_pi_matrix {ι : Type*} [Fintype ι] [DecidableEq �
 
 /-- GT `r32`, part (a), factor-count form: every matrix-product presentation of a
 finite group algebra has one factor per conjugacy class. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 19 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.card_matrix_factors_eq_card_conj_classes [Fintype G]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
     (e : MonoidAlgebra k G ≃ₐ[k]
@@ -4213,6 +4394,7 @@ theorem MonoidAlgebra.matrix_factor_simple_Module_classification
 characteristic-zero field, the group algebra has a matrix-factor presentation;
 those factors uniquely enumerate all simple modules, and their number is the
 number of conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 26 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.exists_matrix_factor_simple_Module_classification
     {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
     ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
@@ -4239,6 +4421,7 @@ theorem MonoidAlgebra.exists_matrix_factor_simple_Module_classification
 
 /-- A full matrix algebra, as a regular left module, is the direct sum of its
 column modules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def Matrix.leftRegularLinearEquivColumns (n : ℕ) :
     Matrix (Fin n) (Fin n) k ≃ₗ[Matrix (Fin n) (Fin n) k]
       (Fin n → (Fin n → k)) where
@@ -4254,6 +4437,7 @@ noncomputable def Matrix.leftRegularLinearEquivColumns (n : ℕ) :
 /-- The regular module of a finite product of full matrix algebras is the
 finite direct sum of the column modules, with exactly `d i` copies from the
 `i`th factor. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 45 lines; a routine delegation may simply declare the proof trivial).
 theorem RingEquiv.regular_linearEquiv_pi_factor_columns
     {A : Type u} [Ring A]
     {ι : Type*} [Fintype ι] [DecidableEq ι]
@@ -4299,6 +4483,7 @@ theorem RingEquiv.regular_linearEquiv_pi_factor_columns
 /-- GT `r32(b)`: in a matrix-factor presentation, the `i`th simple column
 module has dimension `d i` and occurs exactly `d i` times in the regular
 module. The `DFinsupp` target is an actual finite direct-sum decomposition. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 21 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.matrix_factor_regular_decomposition
     {H : Type u} [Group H] [Fintype H]
     {n : ℕ} (d : Fin n → ℕ) [∀ i, NeZero (d i)]
@@ -4320,6 +4505,7 @@ theorem MonoidAlgebra.matrix_factor_regular_decomposition
   · exact RingEquiv.regular_linearEquiv_pi_factor_columns d e.toRingEquiv
 
 /-- Dimension form of GT `r32(c)` for the matrix degrees. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 18 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.sum_sq_matrixFactors_eq_card
     {H : Type u} [Group H] [Fintype H]
     {n : ℕ} (d : Fin n → ℕ)
@@ -4338,6 +4524,7 @@ theorem MonoidAlgebra.sum_sq_matrixFactors_eq_card
 
 /-- GT `r32(c)`, with `fᵢ` written literally as the dimension of the `i`th
 simple module. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 14 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card
     {H : Type u} [Group H] [Fintype H]
     {n : ℕ} (d : Fin n → ℕ)
@@ -4352,6 +4539,7 @@ theorem MonoidAlgebra.sum_sq_finrank_matrixFactors_eq_card
 nonisomorphic family of simples is produced internally; its `i`th member has
 dimension `d i`, occurs exactly `d i` times in the regular module, and the
 squares of the dimensions sum to the group order. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 77 lines; a routine delegation may simply declare the proof trivial).
 theorem MonoidAlgebra.exists_complete_simple_family_regular_decomposition_sum_sq
     {H : Type u} [Group H] [Fintype H] [IsAlgClosed k] [CharZero k] :
     ∃ (n : ℕ) (d : Fin n → ℕ) (hd : ∀ i, 0 < d i),
@@ -4429,6 +4617,7 @@ variable {k : Type u} [Field k] {G : Type v} [Group G]
 omit [Invertible (Fintype.card G : k)] [Fintype G] in
 /-- GT `r41`: the character of a product (the binary direct sum of modules)
 is the sum of the two characters. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem Representation.character_prod {V W : Type*}
     [AddCommGroup V] [Module k V] [FiniteDimensional k V]
     [AddCommGroup W] [Module k W] [FiniteDimensional k W]
@@ -4439,6 +4628,7 @@ theorem Representation.character_prod {V W : Type*}
 
 /-- GT `r37`: the average character is the dimension of the invariant
 subspace. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 7 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.average_character_eq_finrank_invariants (V : FDRep k G) :
     ⅟(Fintype.card G : k) • ∑ g : G, V.character g =
       Module.finrank k (Representation.invariants V.ρ) :=
@@ -4446,6 +4636,7 @@ theorem FDRep.average_character_eq_finrank_invariants (V : FDRep k G) :
 
 /-- GT `r38`: the character scalar product computes the dimension of the
 space of equivariant maps. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 8 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.character_scalar_product_eq_finrank_hom (V W : FDRep k G) :
     ⅟(Fintype.card G : k) •
       ∑ g : G, W.character g * V.character g⁻¹ =
@@ -4454,6 +4645,7 @@ theorem FDRep.character_scalar_product_eq_finrank_hom (V W : FDRep k G) :
 
 open scoped Classical in
 /-- GT `r39`: characters of simple representations are orthonormal. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.simple_character_orthonormal [IsAlgClosed k]
     (V W : FDRep k G) [CategoryTheory.Simple V] [CategoryTheory.Simple W] :
     ⅟(Fintype.card G : k) •
@@ -4464,10 +4656,12 @@ theorem FDRep.simple_character_orthonormal [IsAlgClosed k]
 
 /-- Class functions, represented without choosing representatives of conjugacy
 classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 abbrev ClassFunction := ConjClasses G → k
 
 /-- An `F`-valued Hermitian inner product for a conjugation-stable subfield
 of `ℂ`. Positivity is stated after the specified embedding. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 structure HermitianInnerProductOverComplexSubfield
     (F V : Type*) [Field F] [StarRing F] [AddCommGroup V] [Module F V]
     (ι : F →+* ℂ) (hstar : ∀ x, ι (star x) = star (ι x)) where
@@ -4479,6 +4673,7 @@ structure HermitianInnerProductOverComplexSubfield
   positive : ∀ ⦃x⦄, x ≠ 0 → 0 < (ι (pairing x x)).re
 
 /-- Average of the product of two class functions over a finite group, conjugated. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def classFunctionPairingComplexSubfield
     {F H : Type*} [Field F] [StarRing F] [Group H] [Fintype H]
     [Invertible (Fintype.card H : F)]
@@ -4523,6 +4718,7 @@ private lemma classFunction_natCast_inv_im (n : ℕ) :
 
 /-- GT `r36`: the source pairing is an `F`-valued Hermitian inner product on
 class functions for every specified conjugation-stable embedding `F ↪ ℂ`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def classFunctionHermitianInnerProductComplexSubfield
     {F H : Type*} [Field F] [StarRing F] [Group H] [Fintype H]
     [Invertible (Fintype.card H : F)]
@@ -4582,6 +4778,7 @@ noncomputable def classFunctionHermitianInnerProductComplexSubfield
     simpa only [zero_mul, sub_zero] using (mul_pos (by positivity) hsum)
 
 /-- A representation character factored through conjugacy classes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def FDRep.characterClassFunction (V : FDRep k G) :
     ClassFunction (k := k) (G := G) :=
   Quotient.lift V.character (fun a b h ↦ by
@@ -4596,6 +4793,7 @@ theorem FDRep.characterClassFunction_mk (V : FDRep k G) (g : G) :
   rfl
 
 /-- Pairing against a character, as a linear functional on class functions. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def FDRep.characterPairingRight (V : FDRep k G) :
     ClassFunction (k := k) (G := G) →ₗ[k] k where
   toFun f := ⅟(Fintype.card G : k) •
@@ -4611,6 +4809,7 @@ open scoped Classical in
 /-- GT `r33`, also the linear-independence half of `r39`: characters of pairwise
 nonisomorphic simple representations are linearly independent as class
 functions. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 28 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.simple_character_class_function_linear_independent
     [IsAlgClosed k] {ι : Type*} [Fintype ι]
     (V : ι → FDRep k G) [∀ i, CategoryTheory.Simple (V i)]
@@ -4759,6 +4958,7 @@ theorem FDRep.simple_character_Basis_of_matrix_factors_apply
   rw [FDRep.simple_character_Basis_of_card_eq_apply]
 
 /-- Character equality induced by an isomorphism, after passage to class functions. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem FDRep.characterClassFunction_eq_of_iso
     {k : Type u} [Field k] {G : Type v} [Group G]
     [Fintype G] [Invertible (Fintype.card G : k)]
@@ -4770,6 +4970,7 @@ theorem FDRep.characterClassFunction_eq_of_iso
 
 /-- Over characteristic zero, linear independence of simple characters over
 the ground field descends to genuine `ℤ`-linear independence. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 22 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.simple_characterClassFunction_intLinearIndependent
     {k : Type u} [Field k] [CharZero k]
     {G : Type v} [Group G]
@@ -4792,6 +4993,7 @@ theorem FDRep.simple_characterClassFunction_intLinearIndependent
 
 /-- Multiplicity core for GT `r34`: equality of two finite sums of simple
 characters gives a permutation matching their simple constituents. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 59 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.exists_equiv_of_sum_simple_character_eq
     {k : Type u} [Field k] [CharZero k]
     {G : Type v} [Group G]
@@ -4862,6 +5064,7 @@ def FDRep.HasSimpleCharacterDecomposition
 
 /-- Decomposition-facing reusable core for GT `r34`.  `hreconstruct` is exactly
 the finite direct-sum/Jordan--Hölder reconstruction bridge. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 36 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.nonempty_iso_iff_character_eq_of_simple_decompositions
     {k : Type u} [Field k] [CharZero k]
     {G : Type v} [Group G]
@@ -5114,6 +5317,7 @@ is cyclic or isomorphic to the dihedral group of order `2p`.
 
 Mathlib's `DihedralGroup p` has cardinality `2 * p`; its elements are
 `r a` and `sr a` for `a : ZMod p`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem isCyclic_or_nonempty_mulEquiv_dihedral_of_card_eq_two_mul_prime
     {G : Type*} [Group G] [Fintype G] {p : ℕ}
     (hp : p.Prime) (hp2 : p ≠ 2)
@@ -5264,11 +5468,13 @@ theorem isCyclic_or_nonempty_mulEquiv_dihedral_of_card_eq_two_mul_prime
 
 /-- A group is complete when its center is trivial and every automorphism is
 inner. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def IsCompleteGroup (A : Type*) [Group A] : Prop :=
   Subgroup.center A = ⊥ ∧
     ∀ α : MulAut A, ∃ a : A, α = MulAut.conj a
 
 /-- Completeness is invariant under group equivalence. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 28 lines; a routine delegation may simply declare the proof trivial).
 theorem IsCompleteGroup.mulEquiv {A B : Type*} [Group A] [Group B]
     (e : A ≃* B) (h : IsCompleteGroup A) :
     IsCompleteGroup B := by
@@ -5297,6 +5503,7 @@ theorem IsCompleteGroup.mulEquiv {A B : Type*} [Group A] [Group B]
 
 /-- An exact group extension
 `1 → N → G → Q → 1`, without identifying `N` with its image. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 structure ExactExtension (N G Q : Type*) [Group N] [Group G] [Group Q] where
   /-- The injective inclusion homomorphism `N →* G`. -/
   inclusion : N →* G
@@ -5316,6 +5523,7 @@ def Splits (E : ExactExtension N G Q) : Prop :=
 
 /-- The section and subgroup-complement formulations of splitting are
 equivalent. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 38 lines; a routine delegation may simply declare the proof trivial).
 theorem splits_iff_exists_subgroup_bijective_projection
     (E : ExactExtension N G Q) :
     E.Splits ↔ ∃ H : Subgroup G,
@@ -5354,6 +5562,7 @@ theorem splits_iff_exists_subgroup_bijective_projection
 
 /-- The image of a complete kernel and its centralizer are complementary and
 commute elementwise. This is the reusable core of GT `it18`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 100 lines; a routine delegation may simply declare the proof trivial).
 theorem complete_range_centralizer_complement
     (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
     E.inclusion.range.IsComplement'
@@ -5609,6 +5818,7 @@ theorem projection_sectionOfComplete
 /-- GT `it18`: an exact extension with complete kernel splits, and the
 canonical multiplication map identifies the kernel image times its
 centralizer with the middle group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 18 lines; a routine delegation may simply declare the proof trivial).
 theorem complete_splits_and_isInternalDirectProduct
     (E : ExactExtension N G Q) (hN : IsCompleteGroup N) :
     E.Splits ∧
@@ -5693,6 +5903,7 @@ theorem regular_isotypicComponents_internalDirectSum
 
 /-- GT `r28`: the centralizer of a semisimple finite-dimensional action is a
 finite product of simple matrix algebras, hence semisimple. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 63 lines; a routine delegation may simply declare the proof trivial).
 theorem centralizer_isFiniteProduct_simple
     {F : Type uF} {A : Type uA} {V : Type uV}
     [Field F] [Ring A] [Algebra F A]
@@ -5885,6 +6096,7 @@ noncomputable def columnRightLinearMap (n : ℕ) (d : D) :
       rw [mul_assoc] }
 
 /-- Right scalars map into the commutant of the left matrix action. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def columnRightAlgHom (n : ℕ) :
     Dᵐᵒᵖ →ₐ[F]
       Module.End (Matrix (Fin n) (Fin n) D) (Fin n → D) := by
@@ -6036,6 +6248,7 @@ end Matrix
 
 /-- Finite-dimensionality of a nonempty matrix algebra over `D` forces
 finite-dimensionality of `D`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 34 lines; a routine delegation may simply declare the proof trivial).
 theorem finite_dimensional_division_ring_of_algEquiv_matrix
     {F A D : Type*} [Field F] [Ring A] [Algebra F A]
     [DivisionRing D] [Algebra F D] {n : ℕ} [NeZero n]
@@ -6070,6 +6283,7 @@ theorem finite_dimensional_division_ring_of_algEquiv_matrix
 
 /-- Once the division algebras in two nonempty matrix presentations are
 identified over `F`, comparison of `F`-dimensions identifies the sizes. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 26 lines; a routine delegation may simply declare the proof trivial).
 theorem matrix_presentation_unique_sizes
     {F A D E : Type*} [Field F] [Ring A] [Algebra F A]
     [DivisionRing D] [Algebra F D] [DivisionRing E] [Algebra F E]
@@ -6157,6 +6371,7 @@ private noncomputable def matrixEndTransportAlgEquiv
 
 /-- GT `r23`: both the matrix size and the coefficient division algebra in a
 matrix presentation of a finite-dimensional simple algebra are unique. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 78 lines; a routine delegation may simply declare the proof trivial).
 theorem matrix_presentation_unique
     {F A D E : Type u} [Field F] [Ring A] [Algebra F A]
     [IsSimpleRing A] [DivisionRing D] [Algebra F D]
@@ -6246,6 +6461,7 @@ noncomputable def FDRep.dfinsuppOf
 
 /-- The trace of a pointwise endomorphism of a finite dependent product is the
 sum of the traces of its components. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem trace_piMap_fin
     {k : Type*} [Field k] {n : ℕ} (U : Fin n → Type*)
     [∀ i, AddCommGroup (U i)] [∀ i, Module k (U i)]
@@ -6361,6 +6577,7 @@ private theorem ofModule'_trace_add
 
 /-- Character additivity for the finite direct sum constructed through modules
 of the group algebra. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 20 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.character_dfinsupp_of_apply
     {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
     {n : ℕ} (W : Fin n → FDRep k G) (g : G) :
@@ -6381,6 +6598,7 @@ theorem FDRep.character_dfinsupp_of_apply
 
 /-- The character of a finite direct sum is the sum of the characters of its
 summands. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 16 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.characterClassFunction_dfinsupp_of
     {k : Type u} {G : Type v} [Field k] [Group G] [Fintype G]
     {n : ℕ} (W : Fin n → FDRep k G) :
@@ -6428,6 +6646,7 @@ noncomputable def Representation.asModuleOfModuleLinearEquiv
 
 /-- A group-algebra-module equivalence from a representation to `M` induces
 an equivalence with the representation constructed from `M`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 26 lines; a routine delegation may simply declare the proof trivial).
 theorem Representation.nonempty_equiv_of_asModule_linearEquiv_ofModule'
     {k G V M : Type*} [Field k] [Group G]
     [AddCommGroup V] [Module k V]
@@ -6454,6 +6673,7 @@ theorem Representation.nonempty_equiv_of_asModule_linearEquiv_ofModule'
 
 /-- A simple group-algebra module yields a categorically simple finite
 representation after applying `ofModule'`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 41 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.simple_of_simpleModule_ofModule'
     {k G M : Type u} [Field k] [Group G] [Fintype G]
     [Invertible (Fintype.card G : k)] [IsAlgClosed k]
@@ -6495,6 +6715,7 @@ theorem FDRep.simple_of_simpleModule_ofModule'
 
 /-- Maschke decomposition, reconstructed as an isomorphism to an actual finite
 DFinsupp representation from a complete family of simple modules. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 53 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.exists_simple_decomposition_iso
     {k : Type u} [Field k] [CharZero k]
     {G : Type v} [Group G] [Fintype G]
@@ -6548,6 +6769,7 @@ theorem FDRep.exists_simple_decomposition_iso
 
 /-- Reindex a finite dependent direct sum while changing each summand by a
 linear equivalence. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def dfinsuppReindexLinearEquiv
     {R ι κ : Type*} [Semiring R]
     {B : ι → Type*} {C : κ → Type*}
@@ -6562,6 +6784,7 @@ noncomputable def dfinsuppReindexLinearEquiv
 
 /-- A group-algebra-linear equivalence induces an isomorphism between the
 corresponding finite representations. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 107 lines; a routine delegation may simply declare the proof trivial).
 theorem fd_rep_ofModule'_iso_of_linearEquiv
     {k : Type u} {G : Type v} {M N : Type u}
     [Field k] [Group G]
@@ -6669,6 +6892,7 @@ private theorem FDRep.exists_complete_simple_FDRep_family
 
 /-- GT `r34`: finite-dimensional representations over an algebraically closed
 characteristic-zero field are isomorphic exactly when their characters agree. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 42 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.nonempty_iso_iff_characterClassFunction_eq
     {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
     {G : Type u} [Group G] [Fintype G]
@@ -6711,6 +6935,7 @@ theorem FDRep.nonempty_iso_iff_characterClassFunction_eq
 
 /-- GT `r34a`: the simple characters form an integral basis of the virtual
 characters. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 58 lines; a routine delegation may simply declare the proof trivial).
 theorem FDRep.exists_simpleVirtualCharacterBasis
     {k : Type u} [Field k] [CharZero k] [IsAlgClosed k]
     {G : Type u} [Group G] [Fintype G]
@@ -6766,13 +6991,16 @@ noncomputable section
 open scoped BigOperators
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB1 : DecidableEq B := Classical.decEq B
 
 /-- The Coxeter coefficient between two distinct roots. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def pairCoeff (M : CoxeterMatrix B) (s t : B) : ℝ :=
   if M s t = 0 then -1 else -Real.cos (Real.pi / (M s t : ℝ))
 
 /-- The Coxeter bilinear form on the span of two roots. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def pairForm (M : CoxeterMatrix B) (s t : B) (a b : ℝ) : ℝ :=
   a^2 + b^2 + 2 * pairCoeff M s t * a * b
 
@@ -6800,6 +7028,7 @@ lemma pairCoeff_bounds {M : CoxeterMatrix B} {s t : B} (hst : s ≠ t)
 /-- GT `fg17`: the Coxeter form on the span of two distinct roots is
 positive definite for a finite Coxeter entry and positive semidefinite for an
 infinite entry. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 35 lines; a routine delegation may simply declare the proof trivial).
 theorem fg17 (M : CoxeterMatrix B) (s t : B) (hst : s ≠ t) :
     (M s t = 0 → ∀ a b, 0 ≤ pairForm M s t a b) ∧
     (M s t ≠ 0 → ∀ a b, (a ≠ 0 ∨ b ≠ 0) → 0 < pairForm M s t a b) := by
@@ -6842,6 +7071,7 @@ noncomputable def coeff (M : CoxeterMatrix B) (i j : B) : ℝ :=
 abbrev Space (B : Type*) := B →₀ ℝ
 
 /-- The Coxeter quadratic form on `Space B`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def form (M : CoxeterMatrix B) (x y : Space B) : ℝ :=
   x.sum (fun i a => y.sum (fun j b => a * b * coeff M i j))
 
@@ -6908,6 +7138,7 @@ lemma form_sub_left (M : CoxeterMatrix B) (x z y : Space B) :
   ring
 
 /-- The reflection across the hyperplane orthogonal to `s`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def reflection (M : CoxeterMatrix B) (s : B) :
     Space B →ₗ[ℝ] Space B :=
   { toFun := fun x => x - (2 * form M x (root s)) • root s
@@ -6947,9 +7178,11 @@ open scoped BigOperators
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB2 : DecidableEq B := Classical.decEq B
 
 /-- Equivalence of reflections under a Coxeter-matrix isomorphism. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def reflectionEquiv (M : CoxeterMatrix B) (s : B) :
     Space B ≃ₗ[ℝ] Space B :=
   LinearEquiv.ofInvolutive (reflection M s) (reflection_involutive M s)
@@ -6984,6 +7217,7 @@ open scoped BigOperators
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB3 : DecidableEq B := Classical.decEq B
 
 lemma form_symm (M : CoxeterMatrix B) (x y : Space B) :
@@ -7001,6 +7235,7 @@ lemma form_symm (M : CoxeterMatrix B) (x y : Space B) :
 (distinct, non-orthogonal) roots plus a component orthogonal to both roots.
 This is the linear-algebra bridge that lets the two-dimensional reflection
 calculations extend to the whole `Space B`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 38 lines; a routine delegation may simply declare the proof trivial).
 lemma decompose_into_span_orthogonal (M : CoxeterMatrix B) {s t : B}
     (hst : s ≠ t) (hm : M s t ≠ 0) (v : Space B) :
     ∃ (a b : ℝ) (h : Space B),
@@ -7039,6 +7274,7 @@ lemma decompose_into_span_orthogonal (M : CoxeterMatrix B) {s t : B}
     ring
 
 /-- The embedding of the two-dimensional pair span into `Space B`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def pairEmbed (s t : B) : (Fin 2 → ℝ) →ₗ[ℝ] Space B :=
   { toFun := fun z => z 0 • root s + z 1 • root t
     map_add' := by
@@ -7082,6 +7318,7 @@ lemma form_pairEmbed_root_t (M : CoxeterMatrix B) {s t : B} (hst : s ≠ t)
   simp [coeff, hst]
 
 /-- The product of two rank-one pair forms. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def pairProduct (M : CoxeterMatrix B) (s t : B) :
     Space B ≃ₗ[ℝ] Space B :=
   reflectionEquiv M s * reflectionEquiv M t
@@ -7136,9 +7373,11 @@ noncomputable section
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB4 : DecidableEq B := Classical.decEq B
 
 /-- The linear action of a reflection on `Space B`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def pairActionLinear (M : CoxeterMatrix B) (s t : B) :
     (Fin 2 → ℝ) →ₗ[ℝ] (Fin 2 → ℝ) := by
   let c := pairCoeff M s t
@@ -7201,6 +7440,7 @@ lemma pairActionLinear_bijective (M : CoxeterMatrix B) (s t : B) :
       ring
 
 /-- The action of a reflection on the pair form. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def pairAction (M : CoxeterMatrix B) (s t : B) :
     (Fin 2 → ℝ) ≃ₗ[ℝ] (Fin 2 → ℝ) :=
   LinearEquiv.ofBijective (pairActionLinear M s t)
@@ -7238,9 +7478,11 @@ noncomputable section
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB5 : DecidableEq B := Classical.decEq B
 
 /-- The complex coordinates of a vector in `Space B`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def complexCoord (c d : ℝ) :
     (Fin 2 → ℝ) →ₗ[ℝ] ℂ :=
   { toFun := fun z =>
@@ -7467,6 +7709,7 @@ noncomputable section
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB6 : DecidableEq B := Classical.decEq B
 
 lemma pairAction_pow_infty (M : CoxeterMatrix B) {s t : B}
@@ -7501,6 +7744,7 @@ lemma pairAction_order_infty (M : CoxeterMatrix B) {s t : B}
 
 /-- The exact-order calculation on the two-root coordinate plane used in
 GT `fg18`; `0` is Mathlib's infinite-order convention. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): references GT `fg18`, a consumer of this calculation, not a dependency (direction rule: a used lemma may not mention its user); remove or rephrase.
 theorem pairAction_order (M : CoxeterMatrix B) {s t : B}
     (hst : s ≠ t) :
     orderOf (pairAction M s t) = M s t := by
@@ -7563,6 +7807,7 @@ theorem LinearEquiv.pow_eq_one_of_model
 
 /-- Exact order in an injectively embedded invariant model divides exact
 order in the ambient linear automorphism group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 26 lines; a routine delegation may simply declare the proof trivial).
 theorem LinearEquiv.orderOf_dvd_of_intertwines
     {K V W : Type*} [Field K]
     [AddCommGroup V] [Module K V] [AddCommGroup W] [Module K W]
@@ -7589,6 +7834,8 @@ theorem LinearEquiv.orderOf_dvd_of_intertwines
 /-- The group-theoretic completion of the geometric representation used for GT
 `fg16`: any model realizing the Coxeter relations with the prescribed exact
 orders proves injectivity and exact orders in the presented Coxeter group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): references GT `fg16`, which consumes this result, not a dependency (direction rule); remove or rephrase.
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 54 lines; a routine delegation may simply declare the proof trivial).
 theorem exact_orders_of_model {B H : Type*} [Group H]
     (M : CoxeterMatrix B) (R : B → H)
     (hrel : ∀ s t, (R s * R t) ^ M s t = 1)
@@ -7628,6 +7875,7 @@ open scoped BigOperators
 
 variable {B : Type*}
 /-- Decidable equality on `B`, by choice. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 local instance decEqB7 : DecidableEq B := Classical.decEq B
 
 lemma reflection_orthogonal (M : CoxeterMatrix B) (s : B) (x : Space B)
@@ -7643,6 +7891,7 @@ span of the two roots.  The decomposition `decompose_into_span_orthogonal`
 reduces a general vector to a span component (handled by
 `pairEmbed_intertwines` and `pairAction_order`) plus an orthogonal component
 fixed pointwise by both reflections. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): "GT `fg16` support" names the consumer result rather than a dependency (direction rule); rephrase in terms of this lemma's own content or its dependencies.
 lemma pairProduct_pow_orderOf_eq_one (M : CoxeterMatrix B)
     {s t : B} (hst : s ≠ t) :
     (pairProduct M s t) ^ (M s t) = 1 := by
@@ -7699,6 +7948,8 @@ lemma pairProduct_pow_orderOf_eq_one (M : CoxeterMatrix B)
     simp
 
 /-- GT `fg16` support: the pair reflection product has exact order `M s t`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): "GT `fg16` support" names the consumer result rather than a dependency (direction rule); rephrase in terms of this lemma's own content or its dependencies.
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 67 lines; a routine delegation may simply declare the proof trivial).
 lemma pairProduct_orderOf_eq (M : CoxeterMatrix B)
     {s t : B} (hst : s ≠ t) :
     orderOf (pairProduct M s t) = M s t := by
@@ -7766,6 +8017,7 @@ lemma reflectionEquiv_orderOf (M : CoxeterMatrix B) (s : B) :
 group is faithful, and the simple reflections and their pairwise products have
 the prescribed exact orders.  This is the conclusion of the geometric
 representation argument started by `fg17` and `fg18`. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): references `fg17` and `fg18`, which are not dependencies of this proof (verified: the proof uses `exact_orders_of_model`, the pair-product lemmas, and the reflection lemmas only); remove or rephrase.
 theorem fg16 (M : CoxeterMatrix B) :
     Function.Injective M.simple ∧
       (∀ s, orderOf (M.simple s) = 2) ∧
@@ -7802,6 +8054,7 @@ open Matrix
 variable {K : Type*} [Field K]
 
 /-- The two-by-two diagonal block of a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def diag2 (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
   Matrix.diagonal (fun i => if i = 0 then (z : K) else (z⁻¹ : K))
 
@@ -7857,6 +8110,7 @@ theorem order_matrix_conj (M D : Matrix (Fin 2) (Fin 2) K)
     simp
 
 /-- The special-linear component of a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def slOf (M : Matrix (Fin 2) (Fin 2) K) (h : M.det = 1) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   ⟨M, h⟩
@@ -8034,23 +8288,28 @@ lemma prime_power_field_three_units
     u, v, w, hu, hv, hw⟩
 
 /-- The upper-triangular block of a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def upper (z : Kˣ) : Matrix (Fin 2) (Fin 2) K :=
   !![(z : K), 1; 0, (z⁻¹ : K)]
 
 /-- The lower-triangular block of a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def lower (z : Kˣ) (t : K) : Matrix (Fin 2) (Fin 2) K :=
   !![(z : K), 0; t, (z⁻¹ : K)]
 
 /-- The upper block modulo the center for a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def upperSL0 (z : Kˣ) : Matrix.SpecialLinearGroup (Fin 2) K :=
   slOf (upper z) (by simp [upper, Matrix.det_fin_two])
 
 /-- The lower block modulo the center for a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def lowerSL0 (z : Kˣ) (t : K) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   slOf (lower z t) (by simp [lower, Matrix.det_fin_two])
 
 /-- The product of the SL₀ blocks of a Bd3m source. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def prodSL0 (u v : Kˣ) (t : K) :
     Matrix.SpecialLinearGroup (Fin 2) K :=
   upperSL0 u * lowerSL0 v t
@@ -8389,6 +8648,7 @@ end Bd3mSource
 
 /-- GT `bd3m`: element orders impose no restriction on the order of their
 product in a suitable finite group. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem bd3m
     {m n r : ℕ} (hm : 1 < m) (hn : 1 < n) (hr : 1 < r) :
     ∃ (G : Type) (_ : Group G) (_ : Finite G), ∃ a b : G,
@@ -8492,6 +8752,7 @@ noncomputable def sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
 Textbook math: the monotonicity certificate,
 `Monotone (λ j, f (sortedEquiv f j))`. Its proof is trivial.
 -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 theorem monotone_sortedEquiv {α : Type*} [Fintype α] (f : α → ℕ) :
     Monotone (fun j => f (sortedEquiv f j)) :=
   (sortedEquivData f).2
@@ -8519,6 +8780,7 @@ is the subtype `{ q : α // q ∈ image(p) }` of distinct values actually attain
 by `p` — equivalently, the set of labels appearing in the list `p`. The name
 reflects the intended application (the labels are primes there), but the
 construction itself is independent of any prime structure. -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic image-subtype gadget named after its ring-theoretic application; the docstring itself notes independence from prime structure — cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally (e.g. `imageLabel`) or document as a resolved false positive.
 abbrev elementaryPrimes {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :=
   {q : α // q ∈ Finset.univ.image p}
@@ -8529,6 +8791,7 @@ Auxiliary construction. Textbook math: for a labeling `p : ι → α` and a valu
 `q : α`, this is the subtype `{ i : ι // p i = q }` of indices whose label is
 `q` — the fiber of `p` over `q`. In the intended application the labels are
 primes, so this collects the summands attached to the prime `q`. -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic fiber gadget named after its ring-theoretic application (`primeFiber`); cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally (e.g. `labelFiber`) or document as a resolved false positive.
 abbrev primeFiber {α : Type*} {ι : Type*} (p : ι → α) (q : α) :=
   {i : ι // p i = q}
 
@@ -8538,6 +8801,7 @@ Auxiliary construction. Textbook math: `primeMultiplicity p q = |{ i : p i = q }
 the number of indices labeled by `q` — equivalently the cardinality of the
 fiber `primeFiber p q`. In the intended application this is how many times the
 label `q` occurs. -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic fiber-cardinality gadget named after its ring-theoretic application (`primeMultiplicity`); cf. the `elementaryPrimes` counterexample in AUDIT.md. Rename neutrally or document as a resolved false positive.
 noncomputable def primeMultiplicity {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (q : elementaryPrimes p) : ℕ :=
   Fintype.card (primeFiber p q.1)
@@ -8601,6 +8865,7 @@ noncomputable def paddedExponent {α : Type*} [DecidableEq α] {ι : Type*} [Fin
 Auxiliary construction. Textbook math: the coercion of an index `i : ι` to its
 label, `elementaryPrime p i = p i`, packaged as an element of `elementaryPrimes p`.
 It records that `p i` is one of the distinct labels attained by `p`. -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): a pure index-to-label coercion named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally (e.g. `labelOf`) or document as a resolved false positive.
 def elementaryPrime {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (i : ι) : elementaryPrimes p :=
   ⟨p i, Finset.mem_image.mpr ⟨i, Finset.mem_univ _, rfl⟩⟩
@@ -8612,6 +8877,7 @@ Auxiliary construction. Textbook math: the order-isomorphism
 by the exponent `e i`, numbering its elements `0, …, c-1` in non-decreasing
 order of exponent. It is obtained by applying `sortedEquiv` to the fiber, with
 `primeMultiplicity p q` giving the fiber's cardinality. -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic sorted-fiber bijection named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally (e.g. `sortedFiberEquiv`) or document as a resolved false positive.
 noncomputable def sortedPrimeFiberEquiv {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) (e : ι → ℕ) (q : elementaryPrimes p) :
     Fin (primeMultiplicity p q) ≃ primeFiber p q.1 :=
@@ -8690,6 +8956,7 @@ bijection `ι ≃ Σ q : elementaryPrimes p, primeFiber p q` that regroups the
 index set `ι` as the disjoint union of its fibers over the distinct labels `q`.
 Every index belongs to exactly one fiber, so this is just a reorganization by
 label. The proof is trivial (definitional unpacking/repacking). -/
+-- AUDIT-GAP (coding-conventions audit, rules tightened 2026-08-20): generic regrouping bijection named after the ring-theoretic application; cf. the `elementaryPrimes` counterexample in AUDIT.md (same family). Rename neutrally or document as a resolved false positive.
 def indexEquivSigmaPrimeFiber {α : Type*} [DecidableEq α] {ι : Type*} [Fintype ι]
     (p : ι → α) :
     ι ≃ Σ q : elementaryPrimes p, primeFiber p q.1 where
@@ -9500,6 +9767,7 @@ theorem CommGroup.exists_mulEquiv_free_prod_invariantFactors
 /-- GT `it21(a,b)`, source-facing invariant-factor decomposition: the
 number of infinite cyclic factors is the intrinsic free rank, while the finite
 cyclic factors are nontrivial and divisibility ordered. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 137 lines; a routine delegation may simply declare the proof trivial).
 theorem CommGroup.exists_mulEquiv_freeRank_prod_invariantFactors
     (G : Type*) [CommGroup G] [Group.FG G] :
     ∃ (s : ℕ) (n : Fin s → ℕ),
@@ -9637,6 +9905,7 @@ variable {G : Type*} [Group G]
 
 /-- `H` is a maximal proper normal subgroup of `K`, expressed by simplicity
 of the relative quotient. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 structure IsMaximalNormal (H K : Subgroup G) : Prop where
   le : H ≤ K
   normal : (H.subgroupOf K).Normal
@@ -9760,6 +10029,7 @@ theorem inf_maximal_of_sup_maximal {x y : Subgroup G}
   exact (secondIso x y hy.normal).isSimpleGroup_congr.mp inferInstance
 
 /-- The factors represented by two adjacent subgroup pairs are isomorphic. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def FactorsMulEquiv (p q : Subgroup G × Subgroup G) : Prop :=
   ∃ hp : (p.1.subgroupOf p.2).Normal,
     ∃ hq : (q.1.subgroupOf q.2).Normal,
@@ -9781,6 +10051,7 @@ lemma factorsMulEquiv_trans {p q r : Subgroup G × Subgroup G} :
   exact ⟨hp, hr, ⟨e.trans f⟩⟩
 
 /-- Congruence of quotients via the upper subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def quotientCongrUpper
     (N : Subgroup G) {A B : Subgroup G}
     (h : A = B) (hA : (N.subgroupOf A).Normal)
@@ -9792,6 +10063,7 @@ noncomputable def quotientCongrUpper
   exact MulEquiv.refl _
 
 /-- Congruence of quotients via the lower subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 noncomputable def quotientCongrLower
     (A : Subgroup G) {N M : Subgroup G}
     (h : N = M) (hN : (N.subgroupOf A).Normal)
@@ -9833,12 +10105,14 @@ lemma factorsMulEquiv_secondIso {x y : Subgroup G}
   second_iso := factorsMulEquiv_secondIso
 
 /-- A group composition series, indexed from its least subgroup to its greatest. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 abbrev Series (G : Type*) [Group G] :=
   @CompositionSeries (Subgroup G) inferInstance
     (jordanHolderLattice G)
 
 /-- GT `ns02` (Jordan–Hölder): two composition series with endpoints `⊥, ⊤`
 have equal length and isomorphic quotient factors up to a permutation. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 38 lines; a routine delegation may simply declare the proof trivial).
 theorem jordan_holder (s t : Series G)
     (hshead : s.head = ⊥) (hstail : s.last = ⊤)
     (hthead : t.head = ⊥) (httail : t.last = ⊤) :
@@ -9877,6 +10151,7 @@ variable {A G G' G'' : Type*}
   [MulDistribMulAction A G'']
 
 /-- A subgroup preserved by all operators. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 def IsInvariant (H : Subgroup G) : Prop :=
   ∀ (a : A) {x : G}, x ∈ H → a • x ∈ H
 
@@ -9932,6 +10207,7 @@ theorem sup {H K : Subgroup G} (hH : IsInvariant (A := A) H)
   rfl
 
 /-- Invariance supplies the quotient-action condition. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `key lemma`), and lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 44 lines; a routine delegation may simply declare the proof trivial).
 protected lemma quotientAction (N : Subgroup G)
     (hN : IsInvariant (A := A) N) :
     MulAction.QuotientAction A N where
@@ -9976,6 +10252,7 @@ protected lemma quotientAction (N : Subgroup G)
   rfl
 
 /-- The kernel of an equivariant group homomorphism is invariant. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 11 lines; a routine delegation may simply declare the proof trivial).
 theorem ker (f : G →*[A] G') :
     IsInvariant (A := A) f.toMonoidHom.ker := by
   intro a x hx
@@ -9987,6 +10264,7 @@ theorem ker (f : G →*[A] G') :
   exact map_one (MulDistribMulAction.toMonoidEnd A G' a)
 
 /-- The range of an equivariant group homomorphism is invariant. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem range (f : G →*[A] G') :
     IsInvariant (A := A) f.toMonoidHom.range := by
   intro a y
@@ -9996,6 +10274,7 @@ theorem range (f : G →*[A] G') :
   exact f.map_smul' a x
 
 /-- Inverse images of invariant subgroups are invariant. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 9 lines; a routine delegation may simply declare the proof trivial).
 theorem comap (f : G →*[A] G') {K : Subgroup G'}
     (hK : IsInvariant (A := A) K) :
     IsInvariant (A := A) (K.comap f.toMonoidHom) := by
@@ -10005,6 +10284,7 @@ theorem comap (f : G →*[A] G') {K : Subgroup G'}
   exact hK a hx
 
 /-- Direct images of invariant subgroups are invariant. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 10 lines; a routine delegation may simply declare the proof trivial).
 theorem map (f : G →*[A] G') {H : Subgroup G}
     (hH : IsInvariant (A := A) H) :
     IsInvariant (A := A) (H.map f.toMonoidHom) := by
@@ -10015,6 +10295,7 @@ theorem map (f : G →*[A] G') {H : Subgroup G}
   exact f.map_smul' a x
 
 /-- An invariant subgroup cuts out an invariant subgroup of every invariant subgroup. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 13 lines; a routine delegation may simply declare the proof trivial).
 theorem subgroupOf {H N : Subgroup G}
     (hH : IsInvariant (A := A) H)
     (hN : IsInvariant (A := A) N) :
@@ -10028,6 +10309,7 @@ theorem subgroupOf {H N : Subgroup G}
 end IsInvariant
 
 /-- A multiplicative equivalence commuting with an operator action. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks a nature-of-result statement (e.g. `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`).
 structure Equiv (A : Type*) (G : Type*) (G' : Type*)
     [Group A] [Group G] [Group G']
     [MulDistribMulAction A G] [MulDistribMulAction A G']
@@ -10124,6 +10406,7 @@ noncomputable def quotientKerEquivRange (f : G →*[A] G') :
     exact f.map_smul' a x
 
 /-- GT `ns24`: the equivariant first isomorphism theorem. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 31 lines; a routine delegation may simply declare the proof trivial).
 theorem first_isomorphism (f : G →*[A] G') :
     let N := f.toMonoidHom.ker
     let R := f.toMonoidHom.range
@@ -10192,6 +10475,7 @@ noncomputable def quotientInfEquivSupQuotient
   | _ x => rfl
 
 /-- GT `ns25`: the equivariant second isomorphism theorem. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 55 lines; a routine delegation may simply declare the proof trivial).
 theorem second_isomorphism (H N : Subgroup G) [N.Normal]
     (hH : IsInvariant (A := A) H)
     (hN : IsInvariant (A := A) N) :
@@ -10247,6 +10531,7 @@ theorem second_isomorphism (H N : Subgroup G) [N.Normal]
 
 /-- GT `ns26`: a surjective equivariant homomorphism carries the ordinary
 subgroup correspondence to the invariant-subgroup correspondence. -/
+-- AUDIT-GAP (documentation audit, rules tightened 2026-08-20): docstring lacks either a proof-idea note or an explicit triviality declaration (proof ≈ 36 lines; a routine delegation may simply declare the proof trivial).
 theorem invariant_subgroup_correspondence_of_surjective
     (f : G →*[A] G') (hf : Function.Surjective f) :
     (∀ H : Subgroup G, f.toMonoidHom.ker ≤ H →
