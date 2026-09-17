@@ -76,14 +76,23 @@ open scoped Pointwise
   `eisenstein_irreducible_int` below.
 - `ef9` (examples: `[ℂ:ℝ] = 2`, `[ℝ:ℚ] = ∞`): `Complex.finrank_real_complex`
   in Mathlib gives (a); (b) is a cardinality observation.
-- `ef15` (example: `ℚ[π]`): instance of `mem_adjoin_iff_exists_finsupp` below.
+- `ef11`, `ef12` (examples: concrete extensions `ℝ[x]` for `x² + 1`, `ℚ[x]`
+  for `x³ - 3x - 1`): instances of the quotient-ring construction
+  (`AdjoinRoot`) and the degree computation; omitted as examples.
+- `ef15`, `ef16` (examples: `ℚ[π]`, `ℚ(π)`): instances of
+  `mem_adjoin_iff_exists_finsupp` below; `ℚ(π)` additionally illustrates the
+  field of fractions of the adjoin.
+- `ef17` (example: minimal polynomial of a root of `X³ - 3X - 1`): instance
+  of the monic-irreducible-root characterization of minimal polynomials.
+- `ef18` (remark: PARI/GP computations): computer-algebra illustration;
+  omitted.
+- Unlabeled prose following `ef7` in the source: the remark that the last
+  three propositions hold "mutatis mutandis" with `ℤ` replaced by a UFD `R`
+  carries no stable label and is omitted as a generalization beyond the
+  stated scope; the general UFD route is available upstream through Mathlib's
+  content/Gauss API (`Polynomial.GaussLemma.lean`, prime-ideal Eisenstein
+  criterion `Polynomial.irreducible_of_eisenstein_criterion`).
 
-AUDIT-GAP (audit 8ba70b2, documentation audit, minor): the chapter-1
-expositional items `ef11`, `ef12`, `ef16`, `ef17`, `ef18` are omitted by the
-provenance scope (examples/remarks) but have no scope citation in this block,
-unlike the other omitted items of the chapter (ef0-ef15 cluster).  Either add
-scope citations for them or state once that all remaining examples/remarks of
-the chapter are omitted by scope.
 -/
 
 section Fields
@@ -348,16 +357,10 @@ section Extensions
 variable {F E L : Type*} [Field F] [Field E] [Field L]
   [Algebra F E] [Algebra E L] [Algebra F L] [IsScalarTower F E L]
 
-/-- A ring homomorphism out of a field into a nontrivial ring is injective. -/
+/-- Auxiliary for FT `ef10` (finiteness half): a ring homomorphism out of a field into
+a nontrivial ring is injective. Delegates to Mathlib's `RingHom.injective`. -/
 private theorem injective_of_field {K S : Type*} [Field K] [Ring S] [Nontrivial S]
-    (g : K →+* S) : Function.Injective g := by
-  intro a b h
-  by_contra hab
-  have hne : a - b ≠ 0 := sub_ne_zero.mpr hab
-  have h0 : g (a - b) = 0 := by rw [map_sub, h, sub_self]
-  have h1 : (1 : S) = 0 := by
-    rw [← map_one g, ← mul_inv_cancel₀ hne, map_mul, h0, zero_mul]
-  exact one_ne_zero h1
+    (g : K →+* S) : Function.Injective g := g.injective
 
 /-- FT `ef10`, finiteness half: `L/F` has finite degree if and only if both `L/E` and
 `E/F` have finite degree.
