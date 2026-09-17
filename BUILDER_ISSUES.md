@@ -102,3 +102,45 @@ exactly the requested one, succeed as a no-op and report that state (e.g.
 refusal for genuine import-block changes on a live REPL. Additionally,
 document in `LEAN_REPL_GENERAL.md` that an automatic restart on request
 reuses the last configured import block.
+
+---
+
+## Issue 4 (new): auditor launcher for the main agent
+
+### Background
+
+Audits are currently launched by the main agent as a headless `pi -p` call
+with a hand-written prompt file (see `tmp/audit_ft_ch1_prompt.md` for the FT
+example). This has a structural conflict of interest: the party being audited
+authors the briefing, and in the FT session the first draft indeed overstepped
+by prescribing the audit scope, pre-ranking risk items, and excluding material
+— it had to be killed and relaunched with a neutral prompt.
+
+### Requested capability
+
+A launcher (extension tool or script) that starts an auditor agent for the
+main agent, with the following hard requirements:
+
+1. **No prompt injection.** The launcher takes NO arguments from the main
+   agent — no prompt text, no scope, no file lists, no "focus areas". All
+   auditor-facing content must come from fixed, committed repository material
+   (AGENTS.md, RULES.md, AUDIT.md, the target itself, its provenance header,
+   and the INVENTORY/COVERAGE script hooks). The auditor determines its own
+   scope from AUDIT.md.
+2. **Synchronous.** Not a background launch: the call blocks, and when it
+   returns, the audit is finished. The main agent then picks up the audit
+   result directly from the target (e.g. `AUDIT-GAP` markers) and the audit
+   deliverable commit.
+
+### Impact if not built
+
+Every future audit either repeats the main-agent-prompt conflict of interest,
+or requires ad-hoc manual discipline (as in this session) that does not
+survive agent turnover.
+
+### Suggested fix (optional)
+
+The auditor's standing briefing (role, pre-reading list, deliverable format,
+commit protocol) could live in a committed file (e.g. extend AUDIT.md or a
+companion `AUDITOR_BRIEF.md`) that the launcher passes internally; the
+launcher itself remains argument-free from the main agent's perspective.
