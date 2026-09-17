@@ -1,3 +1,7 @@
+import Extlib.GroupTheory.Mil21
+import Mathlib.LinearAlgebra.FiniteDimensional.Basic
+import Mathlib.RingTheory.Ideal.Basic
+
 /-!
 # Provenance
 
@@ -21,12 +25,40 @@ scope       = """
   """
 source-hooks = ["labels"]
 ```
-
-NOTE: per the provenance audit rule (AUDIT.md), this `# Provenance` section
-must sit at the beginning of the target *after the imports*; move it below the
-import block once imports are added.
-
-# Inventory
-INVENTORY-SCRIPT tools/ft_inventory.py
-COVERAGE-SCRIPT tools/ft_coverage.py
 -/
+
+/-!
+# Fields and Galois Theory (Milne FT v5.00)
+
+Formalization of Milne's *Fields and Galois Theory* (v5.00).  Source-extraction
+script: `tools/ft_inventory.py`; coverage audit: `tools/ft_coverage.py`.
+-/
+
+namespace FT
+
+/-!
+## Basic Definitions and Results
+-/
+
+section Fields
+
+/-- FT `ef1`. A nonzero commutative ring `R` is a field if and only if it has no
+ideals other than `(0)` and `R`. -/
+theorem isField_iff_forall_ideal_eq_bot_or_eq_top {R : Type*} [CommRing R] [Nontrivial R] :
+    IsField R ↔ ∀ I : Ideal R, I = ⊥ ∨ I = ⊤ :=
+  ⟨fun h I => (Ring.isField_iff_isSimpleOrder_ideal.mp h).eq_bot_or_eq_top I, fun H => by
+    by_contra h
+    obtain ⟨I, hI, hItop⟩ := Ring.not_isField_iff_exists_ideal_bot_lt_and_lt_top.mp h
+    rcases H I with hIBot | hITop
+    · exact hI.ne' hIBot
+    · exact hItop.ne hITop⟩
+
+/-- FT `ef14`. Let `R` be an integral domain containing a subfield `F` (as a subring).
+If `R` is finite-dimensional as an `F`-vector space, then it is a field. -/
+theorem isField_of_isDomain_of_finiteDimensional (F R : Type*) [Field F] [CommRing R] [IsDomain R]
+    [Algebra F R] [FiniteDimensional F R] : IsField R :=
+  IsField.of_isDomain_of_finite F R
+
+end Fields
+
+end FT
