@@ -571,6 +571,11 @@ end TranscendentalNumbers
 /-!
 ### Algebraically closed fields
 
+AUDIT-GAP (audit 3646858, provenance/scope audit, minor): the chapter-1 aside
+`ac3a` (historical aside on Steinitz 1910) is omitted by the provenance scope
+but has no scope citation in this file, unlike the other omitted expositional
+items of the chapter (see the ef0-ef31 cluster of scope notes above).
+
 Scope note: `sf10`'s source phrasing "hence an algebraic closure of `F`" is
 exposed through `isAlgClosure_of_isAlgebraic_of_splits` alongside the bare
 `isAlgClosed_of_isAlgebraic_of_splits`.
@@ -708,7 +713,12 @@ noncomputable def intermediateFieldIsAlgebraic (F : Type*) [Field F] (Ω : Type*
     (fun _ hx => hx)
 
 /-- FT `sf11`. Membership in `FT.intermediateFieldIsAlgebraic F Ω` is exactly being
-algebraic over `F`. -/
+algebraic over `F`.
+
+AUDIT-GAP (audit 3646858, documentation audit, minor): the proof is `Iff.rfl`.
+Per the documentation standard this docstring should declare the proof trivial,
+as should the docstrings of `isAlgClosure_iff_isAlgClosed_and_isAlgebraic` and
+`coe_intermediateFieldIsAlgebraic` (unpacking/repacking proofs). -/
 theorem mem_intermediateFieldIsAlgebraic {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω]
     {x : Ω} : x ∈ intermediateFieldIsAlgebraic F Ω ↔ IsAlgebraic F x := by
   unfold intermediateFieldIsAlgebraic
