@@ -70,3 +70,35 @@ designed), but after the subsequent crash the service stayed down.
    (e.g. "workers blocked: repl down since T").
 3. Align `LEAN_REPL_GENERAL.md` with whichever behavior is implemented
    (currently it promises auto-restart-on-request, which only half-holds).
+
+## Addendum (same session, later): recovery now produces a broken empty environment
+
+After several hours of further use, the failure mode escalated. Reproducible
+across **six** recovery attempts (graceful kill + re-import, SIGKILL of the
+inner process, process-group kill, `pkill -9`, and two timing variants):
+
+1. `lean_repl_import` spawns the REPL and reports `initialized: true` with the
+   configured imports.
+2. Immediately after, `lean_repl_status` shows `restartCount: 1` with
+   `lastRestartReason: "Lean REPL is not running"` — the freshly spawned REPL
+   died and something auto-restarted it.
+3. The auto-restarted instance has an **empty Lean environment**: even
+   `example : True := trivial` fails with `Unknown identifier 'trivial'` and
+   `Unknown constant 'OfNat'` — no core, no Mathlib, no Target — while the
+   extension's bookkeeping continues to claim the configured imports.
+4. The inner REPL process RSS plateaus at ~2 GB (vs. ~7.5 GB for a loaded
+   environment) and never grows: it is wedged mid-initialization or is not
+   initializing at all.
+
+Consequence: `lean_repl` is unusable while `lake build` continues to work
+fine, so the failure is isolated to the REPL service, not the toolchain.
+Also notable: commands sent during the import window appear to wedge the
+service (first observed this way), but the empty-environment state persists
+even when no command is sent until well after import.
+
+Until fixed, the workaround is to rely on `lake build Target` (authoritative
+for type-correctness, linters, and the axiom ledger via the file's declared
+axioms) and defer `#print axioms` re-checks to a recovered REPL.  The
+`lean_repl_status` `initialized` flag cannot be trusted in this state; a
+reliable readiness signal is needed (e.g. status reports `loaded: true` only
+after the environment actually answers a probe elaboration).
