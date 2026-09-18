@@ -1004,15 +1004,6 @@ where `√e` is the real square root `Real.sqrt e` (so `F[√e]` is realized ins
 def InQuadPlane (F : Subfield ℝ) (e : ℝ) (p : ℝ × ℝ) : Prop :=
   ∃ u v w z : ℝ, u ∈ F ∧ v ∈ F ∧ w ∈ F ∧ z ∈ F ∧ p.1 = u + v * Real.sqrt e ∧ p.2 = w + z * Real.sqrt e
 
--- `cos_pi_div_nine_not_constructible`) and keep the labels in comments/docstrings.
-/-!
-AUDIT-GAP (documentation audit): dangling comment fragment — the `--` line just
-above this marker, "`cos_pi_div_nine_not_constructible`) and keep the labels in
-comments/docstrings.", is an incomplete leftover sentence that also references
-the outdated declaration name `cos_pi_div_nine_not_constructible` (the target
-declares `FT.not_constructible_cos_pi_div_nine`); remove or repair the
-fragment.
--/
 /-- FT `ef24`, clause (1).  Let `L ≠ L′` be `F`-lines.  Then `L ∩ L′ = ∅` or consists of a single
 `F`-point.
 
@@ -2098,37 +2089,14 @@ end ConstructionsStraightEdgeCompass
 /-!
 ### Improvements for Mathlib
 
-The development above exposes the following plausible upstream improvement.
-
-* `Polynomial.exists_isRoot_of_natDegree_eq_three` — a nonzero cubic `f : F[X]`
-  over a field with `f.natDegree = 3` that is *not* irreducible has a root.
-  Mathlib currently packages the degree-2 analogue of this irreducibility test
-  but not the cubic one.  The project declaration
-  `FT.exists_root_of_not_irreducible_cubic` (in section
-  `ConstructionsStraightEdgeCompass`) is exactly this statement, proved via
-  `irreducible_or_factor`, `Polynomial.natDegree_mul` and
-  `Polynomial.exists_root_of_degree_eq_one` — a checked proof route.  A
-  plausible upstream statement is the contrapositive packaged as an
-  irreducibility criterion: for `f ≠ 0` with `f.natDegree ≤ 3`,
-  `Irreducible f ↔ ∀ x, f.eval x ≠ 0`.  Absence check: broad `rg` over Mathlib
-  for cubic/degree-three root-irreducibility equivalences returned only
-  degree-2 packaging.
-
-  AUDIT-GAP (obligation to external library audit): this entry fails the
-  absence check — Mathlib already packages the proposed upstream statement.
-  `Polynomial.irreducible_iff_roots_eq_zero_of_degree_le_three`
-  (Mathlib/Algebra/Polynomial/SpecificDegree.lean) gives
-  `Irreducible p ↔ p.roots = 0` for `2 ≤ natDegree p ≤ 3` over a field (also in
-  `Monic` form), and `Polynomial.irreducible_of_degree_le_three_of_not_isRoot`
-  (same file) gives `natDegree p ∈ Icc 1 3 → (∀ x, ¬IsRoot p x) → Irreducible p`.
-  The proposed criterion "for `f ≠ 0` with `f.natDegree ≤ 3`,
-  `Irreducible f ↔ ∀ x, f.eval x ≠ 0`" is therefore available upstream up to
-  the epsilon (compose the degree ≤ 3 case with the characterization of
-  `p.roots = 0` for `p ≠ 0` and handle `natDegree p ≤ 1` via
-  `Polynomial.irreducible_of_degree_eq_one`), so the claim "Mathlib currently
-  packages the degree-2 analogue ... but not the cubic one" and the recorded
-  absence check are incorrect.  The entry must be corrected or removed — it is
-  not a substantive obligation under the content/absence criteria.
+(No substantive upstream obligations were identified.  An earlier entry
+proposing a cubic no-root irreducibility criterion was withdrawn after the
+audit of commit 73801da: Mathlib's
+`Polynomial.irreducible_iff_roots_eq_zero_of_degree_le_three` and
+`Polynomial.irreducible_of_degree_le_three_of_not_isRoot`
+(Mathlib/Algebra/Polynomial/SpecificDegree.lean) already package the
+degree-≤3 root criterion, so the project's
+`FT.exists_root_of_not_irreducible_cubic` is a thin composition rather than
+an upstream gap.  The project declaration is retained for source-faithfulness
+to the proof of FT `ef29`.)
 -/
-
-end FT
