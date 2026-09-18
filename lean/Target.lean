@@ -1384,6 +1384,9 @@ customs length of FT's geometric development satisfies `Constructible`, so the
 impossibility results transfer to genuine straight-edge-and-compass
 constructibility. -/
 
+-- AUDIT-GAP (documentation audit, commit 2a1940f): typo in the preceding section
+-- comment: "every customs length" should read "every constructed length".
+
 /-- The straight line through two points `p₁, p₂ ∈ ℝ × ℝ`, as a membership predicate: `q` lies on
 it iff `(y₁ - y₂) x + (x₂ - x₁) y + (x₁ y₂ - x₂ y₁) = 0` (determinant form of the line equation).
 For `p₁ ≠ p₂` this is the unique straight line through `p₁` and `p₂`. -/
@@ -1429,6 +1432,30 @@ inductive GeoConstructiblePoint : ℝ × ℝ → Prop
 /-- A real number (length) is *geometrically constructible* (FT) when it occurs as the
 x-coordinate of a constructed point on the x-axis. -/
 def GeoConstructible (x : ℝ) : Prop := GeoConstructiblePoint (x, 0)
+
+/-!
+AUDIT-GAP (semantic audit, commit 2a1940f): the construction process encoded by
+`GeoConstructiblePoint` is strictly narrower than FT's, and the claimed equivalence
+is not established.  FT's process draws circles "with centre a point already
+constructed and radius a constructed length" — under the standard rigorous reading
+(cf. Artin, *Algebra*, ch. 13.4, cited in the source proof of FT `ef25`) the radius is
+the distance between two already constructed points.  The rule
+`GeoConstructiblePoint.circleLineIntersect` only admits the radius `|c - o|` for an
+already constructed point `o`, so a circle centred at `c` with radius `|a - b|` for
+constructed `a ≠ c ≠ b`-style pairs is not drawable unless some constructed point
+happens to lie at that distance from `c`.  Hence the docstring claim that this is
+"exactly the points 'already constructed' in FT's sense" is unproven: the equivalence
+(the Euclid-style length-transfer construction, which uses only the encoded circle
+rule, cf. Euclid I.2/I.3) is formalized nowhere in the target.  Consequently the
+forward bridge `constructible_of_geo` and the negative results
+`not_geoConstructible_cuberoot_two`, `not_geoConstructible_cos_pi_div_nine`,
+`not_geoConstructible_pi` (FT `ef28`–`ef30`) rule out only this narrower process, not
+FT's stated construction process.  Actionable fix: formalize length transfer
+(point-level constructions) inside the encoded process, i.e. prove the reverse bridge
+`Constructible x → GeoConstructible x` together with the simulation of FT's
+radius-as-constructed-length circles (see also the AUDIT-GAP at
+`FT.constructible_iff_exists_tower`).
+-/
 
 /-- Constructible numbers are closed under subtraction. -/
 theorem constructible_sub {x y : ℝ} (hx : Constructible x) (hy : Constructible y) :
@@ -1734,6 +1761,25 @@ textbook order). -/
 theorem constructible_iff_exists_tower (x : ℝ) :
     Constructible x ↔ ∃ as : List ℝ, TowerOK as ∧ x ∈ quadTower as :=
   ⟨fun h => towerOK_of_constructible h, fun ⟨as, hOK, hx⟩ => constructible_of_towerOK as hOK x hx⟩
+
+/-!
+AUDIT-GAP (semantic audit, commit 2a1940f): FT `ef26` (ii) (⇐) and FT `ef25` (a) are only
+established for the substitute inductive predicate `Constructible`, not for FT's
+*geometric* constructibility, which is the notion the source's statements are about.
+In the source, `ef25` (a) claims that geometrically constructible lengths are closed under
+`c + d`, `-c`, `cd`, `c/d` (proved geometrically via parallels/perpendiculars/similar
+triangles), and the ⇐ direction of `ef26` (ii) claims that all elements of a quadratic
+tower `ℚ[√a₁, …, √a_r]` are *geometrically* constructible (its source proof consumes
+`ef25` (a)).  In this target, `FT.constructible_add` etc. are intro rules of the
+substitute predicate, and the ⇐ direction of `FT.constructible_iff_exists_tower` yields
+only that predicate: from `GeoConstructible c` and `GeoConstructible d` one cannot derive
+`GeoConstructible (c + d)`, and from `x ∈ quadTower as` one cannot derive
+`GeoConstructible x`.  The bridge of commit 2a1940f is one-directional
+(`FT.constructible_of_geo`).  Missing: the reverse bridge `Constructible x →
+GeoConstructible x` (point-level constructions: parallels/perpendiculars, Euclid-style
+length transfer), from which both source claims would follow.  This refines the coverage
+marker's "chapter 1 completely formalized" claim for `ef25` (a) and `ef26` (ii) (⇐).
+-/
 
 /-- Auxiliary: `(√a)² - a = 0` in ℝ when `0 < a` lies in the intermediate field `K`
 (the coefficient `a` is viewed as an element of `K`). -/
