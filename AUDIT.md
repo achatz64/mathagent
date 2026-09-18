@@ -66,3 +66,8 @@ In the lean target there are comment sections on
 4. relevant project declarations or source references.
 
 Project-specific wrappers must not be included merely because they are absent from the external library.
+
+# Speed up with delta audits
+
+If a full audit is not explicitly demanded then please find the last audit commit by an audit agent and perform a delta audit on new modifications. This is more efficient in audit ping pong between audit agent and main agent.
+
