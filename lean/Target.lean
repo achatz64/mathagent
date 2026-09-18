@@ -1298,29 +1298,6 @@ the quadratic-tower characterisation; the geometric input of FT's `ef24` (constr
 points lie in `F[√e]`) is the separate item `ef24` above and is not needed here.
 -/
 
-/-!
-AUDIT-GAP (semantic audit, encoding bridge missing): the source defines
-*constructible* geometrically (FT, section *Constructions with straight-edge and
-compass*: a real number is constructible if it "can be constructed by forming
-successive intersections of lines through two points already constructed and
-circles with centre a point already constructed and radius a constructed
-length") and proves `ef25` (a), (b) and `ef26` (i) as *geometric* theorems using
-`ef24`.  This target replaces the geometric definition by the inductive
-predicate `Constructible` (closure of `ℚ` under the field operations and square
-roots of positive elements), so `ef25`/`ef26` (i) become definitional
-trivialities, and no declaration links `Constructible` to the geometric notion:
-neither "every straight-edge-and-compass constructible length satisfies
-`Constructible`" (which, by induction on construction steps over the already
-formalized `ef24` intersections, would turn `FT.ef28`–`FT.ef30` into genuine geometric impossibility statements) nor the converse is formalized, and the
-geometric input `ef24` is deliberately left unused ("is not needed here").  As
-it stands the source claims "impossible to duplicate the cube / trisect an
-angle / square the circle *by straight-edge and compass constructions*"
-(`ef28`–`ef30`) are only established for the substitute predicate.  Remediation:
-either formalize at least the forward geometric bridge (constructed lengths are
-`Constructible`), or record the encoding substitution explicitly in the
-provenance `scope` field / final ledger.
--/
-
 /-- **FT `ef25`, encoding.**  A real number is *constructible* iff it is generated from the
 rationals by addition, negation, multiplication, inversion, and square roots of positive
 elements — equivalently (FT `ef26` (ii)) iff it lies in a quadratic tower
@@ -1394,6 +1371,216 @@ def ConstructibleField : Subfield ℝ where
 /-- Membership in `ConstructibleField` is exactly constructibility. -/
 theorem mem_ConstructibleField_iff (x : ℝ) : x ∈ ConstructibleField ↔ Constructible x :=
   Iff.rfl
+/-! ### The geometric bridge (FT `ef24`–`ef26` → `Constructible`)
+
+The source defines *constructible* geometrically (successive intersections of
+lines through two already constructed points and circles with constructed
+centre and constructed radius, starting from the unit length); `ef25`/`ef26`
+are then proved geometrically via `ef24`.  The formalization encodes
+constructibility as the inductive predicate `Constructible` above; the
+following definitions and theorems provide the link: `GeoConstructiblePoint`
+encodes FT's construction process, and the bridge theorem proves that every
+customs length of FT's geometric development satisfies `Constructible`, so the
+impossibility results transfer to genuine straight-edge-and-compass
+constructibility. -/
+
+/-- The straight line through two points `p₁, p₂ ∈ ℝ × ℝ`, as a membership predicate: `q` lies on
+it iff `(y₁ - y₂) x + (x₂ - x₁) y + (x₁ y₂ - x₂ y₁) = 0` (determinant form of the line equation).
+For `p₁ ≠ p₂` this is the unique straight line through `p₁` and `p₂`. -/
+def MemGeoLine (p₁ p₂ q : ℝ × ℝ) : Prop :=
+  (p₁.2 - p₂.2) * q.1 + (p₂.1 - p₁.1) * q.2 + (p₁.1 * p₂.2 - p₂.1 * p₁.2) = 0
+
+/-- The circle with centre `c ∈ ℝ × ℝ` through the point `p ∈ ℝ × ℝ`, as a membership predicate:
+`q` lies on it iff its squared distance to `c` equals the squared distance of `p` to `c`
+(the "radius" is the constructed length `|c - p|`). -/
+def MemGeoCircle (c p q : ℝ × ℝ) : Prop :=
+  (q.1 - c.1) ^ 2 + (q.2 - c.2) ^ 2 = (p.1 - c.1) ^ 2 + (p.2 - c.2) ^ 2
+
+/-- FT, *Constructions with straight-edge and compass* (geometric encoding).
+`GeoConstructiblePoint p` says that the point `p ∈ ℝ × ℝ` is obtainable from the two base points
+`(0, 0)` and `(1, 0)` by the straight-edge-and-compass operations of FT:
+* drawing the straight line through two already constructed points (`MemGeoLine`);
+* drawing the circle with an already constructed centre through an already constructed point
+  (`MemGeoCircle`);
+* forming the intersection points of two distinct constructed lines, of a constructed line with a
+  constructed circle, and of two distinct constructed circles.
+
+Distinctness of two lines (resp. two circles) is encoded, as in the `ef24` intersection theorems,
+by distinctness of their point sets.  This is the minimal closure of the base points under the
+three intersection operations, i.e. exactly the points "already constructed" in FT's sense. -/
+inductive GeoConstructiblePoint : ℝ × ℝ → Prop
+  | base1 : GeoConstructiblePoint (0, 0)
+  | base2 : GeoConstructiblePoint (1, 0)
+  | lineIntersect {p₁ p₂ q₁ q₂ r : ℝ × ℝ} :
+      GeoConstructiblePoint p₁ → GeoConstructiblePoint p₂ → p₁ ≠ p₂ →
+      GeoConstructiblePoint q₁ → GeoConstructiblePoint q₂ → q₁ ≠ q₂ →
+      {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} ≠ {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} →
+      MemGeoLine p₁ p₂ r → MemGeoLine q₁ q₂ r → GeoConstructiblePoint r
+  | circleLineIntersect {p₁ p₂ c o r : ℝ × ℝ} :
+      GeoConstructiblePoint p₁ → GeoConstructiblePoint p₂ → p₁ ≠ p₂ →
+      GeoConstructiblePoint c → GeoConstructiblePoint o →
+      MemGeoLine p₁ p₂ r → MemGeoCircle c o r → GeoConstructiblePoint r
+  | circleCircleIntersect {c₁ o₁ c₂ o₂ r : ℝ × ℝ} :
+      GeoConstructiblePoint c₁ → GeoConstructiblePoint o₁ →
+      GeoConstructiblePoint c₂ → GeoConstructiblePoint o₂ →
+      {s : ℝ × ℝ | MemGeoCircle c₁ o₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ o₂ s} →
+      MemGeoCircle c₁ o₁ r → MemGeoCircle c₂ o₂ r → GeoConstructiblePoint r
+
+/-- A real number (length) is *geometrically constructible* (FT) when it occurs as the
+x-coordinate of a constructed point on the x-axis. -/
+def GeoConstructible (x : ℝ) : Prop := GeoConstructiblePoint (x, 0)
+
+/-- Constructible numbers are closed under subtraction. -/
+theorem constructible_sub {x y : ℝ} (hx : Constructible x) (hy : Constructible y) :
+    Constructible (x - y) := constructible_add hx (constructible_neg hy)
+
+/-- The `F`-line through two points with constructible coordinates, when the points are distinct:
+its membership predicate is (definitionally) `MemGeoLine`. -/
+theorem exists_fline_geoLine {p₁ p₂ : ℝ × ℝ} (hne : p₁ ≠ p₂)
+    (h : Constructible p₁.1 ∧ Constructible p₁.2 ∧ Constructible p₂.1 ∧ Constructible p₂.2) :
+    ∃ L : FLine ConstructibleField, ∀ s, (MemFLine L s ↔ MemGeoLine p₁ p₂ s) := by
+  have habne : p₁.2 - p₂.2 ≠ 0 ∨ p₂.1 - p₁.1 ≠ 0 := by
+    rcases ne_or_eq p₁.2 p₂.2 with h1 | h1
+    · exact Or.inl fun hc => h1 (sub_eq_zero.mp hc)
+    · rcases ne_or_eq p₂.1 p₁.1 with h2 | h2
+      · exact Or.inr fun hc => h2 (sub_eq_zero.mp hc)
+      · exact absurd (Prod.ext_iff.mpr ⟨h2.symm, h1⟩) hne
+  refine ⟨⟨p₁.2 - p₂.2, p₂.1 - p₁.1, p₁.1 * p₂.2 - p₂.1 * p₁.2,
+    (mem_ConstructibleField_iff _).mpr (constructible_add h.2.1 (constructible_neg h.2.2.2)),
+    (mem_ConstructibleField_iff _).mpr (constructible_add h.2.2.1 (constructible_neg h.1)),
+    (mem_ConstructibleField_iff _).mpr (constructible_add (constructible_mul h.1 h.2.2.2)
+      (constructible_neg (constructible_mul h.2.2.1 h.2.1))), habne⟩, fun s => Iff.rfl⟩
+
+/-- The `F`-circle with centre `c` through `o`, for points `c, o` with constructible coordinates:
+its membership predicate is `MemGeoCircle` (the `F`-radius is `√(squared distance)`, which is
+again constructible). -/
+theorem exists_fcircle_geoCircle {c o : ℝ × ℝ}
+    (h : Constructible c.1 ∧ Constructible c.2 ∧ Constructible o.1 ∧ Constructible o.2) :
+    ∃ C : FCircle ConstructibleField, ∀ s, (MemFCircle C s ↔ MemGeoCircle c o s) := by
+  have hsub1 : Constructible (o.1 - c.1) := constructible_sub h.2.2.1 h.1
+  have hsub2 : Constructible (o.2 - c.2) := constructible_sub h.2.2.2 h.2.1
+  have hsq : Constructible ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2) := by
+    rw [pow_two, pow_two]
+    exact constructible_add (constructible_mul hsub1 hsub1) (constructible_mul hsub2 hsub2)
+  have hnonneg : 0 ≤ (o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2 :=
+    add_nonneg (sq_nonneg _) (sq_nonneg _)
+  have hrmem : Real.sqrt ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2) ∈ ConstructibleField := by
+    by_cases hz : (o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2 = 0
+    · rw [hz, Real.sqrt_zero]; exact (mem_ConstructibleField_iff _).mpr constructible_zero
+    · exact (mem_ConstructibleField_iff _).mpr
+        (constructible_sqrt (lt_of_le_of_ne hnonneg (Ne.symm hz)) hsq)
+  refine ⟨⟨c.1, c.2, Real.sqrt ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2),
+    (mem_ConstructibleField_iff _).mpr h.1, (mem_ConstructibleField_iff _).mpr h.2.1, hrmem,
+    Real.sqrt_nonneg _⟩, ?_⟩
+  intro s
+  simp only [MemFCircle, MemGeoCircle]
+  rw [Real.mul_self_sqrt hnonneg]
+
+/-- Both coordinates of a point in the `F[√e]`-plane of `F = ConstructibleField` are
+constructible: they are of the form `u + v √e` with `u, v ∈ F`, and `√e` is constructible. -/
+theorem constructible_coords_of_inQuadPlane {e : ℝ} (hepos : 0 < e) (he : Constructible e)
+    {p : ℝ × ℝ} (h : InQuadPlane ConstructibleField e p) :
+    Constructible p.1 ∧ Constructible p.2 := by
+  obtain ⟨u, v, w, z, hu, hv, hw, hz, hx, hy⟩ := h
+  have hsqrt : Constructible (Real.sqrt e) := constructible_sqrt hepos he
+  refine ⟨?_, ?_⟩
+  · rw [hx]
+    exact constructible_add ((mem_ConstructibleField_iff _).mp hu)
+      (constructible_mul ((mem_ConstructibleField_iff _).mp hv) hsqrt)
+  · rw [hy]
+    exact constructible_add ((mem_ConstructibleField_iff _).mp hw)
+      (constructible_mul ((mem_ConstructibleField_iff _).mp hz) hsqrt)
+
+/-- **The geometric bridge** (FT `ef24`–`ef26`).  Every coordinate of a straight-edge-and-compass
+constructed point is a constructible number.
+
+Proof idea: induction on the derivation of `GeoConstructiblePoint`.  The base points `(0, 0)`,
+`(1, 0)` have constructible coordinates.  If two distinct lines are drawn through points whose
+coordinates are constructible, their coefficient triples `y₁ - y₂, x₂ - x₁, x₁ y₂ - x₂ y₁` are
+constructible, so they are `F`-lines of `F = ConstructibleField`; by `ef24` (1) their intersection
+point, if nonempty, has coordinates in `F`, hence constructible.  For line ∩ circle and
+circle ∩ circle, the `F`-circle with centre `c` through `o` has `F`-radius
+`√((o₁ - c₁)² + (o₂ - c₂)²)`, again constructible; by `ef24` (2), (3) the intersection points lie
+in the `F[√e]`-plane for some constructible `e > 0`, and coordinates `u + v √e` with `u, v ∈ F`
+are constructible. -/
+theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructiblePoint p) :
+    Constructible p.1 ∧ Constructible p.2 := by
+  induction h with
+  | base1 => exact ⟨constructible_zero, constructible_zero⟩
+  | base2 => exact ⟨constructible_one, constructible_zero⟩
+  | lineIntersect hp1 hp2 hne1 hq1 hq2 hne2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
+    rename_i p₁ p₂ q₁ q₂ r
+    obtain ⟨L₁, hL₁⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
+    obtain ⟨L₂, hL₂⟩ := exists_fline_geoLine hne2 ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
+    have e1 : {s : ℝ × ℝ | MemFLine L₁ s} = {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} :=
+      Set.ext fun s => hL₁ s
+    have e2 : {s : ℝ × ℝ | MemFLine L₂ s} = {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} :=
+      Set.ext fun s => hL₂ s
+    have hsetF : {s : ℝ × ℝ | MemFLine L₁ s} ≠ {s : ℝ × ℝ | MemFLine L₂ s} := by
+      rw [e1, e2]; exact hset
+    rcases FLine.inter_eq_empty_or_singleton L₁ L₂ hsetF with hempty | ⟨P, hP1, hP2, hsingle⟩
+    · exfalso
+      have hrin : r ∈ {s : ℝ × ℝ | MemFLine L₁ s ∧ MemFLine L₂ s} :=
+        ⟨(hL₁ r).mpr hr1, (hL₂ r).mpr hr2⟩
+      rw [hempty] at hrin
+      simp at hrin
+    · have hrin : r ∈ {s : ℝ × ℝ | MemFLine L₁ s ∧ MemFLine L₂ s} :=
+        ⟨(hL₁ r).mpr hr1, (hL₂ r).mpr hr2⟩
+      rw [hsingle] at hrin
+      rw [Set.mem_singleton_iff.mp hrin]
+      exact ⟨(mem_ConstructibleField_iff _).mp hP1, (mem_ConstructibleField_iff _).mp hP2⟩
+  | circleLineIntersect hp1 hp2 hne1 hc ho hr1 hr2 ih1 ih2 ih3 ih4 =>
+    rename_i p₁ p₂ c o r
+    obtain ⟨L, hL⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
+    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
+    rcases FLine.inter_circle_eq_empty_or_insert L C with hempty | ⟨e, he, hepos, P, Q, hPq, hQq, hsingle⟩
+    · exfalso
+      have hrin : r ∈ {s : ℝ × ℝ | MemFLine L s ∧ MemFCircle C s} :=
+        ⟨(hL r).mpr hr1, (hC r).mpr hr2⟩
+      rw [hempty] at hrin
+      simp at hrin
+    · have hrin : r ∈ {s : ℝ × ℝ | MemFLine L s ∧ MemFCircle C s} :=
+        ⟨(hL r).mpr hr1, (hC r).mpr hr2⟩
+      rw [hsingle] at hrin
+      have hquad : InQuadPlane ConstructibleField e r := by
+        rcases Set.mem_insert_iff.mp hrin with hre | hre
+        · rw [hre]; exact hPq
+        · rw [Set.mem_singleton_iff.mp hre]; exact hQq
+      exact constructible_coords_of_inQuadPlane hepos ((mem_ConstructibleField_iff _).mp he) hquad
+  | circleCircleIntersect hc1 ho1 hc2 ho2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
+    rename_i c₁ o₁ c₂ o₂ r
+    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
+    obtain ⟨C', hC'⟩ := exists_fcircle_geoCircle ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
+    have e1 : {s : ℝ × ℝ | MemFCircle C s} = {s : ℝ × ℝ | MemGeoCircle c₁ o₁ s} :=
+      Set.ext fun s => hC s
+    have e2 : {s : ℝ × ℝ | MemFCircle C' s} = {s : ℝ × ℝ | MemGeoCircle c₂ o₂ s} :=
+      Set.ext fun s => hC' s
+    have hCne : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨ C.r ≠ C'.r := by
+      by_contra hcon
+      push Not at hcon
+      refine hset ?_
+      rw [← e1, ← e2]
+      exact Set.ext fun s => by
+        simp only [MemFCircle, hcon.1, hcon.2.1, hcon.2.2]
+    rcases FCircle.inter_circle_eq_empty_or_insert C C' hCne with hempty | ⟨e, he, hepos, P, Q, hPq, hQq, hsingle⟩
+    · exfalso
+      have hrin : r ∈ {s : ℝ × ℝ | MemFCircle C s ∧ MemFCircle C' s} :=
+        ⟨(hC r).mpr hr1, (hC' r).mpr hr2⟩
+      rw [hempty] at hrin
+      simp at hrin
+    · have hrin : r ∈ {s : ℝ × ℝ | MemFCircle C s ∧ MemFCircle C' s} :=
+        ⟨(hC r).mpr hr1, (hC' r).mpr hr2⟩
+      rw [hsingle] at hrin
+      have hquad : InQuadPlane ConstructibleField e r := by
+        rcases Set.mem_insert_iff.mp hrin with hre | hre
+        · rw [hre]; exact hPq
+        · rw [Set.mem_singleton_iff.mp hre]; exact hQq
+      exact constructible_coords_of_inQuadPlane hepos ((mem_ConstructibleField_iff _).mp he) hquad
+
+/-- **The geometric bridge for lengths** (FT).  Every straight-edge-and-compass constructible
+length is a constructible number (`Constructible`). -/
+theorem constructible_of_geo {x : ℝ} (h : GeoConstructible x) : Constructible x :=
+  (constructible_coords_of_geoPoint h).1
 
 /-- **FT `ef26` (ii), encoding.**  The quadratic tower obtained from ℚ by successively
 adjoining the square roots of the elements of a list.  The list is read *right-to-left*:
@@ -1922,6 +2109,23 @@ axiom transcendental_pi : Transcendental ℚ Real.pi
 number is algebraic over `ℚ` (FT `ef27`), but `π` is transcendental. -/
 theorem pi_not_constructible : ¬ Constructible Real.pi :=
   fun h => transcendental_pi (constructible_algebraic_and_degree h).1
+/-- FT `ef28` as a genuine geometric impossibility: ∛2 is not straight-edge-and-compass
+constructible (transfer of `not_constructible_cuberoot_two` along the bridge). -/
+theorem not_geoConstructible_cuberoot_two : ¬ GeoConstructible ((2 : ℝ) ^ (1 / 3 : ℝ)) := fun h =>
+  not_constructible_cuberoot_two (constructible_of_geo h)
+
+/-- FT `ef29` as a genuine geometric impossibility: `cos 20°` is not straight-edge-and-compass
+constructible (transfer of `not_constructible_cos_pi_div_nine` along the bridge). -/
+theorem not_geoConstructible_cos_pi_div_nine :
+    ¬ GeoConstructible (Real.cos (Real.pi / 9)) := fun h =>
+  not_constructible_cos_pi_div_nine (constructible_of_geo h)
+
+/-- FT `ef30` as a genuine geometric impossibility: `π` is not straight-edge-and-compass
+constructible (transfer of `pi_not_constructible` along the bridge; inherits the same external
+axiom `transcendental_pi` as `pi_not_constructible`). -/
+theorem not_geoConstructible_pi : ¬ GeoConstructible Real.pi := fun h =>
+  pi_not_constructible (constructible_of_geo h)
+
 
 /-- **FT `ef30`.**  It is impossible to square the circle by straight-edge and compass
 constructions.**
