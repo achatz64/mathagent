@@ -1384,20 +1384,17 @@ customs length of FT's geometric development satisfies `Constructible`, so the
 impossibility results transfer to genuine straight-edge-and-compass
 constructibility. -/
 
--- AUDIT-GAP (documentation audit, commit 2a1940f): typo in the preceding section
--- comment: "every customs length" should read "every constructed length".
-
 /-- The straight line through two points `p₁, p₂ ∈ ℝ × ℝ`, as a membership predicate: `q` lies on
 it iff `(y₁ - y₂) x + (x₂ - x₁) y + (x₁ y₂ - x₂ y₁) = 0` (determinant form of the line equation).
 For `p₁ ≠ p₂` this is the unique straight line through `p₁` and `p₂`. -/
 def MemGeoLine (p₁ p₂ q : ℝ × ℝ) : Prop :=
   (p₁.2 - p₂.2) * q.1 + (p₂.1 - p₁.1) * q.2 + (p₁.1 * p₂.2 - p₂.1 * p₁.2) = 0
 
-/-- The circle with centre `c ∈ ℝ × ℝ` through the point `p ∈ ℝ × ℝ`, as a membership predicate:
-`q` lies on it iff its squared distance to `c` equals the squared distance of `p` to `c`
-(the "radius" is the constructed length `|c - p|`). -/
-def MemGeoCircle (c p q : ℝ × ℝ) : Prop :=
-  (q.1 - c.1) ^ 2 + (q.2 - c.2) ^ 2 = (p.1 - c.1) ^ 2 + (p.2 - c.2) ^ 2
+/-- The circle with centre `c ∈ ℝ × ℝ` and radius the constructed length `|a - b|` (the distance
+between two constructed points `a`, `b`; FT: "radius a constructed length"), as a membership
+predicate: `q` lies on it iff its squared distance to `c` equals `|a - b|²`. -/
+def MemGeoCircle (c a b q : ℝ × ℝ) : Prop :=
+  (q.1 - c.1) ^ 2 + (q.2 - c.2) ^ 2 = (a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2
 
 /-- FT, *Constructions with straight-edge and compass* (geometric encoding).
 `GeoConstructiblePoint p` says that the point `p ∈ ℝ × ℝ` is obtainable from the two base points
@@ -1419,43 +1416,19 @@ inductive GeoConstructiblePoint : ℝ × ℝ → Prop
       GeoConstructiblePoint q₁ → GeoConstructiblePoint q₂ → q₁ ≠ q₂ →
       {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} ≠ {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} →
       MemGeoLine p₁ p₂ r → MemGeoLine q₁ q₂ r → GeoConstructiblePoint r
-  | circleLineIntersect {p₁ p₂ c o r : ℝ × ℝ} :
+  | circleLineIntersect {p₁ p₂ c a b r : ℝ × ℝ} :
       GeoConstructiblePoint p₁ → GeoConstructiblePoint p₂ → p₁ ≠ p₂ →
-      GeoConstructiblePoint c → GeoConstructiblePoint o →
-      MemGeoLine p₁ p₂ r → MemGeoCircle c o r → GeoConstructiblePoint r
-  | circleCircleIntersect {c₁ o₁ c₂ o₂ r : ℝ × ℝ} :
-      GeoConstructiblePoint c₁ → GeoConstructiblePoint o₁ →
-      GeoConstructiblePoint c₂ → GeoConstructiblePoint o₂ →
-      {s : ℝ × ℝ | MemGeoCircle c₁ o₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ o₂ s} →
-      MemGeoCircle c₁ o₁ r → MemGeoCircle c₂ o₂ r → GeoConstructiblePoint r
+      GeoConstructiblePoint c → GeoConstructiblePoint a → GeoConstructiblePoint b →
+      MemGeoLine p₁ p₂ r → MemGeoCircle c a b r → GeoConstructiblePoint r
+  | circleCircleIntersect {c₁ a₁ b₁ c₂ a₂ b₂ r : ℝ × ℝ} :
+      GeoConstructiblePoint c₁ → GeoConstructiblePoint a₁ → GeoConstructiblePoint b₁ →
+      GeoConstructiblePoint c₂ → GeoConstructiblePoint a₂ → GeoConstructiblePoint b₂ →
+      {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} →
+      MemGeoCircle c₁ a₁ b₁ r → MemGeoCircle c₂ a₂ b₂ r → GeoConstructiblePoint r
 
 /-- A real number (length) is *geometrically constructible* (FT) when it occurs as the
 x-coordinate of a constructed point on the x-axis. -/
 def GeoConstructible (x : ℝ) : Prop := GeoConstructiblePoint (x, 0)
-
-/-!
-AUDIT-GAP (semantic audit, commit 2a1940f): the construction process encoded by
-`GeoConstructiblePoint` is strictly narrower than FT's, and the claimed equivalence
-is not established.  FT's process draws circles "with centre a point already
-constructed and radius a constructed length" — under the standard rigorous reading
-(cf. Artin, *Algebra*, ch. 13.4, cited in the source proof of FT `ef25`) the radius is
-the distance between two already constructed points.  The rule
-`GeoConstructiblePoint.circleLineIntersect` only admits the radius `|c - o|` for an
-already constructed point `o`, so a circle centred at `c` with radius `|a - b|` for
-constructed `a ≠ c ≠ b`-style pairs is not drawable unless some constructed point
-happens to lie at that distance from `c`.  Hence the docstring claim that this is
-"exactly the points 'already constructed' in FT's sense" is unproven: the equivalence
-(the Euclid-style length-transfer construction, which uses only the encoded circle
-rule, cf. Euclid I.2/I.3) is formalized nowhere in the target.  Consequently the
-forward bridge `constructible_of_geo` and the negative results
-`not_geoConstructible_cuberoot_two`, `not_geoConstructible_cos_pi_div_nine`,
-`not_geoConstructible_pi` (FT `ef28`–`ef30`) rule out only this narrower process, not
-FT's stated construction process.  Actionable fix: formalize length transfer
-(point-level constructions) inside the encoded process, i.e. prove the reverse bridge
-`Constructible x → GeoConstructible x` together with the simulation of FT's
-radius-as-constructed-length circles (see also the AUDIT-GAP at
-`FT.constructible_iff_exists_tower`).
--/
 
 /-- Constructible numbers are closed under subtraction. -/
 theorem constructible_sub {x y : ℝ} (hx : Constructible x) (hy : Constructible y) :
@@ -1478,25 +1451,26 @@ theorem exists_fline_geoLine {p₁ p₂ : ℝ × ℝ} (hne : p₁ ≠ p₂)
     (mem_ConstructibleField_iff _).mpr (constructible_add (constructible_mul h.1 h.2.2.2)
       (constructible_neg (constructible_mul h.2.2.1 h.2.1))), habne⟩, fun s => Iff.rfl⟩
 
-/-- The `F`-circle with centre `c` through `o`, for points `c, o` with constructible coordinates:
-its membership predicate is `MemGeoCircle` (the `F`-radius is `√(squared distance)`, which is
-again constructible). -/
-theorem exists_fcircle_geoCircle {c o : ℝ × ℝ}
-    (h : Constructible c.1 ∧ Constructible c.2 ∧ Constructible o.1 ∧ Constructible o.2) :
-    ∃ C : FCircle ConstructibleField, ∀ s, (MemFCircle C s ↔ MemGeoCircle c o s) := by
-  have hsub1 : Constructible (o.1 - c.1) := constructible_sub h.2.2.1 h.1
-  have hsub2 : Constructible (o.2 - c.2) := constructible_sub h.2.2.2 h.2.1
-  have hsq : Constructible ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2) := by
+/-- The `F`-circle with centre `c` and radius the constructed length `|a - b|`, for points
+`c, a, b` with constructible coordinates: its membership predicate is `MemGeoCircle` (the
+`F`-radius is `√(|a - b|²)`, which is again constructible). -/
+theorem exists_fcircle_geoCircle {c a b : ℝ × ℝ}
+    (h : Constructible c.1 ∧ Constructible c.2 ∧ Constructible a.1 ∧ Constructible a.2 ∧
+      Constructible b.1 ∧ Constructible b.2) :
+    ∃ C : FCircle ConstructibleField, ∀ s, (MemFCircle C s ↔ MemGeoCircle c a b s) := by
+  have hsub1 : Constructible (a.1 - b.1) := constructible_sub h.2.2.1 h.2.2.2.2.1
+  have hsub2 : Constructible (a.2 - b.2) := constructible_sub h.2.2.2.1 h.2.2.2.2.2
+  have hsq : Constructible ((a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2) := by
     rw [pow_two, pow_two]
     exact constructible_add (constructible_mul hsub1 hsub1) (constructible_mul hsub2 hsub2)
-  have hnonneg : 0 ≤ (o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2 :=
+  have hnonneg : 0 ≤ (a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2 :=
     add_nonneg (sq_nonneg _) (sq_nonneg _)
-  have hrmem : Real.sqrt ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2) ∈ ConstructibleField := by
-    by_cases hz : (o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2 = 0
+  have hrmem : Real.sqrt ((a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2) ∈ ConstructibleField := by
+    by_cases hz : (a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2 = 0
     · rw [hz, Real.sqrt_zero]; exact (mem_ConstructibleField_iff _).mpr constructible_zero
     · exact (mem_ConstructibleField_iff _).mpr
         (constructible_sqrt (lt_of_le_of_ne hnonneg (Ne.symm hz)) hsq)
-  refine ⟨⟨c.1, c.2, Real.sqrt ((o.1 - c.1) ^ 2 + (o.2 - c.2) ^ 2),
+  refine ⟨⟨c.1, c.2, Real.sqrt ((a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2),
     (mem_ConstructibleField_iff _).mpr h.1, (mem_ConstructibleField_iff _).mpr h.2.1, hrmem,
     Real.sqrt_nonneg _⟩, ?_⟩
   intro s
@@ -1535,8 +1509,7 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
   induction h with
   | base1 => exact ⟨constructible_zero, constructible_zero⟩
   | base2 => exact ⟨constructible_one, constructible_zero⟩
-  | lineIntersect hp1 hp2 hne1 hq1 hq2 hne2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
-    rename_i p₁ p₂ q₁ q₂ r
+  | @lineIntersect r p₁ p₂ q₁ q₂ hp1 hp2 hne1 hq₁ hq₂ hne2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
     obtain ⟨L₁, hL₁⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
     obtain ⟨L₂, hL₂⟩ := exists_fline_geoLine hne2 ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
     have e1 : {s : ℝ × ℝ | MemFLine L₁ s} = {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} :=
@@ -1556,10 +1529,10 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
       rw [hsingle] at hrin
       rw [Set.mem_singleton_iff.mp hrin]
       exact ⟨(mem_ConstructibleField_iff _).mp hP1, (mem_ConstructibleField_iff _).mp hP2⟩
-  | circleLineIntersect hp1 hp2 hne1 hc ho hr1 hr2 ih1 ih2 ih3 ih4 =>
-    rename_i p₁ p₂ c o r
+  | @circleLineIntersect r p₁ p₂ c a b hp1 hp2 hne1 ha hb hr1 hr2 ih1 ih2 ih3 ih4 =>
     obtain ⟨L, hL⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
-    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
+    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle
+      ⟨ih3.1, ih3.2, ih4.1, ih4.2, ih5.1, ih5.2⟩
     rcases FLine.inter_circle_eq_empty_or_insert L C with hempty | ⟨e, he, hepos, P, Q, hPq, hQq, hsingle⟩
     · exfalso
       have hrin : r ∈ {s : ℝ × ℝ | MemFLine L s ∧ MemFCircle C s} :=
@@ -1574,13 +1547,14 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
         · rw [hre]; exact hPq
         · rw [Set.mem_singleton_iff.mp hre]; exact hQq
       exact constructible_coords_of_inQuadPlane hepos ((mem_ConstructibleField_iff _).mp he) hquad
-  | circleCircleIntersect hc1 ho1 hc2 ho2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
-    rename_i c₁ o₁ c₂ o₂ r
-    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
-    obtain ⟨C', hC'⟩ := exists_fcircle_geoCircle ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
-    have e1 : {s : ℝ × ℝ | MemFCircle C s} = {s : ℝ × ℝ | MemGeoCircle c₁ o₁ s} :=
+  | @circleCircleIntersect r c₁ a₁ b₁ c₂ a₂ b₂ hp1 hp2 hp3 hp4 hp5 hp6 hne hr1 hr2 ih1 ih2 ih3 ih4 ih5 ih6 =>
+    obtain ⟨C, hC⟩ := exists_fcircle_geoCircle
+      ⟨ih1.1, ih1.2, ih2.1, ih2.2, ih3.1, ih3.2, ih4.1, ih4.2⟩
+    obtain ⟨C', hC'⟩ := exists_fcircle_geoCircle
+      ⟨ih4.1, ih4.2, ih5.1, ih5.2, ih6.1, ih6.2⟩
+    have e1 : {s : ℝ × ℝ | MemFCircle C s} = {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} :=
       Set.ext fun s => hC s
-    have e2 : {s : ℝ × ℝ | MemFCircle C' s} = {s : ℝ × ℝ | MemGeoCircle c₂ o₂ s} :=
+    have e2 : {s : ℝ × ℝ | MemFCircle C' s} = {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} :=
       Set.ext fun s => hC' s
     have hCne : C.cx ≠ C'.cx ∨ C.cy ≠ C'.cy ∨ C.r ≠ C'.r := by
       by_contra hcon
@@ -1603,7 +1577,6 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
         · rw [hre]; exact hPq
         · rw [Set.mem_singleton_iff.mp hre]; exact hQq
       exact constructible_coords_of_inQuadPlane hepos ((mem_ConstructibleField_iff _).mp he) hquad
-
 /-- **The geometric bridge for lengths** (FT).  Every straight-edge-and-compass constructible
 length is a constructible number (`Constructible`). -/
 theorem constructible_of_geo {x : ℝ} (h : GeoConstructible x) : Constructible x :=
