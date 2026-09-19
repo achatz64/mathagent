@@ -1380,15 +1380,9 @@ are then proved geometrically via `ef24`.  The formalization encodes
 constructibility as the inductive predicate `Constructible` above; the
 following definitions and theorems provide the link: `GeoConstructiblePoint`
 encodes FT's construction process, and the bridge theorem proves that every
-customs length of FT's geometric development satisfies `Constructible`, so the
+constructed length of FT's geometric development satisfies `Constructible`, so the
 impossibility results transfer to genuine straight-edge-and-compass
 constructibility. -/
-
--- AUDIT-GAP (documentation audit, delta audit of commits a30faf8..92cfea5): the
--- remediation commit a30faf8 removed the previous typo marker with the message
--- "typo fixed", but the defect persists: the section comment above still reads
--- "every customs length of FT's geometric development" — "customs length" must
--- be "constructed length".
 
 /-- The straight line through two points `p₁, p₂ ∈ ℝ × ℝ`, as a membership predicate: `q` lies on
 it iff `(y₁ - y₂) x + (x₂ - x₁) y + (x₁ y₂ - x₂ y₁) = 0` (determinant form of the line equation).
@@ -1402,21 +1396,13 @@ predicate: `q` lies on it iff its squared distance to `c` equals `|a - b|²`. -/
 def MemGeoCircle (c a b q : ℝ × ℝ) : Prop :=
   (q.1 - c.1) ^ 2 + (q.2 - c.2) ^ 2 = (a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2
 
--- AUDIT-GAP (documentation audit, delta audit of commit 92cfea5): the docstring of
--- `GeoConstructiblePoint` below is stale after the two-point-radius redefinition of
--- `MemGeoCircle`: its bullet "drawing the circle with an already constructed centre
--- through an already constructed point (`MemGeoCircle`)" describes the old
--- circle rules, whereas `circleLineIntersect`/`circleCircleIntersect` now draw the
--- circle with centre `c` and radius the constructed length `|a - b|` for constructed
--- points `a`, `b` (passing through a constructed point `o` is only the special case
--- `a = c`, `b = o`).  The docstring must be updated to the new rule.
-
 /-- FT, *Constructions with straight-edge and compass* (geometric encoding).
 `GeoConstructiblePoint p` says that the point `p ∈ ℝ × ℝ` is obtainable from the two base points
 `(0, 0)` and `(1, 0)` by the straight-edge-and-compass operations of FT:
 * drawing the straight line through two already constructed points (`MemGeoLine`);
-* drawing the circle with an already constructed centre through an already constructed point
-  (`MemGeoCircle`);
+* drawing the circle with an already constructed centre `c` and radius a constructed length, i.e.
+  the distance `|a - b|` between two already constructed points `a`, `b` (`MemGeoCircle`;
+  a circle through a constructed point `o` is the special case `a = c`, `b = o`);
 * forming the intersection points of two distinct constructed lines, of a constructed line with a
   constructed circle, and of two distinct constructed circles.
 
@@ -1607,19 +1593,17 @@ predicate `Constructible` it reconstructs the geometric derivation, using only
 explicit straight-edge-and-compass constructions with concrete coordinates
 (whose line/circle memberships are elementary ring identities).  -/
 
--- AUDIT-GAP (documentation audit, delta audit of commit 92cfea5): the following
--- 12 auxiliary declarations of the reverse-bridge block have no docstrings, in
--- violation of the documentation audit (every declaration needs textbook-math
--- documentation; the trivial ones must be declared trivial) and of the file's own
--- convention that every declaration is documented: `pair_fst_ne`, `pair_snd_ne`,
--- `lineSet_ne`, `circleSet_ne`, `memGeoLine_axis`, `memGeoLine_vert`,
--- `memGeoLine_horiz`, `geo_zero`, `geo_one`, `geoPoint_zero`, `geoPoint_congr`,
--- `geoPoint_x_congr`.
-
+/-- Technical lemma.  Two points with different first coordinates are different points.  The
+proof is trivial (transport of the equality through `Prod.fst`). -/
 theorem pair_fst_ne {a b c d : ℝ} (h : a ≠ c) : (a, b) ≠ (c, d) := fun he => h (congrArg Prod.fst he)
 
+/-- Technical lemma.  Two points with different second coordinates are different points.  The
+proof is trivial (transport of the equality through `Prod.snd`). -/
 theorem pair_snd_ne {a b c d : ℝ} (h : b ≠ d) : (a, b) ≠ (c, d) := fun he => h (congrArg Prod.snd he)
 
+/-- Technical lemma.  Two line predicates that differ at a point `w` have different solution
+sets: the sets are equal only if both predicates agree everywhere, and membership transports
+along set equality.  The proof is trivial (contraposition on `w`). -/
 theorem lineSet_ne {p₁ p₂ q₁ q₂ w : ℝ × ℝ}
     (h₁ : MemGeoLine p₁ p₂ w) (h₂ : ¬ MemGeoLine q₁ q₂ w) :
     {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} ≠ {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} := by
@@ -1629,6 +1613,8 @@ theorem lineSet_ne {p₁ p₂ q₁ q₂ w : ℝ × ℝ}
     hset ▸ (h₁ : w ∈ {s : ℝ × ℝ | MemGeoLine p₁ p₂ s})
   exact hw
 
+/-- Technical lemma.  Two circle predicates that differ at a point `w` have different solution
+sets.  The proof is trivial (contraposition on `w`), as for `lineSet_ne`. -/
 theorem circleSet_ne {c₁ a₁ b₁ c₂ a₂ b₂ w : ℝ × ℝ}
     (h₁ : MemGeoCircle c₁ a₁ b₁ w) (h₂ : ¬ MemGeoCircle c₂ a₂ b₂ w) :
     {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} := by
@@ -1638,25 +1624,36 @@ theorem circleSet_ne {c₁ a₁ b₁ c₂ a₂ b₂ w : ℝ × ℝ}
     hset ▸ (h₁ : w ∈ {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s})
   exact hw
 
+/-- Technical lemma.  Membership in the x-axis (the line through `(0, 0)` and `(1, 0)`) is
+exactly having zero second coordinate.  The proof is trivial (linear arithmetic on the line
+equation `0·x + 1·y + 0 = 0`... i.e. `y = 0`). -/
 theorem memGeoLine_axis {q : ℝ × ℝ} : MemGeoLine (0, 0) (1, 0) q ↔ q.2 = 0 := by
   constructor
   · intro h; simp only [MemGeoLine] at h; linarith [h]
   · intro h; simp only [MemGeoLine]; linarith [h]
 
+/-- Technical lemma.  Membership in the vertical line through `(x, 2)` and `(x, -2)` is exactly
+having first coordinate `x`.  The proof is trivial (linear arithmetic). -/
 theorem memGeoLine_vert {x : ℝ} {q : ℝ × ℝ} : MemGeoLine (x, 2) (x, -2) q ↔ q.1 = x := by
   constructor
   · intro h; simp only [MemGeoLine] at h; linarith [h]
   · intro h; simp only [MemGeoLine]; linarith [h]
 
+/-- Technical lemma.  Membership in the horizontal line at height `y` (through `(0, y)` and
+`(1, y)`) is exactly having second coordinate `y`.  The proof is trivial (linear arithmetic). -/
 theorem memGeoLine_horiz {y : ℝ} {q : ℝ × ℝ} : MemGeoLine (0, y) (1, y) q ↔ q.2 = y := by
   constructor
   · intro h; simp only [MemGeoLine] at h; linarith [h]
   · intro h; simp only [MemGeoLine]; linarith [h]
 
+/-- `0` is geometrically constructible: it is the base point `(0, 0)`.  Trivial (constructor). -/
 theorem geo_zero : GeoConstructible 0 := GeoConstructiblePoint.base1
 
+/-- `1` is geometrically constructible: it is the base point `(1, 0)` — the unit length.  Trivial
+(constructor). -/
 theorem geo_one : GeoConstructible 1 := GeoConstructiblePoint.base2
 
+/-- The origin is a constructed point.  Trivial (constructor). -/
 theorem geoPoint_zero : GeoConstructiblePoint (0 : ℝ × ℝ) := GeoConstructiblePoint.base1
 
 /-- The point `(2, 0)`: the circle with centre `(1, 0)` through `(0, 0)` meets the x-axis again at
@@ -1694,9 +1691,13 @@ theorem geoPoint_neg {c : ℝ} (hc : GeoConstructiblePoint (c, 0)) : GeoConstruc
     GeoConstructiblePoint.base1 hc GeoConstructiblePoint.base1
     (by simp only [MemGeoLine]; ring) (by simp only [MemGeoCircle]; ring)
 
+/-- Technical lemma.  Constructibility of a point transfers along equality of points.  The proof
+is trivial (rewrite). -/
 theorem geoPoint_congr {p q : ℝ × ℝ} (h : GeoConstructiblePoint p) (he : p = q) :
     GeoConstructiblePoint q := he ▸ h
 
+/-- Technical lemma.  A constructed point `(a, 0)` on the x-axis yields the constructed point
+`(b, 0)` when `a = b`.  The proof is trivial (rewrite of the equality in the hypothesis). -/
 theorem geoPoint_x_congr {a b : ℝ} (he : a = b) (h : GeoConstructiblePoint (a, 0)) :
     GeoConstructiblePoint (b, 0) := by
   rw [he] at h; exact h
