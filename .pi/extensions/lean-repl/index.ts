@@ -35,7 +35,7 @@ export default function (pi: ExtensionAPI) {
     label: "Lean REPL",
     description: "Execute Lean in the project-wide shared REPL. Imports are configured by lean_repl_import; never send import commands or use #find. Pass env and repl together when retaining handles. If the service is dead, the call automatically respawns it with the last configured import block and reports the restart; retry from the new root without stale env/repl values. A REPL-DOWN error means the service could not (re)initialize — report it to the main agent.",
     promptGuidelines: [
-      "Imports are configured by lean_repl_import. Never send import commands or use #find; use narrow source grep and targeted #check/#print/#synth instead. If a failure reports an automatic restart, retry from the new root and re-elaborate needed declarations. If a failure starts with REPL-DOWN, the service could not recover: stop retrying, note it in your report as an infrastructure blocker (only the main agent can fix it via lean_repl_import or a rebuild).",
+      "Imports are configured by lean_repl_import. Never send import commands or use #find; use narrow source grep and targeted #check/#print/#synth instead. A returned env handle is durable for the lifetime of the process generation: pass env together with the repl token; a bare env (without repl) only addresses the current root. If the response's repl/generation differs from your previous call, or a failure reports an automatic restart, the environment was reset: re-elaborate the needed declarations from the root. If a failure starts with REPL-DOWN, the service could not recover: stop retrying, note it in your report as an infrastructure blocker (only the main agent can fix it via lean_repl_import or a rebuild).",
     ],
     parameters: Type.Object({
       cmd: Type.String({ description: "Lean commands to elaborate" }),
@@ -45,7 +45,7 @@ export default function (pi: ExtensionAPI) {
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       lease ??= acquireSharedRepl(`${ctx.cwd}/lean`);
       const response = await lease.request(params.cmd, params.env, params.repl);
-      const details = { ...response, repl: lease.id, pid: lease.pid, health: lease.status() };
+      const details = { ...response, repl: lease.id, generation: lease.generation, pid: lease.pid, health: lease.status() };
       return {
         content: [{ type: "text", text: JSON.stringify(details) }],
         details,

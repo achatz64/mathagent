@@ -63,6 +63,7 @@ function buildModuleProbe(modules: string[]): string {
 
 class SharedRepl {
   readonly id: string;
+  readonly generation: number;
   readonly pid: number | undefined;
   private readonly child: ChildProcessWithoutNullStreams;
   private readonly exited: Promise<void>;
@@ -84,6 +85,7 @@ class SharedRepl {
       ? spawn("lake", ["env", binary], options)
       : spawn("lake", ["exe", "repl"], options);
     this.pid = this.child.pid;
+    this.generation = generation;
     this.id = `${generation}:${this.pid ?? "pending"}`;
     this.exited = new Promise<void>((resolveExit) => {
       this.child.once("exit", () => resolveExit());
@@ -246,6 +248,9 @@ export type SharedReplStatus = {
   totalRequests: number;
   restartCount: number;
   lastRestartReason: string | undefined;
+  generation: number | undefined;
+  restarts: Record<RestartReason, number>;
+  recentRestarts: RestartEvent[];
   processGroupMembers: number;
   processGroupRssKiB: number;
   projectReplProcesses: number;
@@ -260,6 +265,9 @@ export type SharedReplStatus = {
   lastInitError: string | undefined;
 };
 
+type RestartReason = "crash" | "timeout" | "import";
+type RestartEvent = { reason: RestartReason; at: string; from: string | undefined; to: string };
+
 type RegistryEntry = {
   repl: SharedRepl | undefined;
   imports: string | undefined;
@@ -267,6 +275,9 @@ type RegistryEntry = {
   downSince: number | undefined;
   spawnFailures: number;
   lastInitError: string | undefined;
+  restarts: Record<RestartReason, number>;
+  restartLog: RestartEvent[];
+  everSpawned: boolean;
   references: number;
   serial: Promise<void>;
   pendingRequests: number;
@@ -283,6 +294,7 @@ const registry = globals[registryKey] ??= { generation: 0, entries: new Map() };
 
 export type SharedReplLease = {
   readonly id: string;
+  readonly generation: number | undefined;
   readonly pid: number | undefined;
   request(cmd: string, env?: number, replId?: string): Promise<ReplResponse>;
   initImports(imports: string): Promise<"initialized" | "already-running">;
@@ -378,6 +390,9 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     totalRequests: entry.totalRequests,
     restartCount: entry.restartCount,
     lastRestartReason: entry.lastRestartReason,
+    generation: entry.repl?.generation,
+    restarts: { ...entry.restarts },
+    recentRestarts: entry.restartLog.slice(-10),
     processGroupMembers: usage.members,
     processGroupRssKiB: usage.rssKiB,
     projectReplProcesses: usage.projectReplProcesses,
@@ -408,6 +423,9 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       downSince: undefined,
       spawnFailures: 0,
       lastInitError: undefined,
+      restarts: { crash: 0, timeout: 0, import: 0 },
+      restartLog: [],
+      everSpawned: false,
       references: 0,
       serial: Promise.resolve(),
       pendingRequests: 0,
@@ -431,10 +449,25 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     entry.downSince ??= undefined;
     entry.spawnFailures ??= 0;
     entry.lastInitError ??= undefined;
+    entry.restarts ??= { crash: 0, timeout: 0, import: 0 };
+    entry.restartLog ??= [];
+    entry.everSpawned ??= false;
   }
   entry.references++;
   const acquired = entry;
   let released = false;
+
+  function recordRestart(reason: RestartReason, from: SharedRepl | undefined, to: SharedRepl): void {
+    acquired.restarts[reason] = (acquired.restarts[reason] ?? 0) + 1;
+    acquired.restartLog.push({
+      reason,
+      at: new Date().toISOString(),
+      from: from?.id,
+      to: to.id,
+    });
+    if (acquired.restartLog.length > 50) acquired.restartLog.splice(0, acquired.restartLog.length - 50);
+    acquired.restartCount = (acquired.restartCount ?? 0) + 1;
+  }
 
   /**
    * Spawn a REPL and verify its root environment. Caller must hold
@@ -444,7 +477,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
    * failures (the main agent is assumed to have fixed the cause, or is
    * deliberately probing).
    */
-  async function spawnAndInit(reason: string, ignoreCap = false): Promise<SharedRepl> {
+  async function spawnAndInit(reason: RestartReason, ignoreCap = false): Promise<SharedRepl> {
     if (!ignoreCap && acquired.spawnFailures >= MAX_CONSECUTIVE_INIT_FAILURES) {
       throw new Error(
         `REPL-DOWN: ${acquired.spawnFailures} consecutive root initialization failures ` +
@@ -453,9 +486,14 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         `lean_repl_import to reset the failure counter.`,
       );
     }
+    const previous = acquired.repl;
     const repl = new SharedRepl(key, acquired.imports!, ++registry.generation);
     acquired.repl = repl;
     acquired.loaded = false;
+    // The very first spawn of an entry initializes the service; only later
+    // spawns (crash recovery, timeout, re-import) count as restarts.
+    if (acquired.everSpawned) recordRestart(reason, previous, repl);
+    acquired.everSpawned = true;
     try {
       await repl.rootEnvironment();
       acquired.loaded = true;
@@ -492,7 +530,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         throw new Error("REPL already initialized with a different import block — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
       }
       acquired.imports = imports;
-      await spawnAndInit("lean_repl_import", true);
+      await spawnAndInit("import", true);
       return "initialized";
     } finally {
       release();
@@ -520,8 +558,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
           );
         }
         try {
-          current = await spawnAndInit("dead REPL auto-recovery");
-          acquired.restartCount++;
+          current = await spawnAndInit("crash");
           acquired.lastRestartReason = "auto-recovery: previous REPL process was dead";
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -531,6 +568,20 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       if (replId !== undefined && replId !== current.id) {
         throw new Error(`Stale Lean REPL handle ${replId}; current process is ${current.id}`);
       }
+      if (env !== undefined && replId === undefined) {
+        // Bare env handles only address the current root. Anything else would
+        // silently remap onto an unrelated snapshot index of a respawned
+        // process — the "successfully elaborated batch vanished" failure
+        // family. Loud refusal instead (env + repl token is the safe pair).
+        const root = await current.rootEnvironment();
+        if (env !== root) {
+          throw new Error(
+            `Bare environment ${env} does not address the current root environment ${root}. ` +
+            "Pass env together with the repl token, or omit env to start from the root. " +
+            "After a respawn the previous generation's environments are gone by design.",
+          );
+        }
+      }
       try {
         return await current.request(cmd, env);
       } catch (error) {
@@ -539,9 +590,9 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
           if (acquired.repl === current) acquired.repl = undefined;
           acquired.loaded = false;
           const message = error instanceof Error ? error.message : String(error);
-          acquired.restartCount++;
+          const reason: RestartReason = /exceeded \d+ s/.test(message) ? "timeout" : "crash";
           acquired.lastRestartReason = message;
-          const replacement = await spawnAndInit(message);
+          const replacement = await spawnAndInit(reason);
           // Requests carrying stale handles cannot address the fresh root
           // safely; handle-free requests simply continue on the new root.
           if (env === undefined && replId === undefined) {
@@ -567,6 +618,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
 
   return {
     get id() { return acquired.repl?.id ?? "uninitialized"; },
+    get generation() { return acquired.repl?.generation; },
     get pid() { return acquired.repl?.pid; },
     request,
     initImports,

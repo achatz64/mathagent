@@ -55,6 +55,18 @@ the restart reuses the last configured block; step 3 with the new block is
 then a genuine (refused-then-retry) import change, while re-sending the old
 block is the idempotent no-op.
 
+## Restart accounting
+
+`lean_repl_status` reports `restartCount` (total), a per-reason breakdown
+`restarts` (`crash` — respawn after process death; `timeout` — respawn after a
+request exceeded its time limit and the process was killed; `import` — respawn
+via `lean_repl_import`), and the last 10 events in `recentRestarts` (reason,
+timestamp, from/to generation). `crash`/`timeout` clusters point at toolchain
+or payload problems (e.g. OOM); they are not caused by workers, which cannot
+kill or re-import the service. Every response also carries `repl` and
+`generation` — a change between consecutive responses makes a respawn
+detectable from the response alone.
+
 ## Monitoring
 
 `lean_repl_status` and each response's `health` field report queue age,

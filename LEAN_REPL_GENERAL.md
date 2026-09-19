@@ -21,11 +21,36 @@ inside an existing environment, not at the beginning of a Lean file. Never use
 broad `#find` in the shared process. Search checked-out Mathlib source narrowly,
 then verify exact names with `#check`, `#print`, or `#synth`.
 
-Always retain and pass `repl` together with an `env` that crosses turns or is
-handed to another agent. Bare integer environments remain accepted for
-compatibility, but cannot detect that the REPL has restarted. A stale
-`repl` token is rejected instead of accidentally addressing an unrelated
-environment number.
+Always pass `repl` together with an `env` that crosses turns or is handed to
+another agent. A bare `env` (without `repl`) is only accepted when it equals
+the current root environment; anything else is refused loudly instead of
+silently remapping onto an unrelated snapshot after a respawn. A stale `repl`
+token is rejected instead of accidentally addressing an unrelated environment
+number.
+
+## Session state
+
+The shared environment is disposable by design. The only durable state is the
+import block; all scratch state (env handles, elaborated declarations) may be
+destroyed at any time by a respawn — after a crash, a timeout, or recovery.
+Never depend on the shared environment surviving a respawn: emit completed
+work as code text (or a file/commit), or keep it re-derivable by
+re-elaborating from the root.
+
+Within one process generation, a returned `env` handle is durable: the repl
+records a command's snapshot before answering, so a successful response
+means the environment survives later calls in the same generation. A
+declaration batch can only vanish together with the whole generation —
+detectable via the response's `repl`/`generation` fields (and `restartCount`
+in `lean_repl_status`). If those changed since your previous call, the
+environment was reset: re-elaborate what you need from the root.
+
+Keep single calls moderate (roughly up to a few hundred lines). Very large
+blocks are slower to retry, can exceed the per-call timeout (which restarts
+the process, loudly), and on a memory-loaded machine (~7.6 GB RSS for a
+loaded environment on a 9 GB host) plausibly risk the process being killed.
+Prefer several sequential batches with a persistence spot-check (`#check` of
+a fresh declaration) between them.
 
 ## Default imports
 
