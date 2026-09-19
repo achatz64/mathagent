@@ -4016,9 +4016,61 @@ theorem sf8_minpoly_splits (s : Finset E) (f : F[X]) (hfmon : f.Monic)
 /-- Transport for FT `sf8` (ii): an `F`-algebra homomorphism out of `↥(Algebra.adjoin F ↑s)`
 extends to an `F`-algebra homomorphism out of `E` when `E = Algebra.adjoin F ↑s`. -/
 theorem sf8_hom_of_adjoin_eq_top (s : Finset E)
-    (htop : Algebra.adjoin F (s : Set E) = ⊤) (Ω : Type) [Field Ω] [Algebra F Ω]
+    (htop : Algebra.adjoin F (s : Set E) = ⊤) (Ω : Type (max u_1 u_2 u_3)) [Field Ω]
+    [Algebra F Ω]
     (h : Nonempty (↥(Algebra.adjoin F (s : Set E)) →ₐ[F] Ω)) : Nonempty (E →ₐ[F] Ω) := by
   rw [htop] at h
   exact h.map fun φ => φ.comp ((Subalgebra.topEquiv (R := F) (A := E)).symm.toAlgHom)
 
 end Sf8
+section Sf8ii
+
+open Polynomial BigOperators
+
+variable {F E L : Type*} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F L]
+
+set_option maxHeartbeats 1000000 in
+/-- **FT `sf8` (ii)**: if `E` is finite over `F`, there exist a field `Ω`, algebra structures of
+`L` and of `F` on `Ω` (with `F → L → Ω` the structure map, i.e. `Ω` is an `L`-extension with the
+`F`-structure induced by `algebraMap F L`), such that `Ω` is finite-dimensional over `L` and
+there exists an `F`-homomorphism `E → Ω`.
+
+Proof idea (FT): `E = F[α₁, …, α_m]` with the `αᵢ` the images of a basis (all integral over `F`);
+let `f = ∏ minpoly F αᵢ ∈ F[X]` and `Ω = SplittingField (f.map (algebraMap F L))`.  Then `Ω` is
+finite over `L` (a splitting field), each `minpoly F αᵢ` splits in `Ω` (it divides `f`), so
+`Polynomial.lift_of_splits` gives an `F`-homomorphism out of `F[α₁, …, α_m] = E` into `Ω`
+(transported out of the adjoin by `FT.sf8_hom_of_adjoin_eq_top`).  The instance fields are
+supplied by hand (concrete `Ω` first, so instance synthesis never runs on a metavariable). -/
+theorem sf8_ii {F E L : Type u} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F L]
+    [FiniteDimensional F E] :
+    ∃ (Ω : Type u) (_ : Field Ω) (_ : Algebra L Ω) (_ : Algebra F Ω)
+        (_ : IsScalarTower F L Ω), FiniteDimensional L Ω ∧ Nonempty (E →ₐ[F] Ω) := by
+  classical
+  have hint : ∀ x : E, IsIntegral F x := Algebra.IsIntegral.isIntegral
+  have htop : Algebra.adjoin F (Set.range (Module.Free.chooseBasis F E)) = ⊤ := by
+    have h1 : (⊤ : Submodule F E) ≤
+        (Algebra.adjoin F (Set.range (Module.Free.chooseBasis F E))).toSubmodule := by
+      rw [← (Module.Free.chooseBasis F E).span_eq]
+      exact Submodule.span_le.mpr fun x hx => Algebra.subset_adjoin hx
+    exact eq_top_iff.2 fun x _ => h1 (Submodule.mem_top)
+  have htop' : Algebra.adjoin F
+      ((Set.range (Module.Free.chooseBasis F E)).toFinset : Set E) = ⊤ := by
+    rw [Set.coe_toFinset]
+    exact htop
+  set f : F[X] := ∏ x ∈ (Set.range (Module.Free.chooseBasis F E)).toFinset, minpoly F x with hf
+  refine ⟨Polynomial.SplittingField (f.map (algebraMap F L)), inferInstance, inferInstance,
+    inferInstance, inferInstance, ?_, ?_⟩
+  · exact Polynomial.IsSplittingField.finiteDimensional
+      (Polynomial.SplittingField (f.map (algebraMap F L))) (f.map (algebraMap F L))
+  · refine sf8_hom_of_adjoin_eq_top _ htop'
+      (Polynomial.SplittingField (f.map (algebraMap F L)))
+      (Polynomial.lift_of_splits
+        (Set.range (Module.Free.chooseBasis F E)).toFinset ?_)
+    intro x hx
+    refine ⟨hint x, sf8_minpoly_splits
+      (Set.range (Module.Free.chooseBasis F E)).toFinset f ?_
+      (fun x hx => Finset.dvd_prod_of_mem _ hx) x hx⟩
+    exact Polynomial.monic_prod_of_monic _ (fun x => minpoly F x)
+      (fun x _ => minpoly.monic (hint x))
+
+end Sf8ii
