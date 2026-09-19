@@ -1384,6 +1384,12 @@ customs length of FT's geometric development satisfies `Constructible`, so the
 impossibility results transfer to genuine straight-edge-and-compass
 constructibility. -/
 
+-- AUDIT-GAP (documentation audit, delta audit of commits a30faf8..92cfea5): the
+-- remediation commit a30faf8 removed the previous typo marker with the message
+-- "typo fixed", but the defect persists: the section comment above still reads
+-- "every customs length of FT's geometric development" — "customs length" must
+-- be "constructed length".
+
 /-- The straight line through two points `p₁, p₂ ∈ ℝ × ℝ`, as a membership predicate: `q` lies on
 it iff `(y₁ - y₂) x + (x₂ - x₁) y + (x₁ y₂ - x₂ y₁) = 0` (determinant form of the line equation).
 For `p₁ ≠ p₂` this is the unique straight line through `p₁` and `p₂`. -/
@@ -1395,6 +1401,15 @@ between two constructed points `a`, `b`; FT: "radius a constructed length"), as 
 predicate: `q` lies on it iff its squared distance to `c` equals `|a - b|²`. -/
 def MemGeoCircle (c a b q : ℝ × ℝ) : Prop :=
   (q.1 - c.1) ^ 2 + (q.2 - c.2) ^ 2 = (a.1 - b.1) ^ 2 + (a.2 - b.2) ^ 2
+
+-- AUDIT-GAP (documentation audit, delta audit of commit 92cfea5): the docstring of
+-- `GeoConstructiblePoint` below is stale after the two-point-radius redefinition of
+-- `MemGeoCircle`: its bullet "drawing the circle with an already constructed centre
+-- through an already constructed point (`MemGeoCircle`)" describes the old
+-- circle rules, whereas `circleLineIntersect`/`circleCircleIntersect` now draw the
+-- circle with centre `c` and radius the constructed length `|a - b|` for constructed
+-- points `a`, `b` (passing through a constructed point `o` is only the special case
+-- `a = c`, `b = o`).  The docstring must be updated to the new rule.
 
 /-- FT, *Constructions with straight-edge and compass* (geometric encoding).
 `GeoConstructiblePoint p` says that the point `p ∈ ℝ × ℝ` is obtainable from the two base points
@@ -1591,6 +1606,15 @@ constructibility, while the formalization so far only had the forward bridge
 predicate `Constructible` it reconstructs the geometric derivation, using only
 explicit straight-edge-and-compass constructions with concrete coordinates
 (whose line/circle memberships are elementary ring identities).  -/
+
+-- AUDIT-GAP (documentation audit, delta audit of commit 92cfea5): the following
+-- 12 auxiliary declarations of the reverse-bridge block have no docstrings, in
+-- violation of the documentation audit (every declaration needs textbook-math
+-- documentation; the trivial ones must be declared trivial) and of the file's own
+-- convention that every declaration is documented: `pair_fst_ne`, `pair_snd_ne`,
+-- `lineSet_ne`, `circleSet_ne`, `memGeoLine_axis`, `memGeoLine_vert`,
+-- `memGeoLine_horiz`, `geo_zero`, `geo_one`, `geoPoint_zero`, `geoPoint_congr`,
+-- `geoPoint_x_congr`.
 
 theorem pair_fst_ne {a b c d : ℝ} (h : a ≠ c) : (a, b) ≠ (c, d) := fun he => h (congrArg Prod.fst he)
 
