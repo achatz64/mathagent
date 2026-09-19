@@ -2739,3 +2739,776 @@ Encoding conventions for this chapter:
 characteristic `p ≠ 0` and every element of `F` is a `p`th power. -/
 def PerfectFT (K : Type*) [Field K] : Prop :=
   CharZero K ∨ (ringChar K ≠ 0 ∧ ∀ a : K, ∃ b : K, a = b ^ ringChar K)
+section FT1
+
+open scoped Polynomial in
+open scoped Classical in
+/-- FT `ft1` (gcd statement). The gcd of two polynomials over `F`, transported to an
+extension `Ω` of `F` via the algebra map `F → Ω`, is the gcd of the transported
+polynomials in `Ω[X]`: in particular the image of `EuclideanDomain.gcd f g` is
+associated to (here: equal to) `EuclideanDomain.gcd (f.map _) (g.map _)`.
+This is Milne FT `ft1`: the Euclidean algorithm only manipulates coefficients
+lying in `F`, so extending the field cannot change the gcd up to associates. -/
+theorem gcd_map_algebraMap {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω] (f g : F[X]) :
+    EuclideanDomain.gcd (f.map (algebraMap F Ω)) (g.map (algebraMap F Ω))
+        = (EuclideanDomain.gcd f g).map (algebraMap F Ω) :=
+  Polynomial.gcd_map (algebraMap F Ω)
+
+open scoped Polynomial in
+/-- FT `ft1` (coprimality form). Coprimality in `F[X]` is preserved by extension of
+scalars along `F → Ω`: if `f`, `g ∈ F[X]` satisfy a Bézout relation `af + bg = 1`
+over `F`, then the transported polynomials satisfy the same relation over `Ω`.
+Immediate from the gcd statement `gcd_map_algebraMap`. -/
+theorem isCoprime_map_algebraMap {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω]
+    {f g : F[X]} :
+    IsCoprime (f.map (algebraMap F Ω)) (g.map (algebraMap F Ω)) ↔ IsCoprime f g :=
+  Polynomial.isCoprime_map (algebraMap F Ω)
+
+open scoped Polynomial in
+/-- FT `ft1` (corollary). If `p`, `q ∈ F[X]` are irreducible and not associated, they
+do not acquire a common root in any extension `Ω` of `F`: a common root `ζ` would
+force `X - C ζ` to divide both transported polynomials, contradicting coprimality
+(since `IsCoprime p q` transports to `Ω[X]` by `isCoprime_map_algebraMap`, and then
+`X - C ζ` would be a unit, impossible for a polynomial of degree `1` over a field). -/
+theorem no_common_root_of_irreducible_not_associated
+    {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω] {p q : F[X]}
+    (hp : Irreducible p) (hq : Irreducible q) (h : ¬Associated p q) (ζ : Ω) :
+    ¬((p.map (algebraMap F Ω)).IsRoot ζ ∧ (q.map (algebraMap F Ω)).IsRoot ζ) := by
+  have hcop : IsCoprime p q := by
+    rcases dvd_or_isCoprime p q hp with hdvd | hc
+    · obtain ⟨c, hc⟩ := hdvd
+      rcases hq.isUnit_or_isUnit hc with hu | hu
+      · exact absurd hu hp.not_isUnit
+      · exact absurd ⟨hu.unit, hc.symm⟩ h
+    · exact hc
+  intro ⟨h1, h2⟩
+  have hd1 : Polynomial.X - Polynomial.C ζ ∣ p.map (algebraMap F Ω) :=
+    Polynomial.dvd_iff_isRoot.2 h1
+  have hd2 : Polynomial.X - Polynomial.C ζ ∣ q.map (algebraMap F Ω) :=
+    Polynomial.dvd_iff_isRoot.2 h2
+  have hu : IsUnit (Polynomial.X - Polynomial.C ζ) :=
+    (((isCoprime_map_algebraMap).2 hcop).mono hd1 hd2).isUnit_of_dvd dvd_rfl
+  rw [Polynomial.isUnit_iff_degree_eq_zero, Polynomial.degree_X_sub_C] at hu
+  norm_num at hu
+
+open scoped Polynomial in
+/-- FT `ft1` (corollary, distinct monic form). Distinct monic irreducible polynomials
+over `F` do not acquire a common root in any extension `Ω` of `F`. This is the
+form stated in Milne FT: two distinct monic irreducibles are not associated
+(`Polynomial.eq_of_monic_of_associated`), and the general case follows from
+`no_common_root_of_irreducible_not_associated`. -/
+theorem no_common_root_of_irreducible_monic_ne
+    {F Ω : Type*} [Field F] [Field Ω] [Algebra F Ω] {p q : F[X]}
+    (hp : Irreducible p) (hq : Irreducible q) (hpM : p.Monic) (hqM : q.Monic)
+    (hne : p ≠ q) (ζ : Ω) :
+    ¬((p.map (algebraMap F Ω)).IsRoot ζ ∧ (q.map (algebraMap F Ω)).IsRoot ζ) :=
+  no_common_root_of_irreducible_not_associated hp hq
+    (fun ha => hne (Polynomial.eq_of_monic_of_associated hpM hqM ha)) ζ
+
+end FT1
+section SF4
+
+open Polynomial Module
+variable {K E : Type u} [Field K] [Field E] [Algebra K E]
+
+/-- The structure map of a field extension of a field is injective (helper for FT `sf4`). -/
+private lemma algebraMap_injective_of_field : Function.Injective (algebraMap K E) := by
+  rw [injective_iff_map_eq_zero]
+  intro a ha
+  by_cases h0 : a = 0
+  · exact h0
+  · exfalso
+    have h1 : (1 : E) = algebraMap K E a * algebraMap K E a⁻¹ := by
+      rw [← map_mul, mul_inv_cancel₀ h0, map_one]
+    rw [ha, zero_mul] at h1
+    exact one_ne_zero h1
+
+private lemma sf4_aeval_adjoin {F : IntermediateField K E} {α : E} {f : K[X]}
+    (hαm : α ∈ F) (h0 : aeval α f = 0) :
+    aeval (⟨α, hαm⟩ : ↥F) f = 0 := by
+  have h1 := hom_eval₂ f (algebraMap K ↥F) (algebraMap ↥F E) (⟨α, hαm⟩ : ↥F)
+  rw [← IsScalarTower.algebraMap_eq K ↥F E] at h1
+  simp only [← aeval_def] at h1
+  rw [show (algebraMap ↥F E) (⟨α, hαm⟩ : ↥F) = α from rfl, h0] at h1
+  exact algebraMap_injective_of_field (h1.trans (map_zero _).symm)
+
+private lemma sf4_aux : ∀ (n : ℕ) {K : Type u} [Field K] {E : Type u} [Field E] [Algebra K E]
+    (f : K[X]), f.natDegree = n → f ≠ 0 → [IsSplittingField K E f] →
+    Module.finrank K E ≤ Nat.factorial f.natDegree := by
+  intro n
+  induction n with
+  | zero =>
+    intro K _ E _ _ f hn hf0 hsp
+    have hdeg : f.degree = 0 := by
+      rw [degree_eq_natDegree hf0, hn, Nat.cast_zero]
+    obtain ⟨a, rfl⟩ : ∃ a : K, f = C a := ⟨f.coeff 0, eq_C_of_degree_eq_zero hdeg⟩
+    have htop : (⊤ : Subalgebra K E) = ⊥ := by
+      rw [← hsp.adjoin_rootSet']
+      ext β
+      simp
+    have h1 : Module.finrank K E = 1 := by
+      rw [← Subalgebra.topEquiv.toLinearEquiv.finrank_eq, htop,
+        (Algebra.botEquiv K E).toLinearEquiv.finrank_eq, Module.finrank_self]
+    rw [h1, natDegree_C, Nat.factorial_zero]
+  | succ n ih =>
+    intro K _ E _ _ f hn hf0 hsp
+    have hspl : Splits (f.map (algebraMap K E)) := hsp.splits'
+    have hinjK : Function.Injective (algebraMap K E) := algebraMap_injective_of_field
+    obtain ⟨α, hαE⟩ := hspl.exists_eval_eq_zero
+      (by rw [degree_map_eq_of_injective hinjK f, degree_eq_natDegree hf0, hn]
+          exact_mod_cast Nat.succ_ne_zero n)
+    have hα0 : aeval α f = 0 := by
+      rw [aeval_def, eval₂_eq_eval_map]
+      exact hαE
+    have hαi : IsIntegral K α := isAlgebraic_iff_isIntegral.mp ⟨f, hf0, hα0⟩
+    have hαm : α ∈ IntermediateField.adjoin K {α} := IntermediateField.mem_adjoin_simple_self K α
+    have hinjF : Function.Injective (algebraMap ↥(IntermediateField.adjoin K {α}) E) :=
+      algebraMap_injective_of_field
+    have hinjKF : Function.Injective (algebraMap K ↥(IntermediateField.adjoin K {α})) :=
+      algebraMap_injective_of_field
+    have hp0 : f.map (algebraMap K ↥(IntermediateField.adjoin K {α})) ≠ 0 :=
+      (Polynomial.map_ne_zero_iff hinjKF).mpr hf0
+    have haeval : aeval (⟨α, hαm⟩ : ↥(IntermediateField.adjoin K {α})) f = 0 :=
+      sf4_aeval_adjoin hαm hα0
+    set a : ↥(IntermediateField.adjoin K {α}) := ⟨α, hαm⟩ with ha_def
+    have hcoe : (algebraMap ↥(IntermediateField.adjoin K {α}) E) a = α := by
+      rw [ha_def, IntermediateField.algebraMap_apply, Subtype.coe_mk]
+    have hrootp : IsRoot (f.map (algebraMap K ↥(IntermediateField.adjoin K {α}))) a := by
+      rw [IsRoot.def, ← eval₂_eq_eval_map, ← aeval_def]
+      exact haeval
+    have hmul : (X - C a) * (f.map (algebraMap K ↥(IntermediateField.adjoin K {α})) /ₘ (X - C a))
+        = f.map (algebraMap K ↥(IntermediateField.adjoin K {α})) :=
+      (mul_divByMonic_eq_iff_isRoot).mpr hrootp
+    set h : (↥(IntermediateField.adjoin K {α}))[X] :=
+      f.map (algebraMap K ↥(IntermediateField.adjoin K {α})) /ₘ (X - C a) with hh_def
+    have h0 : h ≠ 0 := fun hc => hp0 (by rw [← hmul, hc, mul_zero])
+    have hnat : h.natDegree = n := by
+      rw [hh_def, natDegree_divByMonic _ (monic_X_sub_C a), natDegree_map_eq_of_injective hinjKF f,
+        hn, natDegree_X_sub_C, Nat.succ_sub_one]
+    have hmapne0 : h.map (algebraMap ↥(IntermediateField.adjoin K {α}) E) ≠ 0 :=
+      (Polynomial.map_ne_zero_iff hinjF).mpr h0
+    have hchain : f.map (algebraMap K E)
+        = ((X - C a) * h).map (algebraMap ↥(IntermediateField.adjoin K {α}) E) := by
+      rw [hmul, map_map, IsScalarTower.algebraMap_eq K ↥(IntermediateField.adjoin K {α}) E]
+    have hdvd : h.map (algebraMap ↥(IntermediateField.adjoin K {α}) E)
+        ∣ f.map (algebraMap K E) :=
+      ⟨Polynomial.map (algebraMap ↥(IntermediateField.adjoin K {α}) E) (X - C a), by
+        rw [hchain, Polynomial.map_mul (algebraMap ↥(IntermediateField.adjoin K {α}) E),
+          mul_comm]⟩
+    have hsplh : Splits (h.map (algebraMap ↥(IntermediateField.adjoin K {α}) E)) :=
+      Splits.of_dvd hspl ((Polynomial.map_ne_zero_iff hinjK).mpr hf0) hdvd
+    have hsub : f.rootSet E ⊆ ↑(Algebra.adjoin ↥(IntermediateField.adjoin K {α})
+        (h.rootSet E : Set E)) := by
+      intro β hβ
+      rw [mem_rootSet'] at hβ
+      obtain ⟨-, hβ⟩ := hβ
+      have hb : aeval β (f.map (algebraMap K E)) = 0 := by
+        rw [aeval_map_algebraMap (A := E)]
+        exact hβ
+      rw [hchain, aeval_map_algebraMap (A := E), map_mul, map_sub, aeval_X, aeval_C, hcoe] at hb
+      by_cases hβa : β = α
+      · have hmem : ((algebraMap ↥(IntermediateField.adjoin K {α}) E) a) ∈
+            ↑(Algebra.adjoin ↥(IntermediateField.adjoin K {α}) (h.rootSet E : Set E)) :=
+          Subalgebra.algebraMap_mem _ a
+        rw [hβa]
+        exact Eq.mp (congrArg (fun x : E =>
+          x ∈ ↑(Algebra.adjoin ↥(IntermediateField.adjoin K {α}) (h.rootSet E : Set E)))
+          hcoe) hmem
+      · have hz : aeval β h = 0 := by
+          rcases mul_eq_zero.mp hb with hz | hz
+          · exact absurd (sub_eq_zero.mp hz) hβa
+          · exact hz
+        exact Algebra.subset_adjoin (s := h.rootSet E) (mem_rootSet'.mpr ⟨hmapne0, hz⟩)
+    have hadj : Algebra.adjoin ↥(IntermediateField.adjoin K {α}) (h.rootSet E : Set E) = ⊤ := by
+      have key : Algebra.adjoin K (f.rootSet E : Set E) ≤
+          Subalgebra.restrictScalars K (Algebra.adjoin ↥(IntermediateField.adjoin K {α})
+            (h.rootSet E : Set E)) := by
+        rw [Algebra.adjoin_le_iff, Subalgebra.coe_restrictScalars]
+        exact hsub
+      have hle : (⊤ : Subalgebra K E) ≤
+          Subalgebra.restrictScalars K (Algebra.adjoin ↥(IntermediateField.adjoin K {α})
+            (h.rootSet E : Set E)) :=
+        hsp.adjoin_rootSet' ▸ key
+      apply Subalgebra.restrictScalars_injective K
+      rw [Subalgebra.restrictScalars_top]
+      exact top_le_iff.mp hle
+    haveI hsp2 : IsSplittingField ↥(IntermediateField.adjoin K {α}) E h := ⟨hsplh, hadj⟩
+    have hdegF : Module.finrank K ↥(IntermediateField.adjoin K {α}) = (minpoly K α).natDegree :=
+      IntermediateField.adjoin.finrank hαi
+    have hminle : (minpoly K α).natDegree ≤ f.natDegree :=
+      natDegree_le_of_dvd (minpoly.dvd K α hα0) hf0
+    have ihres : Module.finrank ↥(IntermediateField.adjoin K {α}) E ≤ Nat.factorial h.natDegree :=
+      ih h hnat h0
+    rw [hnat] at ihres
+    rw [hn] at hminle
+    rw [← Module.finrank_mul_finrank K ↥(IntermediateField.adjoin K {α}) E, hdegF, hn,
+      Nat.factorial_succ]
+    exact Nat.mul_le_mul hminle ihres
+
+/-- FT `sf4` (existence part). Every polynomial `f ∈ K[X]` has a splitting field: Mathlib's
+canonical `Polynomial.SplittingField f` is a splitting field for `f` in the sense of the
+`Polynomial.IsSplittingField K E f` predicate (the instance `Polynomial.IsSplittingField.splittingField`). -/
+theorem exists_splittingField (f : K[X]) : IsSplittingField K (SplittingField f) f :=
+  inferInstance
+
+/-- The canonical splitting field is finite-dimensional over the base field (already an instance
+in Mathlib; restated here for the FT record). -/
+theorem finiteDimensional_splittingField (f : K[X]) :
+    FiniteDimensional K (SplittingField f) :=
+  inferInstance
+
+/-- FT `sf4` (degree bound, general form). If `E` is a splitting field over `K` of the
+nonzero polynomial `f ∈ K[X]`, then `[E : K] = finrank K E ≤ (deg f)!`. -/
+theorem isSplittingField_finrank_le {E : Type u} [Field E] [Algebra K E]
+    (f : K[X]) (hf0 : f ≠ 0) [IsSplittingField K E f] :
+    Module.finrank K E ≤ Nat.factorial f.natDegree :=
+  sf4_aux _ f rfl hf0
+
+/-- FT `sf4` (degree bound). Every polynomial `f ∈ K[X]` has a splitting field `E_f` with
+`[E_f : K] = finrank K E_f ≤ (deg f)!` (factorial of `deg f`).
+
+Proof idea (Milne FT, stem-field induction): if `f ≠ 0` has a root `α` in its splitting field
+`E`, then `E` is a splitting field over `K⟮α⟯` of `h = f /ₘ (X - α)` with `deg h = deg f - 1`,
+so `[E : K] = [K⟮α⟯ : K] · [E : K⟮α⟯] ≤ deg f · (deg f - 1)! ≤ (deg f)!`; a nonzero constant
+has splitting field `K` itself (`finrank = 1 = 0!`). -/
+theorem splitField_finrank_le (f : K[X]) :
+    Module.finrank K (SplittingField f) ≤ Nat.factorial f.natDegree := by
+  by_cases hf0 : f = 0
+  · subst hf0
+    have htb : (⊤ : Subalgebra K (SplittingField (0 : K[X]))) = ⊥ :=
+      (IsSplittingField.splits_iff (K := K) (L := SplittingField (0 : K[X]))
+        (0 : K[X])).mp Splits.zero
+    have h1 : Module.finrank K (SplittingField (0 : K[X])) = 1 := by
+      rw [← Subalgebra.topEquiv.toLinearEquiv.finrank_eq, htb,
+        (Algebra.botEquiv K (SplittingField (0 : K[X]))).toLinearEquiv.finrank_eq,
+        Module.finrank_self]
+    rw [h1, natDegree_zero, Nat.factorial_zero]
+  · exact sf4_aux _ f rfl hf0
+
+end SF4
+/-- FT `sf7` (a), existence clause.  Let `f ∈ F[X]`, let `E` be an extension of `F` generated
+by the roots of `f` in `E`, and let `Ω` be an extension of `F` splitting `f`.  Then there exists
+an `F`-homomorphism `φ : E → Ω`.
+
+Proof idea (following FT): each root `α` of `f` in `E` is integral over `F` (its minimal
+polynomial divides the nonzero polynomial `f`), and since `f` splits in `Ω`, that minimal
+polynomial also splits in `Ω`.  Hence, adjoining the finitely many roots of `f` in `E` one at a
+time, each adjoin step admits a lift into `Ω` (Mathlib's `Polynomial.lift_of_splits`, the formal
+heart of FT's Propositions `sf1`/`sf2`); as `E = F[roots of f in E]`, the resulting homomorphism
+out of the adjoin transports to an `F`-homomorphism `E → Ω`.  The degenerate case `f = 0` is
+vacuous here since Mathlib's `rootSet` of `0` is empty (so `E ≅ F` and `Ω` receives `F`). -/
+theorem exists_algHom_of_adjoin_rootSet_eq_top_of_splits {F E Ω : Type*} [Field F] [Field E]
+    [Field Ω] [Algebra F E] [Algebra F Ω] (f : Polynomial F)
+    (hgen : Algebra.adjoin F (f.rootSet E) = ⊤)
+    (hsplits : (f.map (algebraMap F Ω)).Splits) : Nonempty (E →ₐ[F] Ω) := by
+  classical
+  have hfin : ((f.rootSet E).toFinset : Set E) = f.rootSet E := by
+    rw [← (Polynomial.rootSet_finite f E).toFinset_eq_toFinset,
+      (Polynomial.rootSet_finite f E).coe_toFinset]
+  have hs : ∀ x ∈ (f.rootSet E).toFinset, IsIntegral F x ∧
+      ((minpoly F x).map (algebraMap F Ω)).Splits := by
+    intro x hx
+    rw [Set.mem_toFinset] at hx
+    obtain ⟨hmap, hae⟩ := Polynomial.mem_rootSet'.1 hx
+    have hf0 : f ≠ 0 := fun h => hmap (by rw [h]; exact Polynomial.map_zero _)
+    have hdvd : minpoly F x ∣ f := minpoly.dvd F x hae
+    have hmi : minpoly F x ≠ 0 := fun h => hf0 (zero_dvd_iff.mp (h ▸ hdvd))
+    exact ⟨minpoly.ne_zero_iff.mp hmi,
+      Polynomial.Splits.of_dvd hsplits (Polynomial.map_ne_zero hf0)
+        (Polynomial.map_dvd (algebraMap F Ω) hdvd)⟩
+  obtain ⟨φ₀⟩ := Polynomial.lift_of_splits (f.rootSet E).toFinset hs
+  exact ⟨φ₀.comp (by rw [hfin, hgen]; exact Algebra.toTop)⟩
+
+/-- FT `sf7` (a), existence clause, special case: `E` is a splitting field for `f` (Mathlib's
+`Polynomial.IsSplittingField f` on `E`) and `Ω` is an extension of `F` splitting `f`.  Then there
+exists an `F`-homomorphism `E → Ω` (thin wrapper; in this case the homomorphism exists by
+`Polynomial.IsSplittingField.lift` directly). -/
+theorem exists_algHom_of_isSplittingField_of_splits {F E Ω : Type*} [Field F] [Field E]
+    [Field Ω] [Algebra F E] [Algebra F Ω] (f : Polynomial F) [Polynomial.IsSplittingField F E f]
+    (hsplits : (f.map (algebraMap F Ω)).Splits) : Nonempty (E →ₐ[F] Ω) :=
+  exists_algHom_of_adjoin_rootSet_eq_top_of_splits f
+    (Polynomial.IsSplittingField.adjoin_rootSet E f) hsplits
+/-!
+### FT `sf1`: Homomorphisms from simple extensions
+
+FT `sf1` (Milne, *Fields and Galois Theory*, Prop. 5.6/sf1): let `F` be a field, `E` an
+extension of `F`, `α : E`, and `Ω` a further extension of `F`.
+
+(a) If `α` is transcendental over `F`, then `φ ↦ φ(α)` is a bijection from the `F`-homomorphisms
+`F(α) → Ω` to the elements of `Ω` transcendental over `F`.
+
+(b) If `α` is algebraic over `F` with minimal polynomial `f = minpoly F α`, then `φ ↦ φ(α)`
+is a bijection from the `F`-homomorphisms `F[α] → Ω` to the roots of `f` in `Ω`; in particular
+the number of such homomorphisms is the number of distinct roots.
+
+Encoding: `F(α) = F[α]` is `IntermediateField.adjoin F {α}` (notation `F⟮α⟯`; for algebraic
+`α` this coincides with `F[α] = Algebra.adjoin F {α}` as a subalgebra, by Mathlib's
+`IntermediateField.adjoin_simple_toSubalgebra_of_isAlgebraic`).  The `F`-homomorphisms are
+`AlgHom F (F⟮α⟯) Ω` per the chapter conventions.
+
+Proof idea.
+* (b) is Mathlib's `IntermediateField.algHomAdjoinIntegralEquiv` (via the power basis of
+  `F⟮α⟯`), reindexed from `aroots` (multiset of roots) to `rootSet` (set of roots).
+* (a): if `φ(α)` were algebraic over `F`, a vanishing polynomial for `φ(α)` pulls back along
+  the injective `φ` to one for `α`, contradicting transcendence.  Conversely, for
+  transcendental `γ ∈ Ω` the isomorphism `F[X] ≃ₐ[F] F[α]` (`Polynomial.algEquivOfTranscendental`)
+  composed with evaluation at `γ` is injective, and lifts to `F⟮α⟯ = Frac F[α]` by
+  `IsFractionRing.liftAlgHom`, using Mathlib's instance that `F⟮s⟯` is the fraction field of
+  `F[s]` (`IntermediateField.algebraAdjoinAdjoin`).  Uniqueness is
+  `IntermediateField.adjoin_algHom_ext`.
+-/
+
+open scoped IntermediateField
+open scoped IntermediateField.algebraAdjoinAdjoin
+
+section SF1
+
+variable (F : Type*) [Field F] {E : Type*} [Field E] [Algebra F E] {Ω : Type*} [Field Ω]
+  [Algebra F Ω] {α : E}
+
+/-- FT `sf1` (a), forward direction: the image of `α` under an `F`-homomorphism out of `F⟮α⟯`
+is transcendental over `F` (else a vanishing polynomial pulls back along the injective `φ`). -/
+theorem transcendental_map_adjoinGen (hα : Transcendental F α) (φ : F⟮α⟯ →ₐ[F] Ω) :
+    Transcendental F (φ (IntermediateField.AdjoinSimple.gen F α)) := by
+  intro ⟨p, hp0, hp⟩
+  have hinj : Function.Injective ⇑φ := φ.toRingHom.injective
+  have h2 : Polynomial.aeval (IntermediateField.AdjoinSimple.gen F α) p = 0 := by
+    have h1 : Polynomial.aeval (φ (IntermediateField.AdjoinSimple.gen F α)) p = 0 := hp
+    rw [Polynomial.aeval_algHom_apply] at h1
+    exact hinj (by rw [map_zero]; exact h1)
+  have h3 : Polynomial.aeval α p = 0 := by
+    rw [← IntermediateField.AdjoinSimple.coe_aeval_gen_apply F α p]
+    exact congrArg Subtype.val h2
+  exact hα ⟨p, hp0, h3⟩
+
+/-- Injectivity of `p ↦ p(γ)` precomposed with `F[X] ≃ₐ[F] F[α]` (`α`, `γ` transcendental). -/
+theorem injective_aeval_comp_algEquivOfTranscendental_symm (hα : Transcendental F α) {γ : Ω}
+    (hγ : Transcendental F γ) :
+    Function.Injective ⇑((Polynomial.aeval γ).comp
+      (Polynomial.algEquivOfTranscendental F α hα).symm.toAlgHom) := by
+  intro x y hxy
+  simp only [AlgHom.comp_apply] at hxy
+  exact (Polynomial.algEquivOfTranscendental F α hα).symm.injective
+    (transcendental_iff_injective.mp hγ hxy)
+
+/-- FT `sf1` (a), inverse construction: the `F`-homomorphism `F⟮α⟯ → Ω` sending a transcendental
+`α` to a transcendental `γ ∈ Ω`.  It is the lift (`IsFractionRing.liftAlgHom`, using the
+instance `IntermediateField.algebraAdjoinAdjoin.isFractionRing` that `F⟮α⟯ = Frac F[α]`) of
+the injective homomorphism `F[α] → Ω`, `p(α) ↦ p(γ)`, obtained from the isomorphism
+`F[X] ≃ₐ[F] F[α]` of `Polynomial.algEquivOfTranscendental` composed with evaluation at `γ`. -/
+noncomputable def liftAlgHomOfTranscendental (hα : Transcendental F α) {γ : Ω}
+    (hγ : Transcendental F γ) : F⟮α⟯ →ₐ[F] Ω :=
+  IsFractionRing.liftAlgHom (g := (Polynomial.aeval γ).comp
+    (Polynomial.algEquivOfTranscendental F α hα).symm.toAlgHom)
+    (injective_aeval_comp_algEquivOfTranscendental_symm F hα hγ)
+
+theorem liftAlgHomOfTranscendental_def (hα : Transcendental F α) {γ : Ω}
+    (hγ : Transcendental F γ) : liftAlgHomOfTranscendental F hα hγ =
+    IsFractionRing.liftAlgHom (g := (Polynomial.aeval γ).comp
+      (Polynomial.algEquivOfTranscendental F α hα).symm.toAlgHom)
+      (injective_aeval_comp_algEquivOfTranscendental_symm F hα hγ) := rfl
+
+/-- FT `sf1` (a): the constructed homomorphism sends `α` to `γ`. -/
+@[simp]
+theorem liftAlgHomOfTranscendental_gen (hα : Transcendental F α) {γ : Ω}
+    (hγ : Transcendental F γ) :
+    liftAlgHomOfTranscendental F hα hγ (IntermediateField.AdjoinSimple.gen F α) = γ := by
+  rw [liftAlgHomOfTranscendental_def, IsFractionRing.liftAlgHom_apply,
+    show (IntermediateField.AdjoinSimple.gen F α : F⟮α⟯) =
+      algebraMap (Algebra.adjoin F {α}) (IntermediateField.adjoin F {α})
+        (⟨α, Algebra.self_mem_adjoin_singleton F α⟩ : Algebra.adjoin F {α}) from rfl,
+    IsFractionRing.lift_algebraMap]
+  simp
+
+/-- FT `sf1` (a): an `F`-homomorphism out of `F⟮α⟯` is determined by the image of `α`. -/
+theorem liftAlgHomOfTranscendental_unique (hα : Transcendental F α) {γ : Ω}
+    (hγ : Transcendental F γ) (φ : F⟮α⟯ →ₐ[F] Ω)
+    (hφ : φ (IntermediateField.AdjoinSimple.gen F α) = γ) :
+    φ = liftAlgHomOfTranscendental F hα hγ :=
+  IntermediateField.adjoin_algHom_ext F fun x hx => by
+    obtain rfl : x = α := by simpa using hx
+    exact hφ.trans (liftAlgHomOfTranscendental_gen F hα hγ).symm
+
+/-- **FT `sf1` (a).**  For `α` transcendental over `F`, `φ ↦ φ(α)` is a bijection
+`{F`-homomorphisms `F⟮α⟯ → Ω`} ↔ {elements of `Ω` transcendental over `F`}. -/
+noncomputable def algHomAdjoinTranscendentalEquiv (hα : Transcendental F α) :
+    (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // Transcendental F γ} := by
+  refine ⟨fun φ => ⟨φ (IntermediateField.AdjoinSimple.gen F α),
+    transcendental_map_adjoinGen F hα φ⟩, fun γ => liftAlgHomOfTranscendental F hα γ.2, ?_, ?_⟩
+  · intro φ
+    exact (liftAlgHomOfTranscendental_unique F hα
+      (transcendental_map_adjoinGen F hα φ) φ rfl).symm
+  · intro γ
+    exact Subtype.ext (liftAlgHomOfTranscendental_gen F hα γ.2)
+
+/-- Reindexing between "roots of `p` in `Ω` as a multiset" (`p.aroots Ω`) and "roots of `p`
+in `Ω` as a set" (`p.rootSet Ω`); both memberships mean `p.map (algebraMap F Ω) ≠ 0` and
+`p(γ) = 0`. -/
+noncomputable def arootsSubtypeEquivRootSet (p : Polynomial F) :
+    {γ : Ω // γ ∈ p.aroots Ω} ≃ {γ : Ω // γ ∈ p.rootSet Ω} where
+  toFun x := ⟨x.1, (Polynomial.mem_rootSet'.trans Polynomial.mem_aroots'.symm).mpr x.2⟩
+  invFun x := ⟨x.1, (Polynomial.mem_rootSet'.trans Polynomial.mem_aroots'.symm).mp x.2⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+@[simp]
+theorem arootsSubtypeEquivRootSet_apply (p : Polynomial F)
+    (x : {γ : Ω // γ ∈ p.aroots Ω}) :
+    arootsSubtypeEquivRootSet F p x =
+      ⟨x.1, (Polynomial.mem_rootSet'.trans Polynomial.mem_aroots'.symm).mpr x.2⟩ := rfl
+
+@[simp]
+theorem arootsSubtypeEquivRootSet_symm_apply (p : Polynomial F)
+    (x : {γ : Ω // γ ∈ p.rootSet Ω}) :
+    (arootsSubtypeEquivRootSet F p).symm x =
+      ⟨x.1, (Polynomial.mem_rootSet'.trans Polynomial.mem_aroots'.symm).mp x.2⟩ := rfl
+
+/-- **FT `sf1` (b).**  For `α` integral over `F` with minimal polynomial `f = minpoly F α`,
+`φ ↦ φ(α)` is a bijection `{F`-homomorphisms `F⟮α⟯ → Ω`} ↔ {roots of `f` in `Ω`}.  This is
+Mathlib's `IntermediateField.algHomAdjoinIntegralEquiv` (roots as a multiset, via the power
+basis of `F⟮α⟯`) reindexed to roots as a set by `arootsSubtypeEquivRootSet`. -/
+noncomputable def algHomAdjoinIntegralEquivRootSet (hα : IsIntegral F α) :
+    (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // γ ∈ (minpoly F α).rootSet Ω} :=
+  (IntermediateField.algHomAdjoinIntegralEquiv F hα).trans (arootsSubtypeEquivRootSet F _)
+
+/-- FT `sf1` (b): the bijection is `φ ↦ φ(α)`. -/
+theorem algHomAdjoinIntegralEquivRootSet_apply (hα : IsIntegral F α) (φ : F⟮α⟯ →ₐ[F] Ω) :
+    (algHomAdjoinIntegralEquivRootSet F hα φ).1 =
+      φ (IntermediateField.AdjoinSimple.gen F α) := by
+  simp only [algHomAdjoinIntegralEquivRootSet, IntermediateField.algHomAdjoinIntegralEquiv,
+    Equiv.trans_apply, Equiv.subtypeEquiv_apply, IntermediateField.adjoin.powerBasis_gen,
+    PowerBasis.liftEquiv'_apply_coe, Equiv.refl_apply, arootsSubtypeEquivRootSet_apply]
+
+/-- FT `sf1` (b): the inverse sends a root `γ` of `minpoly F α` to the unique `F`-homomorphism
+`F⟮α⟯ → Ω` mapping `α` to `γ`. -/
+theorem algHomAdjoinIntegralEquivRootSet_symm_gen (hα : IsIntegral F α)
+    (γ : {γ : Ω // γ ∈ (minpoly F α).rootSet Ω}) :
+    (algHomAdjoinIntegralEquivRootSet F hα).symm γ
+      (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
+  show (IntermediateField.algHomAdjoinIntegralEquiv F hα).symm
+    ((arootsSubtypeEquivRootSet F (minpoly F α)).symm γ)
+    (IntermediateField.AdjoinSimple.gen F α) = γ.1
+  rw [IntermediateField.algHomAdjoinIntegralEquiv_symm_apply_gen,
+    arootsSubtypeEquivRootSet_symm_apply]
+
+/-- FT `sf1` (b), counting form: the number of `F`-homomorphisms `F⟮α⟯ → Ω` equals the number
+of roots of `minpoly F α` in `Ω`. -/
+theorem natCard_algHomAdjoinIntegralEquivRootSet (hα : IsIntegral F α) :
+    Nat.card (F⟮α⟯ →ₐ[F] Ω) = ((minpoly F α).rootSet Ω).ncard :=
+  (Nat.card_congr (algHomAdjoinIntegralEquivRootSet F hα)).trans (Nat.card_coe_set_eq _)
+
+end SF1
+section FT3
+
+open Polynomial
+
+variable {F : Type*} [Field F] {f : F[X]}
+
+/-- FT `ft3` auxiliary: a nonzero polynomial stays nonzero under the (injective) algebra map
+into its canonical splitting field `Polynomial.SplittingField f`. -/
+private theorem ft3_map_ne_zero (hf : f ≠ 0) :
+    f.map (algebraMap F f.SplittingField) ≠ 0 :=
+  (Polynomial.map_ne_zero_iff (algebraMap F f.SplittingField).injective).mpr hf
+
+/-- FT `ft3` auxiliary: the canonical splitting field `Polynomial.SplittingField f` splits `f`
+(field of the `IsSplittingField` structure of `f.SplittingField`). -/
+private theorem ft3_splits : (f.map (algebraMap F f.SplittingField)).Splits :=
+  (IsSplittingField.splittingField f).splits'
+
+/-- FT `ft3` auxiliary: a nonconstant irreducible polynomial has a root in its canonical
+splitting field (its map splits there and has positive degree, so its `roots` is nonempty). -/
+private theorem ft3_exists_root (hf : Irreducible f) :
+    ∃ ζ, ζ ∈ (f.map (algebraMap F f.SplittingField)).roots := by
+  have hfnd : f.natDegree ≠ 0 :=
+    ((natDegree_pos_iff_degree_pos).mpr (degree_pos_of_irreducible hf)).ne'
+  exact Multiset.exists_mem_of_ne_zero
+    (ft3_splits.roots_ne_zero (by rw [natDegree_map]; exact hfnd))
+
+/-- FT `ft3` auxiliary (source eq. (2) step): a common root `ζ` of `f` and `f'` in the
+splitting field of `f` obstructs separability, because mapping a Bézout identity
+`u · f + v · f' = 1` into the splitting field and evaluating at `ζ` gives `0 = 1`. -/
+private theorem ft3_notSeparable_of_commonRoot {ζ : f.SplittingField}
+    (hr1 : (f.map (algebraMap F f.SplittingField)).IsRoot ζ)
+    (hr2 : ((f.map (algebraMap F f.SplittingField)).derivative).IsRoot ζ) :
+    ¬ f.Separable := by
+  intro hsep
+  have hcop : IsCoprime (f.map (algebraMap F f.SplittingField))
+      ((f.map (algebraMap F f.SplittingField)).derivative) := by
+    rw [derivative_map]
+    exact IsCoprime.map ((separable_def f).1 hsep)
+      (mapRingHom (algebraMap F f.SplittingField))
+  obtain ⟨u, v, huv⟩ := hcop
+  have h1 : (((u * f.map (algebraMap F f.SplittingField) +
+      v * (f.map (algebraMap F f.SplittingField)).derivative :
+      f.SplittingField[X]).eval ζ)) = 1 := by
+    rw [huv]; simp
+  have e1 : (f.map (algebraMap F f.SplittingField)).eval ζ = 0 := hr1
+  have e2 : ((f.map (algebraMap F f.SplittingField)).derivative).eval ζ = 0 := hr2
+  simp only [eval_add, eval_mul] at h1
+  rw [e1, e2] at h1
+  simp at h1
+
+/-- FT `ft3` auxiliary: if `f' = 0` for a nonconstant irreducible `f`, then `F` has nonzero
+characteristic `p = ringChar F` and `f` is a polynomial in `X ^ p`, namely
+`f = (contract p f)(X ^ p)` (Mathlib's `Polynomial.contract`). -/
+private theorem ft3_char_of_derivative_eq_zero (hf : Irreducible f)
+    (hf' : derivative f = 0) :
+    ringChar F ≠ 0 ∧ ∃ g : F[X], f = g.comp (X ^ ringChar F) := by
+  have hrc : ringChar F ≠ 0 := by
+    intro h0
+    haveI hchar : CharP F 0 := by have h := ringChar.charP F; rwa [h0] at h
+    haveI : CharZero F := CharP.charP_to_charZero F
+    exact ((natDegree_pos_iff_degree_pos).mpr (degree_pos_of_irreducible hf)).ne'
+      (derivative_eq_zero |>.1 hf')
+  exact ⟨hrc, contract (ringChar F) f, by
+    rw [← expand_eq_comp_X_pow, expand_contract (ringChar F) hf' hrc]⟩
+
+/-- FT `ft3` auxiliary: if `f = g(X ^ p)` with `p = ringChar F`, then `f' = 0`, since
+`(X ^ p)' = p · X ^ (p - 1) = 0` in characteristic `p`. -/
+private theorem ft3_derivative_eq_zero_of_comp (g : F[X])
+    (hgc : f = g.comp (X ^ ringChar F)) :
+    derivative f = 0 := by
+  have hpF : (ringChar F : F) = 0 := (ringChar.spec F (ringChar F)).mpr dvd_rfl
+  rw [hgc, derivative_comp, derivative_X_pow, hpF, C_0, zero_mul, zero_mul]
+
+/-- **FT `ft3`** (source, Proposition ft3).  For a nonconstant irreducible polynomial
+`f ∈ F[X]` the following are equivalent:
+(a) `f` has a multiple root (in the canonical splitting field `Polynomial.SplittingField f`);
+(b) `gcd(f, f') ≠ 1`, i.e. `f` is not separable (Mathlib's `Polynomial.Separable`, defined
+as `IsCoprime f (derivative f)`);
+(c) `F` has nonzero characteristic `p` and `f` is a polynomial in `X ^ p`
+(namely `p = ringChar F`);
+(d) all the roots of `f` are multiple.
+
+Proof idea (following the text).  The key identity (source eq. (2)) that a root of `f` is
+multiple iff it is also a root of `f'` is Mathlib's
+`Polynomial.one_lt_rootMultiplicity_iff_isRoot`.  (a) → (b): a common root of `f` and `f'`
+evaluates a Bézout identity for `(f, f')` to `0 = 1`.  (b) → (c): since `deg f' < deg f`,
+`gcd(f, f') ≠ 1` forces `f' = 0` for irreducible `f`
+(`Polynomial.separable_iff_derivative_ne_zero`), and then `f = g(X ^ ringChar F)` by
+Mathlib's `Polynomial.contract`.  (c) → (d): `f = g(X ^ p)` has `f' = 0`, so every root of
+`f` is multiple by eq. (2) again.  (d) → (a): `f` has a root in its splitting field. -/
+theorem ft3 (hf : Irreducible f) :
+    ((∃ ζ ∈ (f.map (algebraMap F f.SplittingField)).roots,
+        1 < (f.map (algebraMap F f.SplittingField)).rootMultiplicity ζ) ↔
+      ¬f.Separable) ∧
+    (¬f.Separable ↔
+      ringChar F ≠ 0 ∧ ∃ g : F[X], f = g.comp (X ^ ringChar F)) ∧
+    ((ringChar F ≠ 0 ∧ ∃ g : F[X], f = g.comp (X ^ ringChar F)) ↔
+      ∀ ζ ∈ (f.map (algebraMap F f.SplittingField)).roots,
+        1 < (f.map (algebraMap F f.SplittingField)).rootMultiplicity ζ) := by
+  have hinj : Function.Injective (algebraMap F f.SplittingField) :=
+    (algebraMap F f.SplittingField).injective
+  have hfm : f.map (algebraMap F f.SplittingField) ≠ 0 :=
+    (Polynomial.map_ne_zero_iff hinj).mpr hf.ne_zero
+  have hroot := ft3_exists_root hf
+  refine ⟨?_, ?_, ?_⟩
+  · -- (a) ↔ (b)
+    constructor
+    · rintro ⟨ζ, hζ, hm⟩
+      obtain ⟨hr1, hr2⟩ := (one_lt_rootMultiplicity_iff_isRoot hfm).1 hm
+      exact ft3_notSeparable_of_commonRoot hr1 hr2
+    · intro hsep
+      have hf' : derivative f = 0 := by
+        by_contra h
+        exact hsep ((separable_iff_derivative_ne_zero hf).2 h)
+      obtain ⟨ζ, hζ⟩ := hroot
+      refine ⟨ζ, hζ, ?_⟩
+      rw [one_lt_rootMultiplicity_iff_isRoot hfm]
+      exact ⟨(mem_roots' |>.1 hζ).2, by
+        rw [derivative_map, hf', Polynomial.map_zero]; exact eval_zero⟩
+  · -- (b) ↔ (c)
+    constructor
+    · intro hsep
+      exact ft3_char_of_derivative_eq_zero hf
+        (by by_contra h; exact hsep ((separable_iff_derivative_ne_zero hf).2 h))
+    · rintro ⟨hrc, g, hgc⟩ hsep
+      exact absurd (ft3_derivative_eq_zero_of_comp g hgc)
+        ((separable_iff_derivative_ne_zero hf).1 hsep)
+  · -- (c) ↔ (d)
+    constructor
+    · rintro ⟨hrc, g, hgc⟩ ζ hζ
+      have hf' := ft3_derivative_eq_zero_of_comp g hgc
+      rw [one_lt_rootMultiplicity_iff_isRoot hfm]
+      exact ⟨(mem_roots' |>.1 hζ).2, by
+        rw [derivative_map, hf', Polynomial.map_zero]; exact eval_zero⟩
+    · intro hd
+      obtain ⟨ζ, hζ⟩ := hroot
+      obtain ⟨hr1, hr2⟩ := (one_lt_rootMultiplicity_iff_isRoot hfm).1 (hd ζ hζ)
+      have hns := ft3_notSeparable_of_commonRoot hr1 hr2
+      exact ft3_char_of_derivative_eq_zero hf
+        (by by_contra h; exact hns ((separable_iff_derivative_ne_zero hf).2 h))
+
+end FT3
+section FT3A
+
+open Polynomial
+
+variable {F : Type*} [Field F]
+
+/-- FT `ft4` (Bourbaki's definition, condition (ii) of FT `ft3a`).  The polynomial `f ∈ F[X]`
+has *only simple roots* if every root of `f` in the canonical splitting field
+`Polynomial.SplittingField f` has multiplicity exactly one.  (The source says "in an
+extension of `F` splitting `f`"; we use Mathlib's canonical splitting field.) -/
+def OnlySimpleRoots (f : F[X]) : Prop :=
+  ∀ ζ ∈ (f.map (algebraMap F (SplittingField f))).roots,
+    rootMultiplicity ζ (f.map (algebraMap F (SplittingField f))) = 1
+
+/-- FT `ft3a` (helper).  "Only simple roots" is the same as the roots multiset being
+duplicate-free, i.e. every root occurring with multiplicity `≤ 1`.  Proof: a root has
+multiplicity ≥ 1 (`Multiset.one_le_count_iff_mem`, `Polynomial.count_roots`), so
+multiplicity exactly one is multiplicity ≤ 1 for members and vacuous for nonmembers. -/
+theorem onlySimpleRoots_iff_nodup {f : F[X]} (hf : f ≠ 0) :
+    OnlySimpleRoots f ↔ (f.map (algebraMap F (SplittingField f))).roots.Nodup := by
+  classical
+  have hg : (f.map (algebraMap F (SplittingField f))) ≠ 0 :=
+    (Polynomial.map_ne_zero_iff (algebraMap F (SplittingField f)).injective).2 hf
+  constructor
+  · intro h
+    rw [Multiset.nodup_iff_count_le_one]
+    intro ζ
+    by_cases hmem : ζ ∈ (f.map (algebraMap F (SplittingField f))).roots
+    · rw [Polynomial.count_roots (f.map (algebraMap F (SplittingField f))), h ζ hmem]
+    · rw [Polynomial.count_roots (f.map (algebraMap F (SplittingField f))),
+        rootMultiplicity_eq_zero (fun hroot ↦ hmem ((Polynomial.mem_roots hg).2 hroot))]
+      exact Nat.zero_le 1
+  · intro hnodup ζ hmem
+    have h1 : 1 ≤ (f.map (algebraMap F (SplittingField f))).roots.count ζ :=
+      Multiset.one_le_count_iff_mem.2 hmem
+    have h2 : (f.map (algebraMap F (SplittingField f))).roots.count ζ ≤ 1 :=
+      Multiset.nodup_iff_count_le_one.1 hnodup ζ
+    rw [← Polynomial.count_roots (f.map (algebraMap F (SplittingField f)))]
+    exact Nat.le_antisymm h2 h1
+
+/-- FT `ft3a`.  For a nonzero polynomial `f ∈ F[X]` the following are equivalent:
+(i) `gcd(f, f′) = 1` in `F[X]`, i.e. `IsCoprime f (derivative f)`, Mathlib's
+`Polynomial.Separable f`; (ii) `f` has only simple roots (`FT.OnlySimpleRoots`).
+Proof (FT, via FT eq2): a root of `f` is multiple iff it is also a root of `f′`
+(Mathlib's `Polynomial.one_lt_rootMultiplicity_iff_isRoot`, the packaged form of
+eq2's computation `f′ = m(X−ζ)^{m−1}g + (X−ζ)^m g′` for `f = (X−ζ)^m g`).  If `f` and
+`f′` had a common root in a splitting extension, the roots multiset would have a
+repeated entry; Mathlib's `Polynomial.nodup_roots_iff_of_splits` (whose proof extracts
+a root of a nonunit `gcd` of `f` and `f′` and evaluates the Bezout identity at it,
+yielding `1 = 0`) gives nonseparability; conversely
+`Polynomial.rootMultiplicity_le_one_of_separable` forces every root multiplicity `≤ 1`
+there. -/
+theorem onlySimpleRoots_iff_separable {f : F[X]} (hf : f ≠ 0) :
+    OnlySimpleRoots f ↔ f.Separable := by
+  have hg : (f.map (algebraMap F (SplittingField f))) ≠ 0 :=
+    (Polynomial.map_ne_zero_iff (algebraMap F (SplittingField f)).injective).2 hf
+  rw [onlySimpleRoots_iff_nodup hf, nodup_roots_iff_of_splits hg (SplittingField.splits f),
+    separable_map (algebraMap F _)]
+
+/-- FT `ft4` (Bourbaki's definition).  A polynomial is *separable* if it is nonzero and
+satisfies the equivalent conditions of FT `ft3a`.  Mathlib encodes this as
+`Polynomial.Separable f` (`IsCoprime f (derivative f)`), for which nonvanishing is
+automatic (`Polynomial.Separable.ne_zero`); hence FT `ft4` = `Polynomial.Separable`.
+(Bourbaki's footnote: Jacobson's variant, "each irreducible factor has only simple
+roots", is `Polynomial.separable_iff_derivative_ne_zero` for irreducible polynomials.) -/
+theorem separable_iff_nonzero_and_onlySimpleRoots (f : F[X]) :
+    f.Separable ↔ (f ≠ 0 ∧ OnlySimpleRoots f) := by
+  constructor
+  · intro h
+    exact ⟨h.ne_zero, (onlySimpleRoots_iff_separable h.ne_zero).2 h⟩
+  · rintro ⟨h0, hr⟩
+    exact (onlySimpleRoots_iff_separable h0).1 hr
+
+end FT3A
+section FT5
+
+/-- FT `ft2` (auxiliary).  In characteristic `p` the binomial/Frobenius expansion collapses:
+`(X - C b) ^ p = X ^ p - C (b ^ p)`, i.e. `X ^ p - C a = (X - C b) ^ p` whenever `a = b ^ p`.
+Proof: `expand F p (X - C b) = X ^ p - C b` (`Polynomial.expand_X`, `Polynomial.expand_C`,
+mixed coefficients are killed by the characteristic), and `Polynomial.map_frobenius_expand`
+identifies `expand F p (X - C b)` mapped by Frobenius with `(X - C b) ^ p`. -/
+theorem X_pow_sub_C_eq_sub_pow {F : Type*} [Field F] (p : ℕ) [ExpChar F p] (b : F) :
+    Polynomial.X ^ p - Polynomial.C (b ^ p) = (Polynomial.X - Polynomial.C b) ^ p := by
+  rw [← Polynomial.map_frobenius_expand p (Polynomial.X - Polynomial.C b)]
+  have h : Polynomial.expand F p (Polynomial.X - Polynomial.C b) =
+      Polynomial.X ^ p - Polynomial.C b := by
+    simp [Polynomial.expand_X, Polynomial.expand_C]
+  rw [h, Polynomial.map_sub, Polynomial.map_pow, Polynomial.map_X, Polynomial.map_C, frobenius_def]
+
+/-- FT `ft2` (auxiliary).  In characteristic `p` the derivative of `X ^ p - C a` is
+`C p * X ^ (p - 1) - 0 = 0` because `p = 0` in `F`. -/
+theorem derivative_X_pow_sub_C_eq_zero {F : Type*} [Field F] {p : ℕ} [CharP F p] (a : F) :
+    (Polynomial.X ^ p - Polynomial.C a).derivative = 0 := by
+  rw [Polynomial.derivative_sub, Polynomial.derivative_X_pow, Polynomial.derivative_C,
+    CharP.cast_eq_zero]
+  simp
+
+/-- FT `ft2` (example, "multiple roots" half).  If `F` has characteristic `p` prime, then
+`X ^ p - C a` is *not* separable (FT `ft4` fails for it): its derivative is `0`, so
+`IsCoprime (X ^ p - C a) 0` would force `X ^ p - C a` to be a unit, while its degree is
+`p > 0` (`Polynomial.degree_X_pow_sub_C`). -/
+theorem not_separable_X_pow_sub_C {F : Type*} [Field F] {p : ℕ} (hp : p.Prime) [CharP F p]
+    (a : F) : ¬ (Polynomial.X ^ p - Polynomial.C a).Separable := by
+  have hd := derivative_X_pow_sub_C_eq_zero a
+  intro h
+  rw [Polynomial.separable_def, hd, isCoprime_zero_right,
+    Polynomial.isUnit_iff_degree_eq_zero, Polynomial.degree_X_pow_sub_C hp.pos] at h
+  exact hp.ne_zero (Nat.cast_eq_zero.mp h)
+
+/-- FT `ft2` (example, "irreducible" half).  If `p` is prime and `a : F` is not a `p`th power
+in `F` (`∀ b : F, b ^ p ≠ a`), then `X ^ p - C a` is irreducible in `F[X]`.  This wraps
+Mathlib's `X_pow_sub_C_irreducible_of_prime` (Mathlib/FieldTheory/KummerPolynomial.lean;
+`X_pow_sub_C_irreducible_iff_of_prime` gives the converse), whose proof is the classical one:
+in a splitting field `X ^ p - C a = (X - C α) ^ p`, so any proper factor is a unit times
+`(X - C α) ^ m` with `0 < m < p`, and its constant term would exhibit `a` as a `p`th power
+since `gcd (m, p) = 1`. -/
+theorem X_pow_sub_C_irreducible_of_not_pow {F : Type*} [Field F] {p : ℕ} (hp : p.Prime)
+    [CharP F p] {a : F} (ha : ∀ b : F, b ^ p ≠ a) :
+    Irreducible (Polynomial.X ^ p - Polynomial.C a) :=
+  X_pow_sub_C_irreducible_of_prime hp ha
+
+/-- FT `ft2` (example).  In characteristic `p` prime, `X ^ p - C a` with `a : F` not a
+`p`th power is irreducible in `F[X]` but has multiple roots: it is not separable (FT `ft4`). -/
+theorem irreducible_not_separable_X_pow_sub_C {F : Type*} [Field F] {p : ℕ} (hp : p.Prime)
+    [CharP F p] {a : F} (ha : ∀ b : F, b ^ p ≠ a) :
+    Irreducible (Polynomial.X ^ p - Polynomial.C a) ∧
+      ¬ (Polynomial.X ^ p - Polynomial.C a).Separable :=
+  ⟨X_pow_sub_C_irreducible_of_not_pow hp ha, not_separable_X_pow_sub_C hp a⟩
+
+/-- FT `ft5`, forward direction.  A perfect field in the sense of FT `ft4m` is perfect in the
+sense of Mathlib (every irreducible is separable).  Characteristic zero is `Irreducible.separable`
+(as in `PerfectField.ofCharZero`); in characteristic `p = ringChar F` the surjectivity
+`∀ a, ∃ b, a = b ^ p` of FT `ft4m` makes the Frobenius automorphism bijective (injectivity is
+`frobenius_inj`, a field is reduced), so `PerfectRing.toPerfectField` applies. -/
+theorem perfectField_of_perfectFT (F : Type*) [Field F] (h : FT.PerfectFT F) : PerfectField F := by
+  rcases h with h0 | ⟨hp, hsurj⟩
+  · haveI := h0
+    exact ⟨fun hf => hf.separable⟩
+  · haveI : CharP F (ringChar F) := ringChar.charP F
+    have hprime : (ringChar F).Prime := (CharP.char_is_prime_or_zero F _).resolve_right hp
+    haveI : ExpChar F (ringChar F) := ExpChar.prime hprime
+    haveI : PerfectRing F (ringChar F) :=
+      ⟨⟨frobenius_inj F (ringChar F), fun y =>
+          ⟨(hsurj y).choose, (hsurj y).choose_spec.symm⟩⟩⟩
+    exact PerfectRing.toPerfectField F (ringChar F)
+
+/-- FT `ft5`, reverse direction.  A Mathlib-perfect field is perfect in the sense of FT `ft4m`:
+if `ringChar F = 0` we are done (`CharP.ringChar_zero_iff_CharZero`); otherwise `ringChar F` is
+prime, and if some `a : F` were not a `p`th power then `X ^ p - C a` would be irreducible
+(`X_pow_sub_C_irreducible_of_prime`, FT `ft2`) yet inseparable (FT `ft2`, derivative `0`),
+contradicting `PerfectField.separable_of_irreducible`.  This is Mathlib's
+`PerfectField.toPerfectRing` argument. -/
+theorem perfectFT_of_perfectField (F : Type*) [Field F] (h : PerfectField F) : FT.PerfectFT F := by
+  haveI : CharP F (ringChar F) := ringChar.charP F
+  rcases CharP.char_is_prime_or_zero F (ringChar F) with hprime | h0
+  · right
+    refine ⟨hprime.ne_zero, fun a => ?_⟩
+    by_contra hn
+    exact not_separable_X_pow_sub_C hprime a
+      (h.separable_of_irreducible
+        (X_pow_sub_C_irreducible_of_prime hprime (fun b hb => hn ⟨b, hb.symm⟩)))
+  · left
+    exact CharP.ringChar_zero_iff_CharZero F |>.mp h0
+
+/-- FT `ft5`.  FT `ft4m` (`FT.PerfectFT`: characteristic zero, or characteristic `p ≠ 0` with
+every element a `p`th power) is equivalent to Mathlib's `PerfectField` (every irreducible
+polynomial is separable). -/
+theorem perfectFT_iff_perfectField (F : Type*) [Field F] :
+    FT.PerfectFT F ↔ PerfectField F :=
+  ⟨perfectField_of_perfectFT F, perfectFT_of_perfectField F⟩
+
+end FT5
