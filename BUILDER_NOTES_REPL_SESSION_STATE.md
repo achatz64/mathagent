@@ -79,3 +79,32 @@ request remains; scratch state is disposable by design.
 - Docs updated: LEAN_REPL_GENERAL.md (bare-env semantics, "Session state"
   section, size guidance), LEAN_REPL_MAIN.md ("Restart accounting"),
   lean_repl promptGuidelines.
+
+---
+
+## Appendix: ratified decisions and verification log (from the feedback file, consolidated 2026-09-19)
+
+The feedback file BUILDER_FEEDBACK_REPL_SESSION_STATE.md (and its addendum) was
+closed and removed after full resolution. Its durable content is preserved here:
+
+**Ratified design decision (user, 2026-09-19) — disposable-state-by-design:**
+no consent layer; sub sessions do not authorize or veto recovery; the only
+durable state is the import block; all scratch state is disposable by
+protocol; respawn must be loud (generation counter, reason-tagged restart
+accounting); precondition was issue A (durable env handles within a
+generation). Operationalized in LEAN_REPL_GENERAL.md ("Session state") and
+LEAN_REPL_MAIN.md ("Restart accounting", "One generation per project").
+Issue C (respawn gating) dissolved under this decision — deliberately not built.
+
+**Verification by main (live, fresh pi sessions):**
+- Resolution 0b3a7cf (issues A, B, D, loud respawn): stale bare env refused
+  loudly; bare root env accepted; stale repl pair rejected; `generation` on
+  every response; per-reason restart accounting with first-init excluded.
+- Correction recorded: the original report's "19 deliberate restarts" were
+  main-agent-initiated (bash kill + import respawns), not worker behavior.
+- Resolution a270b63 (issue E): foreign-session import refused with verbatim
+  REPL-CONFLICT (group, pids, RSS, kill remedy), no duplicate spawn, owning
+  generation unharmed, actionable status warning.
+
+**Follow-on issues:** worker concurrency cap hardcoded at 4 (project requires
+8) — see BUILDER_FEEDBACK_WORKER_CAP.md (OPEN).
