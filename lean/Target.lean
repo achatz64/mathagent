@@ -1582,6 +1582,379 @@ length is a constructible number (`Constructible`). -/
 theorem constructible_of_geo {x : ℝ} (h : GeoConstructible x) : Constructible x :=
   (constructible_coords_of_geoPoint h).1
 
+
+/-! ### The reverse geometric bridge (`Constructible` → `GeoConstructible`)
+
+The source proves `ef25`/`ef26` geometrically, i.e. for straight-edge-and-compass
+constructibility, while the formalization so far only had the forward bridge
+`constructible_of_geo`.  The following block closes the gap: from the algebraic
+predicate `Constructible` it reconstructs the geometric derivation, using only
+explicit straight-edge-and-compass constructions with concrete coordinates
+(whose line/circle memberships are elementary ring identities).  -/
+
+theorem pair_fst_ne {a b c d : ℝ} (h : a ≠ c) : (a, b) ≠ (c, d) := fun he => h (congrArg Prod.fst he)
+
+theorem pair_snd_ne {a b c d : ℝ} (h : b ≠ d) : (a, b) ≠ (c, d) := fun he => h (congrArg Prod.snd he)
+
+theorem lineSet_ne {p₁ p₂ q₁ q₂ w : ℝ × ℝ}
+    (h₁ : MemGeoLine p₁ p₂ w) (h₂ : ¬ MemGeoLine q₁ q₂ w) :
+    {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} ≠ {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} := by
+  intro hset
+  apply h₂
+  have hw : w ∈ {s : ℝ × ℝ | MemGeoLine q₁ q₂ s} :=
+    hset ▸ (h₁ : w ∈ {s : ℝ × ℝ | MemGeoLine p₁ p₂ s})
+  exact hw
+
+theorem circleSet_ne {c₁ a₁ b₁ c₂ a₂ b₂ w : ℝ × ℝ}
+    (h₁ : MemGeoCircle c₁ a₁ b₁ w) (h₂ : ¬ MemGeoCircle c₂ a₂ b₂ w) :
+    {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} := by
+  intro hset
+  apply h₂
+  have hw : w ∈ {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} :=
+    hset ▸ (h₁ : w ∈ {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s})
+  exact hw
+
+theorem memGeoLine_axis {q : ℝ × ℝ} : MemGeoLine (0, 0) (1, 0) q ↔ q.2 = 0 := by
+  constructor
+  · intro h; simp only [MemGeoLine] at h; linarith [h]
+  · intro h; simp only [MemGeoLine]; linarith [h]
+
+theorem memGeoLine_vert {x : ℝ} {q : ℝ × ℝ} : MemGeoLine (x, 2) (x, -2) q ↔ q.1 = x := by
+  constructor
+  · intro h; simp only [MemGeoLine] at h; linarith [h]
+  · intro h; simp only [MemGeoLine]; linarith [h]
+
+theorem memGeoLine_horiz {y : ℝ} {q : ℝ × ℝ} : MemGeoLine (0, y) (1, y) q ↔ q.2 = y := by
+  constructor
+  · intro h; simp only [MemGeoLine] at h; linarith [h]
+  · intro h; simp only [MemGeoLine]; linarith [h]
+
+theorem geo_zero : GeoConstructible 0 := GeoConstructiblePoint.base1
+
+theorem geo_one : GeoConstructible 1 := GeoConstructiblePoint.base2
+
+theorem geoPoint_zero : GeoConstructiblePoint (0 : ℝ × ℝ) := GeoConstructiblePoint.base1
+
+/-- The point `(2, 0)`: the circle with centre `(1, 0)` through `(0, 0)` meets the x-axis again at
+`(2, 0)`. -/
+theorem geo_two : GeoConstructible 2 :=
+  @GeoConstructiblePoint.circleLineIntersect (0, 0) (1, 0) (1, 0) (0, 0) (1, 0) (2, 0)
+    GeoConstructiblePoint.base1 GeoConstructiblePoint.base2 (pair_fst_ne (by norm_num))
+    GeoConstructiblePoint.base2 GeoConstructiblePoint.base1 GeoConstructiblePoint.base2
+    (by simp only [MemGeoLine]; ring) (by simp only [MemGeoCircle]; ring)
+
+/-- **Length addition** (Euclid-style two-point radius).  From constructed points `(c, 0)`, `(d, 0)`
+on the x-axis, the circle centred `(c, 0)` with radius `|d|` (the distance between the constructed
+points `(0, 0)` and `(d, 0)`) meets the x-axis at `(c + d, 0)`. -/
+theorem geoPoint_add {c d : ℝ} (hc : GeoConstructiblePoint (c, 0))
+    (hd : GeoConstructiblePoint (d, 0)) : GeoConstructiblePoint (c + d, 0) :=
+  @GeoConstructiblePoint.circleLineIntersect (0, 0) (1, 0) (c, 0) (0, 0) (d, 0) (c + d, 0)
+    GeoConstructiblePoint.base1 GeoConstructiblePoint.base2 (pair_fst_ne (by norm_num))
+    hc GeoConstructiblePoint.base1 hd
+    (by simp only [MemGeoLine]; ring) (by simp only [MemGeoCircle]; ring)
+
+/-- **Length subtraction.**  Same circle as in `geoPoint_add`; the second intersection with the
+x-axis is `(c - d, 0)`. -/
+theorem geoPoint_sub {c d : ℝ} (hc : GeoConstructiblePoint (c, 0))
+    (hd : GeoConstructiblePoint (d, 0)) : GeoConstructiblePoint (c - d, 0) :=
+  @GeoConstructiblePoint.circleLineIntersect (0, 0) (1, 0) (c, 0) (0, 0) (d, 0) (c - d, 0)
+    GeoConstructiblePoint.base1 GeoConstructiblePoint.base2 (pair_fst_ne (by norm_num))
+    hc GeoConstructiblePoint.base1 hd
+    (by simp only [MemGeoLine]; ring) (by simp only [MemGeoCircle]; ring)
+
+/-- **Point reflection through the origin.**  The circle centred `(0, 0)` with radius `|c|` (the
+distance between the constructed points `(c, 0)` and `(0, 0)`) meets the x-axis at `(-c, 0)`. -/
+theorem geoPoint_neg {c : ℝ} (hc : GeoConstructiblePoint (c, 0)) : GeoConstructiblePoint (-c, 0) :=
+  @GeoConstructiblePoint.circleLineIntersect (0, 0) (1, 0) (0, 0) (c, 0) (0, 0) (-c, 0)
+    GeoConstructiblePoint.base1 GeoConstructiblePoint.base2 (pair_fst_ne (by norm_num))
+    GeoConstructiblePoint.base1 hc GeoConstructiblePoint.base1
+    (by simp only [MemGeoLine]; ring) (by simp only [MemGeoCircle]; ring)
+
+theorem geoPoint_congr {p q : ℝ × ℝ} (h : GeoConstructiblePoint p) (he : p = q) :
+    GeoConstructiblePoint q := he ▸ h
+
+theorem geoPoint_x_congr {a b : ℝ} (he : a = b) (h : GeoConstructiblePoint (a, 0)) :
+    GeoConstructiblePoint (b, 0) := by
+  rw [he] at h; exact h
+
+/-- **Halving** (perpendicular bisector).  The two circles of radius `|c|` centred at `(0, 0)` and
+`(c, 0)` meet at `(c/2, ±√3 c/2)`; the line through these two points is the perpendicular bisector
+`x = c/2` of the segment from `(0, 0)` to `(c, 0)`, and it meets the x-axis at `(c/2, 0)`. -/
+theorem geoPoint_half {c : ℝ} (hc : GeoConstructiblePoint (c, 0)) (hc0 : c ≠ 0) :
+    GeoConstructiblePoint (c / 2, 0) := by
+  have h3 : (Real.sqrt 3) ^ 2 = 3 := Real.sq_sqrt (by norm_num)
+  have h3sq : (Real.sqrt 3 * c / 2) ^ 2 = 3 * c ^ 2 / 4 := by rw [div_pow, mul_pow, h3]; ring
+  have h3ne : Real.sqrt 3 ≠ 0 := by
+    intro h0
+    have h := Real.mul_self_sqrt (by norm_num : (0:ℝ) ≤ 3)
+    rw [h0] at h
+    norm_num at h
+  have hs0 : Real.sqrt 3 * c / 2 ≠ 0 := by
+    intro h0
+    have hz : Real.sqrt 3 * c = 0 := by linarith [h0]
+    rcases mul_eq_zero.mp hz with h1 | h1
+    · exact h3ne h1
+    · exact hc0 h1
+  have m1 : MemGeoCircle (0, 0) (0, 0) (c, 0) (c / 2, Real.sqrt 3 * c / 2) := by
+    simp only [MemGeoCircle, sub_zero]; rw [h3sq]; ring
+  have m2 : MemGeoCircle (c, 0) (0, 0) (c, 0) (c / 2, Real.sqrt 3 * c / 2) := by
+    simp only [MemGeoCircle, sub_zero]; rw [h3sq]; ring
+  have w1 : MemGeoCircle (0, 0) (0, 0) (c, 0) (c, 0) := by
+    simp only [MemGeoCircle, sub_zero]; ring
+  have hnot2 : ¬ MemGeoCircle (c, 0) (0, 0) (c, 0) (c, 0) := by
+    intro hmem
+    simp only [MemGeoCircle, sub_zero] at hmem
+    have h5 : (0 - c) ^ 2 = c ^ 2 := by ring
+    have e : (c - c) ^ 2 = 0 := by ring
+    rw [e, h5] at hmem
+    have hz : c ^ 2 = 0 := by linarith [hmem]
+    exact hc0 (sq_eq_zero_iff.mp hz)
+  have hA : GeoConstructiblePoint (c / 2, Real.sqrt 3 * c / 2) :=
+    @GeoConstructiblePoint.circleCircleIntersect (0, 0) (0, 0) (c, 0) (c, 0) (0, 0) (c, 0)
+      (c / 2, Real.sqrt 3 * c / 2)
+      GeoConstructiblePoint.base1 GeoConstructiblePoint.base1 hc hc GeoConstructiblePoint.base1 hc
+      (circleSet_ne w1 hnot2) m1 m2
+  have m1' : MemGeoCircle (0, 0) (0, 0) (c, 0) (c / 2, -(Real.sqrt 3 * c / 2)) := by
+    simp only [MemGeoCircle, sub_zero]
+    rw [show (-(Real.sqrt 3 * c / 2)) ^ 2 = (Real.sqrt 3 * c / 2) ^ 2 by ring, h3sq]; ring
+  have m2' : MemGeoCircle (c, 0) (0, 0) (c, 0) (c / 2, -(Real.sqrt 3 * c / 2)) := by
+    simp only [MemGeoCircle, sub_zero]
+    rw [show (-(Real.sqrt 3 * c / 2)) ^ 2 = (Real.sqrt 3 * c / 2) ^ 2 by ring, h3sq]; ring
+  have hB : GeoConstructiblePoint (c / 2, -(Real.sqrt 3 * c / 2)) :=
+    @GeoConstructiblePoint.circleCircleIntersect (0, 0) (0, 0) (c, 0) (c, 0) (0, 0) (c, 0)
+      (c / 2, -(Real.sqrt 3 * c / 2))
+      GeoConstructiblePoint.base1 GeoConstructiblePoint.base1 hc hc GeoConstructiblePoint.base1 hc
+      (circleSet_ne w1 hnot2) m1' m2'
+  have hne' : Real.sqrt 3 * c / 2 ≠ -(Real.sqrt 3 * c / 2) := by
+    intro h
+    have hz : Real.sqrt 3 * c = 0 := by linarith [h]
+    rcases mul_eq_zero.mp hz with h0 | h0
+    · exact h3ne h0
+    · exact hc0 h0
+  have x0' : MemGeoLine (c / 2, Real.sqrt 3 * c / 2) (c / 2, -(Real.sqrt 3 * c / 2))
+      (c / 2, Real.sqrt 3 * c / 2) := by simp only [MemGeoLine]; ring
+  have hnot'' : ¬ MemGeoLine (0, 0) (1, 0) (c / 2, Real.sqrt 3 * c / 2) :=
+    fun hm => hs0 ((memGeoLine_axis).mp hm)
+  have lv : MemGeoLine (c / 2, Real.sqrt 3 * c / 2) (c / 2, -(Real.sqrt 3 * c / 2)) (c / 2, 0) := by
+    simp only [MemGeoLine]; ring
+  have lx : MemGeoLine (0, 0) (1, 0) (c / 2, 0) := (memGeoLine_axis).mpr rfl
+  exact @GeoConstructiblePoint.lineIntersect (c / 2, Real.sqrt 3 * c / 2)
+    (c / 2, -(Real.sqrt 3 * c / 2)) (0, 0) (1, 0) (c / 2, 0)
+    hA hB (pair_snd_ne hne') GeoConstructiblePoint.base1 GeoConstructiblePoint.base2
+    (pair_fst_ne (by norm_num))
+    (lineSet_ne x0' hnot'') lv lx
+
+/-- The unit fraction `1/2`. -/
+theorem geo_half_one : GeoConstructiblePoint ((1:ℝ) / 2, 0) :=
+  geoPoint_half geo_one (by norm_num)
+
+/-- The constant `3/2`. -/
+theorem geo_three_halves : GeoConstructiblePoint ((3:ℝ) / 2, 0) :=
+  geoPoint_x_congr (by norm_num : (1:ℝ) + 1 / 2 = 3 / 2) (geoPoint_add geo_one geo_half_one)
+
+/-- The constant `5/2`. -/
+theorem geo_five_halves : GeoConstructiblePoint ((5:ℝ) / 2, 0) :=
+  geoPoint_x_congr (by norm_num : (2:ℝ) + 1 / 2 = 5 / 2) (geoPoint_add geo_two geo_half_one)
+
+/-- **Verticals.**  For every constructed `x` the two points `(x, 2)` and `(x, -2)` are
+constructed: they are the intersections of the equal circles of radius `5/2` (the distance between
+the constructed points `(0, 0)` and `(5/2, 0)`) centred at the constructed points `(x - 3/2, 0)`
+and `(x + 3/2, 0)`.  The line through them is the vertical `x = x`. -/
+theorem geoPoint_vert {x : ℝ} (hx : GeoConstructible x) :
+    GeoConstructiblePoint (x, 2) ∧ GeoConstructiblePoint (x, -2) := by
+  have hcxm : GeoConstructiblePoint (x - 3 / 2, 0) := geoPoint_sub hx geo_three_halves
+  have hcxp : GeoConstructiblePoint (x + 3 / 2, 0) := geoPoint_add hx geo_three_halves
+  have mA1 : MemGeoCircle (x - 3 / 2, 0) (0, 0) (5 / 2, 0) (x, 2) := by
+    simp only [MemGeoCircle]; ring
+  have mA2 : MemGeoCircle (x + 3 / 2, 0) (0, 0) (5 / 2, 0) (x, 2) := by
+    simp only [MemGeoCircle]; ring
+  have wC1 : MemGeoCircle (x - 3 / 2, 0) (0, 0) (5 / 2, 0) (x - 4, 0) := by
+    simp only [MemGeoCircle]; ring
+  have hnotC2 : ¬ MemGeoCircle (x + 3 / 2, 0) (0, 0) (5 / 2, 0) (x - 4, 0) := by
+    intro hmem
+    simp only [MemGeoCircle] at hmem
+    ring_nf at hmem
+    norm_num at hmem
+  have hA : GeoConstructiblePoint (x, 2) :=
+    @GeoConstructiblePoint.circleCircleIntersect (x - 3 / 2, 0) (0, 0) (5 / 2, 0)
+      (x + 3 / 2, 0) (0, 0) (5 / 2, 0) (x, 2)
+      hcxm geoPoint_zero geo_five_halves hcxp geoPoint_zero geo_five_halves
+      (circleSet_ne wC1 hnotC2) mA1 mA2
+  have mA1' : MemGeoCircle (x - 3 / 2, 0) (0, 0) (5 / 2, 0) (x, -2) := by
+    simp only [MemGeoCircle]; ring
+  have mA2' : MemGeoCircle (x + 3 / 2, 0) (0, 0) (5 / 2, 0) (x, -2) := by
+    simp only [MemGeoCircle]; ring
+  have hB : GeoConstructiblePoint (x, -2) :=
+    @GeoConstructiblePoint.circleCircleIntersect (x - 3 / 2, 0) (0, 0) (5 / 2, 0)
+      (x + 3 / 2, 0) (0, 0) (5 / 2, 0) (x, -2)
+      hcxm geoPoint_zero geo_five_halves hcxp geoPoint_zero geo_five_halves
+      (circleSet_ne wC1 hnotC2) mA1' mA2'
+  exact ⟨hA, hB⟩
+
+/-- **Horizontals.**  For every constructed `y` the two points `(0, y)` and `(1, y)` are
+constructed: the circle with centre `(0, 0)` (resp. `(1, 0)`) and radius `|y|` (the distance
+between the constructed points `(0, 0)` and `(y, 0)`) meets the vertical `x = 0` (resp. `x = 1`)
+at the point `(0, y)` (resp. `(1, y)`). -/
+theorem geoPoint_horiz {y : ℝ} (hy : GeoConstructible y) :
+    GeoConstructiblePoint (0, y) ∧ GeoConstructiblePoint (1, y) := by
+  obtain ⟨z1, z2⟩ := geoPoint_vert (x := 0) geo_zero
+  obtain ⟨w1, w2⟩ := geoPoint_vert (x := 1) geo_one
+  have hA : GeoConstructiblePoint (0, y) :=
+    @GeoConstructiblePoint.circleLineIntersect (0, 2) (0, -2) (0, 0) (0, 0) (y, 0) (0, y)
+      z1 z2 (pair_snd_ne (by norm_num)) geoPoint_zero geoPoint_zero hy
+      ((memGeoLine_vert).mpr rfl) (by simp only [MemGeoCircle, sub_zero]; ring)
+  have hB : GeoConstructiblePoint (1, y) :=
+    @GeoConstructiblePoint.circleLineIntersect (1, 2) (1, -2) (1, 0) (0, 0) (y, 0) (1, y)
+      w1 w2 (pair_snd_ne (by norm_num)) geo_one geoPoint_zero hy
+      ((memGeoLine_vert).mpr rfl) (by simp only [MemGeoCircle, sub_zero]; ring)
+  exact ⟨hA, hB⟩
+
+/-- **Grid points.**  For constructed `x`, `y` the point `(x, y)` is constructed: it is the
+intersection of the vertical `x = x` (through `(x, 2)`, `(x, -2)`) with the horizontal `y = y`
+(through `(0, y)`, `(1, y)`). -/
+theorem geoPoint_grid {x y : ℝ} (hx : GeoConstructible x) (hy : GeoConstructible y) :
+    GeoConstructiblePoint (x, y) := by
+  obtain ⟨v1, v2⟩ := geoPoint_vert hx
+  obtain ⟨h1, h2⟩ := geoPoint_horiz hy
+  have sh : MemGeoLine (0, y) (1, y) (x + 1, y) := (memGeoLine_horiz).mpr rfl
+  have gh : MemGeoLine (0, y) (1, y) (x, y) := (memGeoLine_horiz).mpr rfl
+  have gv : MemGeoLine (x, 2) (x, -2) (x, y) := (memGeoLine_vert).mpr rfl
+  exact @GeoConstructiblePoint.lineIntersect (0, y) (1, y) (x, 2) (x, -2) (x, y)
+    h1 h2 (pair_fst_ne (by norm_num)) v1 v2 (pair_snd_ne (by norm_num))
+    (lineSet_ne sh (fun hv => by linarith [(memGeoLine_vert).mp hv])) gh gv
+
+/-- **Length transfer.**  From a constructed point `p` whose projection `(p.1, 0)` to the x-axis is
+constructed, the distance `|p.2|` from `p` to its projection is a geometrically constructible
+length: the circle centred `(0, 0)` with radius `|p.2|` (the distance between the constructed
+points `p` and `(p.1, 0)`) meets the x-axis at `(p.2, 0)`. -/
+theorem geoPoint_yTransfer {p : ℝ × ℝ} (hp : GeoConstructiblePoint p)
+    (hpx : GeoConstructiblePoint (p.1, 0)) : GeoConstructible p.2 :=
+  @GeoConstructiblePoint.circleLineIntersect (0, 0) (1, 0) (0, 0) p (p.1, 0) (p.2, 0)
+    GeoConstructiblePoint.base1 GeoConstructiblePoint.base2 (pair_fst_ne (by norm_num))
+    geoPoint_zero hp hpx
+    ((memGeoLine_axis).mpr rfl)
+    (by simp only [MemGeoCircle, sub_zero]; ring)
+
+/-- **Multiplication** (intercept theorem with grid parallels).  For constructed `c`, `d` with
+`c ≠ 0`: the line through `(c, 0)` and `(c + 1, d)` is parallel to the line through `(0, 0)` and
+`(1, d)` (both have direction `(1, d)`); by the intercept theorem it meets the vertical `x = 0`
+at `(0, -c·d)`, and length transfer plus origin reflection gives `(c * d, 0)`. -/
+theorem geo_mul {c d : ℝ} (hc : GeoConstructible c) (hd : GeoConstructible d) :
+    GeoConstructible (c * d) := by
+  by_cases hc0 : c = 0
+  · rw [hc0, zero_mul]
+    exact geo_zero
+  · have hcd : GeoConstructiblePoint (c + 1, d) := geoPoint_grid (geoPoint_add hc geo_one) hd
+    obtain ⟨z1, z2⟩ := geoPoint_vert (x := 0) geo_zero
+    have m1 : MemGeoLine (c, 0) (c + 1, d) (0, -(c * d)) := by simp only [MemGeoLine]; ring
+    have m2 : MemGeoLine (0, 2) (0, -2) (0, -(c * d)) := (memGeoLine_vert).mpr rfl
+    have s1 : MemGeoLine (c, 0) (c + 1, d) (c, 0) := by simp only [MemGeoLine]; ring
+    have hnot : ¬ MemGeoLine (0, 2) (0, -2) (c, 0) := fun hm => hc0 ((memGeoLine_vert).mp hm)
+    have hr : GeoConstructiblePoint (0, -(c * d)) :=
+      @GeoConstructiblePoint.lineIntersect (c, 0) (c + 1, d) (0, 2) (0, -2) (0, -(c * d))
+        hc hcd (pair_fst_ne (fun h => by linarith [h])) z1 z2 (pair_snd_ne (by norm_num))
+        (lineSet_ne s1 hnot) m1 m2
+    have ht := geoPoint_yTransfer hr geoPoint_zero
+    have hneg := geoPoint_neg ht
+    rw [neg_neg] at hneg
+    exact hneg
+
+/-- **Reciprocal** (intercept theorem).  For constructed `d ≠ 0`: the line through `(1, 0)` and
+`(1 + d, 1)` is parallel to the line through `(0, 0)` and `(d, 1)` (both have direction `(d, 1)`);
+by the intercept theorem it meets the vertical `x = 0` at `(0, -d⁻¹)`, and length transfer plus
+origin reflection gives `(d⁻¹, 0)`. -/
+theorem geo_inv {d : ℝ} (hd : GeoConstructible d) (hd0 : d ≠ 0) : GeoConstructible (d⁻¹) := by
+  have hpt : GeoConstructiblePoint (1 + d, 1) := geoPoint_grid (geoPoint_add geo_one hd) geo_one
+  obtain ⟨z1, z2⟩ := geoPoint_vert (x := 0) geo_zero
+  have m1 : MemGeoLine (1, 0) (1 + d, 1) (0, -(d⁻¹)) := by
+    simp only [MemGeoLine]
+    field_simp
+    ring
+  have m2 : MemGeoLine (0, 2) (0, -2) (0, -(d⁻¹)) := (memGeoLine_vert).mpr rfl
+  have s1 : MemGeoLine (1, 0) (1 + d, 1) (1, 0) := by simp only [MemGeoLine]; ring
+  have hnot : ¬ MemGeoLine (0, 2) (0, -2) (1, 0) :=
+    fun hm => absurd (((memGeoLine_vert).mp hm).symm) (zero_ne_one : (0:ℝ) ≠ 1)
+  have hr : GeoConstructiblePoint (0, -(d⁻¹)) :=
+    @GeoConstructiblePoint.lineIntersect (1, 0) (1 + d, 1) (0, 2) (0, -2) (0, -(d⁻¹))
+      geo_one hpt (pair_fst_ne (fun h => hd0 (by linarith [h]))) z1 z2 (pair_snd_ne (by norm_num))
+      (lineSet_ne s1 hnot) m1 m2
+  have ht := geoPoint_yTransfer hr geoPoint_zero
+  have hneg := geoPoint_neg ht
+  rw [neg_neg] at hneg
+  exact hneg
+
+/-- **Square roots** (semicircle construction).  For constructed `x > 0`: the circle with centre
+`((x+1)/2, 0)` and radius `(x+1)/2` (the distance between the constructed points `(0, 0)` and
+`((x+1)/2, 0)`) meets the vertical `x = 1` at `(1, ±√x)`, since `(1 - (x+1)/2)² + x = ((x+1)/2)²`
+(Thales).  Length transfer with radius the distance from `(1, √x)` to the constructed point
+`(1, 0)` then gives `(√x, 0)`. -/
+theorem geo_sqrt {x : ℝ} (hx : 0 < x) (h : GeoConstructible x) : GeoConstructible (√x) := by
+  have hm : GeoConstructiblePoint ((x + 1) / 2, 0) :=
+    geoPoint_half (geoPoint_add h geo_one) (fun h0 => by linarith [h0])
+  obtain ⟨v1, v2⟩ := geoPoint_vert (x := 1) geo_one
+  have hp' : GeoConstructiblePoint (1, Real.sqrt x) :=
+    @GeoConstructiblePoint.circleLineIntersect (1, 2) (1, -2) ((x + 1) / 2, 0) (0, 0)
+      ((x + 1) / 2, 0) (1, Real.sqrt x)
+      v1 v2 (pair_snd_ne (by norm_num)) hm geoPoint_zero hm
+      ((memGeoLine_vert).mpr rfl)
+      (by simp only [MemGeoCircle, sub_zero, Real.sq_sqrt (le_of_lt hx)]; ring)
+  exact geoPoint_yTransfer hp' geo_one
+
+/-- Geometric construction of the natural numbers (repeated addition of the unit). -/
+theorem geo_nat (n : ℕ) : GeoConstructible (n : ℝ) := by
+  induction n with
+  | zero => rw [Nat.cast_zero]; exact geo_zero
+  | succ k ih =>
+      rw [Nat.cast_add, Nat.cast_one]
+      exact geoPoint_add ih geo_one
+
+/-- Geometric construction of the integers (origin reflection of the natural numbers). -/
+theorem geo_int (z : ℤ) : GeoConstructible (z : ℝ) := by
+  rcases Int.eq_nat_or_neg z with ⟨n, hn | hn⟩
+  · rw [hn, Int.cast_natCast]
+    exact geo_nat n
+  · rw [hn, Int.cast_neg, Int.cast_natCast]
+    exact geoPoint_neg (geo_nat n)
+
+/-- Geometric construction of the rationals: `q = q.num / q.den` via the intercept-theorem
+reciprocal and product. -/
+theorem geo_of_rat (q : ℚ) : GeoConstructible (q : ℝ) := by
+  have hn : GeoConstructible ((q.num : ℤ) : ℝ) := geo_int q.num
+  have hd : GeoConstructible ((q.den : ℝ)) := geo_nat q.den
+  have hd0 : (q.den : ℝ) ≠ 0 := Nat.cast_ne_zero.mpr (ne_of_gt (Rat.pos q))
+  have hinv : GeoConstructible ((q.den : ℝ)⁻¹) := geo_inv hd hd0
+  have hmul : GeoConstructible ((q.num : ℝ) * (q.den : ℝ)⁻¹) := geo_mul hn hinv
+  rw [Rat.cast_def]
+  exact geoPoint_x_congr
+    (show ((q.num : ℝ) / (q.den : ℝ)) = ((q.num : ℝ) * (q.den : ℝ)⁻¹) by
+      rw [div_eq_inv_mul, mul_comm])
+    hmul
+
+/-- **The reverse bridge** (FT `ef25`, `ef26` for the geometric predicate).  Every constructible
+number is geometrically constructible: it occurs as the x-coordinate of a straight-edge-and-compass
+constructed point.
+
+Proof idea: induction on the derivation of `Constructible`.  The rationals are constructed by
+repeated addition of the unit and the intercept-theorem reciprocal; addition and subtraction by the
+two-point-radius circle trick on the x-axis; negation by origin reflection; multiplication and
+reciprocal by the intercept theorem (parallels to a constructed line are free once the constructed
+grid is available: the line through `(c, 0)` and `(c + 1, d)` is parallel to the line through
+`(0, 0)` and `(1, d)`); square roots by Thales' semicircle construction with centre
+`((x+1)/2, 0)` through the vertical `x = 1`, plus length transfer. -/
+theorem geo_of_constructible {x : ℝ} (h : Constructible x) : GeoConstructible x := by
+  induction h with
+  | ofRat q => exact geo_of_rat q
+  | @ofAdd x y hx hy ihx ihy => exact geoPoint_add ihx ihy
+  | @ofNeg x hx ihx => exact geoPoint_neg ihx
+  | @ofMul x y hx hy ihx ihy => exact geo_mul ihx ihy
+  | @ofInv x hx ihx =>
+      by_cases hx0 : x = 0
+      · rw [hx0, inv_zero]
+        exact geo_zero
+      · exact geo_inv ihx hx0
+  | @ofSqrt x hpos hx ihx => exact geo_sqrt hpos ihx
+
+
 /-- **FT `ef26` (ii), encoding.**  The quadratic tower obtained from ℚ by successively
 adjoining the square roots of the elements of a list.  The list is read *right-to-left*:
 the head is adjoined last, over the tower generated by the remaining elements, so that
@@ -1736,22 +2109,14 @@ theorem constructible_iff_exists_tower (x : ℝ) :
   ⟨fun h => towerOK_of_constructible h, fun ⟨as, hOK, hx⟩ => constructible_of_towerOK as hOK x hx⟩
 
 /-!
-AUDIT-GAP (semantic audit, commit 2a1940f): FT `ef26` (ii) (⇐) and FT `ef25` (a) are only
-established for the substitute inductive predicate `Constructible`, not for FT's
-*geometric* constructibility, which is the notion the source's statements are about.
-In the source, `ef25` (a) claims that geometrically constructible lengths are closed under
-`c + d`, `-c`, `cd`, `c/d` (proved geometrically via parallels/perpendiculars/similar
-triangles), and the ⇐ direction of `ef26` (ii) claims that all elements of a quadratic
-tower `ℚ[√a₁, …, √a_r]` are *geometrically* constructible (its source proof consumes
-`ef25` (a)).  In this target, `FT.constructible_add` etc. are intro rules of the
-substitute predicate, and the ⇐ direction of `FT.constructible_iff_exists_tower` yields
-only that predicate: from `GeoConstructible c` and `GeoConstructible d` one cannot derive
-`GeoConstructible (c + d)`, and from `x ∈ quadTower as` one cannot derive
-`GeoConstructible x`.  The bridge of commit 2a1940f is one-directional
-(`FT.constructible_of_geo`).  Missing: the reverse bridge `Constructible x →
-GeoConstructible x` (point-level constructions: parallels/perpendiculars, Euclid-style
-length transfer), from which both source claims would follow.  This refines the coverage
-marker's "chapter 1 completely formalized" claim for `ef25` (a) and `ef26` (ii) (⇐).
+Note (closing the semantic audit gap of commit 2a1940f): the reverse bridge
+`FT.geo_of_constructible` (geometric closure of `Constructible`, section
+`ConstructionsStraightEdgeCompass`) establishes `ef25` (a) and `ef26` (ii) (⇐)
+for FT's *geometric* constructibility as well: every element of a quadratic
+tower — in particular every constructible length — is the x-coordinate of a
+straight-edge-and-compass constructed point, so the closure properties of
+`FT.constructible_add` etc. transfer to the geometric notion via
+`FT.geo_of_constructible`.
 -/
 
 /-- Auxiliary: `(√a)² - a = 0` in ℝ when `0 < a` lies in the intermediate field `K`
