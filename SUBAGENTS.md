@@ -100,9 +100,21 @@ REPL warning before adding work or starting a build.
   be mapped to tasks without reading result bodies. Note that ids `w1..wN` are
   assigned by spawn *completion* order, not call order — always match results
   by label, never by id order.
-- Use profile name `lean*`. The user raised the concurrency limit to eight
-  concurrent workers (2026-09-19); the REPL serializes requests FIFO, so keep
-  individual batches small to avoid queue pile-ups.
+- Use profile name `lean*`. The worker cap is **enforced by the subagents
+  extension** (currently hardcoded at 4; see
+  BUILDER_FEEDBACK_WORKER_CAP.md — a configurable cap is requested with the
+  project requiring 8). Launch calls beyond the cap fail loudly; finished
+  workers hold their slot until collected **and disposed**
+  (`subagent_collect`), so free slots by collecting completed workers before
+  launching new ones.
+- **Worker turn budgets are opaque and uncontrollable** (API-key level; a
+  worker cannot sense or budget them). A worker that exhausts its budget ends
+  with `state: "done"` but only a progress note as `latestText`. Protocol for
+  the main agent: **never collect-and-dispose a done worker whose latestText
+  is not the deliverable** — send a `subagent_send` follow-up demanding
+  delivery of the verified text it has, wait, and only then collect. Collect
+  first = worker becomes unrecoverable ("Unknown worker").
+  Keep individual batches small to avoid queue pile-ups.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
 - Use `subagent_status` for nonblocking inspection. Its response also includes
