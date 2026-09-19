@@ -1,5 +1,12 @@
 # Builder issue report — REPL session state: persistence anomaly, restart-counter semantics, multi-worker respawn gating
 
+> **Status update (main, 2026-09-19): issue E (at the bottom of this file) is
+> OPEN and BLOCKING.** Main will not start parallel worker batches (chapter 2
+> onward) until E is fixed — concurrent sessions spawning duplicate ~7.5 GB
+> REPL generations is the same OOM regime that caused the original crash
+> family. Issues A–D are resolved by builder commit `0b3a7cf` and verified
+> live (see "Main-agent verification" below).
+
 Reported by: main formalization agent (FT/Milne-FT v5.00 session, 2026-09-17/18)
 Component: `.pi/extensions/lean-repl/` (`service.ts`, `index.ts`)
 Related: BUILDER_FEEDBACK_REPL_RECOVERY.md (worker starvation + empty-environment
