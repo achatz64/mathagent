@@ -1509,7 +1509,7 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
   induction h with
   | base1 => exact ⟨constructible_zero, constructible_zero⟩
   | base2 => exact ⟨constructible_one, constructible_zero⟩
-  | @lineIntersect r p₁ p₂ q₁ q₂ hp1 hp2 hne1 hq₁ hq₂ hne2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
+  | @lineIntersect p₁ p₂ q₁ q₂ r hp1 hp2 hne1 hq₁ hq₂ hne2 hset hr1 hr2 ih1 ih2 ih3 ih4 =>
     obtain ⟨L₁, hL₁⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
     obtain ⟨L₂, hL₂⟩ := exists_fline_geoLine hne2 ⟨ih3.1, ih3.2, ih4.1, ih4.2⟩
     have e1 : {s : ℝ × ℝ | MemFLine L₁ s} = {s : ℝ × ℝ | MemGeoLine p₁ p₂ s} :=
@@ -1529,7 +1529,7 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
       rw [hsingle] at hrin
       rw [Set.mem_singleton_iff.mp hrin]
       exact ⟨(mem_ConstructibleField_iff _).mp hP1, (mem_ConstructibleField_iff _).mp hP2⟩
-  | @circleLineIntersect r p₁ p₂ c a b hp1 hp2 hne1 ha hb hr1 hr2 ih1 ih2 ih3 ih4 =>
+  | @circleLineIntersect p₁ p₂ c a b r hp1 hp2 hne1 hc ha hb hr1 hr2 ih1 ih2 ih3 ih4 ih5 =>
     obtain ⟨L, hL⟩ := exists_fline_geoLine hne1 ⟨ih1.1, ih1.2, ih2.1, ih2.2⟩
     obtain ⟨C, hC⟩ := exists_fcircle_geoCircle
       ⟨ih3.1, ih3.2, ih4.1, ih4.2, ih5.1, ih5.2⟩
@@ -1547,9 +1547,9 @@ theorem constructible_coords_of_geoPoint {p : ℝ × ℝ} (h : GeoConstructibleP
         · rw [hre]; exact hPq
         · rw [Set.mem_singleton_iff.mp hre]; exact hQq
       exact constructible_coords_of_inQuadPlane hepos ((mem_ConstructibleField_iff _).mp he) hquad
-  | @circleCircleIntersect r c₁ a₁ b₁ c₂ a₂ b₂ hp1 hp2 hp3 hp4 hp5 hp6 hne hr1 hr2 ih1 ih2 ih3 ih4 ih5 ih6 =>
+  | @circleCircleIntersect c₁ a₁ b₁ c₂ a₂ b₂ r hp1 hp2 hp3 hp4 hp5 hp6 hset hr1 hr2 ih1 ih2 ih3 ih4 ih5 ih6 =>
     obtain ⟨C, hC⟩ := exists_fcircle_geoCircle
-      ⟨ih1.1, ih1.2, ih2.1, ih2.2, ih3.1, ih3.2, ih4.1, ih4.2⟩
+      ⟨ih1.1, ih1.2, ih2.1, ih2.2, ih3.1, ih3.2⟩
     obtain ⟨C', hC'⟩ := exists_fcircle_geoCircle
       ⟨ih4.1, ih4.2, ih5.1, ih5.2, ih6.1, ih6.2⟩
     have e1 : {s : ℝ × ℝ | MemFCircle C s} = {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} :=
