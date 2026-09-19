@@ -150,3 +150,45 @@ environment) is resolved as follows:
 - Builder work list under this decision: issue A fix; loud respawn signals;
   issue B (reason-tagged restart counters); issue C *dissolves* — no gating
   mechanism is to be built. Docs already updated on the sub side by main.
+
+---
+
+## Main-agent verification of builder resolution 0b3a7cf (2026-09-19)
+
+All claims verified live in a fresh `pi -p` session (new extension code):
+- Bare stale env (`env 99`, no `repl`) refused loudly with the documented
+  message ("Bare environment 99 does not address the current root
+  environment 0 ..."). ✓
+- Bare root env (`env 0`, no `repl`) accepted, as documented. ✓
+- Stale `repl` pair (`env 7`, `repl '99:1'`) rejected loudly. ✓
+- Every response carries `generation`; `lean_repl_status` reports
+  `restarts {crash, timeout, import}`, `recentRestarts`, and first
+  initialization is not counted. ✓
+- Docs (LEAN_REPL_GENERAL.md "Session state", LEAN_REPL_MAIN.md "Restart
+  accounting") match observed behavior. ✓
+
+**Correction (main-agent error in the original report):** the "19 deliberate
+restarts" attributed to worker behavior in the original feedback were *main-
+agent-initiated*: explicit `bash kill -TERM` of the process group (to force a
+clean re-import after a rebuild) and `lean_repl_import` calls (import
+respawns). The builder is right that workers cannot produce them. The
+remaining restarts are consistent with timeout respawns of oversized calls.
+
+## New issue (E): concurrent sessions spawn duplicate REPL generations (OOM risk)
+
+Observed: a second pi session (`pi -p`) calling `lean_repl_import` spawned its
+own live REPL generation (`1:14878`) instead of attaching to the already-
+running healthy generation (`28:14772`) of the first session; the health field
+of the second flagged the first as "unexpected project REPL process groups".
+Two loaded generations ≈ 15 GB RSS on a 9.9 GB host — precisely the OOM regime
+that (per the issue-A diagnosis) kills generations with exit(1).
+
+Goal: make the intended singleton semantics unambiguous and OOM-safe. Either
+(a) a session's `lean_repl_import` attaches to an existing healthy generation
+with a compatible import block (true project-wide singleton), or (b) per-
+session generations are intended — then the "unexpected project REPL process
+groups" warning is misleading and should be replaced by documented isolation,
+plus a loud guard refusing a second import while a loaded generation exists
+(concurrent sessions on one host are then explicitly unsupported). Either way,
+the current state (silent duplication + a warning that nobody can act on) is
+the worst of both.
