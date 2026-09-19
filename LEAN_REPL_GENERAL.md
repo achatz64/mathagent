@@ -64,3 +64,25 @@ recovery and fails fast with `REPL-DOWN` until the main agent calls
 
 Use the REPL for proof development and API checks. Do not create temporary Lean
 files merely to invoke `lake build`.
+
+## Environment resets are collective and unannounced (design policy)
+
+The only durable state of the shared REPL is the import block. All session
+scratch state — env handles and in-flight declarations — is disposable by
+design: the service may respawn at any time (after a crash, a timeout, or as
+part of recovery) without asking sessions, and a respawn resets the
+environment for every session, not just the one that triggered it.
+
+Therefore, as a worker or the main agent:
+
+- Never depend on the shared environment surviving a respawn. Work that
+  matters must be emitted (returned as code text, written to a file, or
+  committed) or be re-derivable from the root by re-elaboration.
+- On a respawn (stale handles, generation change), simply retry from the
+  root: omit the `env` handle; the fresh branch from the configured import
+  block is clean. Failed declarations pollute only your branch — dropping
+  the handle is the cleanup, not a service restart.
+- Never deliberately restart or kill the shared service to clean scratch
+  state; that resets every other session.
+- A failure whose message starts with `REPL-DOWN` means recovery itself
+  failed; report it as an infrastructure blocker (main agent fixes).

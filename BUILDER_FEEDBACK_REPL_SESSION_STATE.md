@@ -125,3 +125,28 @@ protocol can eliminate: failed `sorryAx` declarations pollute only the
 `env`) starts a fresh branch from the clean shared root — no restart needed.
 This is being added to SUBAGENTS.md / the lean worker prompt guidelines by the
 main agent (not a builder task).
+
+---
+
+## Design decision (ratified by user, 2026-09-18): Option 2 — disposable-state-by-design
+
+The policy question in this report (who may authorize destruction of the shared
+environment) is resolved as follows:
+
+- **No consent layer.** Sub sessions do not get to decide or veto recovery;
+  there is no ack handshake. The service may respawn at any time — after a
+  crash, after a timeout, or as part of recovery — without asking sessions.
+- **The only durable state is the import block.** All session scratch state
+  (env handles, in-flight declarations) is disposable by design. Subs are
+  documented (LEAN_REPL_GENERAL.md, SUBAGENTS.md) to never depend on the
+  shared environment surviving a respawn: work must be emitted (code text,
+  file, commit) or be re-derivable from the root by re-elaboration.
+- **Respawn must be loud:** on every respawn, the service state (generation
+  counter, `downSince`/reset timestamp) must make the reset visible, and the
+  next request's response must make the generation change detectable.
+- **Precondition (issue A):** this policy is only workable if a returned env
+  handle is durable within a process generation (no silent vanishing of
+  successfully elaborated batches) — issue A's fix is required regardless.
+- Builder work list under this decision: issue A fix; loud respawn signals;
+  issue B (reason-tagged restart counters); issue C *dissolves* — no gating
+  mechanism is to be built. Docs already updated on the sub side by main.

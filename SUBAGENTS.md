@@ -91,7 +91,11 @@ checkpoints; it includes REPL health. Abort stalled workers and investigate any
 REPL warning before adding work or starting a build.
 
 - Launch independent tasks with `subagent_spawn`; parallel calls are preferred.
-  Supply a short `label` tag for each task (defaults to the first task line);
+  **Scope discipline:** one worker task = one bounded, independently verifiable
+  unit (a batch of a few related declarations, each REPL-checkable in a
+  session). Never bundle a whole formalization chapter or an unbounded
+  construction chain into one task; split it so a failure costs one batch, not
+  an hour. Supply a short `label` tag for each task (defaults to the first task line);
   it is echoed beside the id in status, wait, and collect output so results can
   be mapped to tasks without reading result bodies. Note that ids `w1..wN` are
   assigned by spawn *completion* order, not call order — always match results
@@ -187,6 +191,14 @@ representations must be `def`/`noncomputable def` (or an appropriately typed
 Lean requests are FIFO-serialized. Pass `env` and `repl` together, keep commands
 bounded, and do not queue several expensive checks. After a restart, discard old
 handles and replay from the new root.
+
+Environment-reset policy (see LEAN_REPL_GENERAL.md): the service may respawn at
+any time without asking, and a respawn resets the environment for every
+session. Never depend on scratch state surviving; emit work that matters. A
+failed batch pollutes only your env branch — drop the env handle and retry
+from the root; never deliberately restart or kill the shared service as a
+cleanup, since that resets other sessions. Keep worker batches small and
+independently verifiable (see also the task-scoping rule above).
 
 The REPL root imports are configured by the main agent via `lean_repl_import`.
 The default import block includes `Mathlib`, the current target file, and any
