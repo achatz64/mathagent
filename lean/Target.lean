@@ -3686,3 +3686,339 @@ theorem natCard_algHom_eq_of_isSplittingField_of_splits (f : F[X])
     (Polynomial.IsSplittingField.adjoin_rootSet E f) hsplits hnodup
 
 end SF7
+/-! ### FT `sf8` (corollary: F-homomorphisms from a finite extension) -/
+
+section Sf8Aux
+
+open Polynomial BigOperators
+
+variable {A B C : Type*} [Field A] [Field B] [Field C] [Algebra A B] [Algebra A C]
+
+/-- Auxiliary for FT `sf8` (i): there are only finitely many `A`-algebra homomorphisms out of a
+finite-dimensional `A`-algebra domain `B`. -/
+theorem finite_algHom_of_finiteDimensional [FiniteDimensional A B] : Finite (B →ₐ[A] C) := by
+  classical
+  have hint : ∀ x : B, IsIntegral A x := Algebra.IsIntegral.isIntegral
+  have key : Finite (∀ i : Module.Free.ChooseBasisIndex A B,
+      {y : C // aeval y (minpoly A (Module.Free.chooseBasis A B i)) = 0}) :=
+    @Pi.finite _ _ (inferInstance) (fun i =>
+      Finite.of_injective (fun y => (⟨y,
+        (Polynomial.mem_rootSet' (S := C)).2
+          ⟨Polynomial.map_monic_ne_zero (minpoly.monic (hint _)), y.2⟩⟩ :
+        {z : C // z ∈ (minpoly A (Module.Free.chooseBasis A B i)).rootSet C}))
+        (fun y z h => Subtype.ext (by simpa using h)))
+  refine Finite.of_injective (f := fun (φ : B →ₐ[A] C) (i : Module.Free.ChooseBasisIndex A B) =>
+      (⟨φ (Module.Free.chooseBasis A B i),
+        by rw [Polynomial.aeval_algHom_apply, minpoly.aeval A _, map_zero]⟩ :
+        {y : C // aeval y (minpoly A (Module.Free.chooseBasis A B i)) = 0})) ?_
+  intro φ₁ φ₂ h
+  simp only [] at h
+  have hlin : φ₁.toLinearMap = φ₂.toLinearMap :=
+    (Module.Free.chooseBasis A B).ext
+      (fun i => congrArg Subtype.val (congrFun h i))
+  exact AlgHom.ext fun x => DFunLike.congr_fun hlin x
+
+/-- Auxiliary (card of the subtype of elements of a multiset, as a set, is at most its
+cardinality). -/
+theorem card_multiset_subtype_le {L : Type*} [DecidableEq L] (m : Multiset L) :
+    Fintype.card {z : L // z ∈ m} ≤ Multiset.card m := by
+  have e : {z : L // z ∈ m} ≃ {w : L // w ∈ m.toFinset} :=
+    { toFun := fun z => ⟨z.val, Multiset.mem_toFinset.mpr z.2⟩
+      invFun := fun w => ⟨w.val, Multiset.mem_toFinset.mp w.2⟩
+      left_inv := fun z => Subtype.ext rfl
+      right_inv := fun w => Subtype.ext rfl }
+  calc Fintype.card {z : L // z ∈ m}
+      ≤ Fintype.card {w : L // w ∈ m.toFinset} := Fintype.card_le_of_injective _ e.injective
+    _ = m.toFinset.card := Fintype.card_coe _
+    _ ≤ Multiset.card m := Multiset.toFinset_card_le m
+
+/-- Auxiliary for FT `sf8` (i): homomorphisms out of a simple adjunction are bounded by the
+degree of the minimal polynomial (the one-step count of the FT `sf7` argument). -/
+theorem card_algHom_adjoin_le {F K L : Type*} [Field F] [Field K] [Field L] [Algebra F K]
+    [Algebra F L] {x : K} (hx : IsIntegral F x) :
+    Nat.card (↥(IntermediateField.adjoin F {x}) →ₐ[F] L) ≤ (minpoly F x).natDegree := by
+  classical
+  haveI hfintype : Fintype (↥(IntermediateField.adjoin F {x}) →ₐ[F] L) :=
+    IntermediateField.fintypeOfAlgHomAdjoinIntegral F hx
+  rw [Nat.card_eq_fintype_card,
+    Fintype.card_congr (IntermediateField.algHomAdjoinIntegralEquiv F hx)]
+  refine le_trans (card_multiset_subtype_le _) ?_
+  rw [show ((minpoly F x).aroots L) = ((minpoly F x).map (algebraMap F L)).roots from rfl]
+  have h1 : ((minpoly F x).map (algebraMap F L)).roots.card
+      ≤ ((minpoly F x).map (algebraMap F L)).natDegree := Polynomial.card_roots' _
+  rw [Polynomial.natDegree_map (algebraMap F L)] at h1
+  exact h1
+
+private theorem sf8_algebraMap_injective_of_field : Function.Injective (algebraMap A B) :=
+  fun a b h => by
+    by_contra hne
+    have hne' : a - b ≠ 0 := sub_ne_zero_of_ne hne
+    have h0 : algebraMap A B (a - b) = 0 := by rw [map_sub, h, sub_self]
+    have h1 : (1 : B) = 0 := by
+      have e1 : algebraMap A B ((a - b)⁻¹ * (a - b)) = 1 := by
+        rw [inv_mul_cancel₀ hne', map_one]
+      rw [← e1, map_mul, h0, mul_zero]
+    exact absurd h1 (one_ne_zero)
+
+private theorem finrank_eq_one_of_surjective (hsurj : Function.Surjective (algebraMap A B)) :
+    Module.finrank A B = 1 :=
+  ((LinearEquiv.ofBijective
+      ((IsScalarTower.toAlgHom A A B : A →ₐ[A] B).toLinearMap)
+      ⟨sf8_algebraMap_injective_of_field, hsurj⟩).symm.finrank_eq).trans (Module.finrank_self A)
+
+private theorem subsingleton_algHom_of_surjective (hsurj : Function.Surjective (algebraMap A B)) :
+    Subsingleton (B →ₐ[A] C) :=
+  ⟨fun f g => AlgHom.ext fun b => by
+    obtain ⟨a, rfl⟩ := hsurj b
+    rw [f.commutes a, g.commutes a]⟩
+
+private theorem finiteDimensional_of_tower (I : IntermediateField A B) [FiniteDimensional A B] :
+    FiniteDimensional ↥I B := by
+  obtain ⟨s, hs⟩ := (inferInstance : Module.Finite A B).fg_top
+  refine ⟨?_⟩
+  refine ⟨s, ?_⟩
+  rw [eq_top_iff]
+  intro x _
+  have hle : (Submodule.span ↥I (↑s : Set B)).restrictScalars A = ⊤ := by
+    apply top_le_iff.mp
+    rw [← hs]
+    exact Submodule.span_le.mpr fun x hx =>
+      (Submodule.restrictScalars_mem A _ x).mpr (Submodule.subset_span hx)
+  exact (Submodule.restrictScalars_mem A _ x).mp (by rw [hle]; exact Submodule.mem_top)
+
+/-- Auxiliary for FT `sf8` (i): if `y : B` is outside the copy of `A` and each homomorphism
+`A⟮y⟯ →ₐ[A] C` has at most `[B : A⟮y⟯]` extensions to `B`, then the total number of
+homomorphisms `B →ₐ[A] C` is at most `[B : A]`. -/
+theorem count_of_fiber_bound (y : B) (hyint : IsIntegral A y)
+    (hyout : y ∉ Set.range (algebraMap A B))
+    (hbound : ∀ (_ : ↥(IntermediateField.adjoin A {y}) →ₐ[A] C)
+        (_ : Algebra ↥(IntermediateField.adjoin A {y}) C)
+        (_ : IsScalarTower A ↥(IntermediateField.adjoin A {y}) C),
+        Nat.card (B →ₐ[↥(IntermediateField.adjoin A {y})] C)
+          ≤ Module.finrank ↥(IntermediateField.adjoin A {y}) B)
+    [FiniteDimensional A B] [DecidableEq C] :
+    Nat.card (B →ₐ[A] C) ≤ Module.finrank A B := by
+  classical
+  set I : IntermediateField A B := IntermediateField.adjoin A {y} with hIdef
+  have hdeg : Module.finrank A ↥I = (minpoly A y).natDegree := by
+    rw [← IntermediateField.adjoin.powerBasis_dim hyint]
+    exact (IntermediateField.adjoin.powerBasis hyint).finrank
+  have hn1 : 2 ≤ (minpoly A y).natDegree := by
+    have hne1 : (minpoly A y).natDegree ≠ 1 := by
+      intro h1
+      have hmonic : (minpoly A y).Monic := minpoly.monic hyint
+      obtain ⟨a, b, hexp⟩ :=
+        Polynomial.exists_eq_X_add_C_of_natDegree_le_one h1.le
+      have hae : aeval y (minpoly A y) = 0 := minpoly.aeval A y
+      rw [hexp, aeval_add, aeval_mul, aeval_C, aeval_X, aeval_C] at hae
+      have hd1 : (Polynomial.C a * Polynomial.X + Polynomial.C b).natDegree = 1 := by
+        rw [← hexp]; exact h1
+      have ha1 : a = 1 := by
+        have hlc := hmonic.leadingCoeff
+        rw [hexp, ← Polynomial.coeff_natDegree, hd1] at hlc
+        simpa using hlc
+      rw [ha1, map_one, one_mul] at hae
+      refine hyout ⟨-b, ?_⟩
+      rw [map_neg, neg_eq_iff_add_eq_zero, add_comm]
+      exact hae
+    have hpos' : 0 < (minpoly A y).natDegree := by
+      rw [Polynomial.natDegree_pos_iff_degree_pos]
+      exact minpoly.degree_pos hyint
+    omega
+  have htw : (minpoly A y).natDegree * Module.finrank ↥I B = Module.finrank A B := by
+    rw [← hdeg]
+    exact Module.finrank_mul_finrank A ↥I B
+  have hn2 : 0 < Module.finrank ↥I B :=
+    (Module.finrank_pos_iff_of_free ↥I B).mpr inferInstance
+  haveI hfinX : Finite (B →ₐ[A] C) := finite_algHom_of_finiteDimensional
+  haveI : Fintype (B →ₐ[A] C) := Fintype.ofFinite _
+  haveI hfinI : Fintype (↥I →ₐ[A] C) :=
+    IntermediateField.fintypeOfAlgHomAdjoinIntegral A hyint
+  have hfib : ∀ ψ₀ : ↥I →ₐ[A] C,
+      Fintype.card {φ : B →ₐ[A] C // φ.comp (IsScalarTower.toAlgHom A ↥I B) = ψ₀}
+        ≤ Module.finrank ↥I B := by
+    intro ψ₀
+    letI instAC : Algebra ↥I C := RingHom.toAlgebra ψ₀.toRingHom
+    haveI instST : IsScalarTower A ↥I C :=
+      IsScalarTower.of_algebraMap_eq fun a => (ψ₀.commutes a).symm
+    have e : {φ : B →ₐ[A] C // φ.comp (IsScalarTower.toAlgHom A ↥I B) = ψ₀} ≃ (B →ₐ[↥I] C) := by
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · rintro ⟨φ, hφ⟩
+        exact AlgHom.mk φ.toRingHom (fun x => congrArg (fun ψ => ψ x) hφ)
+      · intro χ
+        refine ⟨AlgHom.mk χ.toRingHom (fun a => by
+          show χ (algebraMap A B a) = algebraMap A C a
+          rw [IsScalarTower.algebraMap_apply A ↥I B, χ.commutes]
+          exact ψ₀.commutes a), ?_⟩
+        refine AlgHom.ext fun x => ?_
+        show (χ (IsScalarTower.toAlgHom A ↥I B x)) = ψ₀ x
+        rw [IsScalarTower.toAlgHom_apply, χ.commutes]
+        rfl
+      · rintro ⟨φ, hφ⟩
+        exact Subtype.ext (AlgHom.ext fun x => rfl)
+      · intro χ
+        exact AlgHom.ext fun x => rfl
+    haveI hfdIB : FiniteDimensional ↥I B := finiteDimensional_of_tower I
+    haveI hfin : Finite (B →ₐ[↥I] C) := finite_algHom_of_finiteDimensional
+    rw [Fintype.card_congr e, ← Nat.card_eq_fintype_card]
+    exact hbound ψ₀ instAC instST
+  set ρ : (B →ₐ[A] C) → (↥I →ₐ[A] C) :=
+    fun φ => φ.comp (IsScalarTower.toAlgHom A ↥I B) with hrho
+  have eSig : (B →ₐ[A] C) ≃ (Σ ψ₀ : ↥I →ₐ[A] C, {φ : B →ₐ[A] C // ρ φ = ψ₀}) := by
+    refine ⟨fun φ => ⟨ρ φ, ⟨φ, rfl⟩⟩, fun p => p.2, fun φ => rfl, ?_⟩
+    rintro ⟨ψ₀, p⟩
+    obtain ⟨φ, hφ⟩ := p
+    subst hφ
+    exact congrArg (Sigma.mk (ρ φ)) (Subtype.ext rfl).symm
+  calc Nat.card (B →ₐ[A] C)
+    = Fintype.card (B →ₐ[A] C) := Nat.card_eq_fintype_card
+  _ = Fintype.card (Σ ψ₀ : ↥I →ₐ[A] C, {φ : B →ₐ[A] C // ρ φ = ψ₀}) :=
+      Fintype.card_congr eSig
+  _ = ∑ ψ₀ ∈ Finset.univ, Fintype.card {φ : B →ₐ[A] C // ρ φ = ψ₀} :=
+      Fintype.card_sigma
+  _ ≤ Finset.univ.card • Module.finrank ↥I B :=
+      Finset.sum_le_card_nsmul _ _ _ (fun ψ₀ _ => hfib ψ₀)
+  _ = Fintype.card (↥I →ₐ[A] C) * Module.finrank ↥I B := by
+      simp [Finset.card_univ]
+  _ ≤ (minpoly A y).natDegree * Module.finrank ↥I B := by
+      rw [← Nat.card_eq_fintype_card]
+      exact Nat.mul_le_mul_right _ (card_algHom_adjoin_le hyint)
+  _ = Module.finrank A B := htw
+
+universe u v
+
+/-- **FT `sf8` (i), core**: the number of `A`-algebra homomorphisms from a finite-dimensional
+field extension `B / A` into any field `C` is at most `[B : A]`. -/
+theorem natCard_algHom_le_finrank : ∀ n : ℕ, ∀ (A B : Type u) (C : Type v) [Field A] [Field B]
+    [Field C] [Algebra A B] [Algebra A C] [FiniteDimensional A B], Module.finrank A B = n →
+    Nat.card (B →ₐ[A] C) ≤ n := by
+  classical
+  intro n
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    intro A B C _ _ _ _ _ _ hrank
+    by_cases hsurj : Function.Surjective (algebraMap A B)
+    · haveI hfinX : Finite (B →ₐ[A] C) := finite_algHom_of_finiteDimensional
+      haveI : Fintype (B →ₐ[A] C) := Fintype.ofFinite _
+      rw [← hrank, finrank_eq_one_of_surjective hsurj,
+        Finite.card_le_one_iff_subsingleton]
+      exact subsingleton_algHom_of_surjective hsurj
+    · have hy : ∃ y : B, y ∉ Set.range (algebraMap A B) := by
+        by_contra hc
+        refine hsurj fun b => ?_
+        by_contra hb
+        exact hc ⟨b, hb⟩
+      obtain ⟨y, hyout⟩ := hy
+      have hyint : IsIntegral A y := Algebra.IsIntegral.isIntegral y
+      have hdeg : Module.finrank A ↥(IntermediateField.adjoin A {y})
+          = (minpoly A y).natDegree := by
+        rw [← IntermediateField.adjoin.powerBasis_dim hyint]
+        exact (IntermediateField.adjoin.powerBasis hyint).finrank
+      have hn2 : 0 < Module.finrank ↥(IntermediateField.adjoin A {y}) B :=
+        (Module.finrank_pos_iff_of_free
+          ↥(IntermediateField.adjoin A {y}) B).mpr inferInstance
+      have htw : (minpoly A y).natDegree *
+          Module.finrank ↥(IntermediateField.adjoin A {y}) B = Module.finrank A B := by
+        rw [← hdeg]
+        exact Module.finrank_mul_finrank A ↥(IntermediateField.adjoin A {y}) B
+      have hn2lt : Module.finrank ↥(IntermediateField.adjoin A {y}) B < n := by
+        rw [← hrank, ← htw]
+        calc Module.finrank ↥(IntermediateField.adjoin A {y}) B
+            < 2 * Module.finrank ↥(IntermediateField.adjoin A {y}) B := by
+              rw [two_mul]; omega
+          _ ≤ (minpoly A y).natDegree *
+              Module.finrank ↥(IntermediateField.adjoin A {y}) B :=
+              Nat.mul_le_mul_right _ (by
+                have hpos' : 0 < (minpoly A y).natDegree := by
+                  rw [Polynomial.natDegree_pos_iff_degree_pos]
+                  exact minpoly.degree_pos hyint
+                have hne1 : (minpoly A y).natDegree ≠ 1 := by
+                  intro h1
+                  have hmonic : (minpoly A y).Monic := minpoly.monic hyint
+                  obtain ⟨a, b, hexp⟩ :=
+                    Polynomial.exists_eq_X_add_C_of_natDegree_le_one h1.le
+                  have hae : aeval y (minpoly A y) = 0 := minpoly.aeval A y
+                  rw [hexp, aeval_add, aeval_mul, aeval_C, aeval_X, aeval_C] at hae
+                  have hd1 :
+                      (Polynomial.C a * Polynomial.X + Polynomial.C b).natDegree = 1 := by
+                    rw [← hexp]; exact h1
+                  have ha1 : a = 1 := by
+                    have hlc := hmonic.leadingCoeff
+                    rw [hexp, ← Polynomial.coeff_natDegree, hd1] at hlc
+                    simpa using hlc
+                  rw [ha1, map_one, one_mul] at hae
+                  refine hyout ⟨-b, ?_⟩
+                  rw [map_neg, neg_eq_iff_add_eq_zero, add_comm]
+                  exact hae
+                omega)
+      rw [← hrank]
+      refine count_of_fiber_bound y hyint hyout (C := C) ?_
+      intro ψ₀ instAC instST
+      haveI := finiteDimensional_of_tower (IntermediateField.adjoin A {y})
+      exact ih (Module.finrank ↥(IntermediateField.adjoin A {y}) B) hn2lt
+        ↥(IntermediateField.adjoin A {y}) B C rfl
+
+end Sf8Aux
+
+section Sf8
+
+open Polynomial BigOperators
+
+variable {F E L : Type*} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F L]
+
+/-- **FT `sf8` (i)**: if `E` is finite over `F`, then the number of `F`-algebra homomorphisms
+`E → L` is at most `[E : F]`. -/
+theorem sf8_natCard_algHom_le [FiniteDimensional F E] :
+    Nat.card (E →ₐ[F] L) ≤ Module.finrank F E := by
+  classical
+  by_cases hsurj : Function.Surjective (algebraMap F E)
+  · haveI hfinX : Finite (E →ₐ[F] L) := finite_algHom_of_finiteDimensional
+    haveI : Fintype (E →ₐ[F] L) := Fintype.ofFinite _
+    rw [finrank_eq_one_of_surjective hsurj, Finite.card_le_one_iff_subsingleton]
+    exact subsingleton_algHom_of_surjective hsurj
+  · obtain ⟨y, hyout⟩ : ∃ y : E, y ∉ Set.range (algebraMap F E) := by
+      by_contra hc
+      refine hsurj fun b => ?_
+      by_contra hb
+      exact hc ⟨b, hb⟩
+    have hyint : IsIntegral F y := Algebra.IsIntegral.isIntegral y
+    refine count_of_fiber_bound y hyint hyout (C := L) ?_
+    intro ψ₀ instAC instST
+    haveI := finiteDimensional_of_tower (IntermediateField.adjoin F {y})
+    exact natCard_algHom_le_finrank (Module.finrank ↥(IntermediateField.adjoin F {y}) E)
+      ↥(IntermediateField.adjoin F {y}) E L rfl
+
+set_option maxHeartbeats 1000000 in
+/-- Helper for FT `sf8` (ii): each `minpoly F x` splits over the splitting field over `L` of
+`f.map (algebraMap F L)`. -/
+theorem sf8_minpoly_splits (s : Finset E) (f : F[X]) (hfmon : f.Monic)
+    (hfdvd : ∀ x ∈ s, minpoly F x ∣ f) (x : E) (hx : x ∈ s) :
+    ((minpoly F x).map
+      (algebraMap F (Polynomial.SplittingField (f.map (algebraMap F L))))).Splits := by
+  have hqmon : (f.map (algebraMap F L)).Monic := Monic.map (algebraMap F L) hfmon
+  have hdvd : minpoly F x ∣ f := hfdvd x hx
+  have hsplit0 : ((f.map (algebraMap F L)).map
+      (algebraMap L (Polynomial.SplittingField (f.map (algebraMap F L))))).Splits :=
+    Polynomial.IsSplittingField.splits
+      (Polynomial.SplittingField (f.map (algebraMap F L))) (f.map (algebraMap F L))
+  have hne : (f.map (algebraMap F L)).map
+      (algebraMap L (Polynomial.SplittingField (f.map (algebraMap F L)))) ≠ 0 :=
+    map_monic_ne_zero hqmon
+  have hdvd' : ((minpoly F x).map (algebraMap F L)).map
+      (algebraMap L (Polynomial.SplittingField (f.map (algebraMap F L)))) ∣
+      (f.map (algebraMap F L)).map
+      (algebraMap L (Polynomial.SplittingField (f.map (algebraMap F L)))) :=
+    Polynomial.map_dvd _ (Polynomial.map_dvd (algebraMap F L) hdvd)
+  rw [IsScalarTower.algebraMap_eq F L (Polynomial.SplittingField (f.map (algebraMap F L))),
+    ← map_map]
+  exact Polynomial.Splits.of_dvd hsplit0 hne hdvd'
+
+/-- Transport for FT `sf8` (ii): an `F`-algebra homomorphism out of `↥(Algebra.adjoin F ↑s)`
+extends to an `F`-algebra homomorphism out of `E` when `E = Algebra.adjoin F ↑s`. -/
+theorem sf8_hom_of_adjoin_eq_top (s : Finset E)
+    (htop : Algebra.adjoin F (s : Set E) = ⊤) (Ω : Type) [Field Ω] [Algebra F Ω]
+    (h : Nonempty (↥(Algebra.adjoin F (s : Set E)) →ₐ[F] Ω)) : Nonempty (E →ₐ[F] Ω) := by
+  rw [htop] at h
+  exact h.map fun φ => φ.comp ((Subalgebra.topEquiv (R := F) (A := E)).symm.toAlgHom)
+
+end Sf8
