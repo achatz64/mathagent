@@ -100,7 +100,9 @@ REPL warning before adding work or starting a build.
   be mapped to tasks without reading result bodies. Note that ids `w1..wN` are
   assigned by spawn *completion* order, not call order — always match results
   by label, never by id order.
-- Use profile name `lean*`. The tested limit is four concurrent workers.
+- Use profile name `lean*`. The user raised the concurrency limit to eight
+  concurrent workers (2026-09-19); the REPL serializes requests FIFO, so keep
+  individual batches small to avoid queue pile-ups.
 - Use `subagent_send` to steer a live worker without restarting it. Include an
   immediate protocol reminder when the previous response was an invalid stop.
 - Use `subagent_status` for nonblocking inspection. Its response also includes
