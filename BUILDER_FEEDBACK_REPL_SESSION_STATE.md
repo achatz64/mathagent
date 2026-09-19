@@ -1,0 +1,127 @@
+# Builder issue report — REPL session state: persistence anomaly, restart-counter semantics, multi-worker respawn gating
+
+Reported by: main formalization agent (FT/Milne-FT v5.00 session, 2026-09-17/18)
+Component: `.pi/extensions/lean-repl/` (`service.ts`, `index.ts`)
+Related: BUILDER_FEEDBACK_REPL_RECOVERY.md (worker starvation + empty-environment
+state — resolved by commit a30c74c). This report covers three NEW issues
+observed during a long-running single-worker session (label
+`ft-geo-ef25-closure`, ~55 min, 23 restarts recorded) that the recovery fix
+made possible but did not anticipate.
+
+Priority rationale: issue A is a correctness/persistence question about the
+core service (can a successfully elaborated batch silently fail to persist?);
+issues B/C degrade diagnosability and multi-worker safety. All three should be
+resolved before the next multi-worker formalization batch.
+
+---
+
+## Issue A: environment persistence anomaly after large single-call elaborations
+
+### Symptom (worker's own words, from its status trace)
+
+1. The worker sent its complete accumulated block (batches A–D, several hundred
+   lines, ~30 declarations) as ONE `lean_repl` call. The call answered
+   success ("The complete block compiles with no `sorryAx`").
+2. In the NEXT call, the declarations were gone. Worker: "The big batch's
+   declarations vanished between calls despite elaborating in-call. Let me
+   diagnose what persisted" — its persistence spot-check came back empty.
+3. Worker fell back to re-sending smaller sequential batches, verifying
+   persistence after each — those persisted fine across calls.
+4. Around the same time the service recorded `lastRestartReason: "Lean REPL
+   exited (1)"` with `processGroupMembers: 0` — the REPL process died with
+   exit code 1 (plausibly OOM: loaded environment ~7.6 GB RSS on a 9 GB
+   machine, mid-way through the large elaboration; see issue D).
+
+### Candidate root causes (builder to determine)
+
+(a) The large call crashed the process *after* the success message was
+    emitted, and the worker's stale `env`/`repl` handle kept pointing at the
+    dead generation — the "vanishing" is the stale-handle path behaving
+    correctly but being undetectable from the worker's side.
+(b) The service's environment bookkeeping can desynchronize from the actual
+    Lean process environment under large elaborations (an env counter that
+    advances without the corresponding `lib.envs` entry surviving — cf. the
+    "silent import swallowing" family of bugs from the previous report).
+(c) Something in `request()` drops or replaces the stored environment when a
+    large payload forces a buffer/streaming path.
+
+### Impact
+
+A worker can believe a large verified batch is safely in the environment and
+build follow-up work on it, only to have it vanish. In this session the
+worker detected it (persisted-verification habit) — a worker without that
+habit would have produced proofs against phantom prerequisites. This is the
+same trust-the-service failure family as the previous empty-environment bug.
+
+### Requested
+
+Root-cause diagnosis of what happens to a successfully-elaborated large call
+when the process dies or the call is near a resource limit, and a guarantee:
+either "a returned env handle is durable for the lifetime of the process
+generation" or a loud error distinguishing the stale case. Note the stale
+handle today returns a *generic* retry-from-new-root notice only sometimes;
+workers have no way to detect that a specific env they just elaborated is gone.
+
+---
+
+## Issue B: restart-counter semantics conflate deliberate restarts with crashes
+
+### Symptom
+
+The counter reached 23 in one session. Breakdown: ~19 restarts were the
+worker's *deliberate* strategy (it treated scratch pollution as persistent and
+reset the shared service after every failed batch iteration — see Issue C and
+the protocol note below); a handful were crash-recoveries including one exit
+(1). A main agent reading `restartCount: 23` cannot tell "worker is misusing
+the service" from "toolchain is crashing".
+
+### Requested
+
+Separate counters (or a reason-tagged log) for:
+- request-triggered respawns after genuine process death (crash/OOM),
+- respawns triggered while the previous process was still alive (deliberate
+  misuse — see protocol note),
+- main-agent-initiated re-imports.
+
+---
+
+## Issue C: worker-triggered respawn invalidates OTHER workers (shared singleton)
+
+### Symptom / design gap
+
+The recovery fix gave workers request-triggered auto-recovery. But the
+service is a shared singleton: a respawn wipes the environment for every
+session, so with 4 concurrent workers, one worker's recovery silently
+invalidates the other workers' in-flight env handles (stale-handle errors
+mid-proof). In this session the singleton worker *itself* triggered 23
+respawns; in a 4-worker batch this would be mutual destruction.
+
+### Requested
+
+Gate worker-triggered recovery: if other sessions hold live references to the
+same service, a worker's failed request must fail fast with the loud
+`REPL-DOWN` error (letting main decide — e.g. abort or drain the other
+workers first); automatic respawn only when the failing session is the sole
+reference holder. Main-agent-triggered `lean_repl_import` remains
+unguarded.
+
+---
+
+## Issue D: memory envelope
+
+Loaded environment ~7.6 GB RSS on a 9 GB machine. Large elaborations (big
+single-call blocks) plausibly caused the `exit (1)` observed under load. Not a
+code fix per se, but worth: (i) confirming/refuting the OOM hypothesis from
+the exit-code-1 event, (ii) documenting a practical per-call size guidance in
+LEAN_REPL_GENERAL.md if confirmed.
+
+---
+
+## Related protocol note (main-agent-owned, filed for completeness)
+
+The deliberate-restart pattern above rests on a misunderstanding the worker
+protocol can eliminate: failed `sorryAx` declarations pollute only the
+*branch* created by a call's `env` handle. Dropping the handle (omitting
+`env`) starts a fresh branch from the clean shared root — no restart needed.
+This is being added to SUBAGENTS.md / the lean worker prompt guidelines by the
+main agent (not a builder task).
