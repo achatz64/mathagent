@@ -1615,6 +1615,13 @@ theorem lineSet_ne {p₁ p₂ q₁ q₂ w : ℝ × ℝ}
 
 /-- Technical lemma.  Two circle predicates that differ at a point `w` have different solution
 sets.  The proof is trivial (contraposition on `w`), as for `lineSet_ne`. -/
+
+-- AUDIT-GAP (documentation audit, delta audit of commit dc0ab10): the docstring of
+-- `circleSet_ne` cross-references another declaration, "as for `lineSet_ne`", although
+-- `lineSet_ne` is not a dependency of `circleSet_ne` (its proof is an independent
+-- contraposition argument).  The documentation audit forbids doc content relating to other
+-- defs or proofs except for listing dependencies and where they enter; remove the
+-- "as for `lineSet_ne`" clause.
 theorem circleSet_ne {c₁ a₁ b₁ c₂ a₂ b₂ w : ℝ × ℝ}
     (h₁ : MemGeoCircle c₁ a₁ b₁ w) (h₂ : ¬ MemGeoCircle c₂ a₂ b₂ w) :
     {s : ℝ × ℝ | MemGeoCircle c₁ a₁ b₁ s} ≠ {s : ℝ × ℝ | MemGeoCircle c₂ a₂ b₂ s} := by
