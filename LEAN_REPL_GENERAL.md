@@ -85,6 +85,12 @@ After 3 consecutive failed initializations the service pauses automatic
 recovery and fails fast with `REPL-DOWN` until the main agent calls
 `lean_repl_import` again (which resets the counter).
 
+Only one loaded REPL generation per project is supported (~7.6 GB each; two
+on one host cause OOM kills). A second independent pi process in the project
+is refused with `REPL-CONFLICT` (naming the foreign process group and the
+`kill -9 -- -<pid>` remedy) instead of spawning a duplicate; in-process
+subagent sessions share the main session's generation and are unaffected.
+
 ## Development and builds
 
 Use the REPL for proof development and API checks. Do not create temporary Lean

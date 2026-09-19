@@ -15,6 +15,9 @@ const PROBE_TIMEOUT_MS = 120_000;
 // stops respawning and fails fast with REPL-DOWN until the main agent
 // intervenes (lean_repl_import resets the counter).
 const MAX_CONSECUTIVE_INIT_FAILURES = 3;
+// How long a pid of our own closed/dying generation is excused from the
+// foreign-generation guard (teardown races must not self-refuse a respawn).
+const CLOSED_PID_GRACE_MS = 20_000;
 
 type ReplMessage = { severity?: string; data?: string };
 
@@ -278,6 +281,8 @@ type RegistryEntry = {
   restarts: Record<RestartReason, number>;
   restartLog: RestartEvent[];
   everSpawned: boolean;
+  /** pid -> closed-at ms of our own generations, excused from the conflict guard. */
+  closedPids: Map<number, number>;
   references: number;
   serial: Promise<void>;
   pendingRequests: number;
@@ -301,6 +306,57 @@ export type SharedReplLease = {
   status(): SharedReplStatus;
   release(): Promise<void>;
 };
+
+/** True when a process is a repl of the given project (any path form). */
+function isProjectReplProcess(cwd: string, cmdline: string, projectDir: string): boolean {
+  if (cwd !== projectDir) return false;
+  // The service spawns the repl with an absolute path; hand-launched copies
+  // may use a path relative to the project dir. The cwd check above already
+  // pins the process to this project.
+  return cmdline.includes(".lake/packages/repl/.lake/build/bin/repl");
+}
+
+type ForeignGroup = { group: number; pids: number[]; rssKiB: number };
+
+/**
+ * REPL processes of OTHER sessions in the project (or leaked orphans): any
+ * repl-cmdline process in the project dir whose process group is neither our
+ * live generation nor one of our recently closed ones. Each loaded generation
+ * holds ~7.6 GB, so more than one on a host is an OOM regime — spawns are
+ * refused while a foreign generation exists.
+ */
+function foreignReplGroups(
+  projectDir: string,
+  ownPid: number | undefined,
+  closedPids: Map<number, number>,
+): ForeignGroup[] {
+  if (process.platform !== "linux") return [];
+  const now = Date.now();
+  for (const [closedPid, at] of closedPids) {
+    if (now - at > CLOSED_PID_GRACE_MS) closedPids.delete(closedPid);
+  }
+  const byGroup = new Map<number, ForeignGroup>();
+  try {
+    for (const name of readdirSync("/proc")) {
+      if (!/^\d+$/.test(name)) continue;
+      try {
+        const cmdline = readFileSync(`/proc/${name}/cmdline`, "utf8");
+        if (!isProjectReplProcess(readlinkSync(`/proc/${name}/cwd`), cmdline, projectDir)) continue;
+        const stat = readFileSync(`/proc/${name}/stat`, "utf8");
+        const tail = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/);
+        const group = Number(tail[2]);
+        if (group === ownPid || closedPids.has(group)) continue;
+        const status = readFileSync(`/proc/${name}/status`, "utf8");
+        const rss = status.match(/^VmRSS:\s+(\d+)\s+kB$/m);
+        const entry = byGroup.get(group) ?? { group, pids: [], rssKiB: 0 };
+        entry.pids.push(Number(name));
+        if (rss) entry.rssKiB += Number(rss[1]);
+        byGroup.set(group, entry);
+      } catch { /* process exited while /proc was being read */ }
+    }
+  } catch { /* /proc unavailable */ }
+  return [...byGroup.values()].sort((a, b) => a.group - b.group);
+}
 
 function processGroupUsage(pid: number | undefined, projectDir: string): {
   members: number;
@@ -330,7 +386,7 @@ function processGroupUsage(pid: number | undefined, projectDir: string): {
         }
         const cmdline = readFileSync(`/proc/${name}/cmdline`, "utf8");
         const cwd = readlinkSync(`/proc/${name}/cwd`);
-        if (cwd === projectDir && cmdline.includes("/.lake/packages/repl/.lake/build/bin/repl")) {
+        if (isProjectReplProcess(cwd, cmdline, projectDir)) {
           projectReplProcesses++;
           if (group !== pid) unexpectedProcessGroups.add(group);
         }
@@ -372,8 +428,19 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
   if (activeForMs !== undefined && activeForMs >= 90_000) {
     warnings.push(`active request has run for ${Math.round(activeForMs / 1000)}s`);
   }
-  if (usage.unexpectedProcessGroups.length > 0) {
-    warnings.push(`unexpected project REPL process groups: ${usage.unexpectedProcessGroups.join(", ")}`);
+  const foreign = foreignReplGroups(
+    entry.projectDir,
+    entry.repl?.alive ? entry.repl.pid : undefined,
+    entry.closedPids,
+  );
+  if (foreign.length > 0) {
+    const detail = foreign
+      .map((f) => `group ${f.group} (~${Math.round(f.rssKiB / 1024)} MB)`)
+      .join("; ");
+    warnings.push(
+      `foreign REPL generation(s) in this project: ${detail} — spawns are refused ` +
+      `(REPL-CONFLICT); use that session or free one with 'kill -9 -- -<pid>'`,
+    );
   }
   if (entry.restartCount > 0) warnings.push(`${entry.restartCount} automatic REPL restart(s)`);
   const down = downWarning(entry);
@@ -426,6 +493,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       restarts: { crash: 0, timeout: 0, import: 0 },
       restartLog: [],
       everSpawned: false,
+      closedPids: new Map(),
       references: 0,
       serial: Promise.resolve(),
       pendingRequests: 0,
@@ -452,6 +520,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     entry.restarts ??= { crash: 0, timeout: 0, import: 0 };
     entry.restartLog ??= [];
     entry.everSpawned ??= false;
+    entry.closedPids ??= new Map();
   }
   entry.references++;
   const acquired = entry;
@@ -477,6 +546,10 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
    * failures (the main agent is assumed to have fixed the cause, or is
    * deliberately probing).
    */
+  function markClosed(pid: number | undefined): void {
+    if (pid !== undefined) acquired.closedPids.set(pid, Date.now());
+  }
+
   async function spawnAndInit(reason: RestartReason, ignoreCap = false): Promise<SharedRepl> {
     if (!ignoreCap && acquired.spawnFailures >= MAX_CONSECUTIVE_INIT_FAILURES) {
       throw new Error(
@@ -486,7 +559,28 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         `lean_repl_import to reset the failure counter.`,
       );
     }
+    // Singleton guard: one loaded generation holds ~7.6 GB; a second one on
+    // the same host is the OOM regime that kills generations with exit(1).
+    // Refuse loudly instead of silently duplicating (covers other sessions'
+    // generations and leaked orphans; our own closed generations are excused
+    // for a short teardown grace window).
+    const foreign = foreignReplGroups(
+      key,
+      acquired.repl?.alive ? acquired.repl.pid : undefined,
+      acquired.closedPids,
+    );
+    if (foreign.length > 0) {
+      const parts = foreign.map((f) => `group ${f.group} (pids ${f.pids.join(",")}, ~${Math.round(f.rssKiB / 1024)} MB RSS)`);
+      throw new Error(
+        `REPL-CONFLICT: another process already runs a REPL generation for this project: ` +
+        `${parts.join("; ")}. Only one loaded generation per project is supported ` +
+        `(a loaded environment is ~7.6 GB; two on one host cause OOM kills). ` +
+        `Either work in the session that owns that generation, or free it first ` +
+        `with 'kill -9 -- -<pid>' and retry.`,
+      );
+    }
     const previous = acquired.repl;
+    markClosed(previous?.pid);
     const repl = new SharedRepl(key, acquired.imports!, ++registry.generation);
     acquired.repl = repl;
     acquired.loaded = false;
@@ -502,6 +596,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       acquired.downSince = undefined;
       return repl;
     } catch (error) {
+      markClosed(repl.pid);
       await repl.close();
       if (acquired.repl === repl) acquired.repl = undefined;
       acquired.loaded = false;
@@ -586,6 +681,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         return await current.request(cmd, env);
       } catch (error) {
         if (acquired.repl === current && acquired.references > 0 && acquired.imports) {
+          markClosed(current.pid);
           await current.close();
           if (acquired.repl === current) acquired.repl = undefined;
           acquired.loaded = false;
@@ -634,6 +730,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         acquired.repl = undefined;
         acquired.loaded = false;
         acquired.downSince ??= Date.now();
+        markClosed(repl.pid);
         await repl.close();
       }
     },

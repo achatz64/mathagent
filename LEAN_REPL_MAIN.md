@@ -55,6 +55,18 @@ the restart reuses the last configured block; step 3 with the new block is
 then a genuine (refused-then-retry) import change, while re-sending the old
 block is the idempotent no-op.
 
+## One generation per project (conflict guard)
+
+A loaded environment holds ~7.6 GB; two on one host cause OOM kills. Only one
+REPL generation per project is therefore supported. Before every spawn
+(`lean_repl_import` and automatic recovery) the service scans for REPL
+processes of other sessions in the project directory and refuses loudly with
+`REPL-CONFLICT` (naming the process group, its RSS, and the exact `kill -9 --
+-<pid>` remedy) instead of silently duplicating. This also catches leaked
+orphan REPLs from crashed sessions. In-process subagent sessions (workers,
+auditor) share the main session's registry and never trigger the guard; it
+only fires for a second independent pi process in the project.
+
 ## Restart accounting
 
 `lean_repl_status` reports `restartCount` (total), a per-reason breakdown
