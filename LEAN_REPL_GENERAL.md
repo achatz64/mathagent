@@ -31,16 +31,34 @@ environment number.
 
 The REPL's imports include the current project target file, Mathlib, and any
 Extlib dependencies set by the main agent. Call `lean_repl_status` to inspect
-the active `imports` block and whether the REPL is `initialized`. Use
+the active `imports` block, whether the REPL is `initialized`, and whether the
+root environment is `loaded` (verified by readiness probes). Use
 target-local declarations directly without pasting them into branches.
 
+`loaded: true` is only reported after the root environment passed readiness
+probes: the repl binary silently swallows failed imports (no error messages,
+environment counter still advances), so the service re-checks after every
+spawn that the environment can elaborate and that every module of the import
+block actually loaded. If a module lacks a built `.olean` (e.g. the target was
+cleaned by a rebuild), initialization fails loudly instead of delivering an
+empty environment.
+
 If the REPL dies (e.g. after a timeout), it restarts automatically on the next
-request, reusing the last import block configured via `lean_repl_import`. A
-main agent that just killed the REPL to change imports may therefore see the
-new root appear before its own `lean_repl_import` call arrives; with an
-unchanged import block the call is an idempotent no-op (`status:
-"already-running"`), with a changed block it refuses. Check the `imports`
-field of the response rather than assuming the call order.
+request, reusing the last import block configured via `lean_repl_import`. This
+also works from worker sessions: a failed request spawns the service again and
+reports the restart; retry from the new root without stale `env`/`repl`
+values. A failure whose message starts with `REPL-DOWN` means automatic
+recovery itself failed — stop retrying and report it as an infrastructure
+blocker; only the main agent can fix it (rebuild missing modules, then call
+`lean_repl_import`). A main agent that just killed the REPL to change imports
+may therefore see the new root appear before its own `lean_repl_import` call
+arrives; with an unchanged import block the call is an idempotent no-op
+(`status: "already-running"`), with a changed block it refuses. Check the
+`imports` field of the response rather than assuming the call order.
+
+After 3 consecutive failed initializations the service pauses automatic
+recovery and fails fast with `REPL-DOWN` until the main agent calls
+`lean_repl_import` again (which resets the counter).
 
 ## Development and builds
 

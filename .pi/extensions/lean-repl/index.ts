@@ -8,7 +8,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl_import",
     label: "Lean REPL Import",
-    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Idempotent: if the live REPL already runs with exactly this import block, it succeeds as a no-op with status \"already-running\". To change imports on a live REPL, kill the process via bash (kill -TERM -<pid>) first.",
+    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Main agent only: workers cannot call this. The root environment is verified by readiness probes; init fails loudly if any imported module lacks a built .olean (run 'cd lean && lake build'). Idempotent: if the live REPL already runs with exactly this import block, it succeeds as a no-op with status \"already-running\". To change imports on a live REPL, kill the process via bash (kill -TERM -<pid>) first.",
     parameters: Type.Object({
       imports: Type.String({ description: "Lean import block, e.g. 'import Mathlib\\nimport Extlib.GroupTheory.Mil21'" }),
     }),
@@ -33,9 +33,9 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl",
     label: "Lean REPL",
-    description: "Execute Lean in the project-wide shared REPL. Imports are configured by lean_repl_import; never send import commands or use #find. Pass env and repl together when retaining handles. After an automatic restart, retry from the new root without stale env/repl values.",
+    description: "Execute Lean in the project-wide shared REPL. Imports are configured by lean_repl_import; never send import commands or use #find. Pass env and repl together when retaining handles. If the service is dead, the call automatically respawns it with the last configured import block and reports the restart; retry from the new root without stale env/repl values. A REPL-DOWN error means the service could not (re)initialize — report it to the main agent.",
     promptGuidelines: [
-      "Imports are configured by lean_repl_import. Never send import commands or use #find; use narrow source grep and targeted #check/#print/#synth instead. If a failure reports an automatic restart, retry from the new root and re-elaborate needed declarations.",
+      "Imports are configured by lean_repl_import. Never send import commands or use #find; use narrow source grep and targeted #check/#print/#synth instead. If a failure reports an automatic restart, retry from the new root and re-elaborate needed declarations. If a failure starts with REPL-DOWN, the service could not recover: stop retrying, note it in your report as an infrastructure blocker (only the main agent can fix it via lean_repl_import or a rebuild).",
     ],
     parameters: Type.Object({
       cmd: Type.String({ description: "Lean commands to elaborate" }),
@@ -56,7 +56,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl_status",
     label: "Lean REPL Status",
-    description: "Inspect the shared Lean REPL generation, queue, restart count, process-group membership, and memory without submitting Lean code.",
+    description: "Inspect the shared Lean REPL generation, queue, restart count, process-group membership, and memory without submitting Lean code. loaded is true only after the root environment passed its readiness probes; a REPL-DOWN warning means workers are blocked and the main agent must intervene.",
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       lease ??= acquireSharedRepl(`${ctx.cwd}/lean`);

@@ -7,6 +7,60 @@ export type ReplResponse = Record<string, unknown> & { env?: number };
 
 type Waiter = { resolve: (frame: string) => void; reject: (error: Error) => void };
 
+// The root environment (import block + readiness probes) can take minutes to
+// load Mathlib, Extlib, and the target; worker requests default to 120s.
+const ROOT_TIMEOUT_MS = 600_000;
+const PROBE_TIMEOUT_MS = 120_000;
+// After this many consecutive failed root initializations, automatic recovery
+// stops respawning and fails fast with REPL-DOWN until the main agent
+// intervenes (lean_repl_import resets the counter).
+const MAX_CONSECUTIVE_INIT_FAILURES = 3;
+
+type ReplMessage = { severity?: string; data?: string };
+
+function errorMessages(response: ReplResponse): ReplMessage[] {
+  const messages = response.messages;
+  if (!Array.isArray(messages)) return [];
+  return messages.filter(
+    (m): m is ReplMessage =>
+      !!m && typeof m === "object" && !Array.isArray(m) && m.severity === "error",
+  );
+}
+
+function formatMessages(messages: ReplMessage[]): string {
+  return messages
+    .map((m) => m.data ?? JSON.stringify(m))
+    .join("; ")
+    .slice(0, 2000);
+}
+
+/** Module names from an import block: `import Mathlib\nimport Target` → ["Mathlib", "Target"]. */
+function parseImportModules(imports: string): string[] {
+  const modules: string[] = [];
+  for (const match of imports.matchAll(/^import\s+(\S+)/gm)) {
+    const name = match[1];
+    if (/^[\w.'!?$§Ωα-ωµ]+"?(\.[\w.'!?$§Ωα-ωµ]+"?)*$/.test(name)) modules.push(name);
+  }
+  return modules;
+}
+
+/**
+ * Probe that fails (with IMPORT-MISSING) unless every module of the import
+ * block is present in the environment header. The repl binary reports failed
+ * imports silently (no messages, env counter still advances), so the probe is
+ * the only reliable readiness signal.
+ */
+function buildModuleProbe(modules: string[]): string {
+  const names = modules.map((m) => "`" + m).join(",");
+  return [
+    "#eval show Lean.Elab.Command.CommandElabM Unit from do",
+    "  let env <- Lean.getEnv",
+    `  let missing := (#[${names}] : Array Lean.Name).filter fun m => !env.header.moduleNames.contains m`,
+    "  unless missing.isEmpty do",
+    "    Lean.throwError (\"IMPORT-MISSING: \" ++ String.intercalate \", \" (missing.toList.map fun m => m.toString))",
+  ].join("\n");
+}
+
 class SharedRepl {
   readonly id: string;
   readonly pid: number | undefined;
@@ -16,7 +70,7 @@ class SharedRepl {
   private frames: string[] = [];
   private waiters: Waiter[] = [];
   private serial: Promise<void> = Promise.resolve();
-  private root: Promise<number> | undefined;
+  private rootPromise: Promise<number> | undefined;
   private closed = false;
   readonly imports: string;
 
@@ -43,12 +97,57 @@ class SharedRepl {
     });
   }
 
+  /**
+   * Root environment number, only returned after the import block has been
+   * verified by readiness probes. Failed imports are silent in the repl
+   * protocol, so a bare import response proves nothing on its own.
+   */
   rootEnvironment(): Promise<number> {
-    this.root ??= this.requestRaw({ cmd: this.imports }).then((response) => {
-      if (typeof response.env !== "number") throw new Error("Import block returned no environment");
-      return response.env;
+    this.rootPromise ??= this.initializeRoot().catch((error) => {
+      this.rootPromise = undefined; // allow a later retry to re-initialize
+      throw error;
     });
-    return this.root;
+    return this.rootPromise;
+  }
+
+  private async initializeRoot(): Promise<number> {
+    const importResponse = await this.requestRaw({ cmd: this.imports }, ROOT_TIMEOUT_MS);
+    if (typeof importResponse.env !== "number") {
+      throw new Error("Import block returned no environment");
+    }
+    const root = importResponse.env;
+    // Failed imports are silent in the repl protocol (no messages, env counter
+    // still advances) and leave an empty, partly-corrupted session. Both
+    // probes below are therefore strict: any error means the root is unusable.
+    // The availability probe requires the import block to bring in Lean itself
+    // (true for every supported block: Mathlib + project modules).
+    const availability = await this.requestRaw(
+      { cmd: "#check @Lean.Elab.Command.CommandElabM", env: root },
+      PROBE_TIMEOUT_MS,
+    );
+    const availabilityErrors = errorMessages(availability);
+    if (availabilityErrors.length > 0) {
+      throw new Error(
+        "Root environment failed its readiness probe: Lean is unavailable after the import block " +
+        "(the repl reports failed imports silently — usually a module without a built .olean; " +
+        `run 'cd lean && lake build' for every imported module). Probe errors: ${formatMessages(availabilityErrors)}`,
+      );
+    }
+    const modules = parseImportModules(this.imports);
+    if (modules.length > 0) {
+      const probeResponse = await this.requestRaw(
+        { cmd: buildModuleProbe(modules), env: root },
+        PROBE_TIMEOUT_MS,
+      );
+      const probeErrors = errorMessages(probeResponse);
+      if (probeErrors.length > 0) {
+        throw new Error(
+          `Root environment failed its readiness probe: the import block did not load. ` +
+          `Probe errors: ${formatMessages(probeErrors)}`,
+        );
+      }
+    }
+    return root;
   }
 
   async request(cmd: string, env?: number, timeoutMs = 120_000): Promise<ReplResponse> {
@@ -153,12 +252,21 @@ export type SharedReplStatus = {
   unexpectedProcessGroups: number[];
   warnings: string[];
   initialized: boolean;
+  /** True only after the root environment passed its readiness probes. */
+  loaded: boolean;
   imports: string | undefined;
+  downSince: string | undefined;
+  consecutiveInitFailures: number;
+  lastInitError: string | undefined;
 };
 
 type RegistryEntry = {
   repl: SharedRepl | undefined;
   imports: string | undefined;
+  loaded: boolean;
+  downSince: number | undefined;
+  spawnFailures: number;
+  lastInitError: string | undefined;
   references: number;
   serial: Promise<void>;
   pendingRequests: number;
@@ -227,6 +335,23 @@ function processGroupUsage(pid: number | undefined, projectDir: string): {
   }
 }
 
+function downWarning(entry: RegistryEntry): string | undefined {
+  if (!entry.repl || !entry.repl.alive) {
+    const since = entry.downSince === undefined ? "" : ` since ${new Date(entry.downSince).toISOString()}`;
+    if (entry.imports === undefined) {
+      return `REPL-DOWN${since}: not initialized — call lean_repl_import first (main agent only)`;
+    }
+    const failures = entry.spawnFailures > 0
+      ? `; ${entry.spawnFailures} consecutive initialization failure(s), last: ${entry.lastInitError ?? "unknown"}`
+      : "";
+    return `REPL-DOWN${since}: workers blocked, service will not auto-recover until fixed${failures}`;
+  }
+  if (entry.repl.alive && entry.imports !== undefined && !entry.loaded) {
+    return "root environment initializing — imports not yet verified by readiness probe";
+  }
+  return undefined;
+}
+
 function entryStatus(entry: RegistryEntry): SharedReplStatus {
   const usage = processGroupUsage(entry.repl?.pid, entry.projectDir);
   const activeForMs = entry.activeSince === undefined ? undefined : Date.now() - entry.activeSince;
@@ -239,7 +364,11 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     warnings.push(`unexpected project REPL process groups: ${usage.unexpectedProcessGroups.join(", ")}`);
   }
   if (entry.restartCount > 0) warnings.push(`${entry.restartCount} automatic REPL restart(s)`);
-  if (!entry.repl && entry.imports === undefined) warnings.push("REPL not initialized — call lean_repl_import first");
+  const down = downWarning(entry);
+  if (down) {
+    if (entry.downSince === undefined && !entry.repl) entry.downSince = Date.now();
+    warnings.push(down);
+  }
   return {
     id: entry.repl?.id ?? "uninitialized",
     pid: entry.repl?.pid,
@@ -254,8 +383,12 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     projectReplProcesses: usage.projectReplProcesses,
     unexpectedProcessGroups: usage.unexpectedProcessGroups,
     warnings,
-    initialized: entry.repl !== undefined,
+    initialized: !!(entry.repl && entry.repl.alive),
+    loaded: !!(entry.repl && entry.repl.alive && entry.loaded),
     imports: entry.imports,
+    downSince: entry.downSince === undefined ? undefined : new Date(entry.downSince).toISOString(),
+    consecutiveInitFailures: entry.spawnFailures,
+    lastInitError: entry.lastInitError,
   };
 }
 
@@ -271,6 +404,10 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     entry = {
       repl: undefined,
       imports: undefined,
+      loaded: false,
+      downSince: undefined,
+      spawnFailures: 0,
+      lastInitError: undefined,
       references: 0,
       serial: Promise.resolve(),
       pendingRequests: 0,
@@ -290,10 +427,54 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     entry.projectDir ??= key;
     entry.repl ??= undefined;
     entry.imports ??= undefined;
+    entry.loaded ??= false;
+    entry.downSince ??= undefined;
+    entry.spawnFailures ??= 0;
+    entry.lastInitError ??= undefined;
   }
   entry.references++;
   const acquired = entry;
   let released = false;
+
+  /**
+   * Spawn a REPL and verify its root environment. Caller must hold
+   * `acquired.serial`. On failure the process is closed, bookkeeping records
+   * the failure, and the error propagates with its probe diagnostics.
+   * `ignoreCap` lets an explicit lean_repl_import retry despite consecutive
+   * failures (the main agent is assumed to have fixed the cause, or is
+   * deliberately probing).
+   */
+  async function spawnAndInit(reason: string, ignoreCap = false): Promise<SharedRepl> {
+    if (!ignoreCap && acquired.spawnFailures >= MAX_CONSECUTIVE_INIT_FAILURES) {
+      throw new Error(
+        `REPL-DOWN: ${acquired.spawnFailures} consecutive root initialization failures ` +
+        `(last: ${acquired.lastInitError ?? "unknown"}). Automatic recovery paused — fix the cause ` +
+        `(e.g. run 'cd lean && lake build' so every imported module has a .olean), then call ` +
+        `lean_repl_import to reset the failure counter.`,
+      );
+    }
+    const repl = new SharedRepl(key, acquired.imports!, ++registry.generation);
+    acquired.repl = repl;
+    acquired.loaded = false;
+    try {
+      await repl.rootEnvironment();
+      acquired.loaded = true;
+      acquired.spawnFailures = 0;
+      acquired.lastInitError = undefined;
+      acquired.downSince = undefined;
+      return repl;
+    } catch (error) {
+      await repl.close();
+      if (acquired.repl === repl) acquired.repl = undefined;
+      acquired.loaded = false;
+      acquired.downSince ??= Date.now();
+      acquired.spawnFailures++;
+      const message = error instanceof Error ? error.message : String(error);
+      acquired.lastInitError = message;
+      acquired.lastRestartReason = message;
+      throw error;
+    }
+  }
 
   async function initImports(imports: string): Promise<"initialized" | "already-running"> {
     const previous = acquired.serial;
@@ -311,9 +492,7 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         throw new Error("REPL already initialized with a different import block — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
       }
       acquired.imports = imports;
-      acquired.repl = new SharedRepl(key, imports, ++registry.generation);
-      // Eagerly initialize the root environment
-      await acquired.repl.rootEnvironment();
+      await spawnAndInit("lean_repl_import", true);
       return "initialized";
     } finally {
       release();
@@ -330,9 +509,24 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     acquired.activeSince = Date.now();
     try {
       if (released) throw new Error("Lean REPL lease has been released");
-      const current = acquired.repl;
-      if (!current) {
-        throw new Error("REPL not initialized — call lean_repl_import first");
+      let current = acquired.repl;
+      if (!current || !current.alive) {
+        // Crash/dead service recovery: any requester (including read-only
+        // workers, which cannot call lean_repl_import) re-spawns the REPL with
+        // the last configured import block.
+        if (!acquired.imports) {
+          throw new Error(
+            "REPL-DOWN: shared Lean REPL is not initialized — call lean_repl_import first (main agent only)",
+          );
+        }
+        try {
+          current = await spawnAndInit("dead REPL auto-recovery");
+          acquired.restartCount++;
+          acquired.lastRestartReason = "auto-recovery: previous REPL process was dead";
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          throw new Error(`REPL-DOWN: automatic recovery failed: ${message}`);
+        }
       }
       if (replId !== undefined && replId !== current.id) {
         throw new Error(`Stale Lean REPL handle ${replId}; current process is ${current.id}`);
@@ -342,12 +536,20 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       } catch (error) {
         if (acquired.repl === current && acquired.references > 0 && acquired.imports) {
           await current.close();
-          acquired.repl = new SharedRepl(key, acquired.imports, ++registry.generation);
+          if (acquired.repl === current) acquired.repl = undefined;
+          acquired.loaded = false;
           const message = error instanceof Error ? error.message : String(error);
           acquired.restartCount++;
           acquired.lastRestartReason = message;
+          const replacement = await spawnAndInit(message);
+          // Requests carrying stale handles cannot address the fresh root
+          // safely; handle-free requests simply continue on the new root.
+          if (env === undefined && replId === undefined) {
+            return await replacement.request(cmd);
+          }
           throw new Error(
-            `${message}; Lean REPL restarted as ${acquired.repl.id}. Retry from the new root`,
+            `${message}; Lean REPL restarted as ${replacement.id} with a verified root ` +
+            `environment. Retry from the new root without stale env/repl values`,
           );
         }
         throw error;
@@ -373,9 +575,14 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       if (released) return;
       released = true;
       acquired.references--;
-      if (acquired.references === 0 && registry.entries.get(key) === acquired) {
-        registry.entries.delete(key);
-        await acquired.repl?.close();
+      // Keep the entry (and its configured imports) so later requests — from
+      // workers without lean_repl_import — can auto-recover the service.
+      if (acquired.references === 0 && acquired.repl) {
+        const repl = acquired.repl;
+        acquired.repl = undefined;
+        acquired.loaded = false;
+        acquired.downSince ??= Date.now();
+        await repl.close();
       }
     },
   };

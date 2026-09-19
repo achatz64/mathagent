@@ -27,6 +27,13 @@ The default import block should include:
    access to all target-local declarations without pasting them into branches
 3. Any Extlib dependencies referenced by the formalization task
 
+The root environment is verified by readiness probes after every spawn; if
+any imported module lacks a built `.olean` the import fails loudly naming the
+cause — run `cd lean && lake build` for the missing modules and call
+`lean_repl_import` again. Failed imports are silent in the repl protocol, so
+a `loaded: true` from `lean_repl_status` is the only trustworthy readiness
+signal; `initialized: true` alone is not.
+
 Example for a session working on `Target.lean` that references Milne 2021:
 
 ```text
@@ -51,13 +58,19 @@ block is the idempotent no-op.
 ## Monitoring
 
 `lean_repl_status` and each response's `health` field report queue age,
-restarts, RSS, unexpected process groups, and whether the REPL has been
-initialized. Check before parallel Lean work and after timeouts or unexplained
+restarts, RSS, unexpected process groups, whether the REPL has been
+initialized, and whether the root environment is `loaded` (readiness probes
+passed). Check before parallel Lean work and after timeouts or unexplained
 latency.
 
 A healthy running service has one two-process group (`lake env` plus REPL),
-`initialized: true`, and no warnings. If not, stop adding work, abort obsolete
-workers, and diagnose before building.
+`initialized: true`, `loaded: true`, and no warnings. A `REPL-DOWN` warning
+means workers are blocked: the service is dead and could not (or may not)
+auto-recover. Diagnose from `lastInitError` / `consecutiveInitFailures`, fix
+the cause (usually a missing `.olean` after a rebuild: run
+`cd lean && lake build`), then call `lean_repl_import` — this resets the
+automatic-recovery failure counter. Workers cannot do any of this; expect
+their reports to carry `REPL-DOWN` errors when the window was long.
 
 ## Builds
 
