@@ -199,3 +199,23 @@ plus a loud guard refusing a second import while a loaded generation exists
 (concurrent sessions on one host are then explicitly unsupported). Either way,
 the current state (silent duplication + a warning that nobody can act on) is
 the worst of both.
+
+## Main-agent verification of builder resolution a270b63 (issue E, 2026-09-19)
+
+Verified live with a foreign second pi process against main's loaded
+generation `1:17945`:
+- Import refused verbatim: `REPL-CONFLICT: another process already runs a REPL
+  generation for this project: group 17945 (pids 17945,17996, ~7354 MB RSS).
+  ... free it first with 'kill -9 -- -<pid>' and retry.` — no duplicate
+  spawned (`projectReplProcesses: 0` from the foreign session's view). ✓
+- Status warning is the new actionable text (group, RSS, both remedies). ✓
+- Main's own generation untouched and healthy after the refused attempts;
+  warning list empty from the owning session's view. ✓
+- Worker promptGuidelines now cover `REPL-CONFLICT` alongside `REPL-DOWN`. ✓
+- Docs (LEAN_REPL_GENERAL.md singleton note, LEAN_REPL_MAIN.md "One generation
+  per project") match observed behavior. ✓
+- Auditor premise correction accepted: `audit_launch` runs in-process with
+  read/grep/bash/edit only — no auditor-specific step needed.
+
+Issue E CLOSED. Parallel worker batches for chapter 2 are unblocked from the
+REPL side.
