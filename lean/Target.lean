@@ -10,6 +10,9 @@ import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Roots
 import Mathlib.FieldTheory.PolynomialGaloisGroup
 import Mathlib.FieldTheory.Relrank
+import Mathlib.NumberTheory.Cyclotomic.Basic
+import Mathlib.NumberTheory.Cyclotomic.Gal
+import Mathlib.FieldTheory.KummerExtension
 import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
 import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
@@ -64,13 +67,13 @@ formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
 theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
 `sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
 cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
-unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 12 of
-13 theorem-like labels formalized (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`,
-`ft15`, `ft17`, `ft18f`, `ft18g`, `ft18h`, `ft22`, `ft23`) plus the definition-like
-labels `ft10m`, `ft10n`, `ft11m`, `ft21`, the example `ft19`, and remark content
-(`ft9`, `ft13` (b) equality part, `ft18` (a), the ggp section); pending: `ft24`
-(needs the ft22 result plus the cyclotomic Galois-group identification), example
-`ft20`, and
+unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578) is complete on its theorem-like labels: all
+13 (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`, `ft17`, `ft18f`, `ft18g`,
+`ft18h`, `ft22`, `ft23`, `ft24`) plus the definition-like labels `ft10m`, `ft10n`,
+`ft11m`, `ft21`, the examples `ft19` and `ft20` (ft20's group-fact clauses;
+the τ/σ/semidirect-product presentation is a recorded handover), and remark
+content (`ft9`, `ft13` (b) equality part, `ft18` (a), the ggp section); pending:
+the final scope/ledger items and
 the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
 `ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
 Chapters 4-7 (computing Galois groups, applications, algebraic closures,
@@ -6935,11 +6938,832 @@ theorem zeta7_minpoly_add_inv {E : Type u} [Field E] [CharZero E] {ζ : E} (hζ 
 
 end Ft19Cyclotomic
 
+section Ft24CosConstructible
+
+/-- FT `ft24`, cos bridge (1): `e ^ (iθ) = cos θ + i · sin θ` for real `θ`. -/
+theorem exp_ofReal_mul_I_eq (θ : ℝ) :
+    Complex.exp ((θ : ℂ) * Complex.I) = (Real.cos θ : ℂ) + (Real.sin θ : ℂ) * Complex.I := by
+  rw [Complex.exp_mul_I]
+  have h1 : Complex.cos (θ : ℂ) = (Real.cos θ : ℂ) := by
+    rw [Complex.ext_iff]
+    exact ⟨Complex.cos_ofReal_re θ, by rw [Complex.ofReal_im]; exact Complex.cos_ofReal_im θ⟩
+  have h2 : Complex.sin (θ : ℂ) = (Real.sin θ : ℂ) := by
+    rw [Complex.ext_iff]
+    exact ⟨Complex.sin_ofReal_re θ, by rw [Complex.ofReal_im]; exact Complex.sin_ofReal_im θ⟩
+  rw [h1, h2]
+
+/-- FT `ft24`, cos bridge (2): for prime `p ≥ 3`, with `ζ := e ^ (2πi/p)`, the identity
+`ζ + ζ⁻¹ = 2 · cos(2π/p)` of the source proof holds in `ℂ`. -/
+theorem cos_two_pi_div_add_inv (p : ℕ) (hp : 3 ≤ p) :
+    Complex.exp (2 * Real.pi * Complex.I / p)
+        + (Complex.exp (2 * Real.pi * Complex.I / p))⁻¹
+      = 2 * Real.cos (2 * Real.pi / p) := by
+  set θ : ℝ := 2 * Real.pi / p with hθ
+  have hp0 : 0 < p := lt_of_lt_of_le (by norm_num) hp
+  have hpp : (0 : ℝ) < p := Nat.cast_pos.mpr hp0
+  have h2n : (2 : ℕ) < p := by omega
+  have h2 : (2 : ℝ) < p := by exact_mod_cast h2n
+  have hθ0 : 0 < θ := div_pos (mul_pos zero_lt_two Real.pi_pos) hpp
+  have hθπ : θ < Real.pi := by
+    rw [hθ, div_lt_iff₀ hpp, mul_comm]
+    exact mul_lt_mul_of_pos_left h2 Real.pi_pos
+  have hI : (2 * Real.pi * Complex.I / p : ℂ) = ((θ : ℝ) : ℂ) * Complex.I := by
+    rw [hθ, Complex.ofReal_div, Complex.ofReal_mul, Complex.ofReal_ofNat]
+    simp only [Complex.ofReal_natCast]
+    ring
+  have hz : Complex.exp (2 * Real.pi * Complex.I / p)
+      = (Real.cos θ : ℂ) + (Real.sin θ : ℂ) * Complex.I := by
+    rw [hI]; exact exp_ofReal_mul_I_eq θ
+  have hnegI : (-(2 * Real.pi * Complex.I / p : ℂ)) = ((-θ : ℝ) : ℂ) * Complex.I := by
+    rw [Complex.ofReal_neg, neg_mul, ← hI]
+  have hzi : (Complex.exp (2 * Real.pi * Complex.I / p))⁻¹
+      = (Real.cos θ : ℂ) - (Real.sin θ : ℂ) * Complex.I := by
+    rw [← Complex.exp_neg, hnegI, exp_ofReal_mul_I_eq (-θ), Real.cos_neg, Real.sin_neg]
+    simp only [Complex.ofReal_neg]; ring
+  rw [hzi, hz]; ring
+
+/-- FT `ft24`, cos bridge (3): for prime `p ≥ 3`, `ζ = e ^ (2πi/p)` is not real, since
+`Im ζ = sin(2π/p) > 0` for `0 < 2π/p < π`. -/
+theorem im_exp_two_pi_div_ne_zero (p : ℕ) (hp : 3 ≤ p) :
+    (Complex.exp (2 * Real.pi * Complex.I / p)).im ≠ 0 := by
+  set θ : ℝ := 2 * Real.pi / p with hθ
+  have hp0 : 0 < p := lt_of_lt_of_le (by norm_num) hp
+  have hpp : (0 : ℝ) < p := Nat.cast_pos.mpr hp0
+  have h2n : (2 : ℕ) < p := by omega
+  have h2 : (2 : ℝ) < p := by exact_mod_cast h2n
+  have hθ0 : 0 < θ := div_pos (mul_pos zero_lt_two Real.pi_pos) hpp
+  have hθπ : θ < Real.pi := by
+    rw [hθ, div_lt_iff₀ hpp, mul_comm]
+    exact mul_lt_mul_of_pos_left h2 Real.pi_pos
+  have hI : (2 * Real.pi * Complex.I / p : ℂ) = ((θ : ℝ) : ℂ) * Complex.I := by
+    rw [hθ, Complex.ofReal_div, Complex.ofReal_mul, Complex.ofReal_ofNat]
+    simp only [Complex.ofReal_natCast]
+    ring
+  rw [hI, Complex.exp_ofReal_mul_I_im]
+  exact (Real.sin_pos_of_pos_of_lt_pi hθ0 hθπ).ne'
+
+/-- FT `ft24`, ℝ↔ℂ transfer: adjoining the real number `t` inside `ℝ` maps along
+`ℝ → ℂ` onto the intermediate field generated by `t`'s image in `ℂ`. -/
+theorem map_coe_adjoin_real (t : ℝ) :
+    IntermediateField.map (IsScalarTower.toAlgHom ℚ ℝ ℂ) (IntermediateField.adjoin ℚ {t})
+      = IntermediateField.adjoin ℚ {(t : ℂ)} := by
+  refine le_antisymm ?_ ?_
+  · rw [IntermediateField.map_le_iff_le_comap]
+    refine IntermediateField.adjoin_le_iff.mpr ?_
+    rintro x (rfl : x = t)
+    exact (Subalgebra.mem_comap _ _ _).mpr (IntermediateField.mem_adjoin_simple_self ℚ (x : ℂ))
+  · refine IntermediateField.adjoin_le_iff.mpr ?_
+    rintro x (rfl : x = (t : ℂ))
+    exact Iff.mpr (IntermediateField.mem_map (IntermediateField.adjoin ℚ {t}))
+      ⟨t, IntermediateField.mem_adjoin_simple_self ℚ t, rfl⟩
+
+/-- FT `ft24` (cyclotomic degree): for a primitive `p`-th root of unity `ζ` in `ℂ` with `p`
+prime and `p - 1 = 2 ^ k`, the cyclotomic field `ℚ(ζ)` is Galois over `ℚ` of degree `2 ^ k`.
+Proof idea (source): `Gal(ℚ(ζ)/ℚ) ≅ (ℤ/pℤ)ˣ` has order `p − 1 = 2 ^ k`
+(`IsCyclotomicExtension.autEquivPow`, using irreducibility of the `p`-th cyclotomic
+polynomial over `ℚ`), and `|Gal| = [ℚ(ζ) : ℚ]`. -/
+theorem finrank_cyclotomic_rat_prime {ζ : ℂ} {p k : ℕ} (hζ : IsPrimitiveRoot ζ p)
+    (hpp : Nat.Prime p) (hp1 : p - 1 = 2 ^ k) :
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {ζ}) = 2 ^ k := by
+  have hp0 : 0 < p := hpp.pos
+  haveI : NeZero p := ⟨hp0.ne'⟩
+  haveI : Fact (Nat.Prime p) := ⟨hpp⟩
+  have hintζ : IsIntegral ℚ ζ :=
+    ⟨Polynomial.X ^ p - 1, Polynomial.monic_X_pow_sub_C 1 hp0.ne',
+      by simp [hζ.pow_eq_one]⟩
+  have hc : IsCyclotomicExtension {p} ℚ ↥(IntermediateField.adjoin ℚ {ζ}) := by
+    change IsCyclotomicExtension {p} ℚ (IntermediateField.adjoin ℚ {ζ}).toSubalgebra
+    rw [IntermediateField.adjoin_simple_toSubalgebra_of_isAlgebraic hintζ.isAlgebraic]
+    exact hζ.adjoin_isCyclotomicExtension ℚ
+  haveI hfd : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ {ζ}) :=
+    IsCyclotomicExtension.finiteDimensional {p} ℚ _
+  haveI hg : IsGalois ℚ ↥(IntermediateField.adjoin ℚ {ζ}) :=
+    IsCyclotomicExtension.isGalois {p} ℚ _
+  have hirr : Irreducible (Polynomial.cyclotomic p ℚ) :=
+    (Polynomial.cyclotomic_eq_minpoly_rat hζ hp0) ▸ minpoly.irreducible hintζ
+  calc
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {ζ})
+        = Nat.card Gal(↥(IntermediateField.adjoin ℚ {ζ})/ℚ) :=
+      (IsGalois.card_aut_eq_finrank ℚ (IntermediateField.adjoin ℚ {ζ})).symm
+    _ = Nat.card (ZMod p)ˣ :=
+      Nat.card_congr (IsCyclotomicExtension.autEquivPow _ hirr).toEquiv
+    _ = p - 1 := by
+      rw [Nat.card_eq_fintype_card, ZMod.card_units p]
+    _ = 2 ^ k := hp1
+
+/-- FT `ft24` (real subfield degree): if `p = 2 ^ k + 1` is prime with `k ≥ 1`, then
+`ℚ(cos(2π/p)) ⊂ ℂ` has `ℚ`-degree `2 ^ (k - 1)`.  Proof idea (source): `ℚ(cos(2π/p)) ⊆
+ℚ(ζ_p)`; `ζ_p` satisfies the quadratic `X² − 2·cos(2π/p)·X + 1` over it and is not real,
+so `[ℚ(ζ_p) : ℚ(cos)] = 2`; the tower law and `finrank_cyclotomic_rat_prime` give
+`[ℚ(cos) : ℚ] = 2^k / 2 = 2^(k-1)`.  (The `[ℚ(ζ) : ℚ(cos)]` computation uses
+`IntermediateField.relfinrank` since Mathlib's `Module ↥E ↥L` instances need
+`extendScalars`.) -/
+theorem finrank_adjoin_cos_two_div (p k : ℕ) (hpp : Nat.Prime p) (hk1 : 1 ≤ k)
+    (hp1 : p - 1 = 2 ^ k) :
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {(Real.cos (2 * Real.pi / p) : ℂ)})
+      = 2 ^ (k - 1) := by
+  set θ : ℝ := 2 * Real.pi / p with hθ
+  set t : ℝ := Real.cos θ with ht
+  set z : ℂ := Complex.exp (2 * Real.pi * Complex.I / p) with hzdef
+  have hp0 : 0 < p := hpp.pos
+  have hp3 : 3 ≤ p := by
+    rcases Nat.lt_or_ge p 3 with h | h
+    · have h1p : 1 < p := hpp.one_lt
+      have hp2 : p = 2 := by omega
+      rw [hp2] at hp1
+      rcases k with _ | k'
+      · exact absurd hk1 (by omega)
+      · have hle : (2 : ℕ) ≤ 2 ^ (k' + 1) := Nat.pow_le_pow_right (n := 2) (by norm_num) (by omega)
+        omega
+    · exact h
+  have hζ : IsPrimitiveRoot z p := Complex.isPrimitiveRoot_exp p (by positivity)
+  have hz0 : z ≠ 0 := hζ.ne_zero hp0.ne'
+  set L : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {z} with hLdef
+  set E0 : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {(t : ℂ)} with hE0def
+  have hzL : z ∈ L := IntermediateField.mem_adjoin_simple_self ℚ z
+  have htE0 : (t : ℂ) ∈ E0 := IntermediateField.mem_adjoin_simple_self ℚ (t : ℂ)
+  have hsum : z + z⁻¹ = 2 * (t : ℂ) := cos_two_pi_div_add_inv p hp3
+  have htL : (t : ℂ) ∈ L := by
+    have h1 : (z + z⁻¹) / 2 = (t : ℂ) := by rw [hsum]; ring
+    rw [← h1]
+    exact IntermediateField.div_mem L
+      (IntermediateField.add_mem L hzL (IntermediateField.inv_mem L hzL))
+      (IntermediateField.algebraMap_mem L (2 : ℚ))
+  have hE0L : E0 ≤ L := IntermediateField.adjoin_le_iff.mpr
+    (by rintro x (rfl : x = (t : ℂ)); exact htL)
+  have hreal : ∀ x ∈ E0, (x : ℂ).im = 0 := by
+    rw [hE0def, ← map_coe_adjoin_real t]
+    intro x hx
+    obtain ⟨y, -, rfl⟩ := Iff.mp (IntermediateField.mem_map (IntermediateField.adjoin ℚ {t})) hx
+    rw [IsScalarTower.toAlgHom_apply]
+    exact Complex.ofReal_im y
+  have hznr : z ∉ (algebraMap ↥E0 ℂ).range := by
+    rintro ⟨y, hy⟩
+    refine im_exp_two_pi_div_ne_zero p hp3 ?_
+    rw [← hzdef, ← hy, IntermediateField.algebraMap_apply]
+    exact hreal y y.2
+  have hkey : (2 : ℂ) * (t : ℂ) * z = z * z + 1 := by
+    rw [← hsum, add_mul, inv_mul_cancel₀ hz0]
+  set c : ↥E0 := ⟨(t : ℂ), htE0⟩ with hcd
+  have h2m : (algebraMap ↥E0 ℂ) 2 * (algebraMap ↥E0 ℂ) c = 2 * (t : ℂ) := by
+    rw [IntermediateField.algebraMap_apply, IntermediateField.algebraMap_apply]; rfl
+  set q : Polynomial ↥E0 := (Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X + 1 with hqdef
+  have hq0 : Polynomial.aeval z q = 0 := by
+    rw [hqdef, sub_mul]
+    simp only [map_add, map_sub, map_mul, map_one, Polynomial.aeval_C, Polynomial.aeval_X, h2m]
+    rw [hkey]; ring
+  have hdeg1 : (((Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X : Polynomial ↥E0)).degree = 2 := by
+    rw [Polynomial.degree_mul, Polynomial.degree_X_sub_C, Polynomial.degree_X]
+    norm_num
+  have hqmon : q.Monic := by
+    have h1m : ((Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X : Polynomial ↥E0).Monic :=
+      (Polynomial.monic_X_sub_C (2 * c)).mul (Polynomial.monic_X (R := ↥E0))
+    exact h1m.add_of_left (by rw [hdeg1]; norm_num)
+  have hdq2 : q.natDegree = 2 := by
+    have h2 : q.degree = ((2 : ℕ) : WithBot ℕ) := by
+      rw [hqdef]
+      refine (Polynomial.degree_add_eq_left_of_degree_lt ?_).trans hdeg1
+      rw [hdeg1]
+      simp
+    exact (Polynomial.degree_eq_iff_natDegree_eq_of_pos (by norm_num)).mp h2
+  have hzint : IsIntegral ↥E0 z := ⟨q, hqmon, hq0⟩
+  have hdle : (minpoly ↥E0 z).natDegree ≤ 2 := by
+    have h := Polynomial.natDegree_le_of_dvd (minpoly.dvd ↥E0 z hq0) hqmon.ne_zero
+    rw [hdq2] at h
+    exact h
+  have hd2 : 2 ≤ (minpoly ↥E0 z).natDegree := (minpoly.two_le_natDegree_iff hzint).mpr hznr
+  have hcarrier : ((IntermediateField.adjoin ↥E0 {z} : IntermediateField ↥E0 ℂ) : Set ℂ)
+      = (L : Set ℂ) := by
+    refine le_antisymm ?_ ?_
+    · intro x hx
+      obtain ⟨r, s, hx'⟩ := Iff.mp (IntermediateField.mem_adjoin_simple_iff ↥E0 x) hx
+      have hAE : ∀ p2 : Polynomial ↥E0, (Polynomial.aeval z p2 : ℂ) ∈ L := by
+        intro p2
+        rw [Polynomial.aeval_eq_sum_range]
+        refine IntermediateField.sum_mem L fun i _ => ?_
+        rw [Algebra.smul_def]
+        exact IntermediateField.mul_mem L (hE0L (p2.coeff i).property)
+          (IntermediateField.pow_mem L hzL i)
+      rw [hx']
+      exact IntermediateField.div_mem L (hAE r) (hAE s)
+    · intro x hx
+      obtain ⟨r, s, hx'⟩ := Iff.mp (IntermediateField.mem_adjoin_simple_iff ℚ x) hx
+      refine Iff.mpr (IntermediateField.mem_adjoin_simple_iff ↥E0 x)
+        ⟨r.map (algebraMap ℚ ↥E0), s.map (algebraMap ℚ ↥E0), ?_⟩
+      rw [Polynomial.aeval_map_algebraMap ↥E0 z, Polynomial.aeval_map_algebraMap ↥E0 z]
+      exact hx'
+  have hEE : (IntermediateField.extendScalars hE0L : IntermediateField ↥E0 ℂ)
+      = (IntermediateField.adjoin ↥E0 {z} : IntermediateField ↥E0 ℂ) :=
+    SetLike.coe_injective (by rw [IntermediateField.coe_extendScalars, hcarrier])
+  have hrel2 : IntermediateField.relfinrank E0 L = 2 := by
+    rw [IntermediateField.relfinrank_eq_finrank_of_le hE0L, hEE,
+      IntermediateField.adjoin.finrank hzint, Nat.le_antisymm hdle hd2]
+  have htower : Module.finrank ℚ ↥E0 * IntermediateField.relfinrank E0 L = Module.finrank ℚ ↥L :=
+    IntermediateField.finrank_bot_mul_relfinrank hE0L
+  rw [hrel2, finrank_cyclotomic_rat_prime hζ hpp hp1] at htower
+  have h2k : 2 ^ k = 2 ^ (k - 1) * 2 := by
+    have hexp : k - 1 + 1 = k := by omega
+    rw [← pow_succ, hexp]
+  rw [h2k] at htower
+  exact Nat.eq_of_mul_eq_mul_right (by norm_num : (0 : ℕ) < 2) htower
+
+/-- **FT `ft24`** (Fermat primes).  If `p = 2 ^ k + 1` is prime, then `cos(2π/p)` is
+constructible.  Proof idea (Milne): `ℚ(ζ_p)` is Galois over `ℚ` with Galois group
+`≅ (ℤ/pℤ)ˣ` of order `p − 1 = 2 ^ k` (`finrank_cyclotomic_rat_prime`); `ℚ(cos(2π/p)) ⊂
+ℚ(ζ_p)` is Galois of degree `2 ^ (k - 1)` (source: fundamental theorem + tower; here via
+the fixed field of the fixing subgroup, normal because the cyclotomic Galois group is
+abelian, transferred to `ℝ` along the inclusion `ℝ ⊂ ℂ`), and FT `ft22`
+(`constructible_of_two_pow_galois`) applies. -/
+theorem constructible_cos_two_div (p k : ℕ) (hp : p = 2 ^ k + 1) (hpp : Nat.Prime p) :
+    FT.Constructible (Real.cos (2 * Real.pi / p)) := by
+  rcases Nat.eq_zero_or_pos k with hk | hk
+  · subst hk
+    have hp2 : p = 2 := by rw [hp]; norm_num
+    have hπ : (2 * Real.pi / p : ℝ) = Real.pi := by rw [hp2]; ring
+    rw [hπ, Real.cos_pi]
+    exact ((show ((-1 : ℚ) : ℝ) = -1 from by push_cast; rfl) ▸
+      FT.constructible_of_ratCast (-1 : ℚ))
+  · set θ : ℝ := 2 * Real.pi / p with hθ
+    set t : ℝ := Real.cos θ with htdef
+    set z : ℂ := Complex.exp (2 * Real.pi * Complex.I / p) with hzdef
+    have hp1 : p - 1 = 2 ^ k := by rw [hp, Nat.add_sub_cancel]
+    have hk1 : 1 ≤ k := hk
+    have hp3 : 3 ≤ p := by
+      have h2k : (2 : ℕ) ≤ 2 ^ k := Nat.pow_le_pow_right (n := 2) (by norm_num) hk
+      omega
+    have hdegE0 : Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {(t : ℂ)}) = 2 ^ (k - 1) :=
+      finrank_adjoin_cos_two_div p k hpp hk1 hp1
+    have hζ : IsPrimitiveRoot z p := Complex.isPrimitiveRoot_exp p (by positivity)
+    have hp0 : 0 < p := hpp.pos
+    haveI : NeZero p := ⟨hp0.ne'⟩
+    have hintζ : IsIntegral ℚ z :=
+      ⟨Polynomial.X ^ p - 1, Polynomial.monic_X_pow_sub_C 1 hp0.ne', by simp [hζ.pow_eq_one]⟩
+    haveI hc : IsCyclotomicExtension {p} ℚ ↥(IntermediateField.adjoin ℚ {z}) := by
+      change IsCyclotomicExtension {p} ℚ (IntermediateField.adjoin ℚ {z}).toSubalgebra
+      rw [IntermediateField.adjoin_simple_toSubalgebra_of_isAlgebraic hintζ.isAlgebraic]
+      exact hζ.adjoin_isCyclotomicExtension ℚ
+    haveI hfd : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ {z}) :=
+      IsCyclotomicExtension.finiteDimensional {p} ℚ _
+    haveI hgL : IsGalois ℚ ↥(IntermediateField.adjoin ℚ {z}) :=
+      IsCyclotomicExtension.isGalois {p} ℚ _
+    haveI hmulc : IsMulCommutative Gal(↥(IntermediateField.adjoin ℚ {z})/ℚ) :=
+      IsCyclotomicExtension.isMulCommutative {p} ℚ ↥(IntermediateField.adjoin ℚ {z})
+    set L : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {z} with hLdef
+    set E0 : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {(t : ℂ)} with hE0def
+    have hzL : z ∈ L := IntermediateField.mem_adjoin_simple_self ℚ z
+    have htE0 : (t : ℂ) ∈ E0 := IntermediateField.mem_adjoin_simple_self ℚ (t : ℂ)
+    have hsum : z + z⁻¹ = 2 * (t : ℂ) := cos_two_pi_div_add_inv p hp3
+    have htL : (t : ℂ) ∈ L := by
+      have h1 : (z + z⁻¹) / 2 = (t : ℂ) := by rw [hsum]; ring
+      rw [← h1]
+      exact IntermediateField.div_mem L
+        (IntermediateField.add_mem L hzL (IntermediateField.inv_mem L hzL))
+        (IntermediateField.algebraMap_mem L (2 : ℚ))
+    have hE0L : E0 ≤ L := IntermediateField.adjoin_le_iff.mpr
+      (by rintro x (rfl : x = (t : ℂ)); exact htL)
+    set E0' : IntermediateField ℚ ↥L := IntermediateField.comap L.val E0 with hE0'def
+    have hfix : (IntermediateField.fixingSubgroup E0').Normal :=
+      Subgroup.normal_of_isMulCommutative _
+    have hfixg := @IsGalois.of_fixedField_normal_subgroup ℚ ↥L _ _ _ hgL
+      (IntermediateField.fixingSubgroup E0') hfix
+    rw [IsGalois.fixedField_fixingSubgroup E0'] at hfixg
+    haveI hG0' : IsGalois ℚ ↥E0' := hfixg
+    have hfR : E0 ≤ L.val.fieldRange := by
+      refine IntermediateField.adjoin_le_iff.mpr ?_
+      rintro x (rfl : x = (t : ℂ))
+      exact ⟨⟨(t : ℂ), htL⟩, rfl⟩
+    have hmap : IntermediateField.map L.val E0' = E0 := IntermediateField.map_comap_eq_self hfR
+    have e : ↥E0' ≃ₐ[ℚ] ↥E0 := by
+      rw [← hmap]
+      exact IntermediateField.equivMap E0' L.val
+    have hgE0 : IsGalois ℚ ↥E0 := by
+      rw [isGalois_iff]
+      haveI hnorm0 : Normal ℚ ↥E0' := ((isGalois_iff).mp hG0').2
+      exact ⟨(AlgEquiv.Algebra.isSeparable_iff e).mp ((isGalois_iff).mp hG0').1,
+        Normal.of_algEquiv e⟩
+    set K : IntermediateField ℚ ℝ := IntermediateField.adjoin ℚ {t} with hKdef
+    have heq : IntermediateField.map (IsScalarTower.toAlgHom ℚ ℝ ℂ) K = E0 :=
+      map_coe_adjoin_real t
+    have e2 := IntermediateField.equivMap K (IsScalarTower.toAlgHom ℚ ℝ ℂ)
+    rw [heq] at e2
+    haveI hfinE0 : Algebra.IsAlgebraic ℚ ↥E0 := by
+      haveI : FiniteDimensional ℚ ↥E0 :=
+        Module.finite_of_finrank_pos (by rw [hdegE0]; positivity)
+      exact Algebra.IsAlgebraic.of_finite _ _
+    haveI hsepE0 : Algebra.IsSeparable ℚ ↥E0 := ((isGalois_iff).mp hgE0).1
+    have hnormE0 : Normal ℚ ↥E0 := ((isGalois_iff).mp hgE0).2
+    have hgK : IsGalois ℚ ↥K := by
+      rw [isGalois_iff]
+      exact ⟨(AlgEquiv.Algebra.isSeparable_iff e2.symm).mp hsepE0,
+        Normal.of_algEquiv (h := hnormE0) e2.symm⟩
+    have hdegK : Module.finrank ℚ ↥K = Module.finrank ℚ ↥E0 :=
+      LinearEquiv.finrank_eq e2.toLinearEquiv
+    exact FT.constructible_of_two_pow_galois (IntermediateField.mem_adjoin_simple_self ℚ t)
+      ⟨k - 1, by rw [hdegK]; exact hdegE0⟩
+
+end Ft24CosConstructible
+
+section Ft20Quintic
+
+/-- FT `ft20` (private support): in characteristic `5`, the subtraction binomial law
+`(x - y) ^ 5 = x ^ 5 - y ^ 5` holds whenever `(5 : R) = 0`.  Proof idea: binomial expansion
+`(x - y) ^ 5 = ∑_{m<6} x^m (-y)^{5-m} C(5,m)`: the middle terms vanish since `5 ∣ C(5,m)` for
+`0 < m < 5`, and the endpoints give `x^5` and `-y^5`. -/
+theorem sub_pow_five_of_cast_eq_zero {R : Type*} [CommRing R] (h5 : (5 : R) = 0)
+    (x y : R) : (x - y) ^ 5 = x ^ 5 - y ^ 5 := by
+  have h50 : (Nat.cast 5 : R) = 0 := h5
+  have cast5 : ∀ {n : ℕ}, 5 ∣ n → (n : R) = 0 := by
+    intro n hn
+    obtain ⟨k, rfl⟩ := hn
+    rw [Nat.cast_mul, h50, zero_mul]
+  have h15 : (-1 : R) ^ 5 = -1 := by
+    rw [show ((5 : ℕ) = 2 + 2 + 1) from by decide, pow_add, pow_add, neg_one_sq, one_mul, pow_one,
+      one_mul]
+  have hexp : (x - y) ^ 5 = ∑ m ∈ Finset.range 6, x ^ m * (-y) ^ (5 - m) * ((5 : ℕ).choose m : R) := by
+    rw [sub_eq_add_neg, Commute.add_pow (Commute.all x (-y)) 5]
+  have h5term : x ^ 5 * (-y) ^ (5 - 5) * ((5 : ℕ).choose 5 : R) = x ^ 5 := by simp
+  have hrest : ∑ m ∈ Finset.range 5, x ^ m * (-y) ^ (5 - m) * ((5 : ℕ).choose m : R) = -y ^ 5 := by
+    rw [Finset.sum_eq_single 0]
+    · simp [neg_pow, h15]
+    · intro b hb hb0
+      simp only [Finset.mem_range] at hb
+      have hb1 : (1 : ℕ) ≤ b := by omega
+      interval_cases b
+      · rw [cast5 (by decide : (5 : ℕ) ∣ (5 : ℕ).choose 1), mul_zero]
+      · rw [cast5 (by decide : (5 : ℕ) ∣ (5 : ℕ).choose 2), mul_zero]
+      · rw [cast5 (by decide : (5 : ℕ) ∣ (5 : ℕ).choose 3), mul_zero]
+      · rw [cast5 (by decide : (5 : ℕ) ∣ (5 : ℕ).choose 4), mul_zero]
+    · simp
+  rw [hexp, Finset.sum_range_succ, hrest, h5term]
+  ring
+
+/-- FT `ft20` (private support): a primitive fifth root of unity forces `(5 : F) ≠ 0`.
+Proof idea: if `(5 : F) = 0` then also `(5 : K) = 0`, so `(ζ - 1) ^ 5 = ζ ^ 5 - 1 ^ 5 = 0`,
+forcing `ζ = 1`, contradicting primitivity. -/
+theorem char_five_ne_zero_of_isPrimitiveRoot {F K : Type u} [Field F] [Field K]
+    [Algebra F K] {ζ : K} (hζ : IsPrimitiveRoot ζ 5) : (5 : F) ≠ 0 := by
+  intro h50
+  have h50' : (Nat.cast 5 : F) = 0 := h50
+  have h5K : (5 : K) = 0 := by
+    have h := map_natCast (algebraMap F K) 5
+    rw [h50'] at h
+    rw [map_zero] at h
+    exact h.symm
+  have hfrob : (ζ - 1) ^ 5 = ζ ^ 5 - 1 ^ 5 := sub_pow_five_of_cast_eq_zero h5K ζ 1
+  rw [hζ.1, one_pow, sub_self] at hfrob
+  have hz1 : ζ - 1 = 0 := (pow_eq_zero_iff (by decide)).mp hfrob
+  exact hζ.ne_one (by decide) (by rw [sub_eq_zero] at hz1; exact hz1)
+
+/-- FT `ft20`: the splitting field of `X ^ 5 - C a` inside `K`, built as the compositum
+`F(ζ) ⊔ F(α)` of the adjunctions of a primitive fifth root of unity `ζ` and of a fifth root
+`α` of `a` (`α ^ 5 = algebraMap F K a`).  All FT `ft20` setup objects are indexed by these
+data. -/
+noncomputable def quinticCompositum (F K : Type u) [Field F] [Field K] [Algebra F K] (_a : F)
+    (α ζ : K) : IntermediateField F K :=
+  IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α}
+
+/-- FT `ft20`: the subgroup of `Gal(↥(quinticCompositum F K a α ζ)/F)` fixing (the copy of)
+`F(ζ) = IntermediateField.adjoin F {ζ}` inside the compositum. -/
+noncomputable def quinticFixZeta (F K : Type u) [Field F] [Field K] [Algebra F K] (_a : F)
+    (α ζ : K) : Subgroup Gal(↥(quinticCompositum F K _a α ζ)/F) :=
+  ((IntermediateField.adjoin F {ζ}).restrict
+    (le_sup_left : IntermediateField.adjoin F {ζ} ≤ quinticCompositum F K _a α ζ)).fixingSubgroup
+
+/-- FT `ft20`: the subgroup of `Gal(↥(quinticCompositum F K a α ζ)/F)` fixing (the copy of)
+`F(α) = IntermediateField.adjoin F {α}` inside the compositum. -/
+noncomputable def quinticFixAlpha (F K : Type u) [Field F] [Field K] [Algebra F K] (_a : F)
+    (α ζ : K) : Subgroup Gal(↥(quinticCompositum F K _a α ζ)/F) :=
+  ((IntermediateField.adjoin F {α}).restrict
+    (le_sup_right : IntermediateField.adjoin F {α} ≤ quinticCompositum F K _a α ζ)).fixingSubgroup
+
+/-- FT `ft20` support: the tower `F ⊆ E1 ⊓ E2 ⊆ E1` for intermediate fields `E1, E2` of `K`
+(the left half of the compositum data of FT `ft20`; `algebraMap`s are the inclusions). -/
+instance quinticIsScalarTowerInfLeft (F K : Type u) [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) : IsScalarTower F ↥(E1 ⊓ E2) ↥E1 :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+/-- FT `ft20` support: the tower `F ⊆ E1 ⊓ E2 ⊆ E2` (right half). -/
+instance quinticIsScalarTowerInfRight (F K : Type u) [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+/-- FT `ft20` support: the tower `F ⊆ (the copy of E1 in E1 ⊔ E2) ⊆ E1 ⊔ E2` for the
+`IntermediateField.restrict` copy used in FT `ft20`. -/
+instance quinticIsScalarTowerRestrictLeft (F K : Type u) [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) :
+    IsScalarTower F
+      ↥(IntermediateField.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+/-- FT `ft20` support: the tower `F ⊆ (the copy of E2 in E1 ⊔ E2) ⊆ E1 ⊔ E2`. -/
+instance quinticIsScalarTowerRestrictRight (F K : Type u) [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) :
+    IsScalarTower F
+      ↥(IntermediateField.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+/-- FT `ft20` support: membership in the root set of `X ^ 5 - C a` inside `K`. -/
+theorem mem_rootSet_X_pow_sub_C_iff {F K : Type u} [Field F] [Field K] [Algebra F K] (a : F)
+    {x : K} : x ∈ (Polynomial.X ^ 5 - Polynomial.C a).rootSet K ↔ x ^ 5 = algebraMap F K a := by
+  rw [Polynomial.mem_rootSet_of_ne ((Polynomial.monic_X_pow_sub_C a (by decide)).ne_zero)]
+  simp only [Polynomial.aeval_sub, map_pow, Polynomial.aeval_X, Polynomial.aeval_C, sub_eq_zero]
+
+/-- FT `ft20`: the degree of the adjunction of a primitive fifth root of unity `ζ` over `F`
+is `φ(5) = 4` (the minimal polynomial of `ζ` is the cyclotomic polynomial `Φ₅`). -/
+theorem finrank_adjoin_primitiveRoot_five {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {ζ : K} (hζ : IsPrimitiveRoot ζ 5)
+    (hΦ : Irreducible (Polynomial.cyclotomic 5 F)) :
+    Module.finrank F ↥(IntermediateField.adjoin F {ζ}) = 4 := by
+  have hroot' : (Polynomial.cyclotomic 5 K).IsRoot ζ := hζ.isRoot_cyclotomic (by decide)
+  have haeval : Polynomial.aeval ζ (Polynomial.cyclotomic 5 F) = 0 := by
+    rw [Polynomial.aeval_def, Polynomial.eval₂_eq_eval_map, Polynomial.map_cyclotomic]
+    exact hroot'
+  have hint : IsIntegral F ζ := ⟨_, Polynomial.cyclotomic.monic 5 F, haeval⟩
+  have hmp : Polynomial.cyclotomic 5 F = minpoly F ζ :=
+    minpoly.eq_of_irreducible_of_monic hΦ haeval (Polynomial.cyclotomic.monic 5 F)
+  rw [IntermediateField.adjoin.finrank hint, ← hmp, Polynomial.natDegree_cyclotomic 5 F,
+    Nat.totient_prime (by decide : Nat.Prime 5)]
+
+/-- FT `ft20`: the degree of the adjunction of a fifth root `α` of `a` over `F` is `5`:
+`X ^ 5 - C a` is irreducible over `F` (Kummer, since `a` is not a fifth power in `F`), so it is
+the minimal polynomial of `α`. -/
+theorem finrank_adjoin_root_of_X_pow_sub_C_five {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} (hα : α ^ 5 = algebraMap F K a) (hnp : ∀ b : F, b ^ 5 ≠ a) :
+    Module.finrank F ↥(IntermediateField.adjoin F {α}) = 5 := by
+  have hirr : Irreducible (Polynomial.X ^ 5 - Polynomial.C a) :=
+    X_pow_sub_C_irreducible_of_prime (by decide : Nat.Prime 5) hnp
+  have haeval : Polynomial.aeval α (Polynomial.X ^ 5 - Polynomial.C a) = 0 := by
+    simp only [Polynomial.aeval_sub, map_pow, Polynomial.aeval_X, Polynomial.aeval_C, hα,
+      sub_self]
+  have hmono : (Polynomial.X ^ 5 - Polynomial.C a).Monic := Polynomial.monic_X_pow_sub_C a
+    (by decide)
+  have hint : IsIntegral F α := ⟨_, hmono, haeval⟩
+  rw [IntermediateField.adjoin.finrank hint, ← minpoly.eq_of_irreducible_of_monic hirr haeval
+    hmono, Polynomial.natDegree_X_pow_sub_C]
+
+/-- FT `ft20`: the extension `F(ζ)/F`, for a primitive fifth root of unity `ζ`, is Galois.
+Proof idea: `F(ζ)` is the splitting field of `X ^ 5 - C 1` (its roots in `K` are exactly the
+powers `ζ ^ i`, all lying in `F(ζ)`; `ζ` itself is a root), and `X ^ 5 - 1` is separable over
+`F` because `(5 : F) ≠ 0` (which follows from `hζ`: in characteristic `5` one has
+`(ζ - 1) ^ 5 = ζ ^ 5 - 1 = 0`, forcing `ζ = 1`). -/
+theorem isGalois_adjoin_primitiveRoot_five {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {ζ : K} (hζ : IsPrimitiveRoot ζ 5) :
+    IsGalois F ↥(IntermediateField.adjoin F {ζ}) := by
+  have hchar : (5 : F) ≠ 0 := char_five_ne_zero_of_isPrimitiveRoot hζ
+  have hsplitK : ((Polynomial.X ^ 5 - Polynomial.C (1 : F)).map (algebraMap F K)).Splits := by
+    have h : (Polynomial.X ^ 5 - Polynomial.C (1 : K)).Splits :=
+      X_pow_sub_C_splits_of_isPrimitiveRoot hζ (one_pow 5)
+    simpa [Polynomial.map_sub, map_pow, Polynomial.map_X, Polynomial.map_C] using h
+  have hζroot : ζ ∈ (Polynomial.X ^ 5 - Polynomial.C (1 : F)).rootSet K := by
+    rw [mem_rootSet_X_pow_sub_C_iff, map_one]
+    exact hζ.1
+  have hrootmem : ∀ x ∈ (Polynomial.X ^ 5 - Polynomial.C (1 : F)).rootSet K,
+      x ∈ IntermediateField.adjoin F {ζ} := by
+    intro x hx
+    rw [mem_rootSet_X_pow_sub_C_iff, map_one] at hx
+    obtain ⟨i, hi, rfl⟩ := hζ.eq_pow_of_pow_eq_one hx
+    simpa using IntermediateField.pow_mem (IntermediateField.adjoin F {ζ})
+      (IntermediateField.subset_adjoin F _ rfl) (i : ℤ)
+  have hsplit : (Polynomial.map (algebraMap F ↥(IntermediateField.adjoin F {ζ}))
+      (Polynomial.X ^ 5 - Polynomial.C (1 : F))).Splits :=
+    IntermediateField.splits_of_splits hsplitK hrootmem
+  haveI hsp : Polynomial.IsSplittingField F ↥(IntermediateField.adjoin F {ζ})
+      (Polynomial.X ^ 5 - Polynomial.C (1 : F)) := by
+    rw [IntermediateField.isSplittingField_iff]
+    refine ⟨hsplit, ?_⟩
+    apply le_antisymm
+    · rw [IntermediateField.adjoin_le_iff]
+      exact Set.singleton_subset_iff.mpr (IntermediateField.subset_adjoin F _ hζroot)
+    · rw [IntermediateField.adjoin_le_iff]
+      intro x hx
+      exact hrootmem x hx
+  exact IsGalois.of_separable_splitting_field
+    (Polynomial.separable_X_pow_sub_C 1 hchar one_ne_zero)
+
+/-- FT `ft20`: the compositum `F(ζ) ⊔ F(α)` is the `F`-adjoin, inside `K`, of the root set of
+`X ^ 5 - C a`.  Proof idea: the roots of `X ^ 5 - C a` in `K` are exactly `ζ ^ i * α`, `i < 5`
+(`IsPrimitiveRoot.nthRoots_eq`), all lying in `F(ζ, α)`; conversely `α` is a root and
+`ζ = (ζ · α) / α` is generated by the two roots `α` and `ζ · α` (using `α ≠ 0`, which follows
+from `hnp`). -/
+theorem quinticCompositum_eq_adjoin_rootSet {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α ζ : K} (hα : α ^ 5 = algebraMap F K a) (hnp : ∀ b : F, b ^ 5 ≠ a)
+    (hζ : IsPrimitiveRoot ζ 5) :
+    quinticCompositum F K a α ζ =
+      IntermediateField.adjoin F (Polynomial.rootSet (Polynomial.X ^ 5 - Polynomial.C a) K) := by
+  have ha0 : a ≠ 0 := fun h => hnp 0 (by rw [h]; simp)
+  have hinj : Function.Injective (algebraMap F K) := FaithfulSMul.algebraMap_injective F K
+  have hα0 : α ≠ 0 := by
+    intro h
+    rw [h, zero_pow (by decide : (5 : ℕ) ≠ 0)] at hα
+    exact ha0 (hinj (by rw [map_zero, hα]))
+  have hζle : IntermediateField.adjoin F {ζ} ≤ quinticCompositum F K a α ζ := le_sup_left
+  have hαle : IntermediateField.adjoin F {α} ≤ quinticCompositum F K a α ζ := le_sup_right
+  have hζ1 : ζ ∈ IntermediateField.adjoin F {ζ} := IntermediateField.subset_adjoin F _ rfl
+  have hζmem : ∀ i : ℕ, ζ ^ i ∈ quinticCompositum F K a α ζ := fun i =>
+    hζle (by simpa using IntermediateField.pow_mem _ hζ1 (i : ℤ))
+  have hαmem : α ∈ quinticCompositum F K a α ζ :=
+    hαle (IntermediateField.subset_adjoin F _ rfl)
+  have hrootmem : ∀ x ∈ (Polynomial.X ^ 5 - Polynomial.C a).rootSet K,
+      x ∈ quinticCompositum F K a α ζ := by
+    intro x hx
+    rw [mem_rootSet_X_pow_sub_C_iff] at hx
+    have hnth : x ∈ Polynomial.nthRoots 5 (algebraMap F K a) :=
+      (Polynomial.mem_nthRoots (by decide)).mpr hx
+    rw [hζ.nthRoots_eq hα] at hnth
+    simp only [Multiset.mem_map, Multiset.mem_range] at hnth
+    obtain ⟨i, -, rfl⟩ := hnth
+    exact IntermediateField.mul_mem _ (hζmem i) hαmem
+  have hαroot : α ∈ (Polynomial.X ^ 5 - Polynomial.C a).rootSet K := by
+    rw [mem_rootSet_X_pow_sub_C_iff]
+    exact hα
+  have hzaroot : ζ * α ∈ (Polynomial.X ^ 5 - Polynomial.C a).rootSet K := by
+    rw [mem_rootSet_X_pow_sub_C_iff]
+    simp only [mul_pow, hζ.1, one_mul]
+    exact hα
+  have hzain2 : α ∈ IntermediateField.adjoin F
+      (Polynomial.rootSet (Polynomial.X ^ 5 - Polynomial.C a) K) :=
+    IntermediateField.subset_adjoin F _ hαroot
+  have hzain1 : α * ζ ∈ IntermediateField.adjoin F
+      (Polynomial.rootSet (Polynomial.X ^ 5 - Polynomial.C a) K) := by
+    rw [mul_comm]
+    exact IntermediateField.subset_adjoin F _ hzaroot
+  have hζain : ζ ∈ IntermediateField.adjoin F
+      (Polynomial.rootSet (Polynomial.X ^ 5 - Polynomial.C a) K) := by
+    have hζeq : ζ = α * ζ / α := (mul_div_cancel_left₀ (b := ζ) hα0).symm
+    rw [hζeq]
+    exact IntermediateField.div_mem _ hzain1 hzain2
+  refine le_antisymm ?_ ?_
+  · show IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α} ≤ _
+    refine sup_le ?_ ?_
+    · rw [IntermediateField.adjoin_le_iff]
+      exact Set.singleton_subset_iff.mpr hζain
+    · rw [IntermediateField.adjoin_le_iff]
+      exact Set.singleton_subset_iff.mpr hzain2
+  · rw [IntermediateField.adjoin_le_iff]
+    exact hrootmem
+
+/-- FT `ft20`: the compositum `F(ζ, α)` is Galois over `F`.  Proof idea: it is the splitting
+field of `X ^ 5 - C a` over `F` (`quinticCompositum_eq_adjoin_rootSet`: the roots are
+`α, ζα, …, ζ⁴α`), and `X ^ 5 - C a` is separable because `(5 : F) ≠ 0` (from `hζ`, see
+`char_five_ne_zero_of_isPrimitiveRoot`) and `a ≠ 0` (from `hnp`). -/
+theorem isGalois_quinticCompositum {F K : Type u} [Field F] [Field K] [Algebra F K] {a : F}
+    {α ζ : K} (hα : α ^ 5 = algebraMap F K a) (hnp : ∀ b : F, b ^ 5 ≠ a)
+    (hζ : IsPrimitiveRoot ζ 5) :
+    IsGalois F ↥(quinticCompositum F K a α ζ) := by
+  have hchar : (5 : F) ≠ 0 := char_five_ne_zero_of_isPrimitiveRoot hζ
+  have ha0 : a ≠ 0 := fun h => hnp 0 (by rw [h]; simp)
+  have hsplitK : ((Polynomial.X ^ 5 - Polynomial.C a).map (algebraMap F K)).Splits := by
+    have h : (Polynomial.X ^ 5 - Polynomial.C (algebraMap F K a)).Splits :=
+      X_pow_sub_C_splits_of_isPrimitiveRoot hζ hα
+    simpa [Polynomial.map_sub, map_pow, Polynomial.map_X, Polynomial.map_C] using h
+  have hζle : IntermediateField.adjoin F {ζ} ≤ quinticCompositum F K a α ζ := le_sup_left
+  have hαle : IntermediateField.adjoin F {α} ≤ quinticCompositum F K a α ζ := le_sup_right
+  have hζ1 : ζ ∈ IntermediateField.adjoin F {ζ} := IntermediateField.subset_adjoin F _ rfl
+  have hζmem : ∀ i : ℕ, ζ ^ i ∈ quinticCompositum F K a α ζ := fun i =>
+    hζle (by simpa using IntermediateField.pow_mem _ hζ1 (i : ℤ))
+  have hαmem : α ∈ quinticCompositum F K a α ζ :=
+    hαle (IntermediateField.subset_adjoin F _ rfl)
+  have hrootmem : ∀ x ∈ (Polynomial.X ^ 5 - Polynomial.C a).rootSet K,
+      x ∈ quinticCompositum F K a α ζ := by
+    intro x hx
+    rw [mem_rootSet_X_pow_sub_C_iff] at hx
+    have hnth : x ∈ Polynomial.nthRoots 5 (algebraMap F K a) :=
+      (Polynomial.mem_nthRoots (by decide)).mpr hx
+    rw [hζ.nthRoots_eq hα] at hnth
+    simp only [Multiset.mem_map, Multiset.mem_range] at hnth
+    obtain ⟨i, -, rfl⟩ := hnth
+    exact IntermediateField.mul_mem _ (hζmem i) hαmem
+  have hsplit : (Polynomial.map (algebraMap F ↥(quinticCompositum F K a α ζ))
+      (Polynomial.X ^ 5 - Polynomial.C a)).Splits :=
+    IntermediateField.splits_of_splits hsplitK hrootmem
+  haveI hsp : Polynomial.IsSplittingField F ↥(quinticCompositum F K a α ζ)
+      (Polynomial.X ^ 5 - Polynomial.C a) := by
+    rw [IntermediateField.isSplittingField_iff]
+    exact ⟨hsplit, quinticCompositum_eq_adjoin_rootSet hα hnp hζ⟩
+  exact IsGalois.of_separable_splitting_field
+    (Polynomial.separable_X_pow_sub_C a hchar ha0)
+
+/-- FT `ft20`: the combined data fact: the compositum `F(ζ, α)` (the splitting field of
+`X ^ 5 - C a`) is Galois of degree `20` over `F`.  Proof idea: `F(ζ)/F` and `F(α)/F` have
+coprime degrees `4 = φ(5)` and `5` (Kummer), so the FT `ft18g` degree formula
+`[E1 ⊔ E2 : F] · [E1 ⊓ E2 : F] = 4 · 5` together with `[E1 ⊓ E2 : F] ∣ 4, 5` (tower law)
+gives `[E1 ⊓ E2 : F] = 1` and `[E : F] = 20`. -/
+theorem quinticCompositum_data {F K : Type u} [Field F] [Field K] [Algebra F K] {a : F} {α ζ : K}
+    (hα : α ^ 5 = algebraMap F K a) (hnp : ∀ b : F, b ^ 5 ≠ a)
+    (hζ : IsPrimitiveRoot ζ 5) (hΦ : Irreducible (Polynomial.cyclotomic 5 F)) :
+    IsGalois F ↥(quinticCompositum F K a α ζ) ∧
+      Module.finrank F ↥(quinticCompositum F K a α ζ) = 20 := by
+  haveI hG1 : IsGalois F ↥(IntermediateField.adjoin F {ζ}) :=
+    isGalois_adjoin_primitiveRoot_five hζ
+  have h4 := finrank_adjoin_primitiveRoot_five hζ hΦ
+  have h5 := finrank_adjoin_root_of_X_pow_sub_C_five hα hnp
+  haveI hfree1 : Module.Free F ↥(IntermediateField.adjoin F {ζ}) :=
+    Module.Free.of_divisionRing _ _
+  haveI hfree2 : Module.Free F ↥(IntermediateField.adjoin F {α}) :=
+    Module.Free.of_divisionRing _ _
+  haveI hFD1 : FiniteDimensional F ↥(IntermediateField.adjoin F {ζ}) :=
+    Module.finite_of_finrank_pos (by rw [h4]; decide)
+  haveI hFD2 : FiniteDimensional F ↥(IntermediateField.adjoin F {α}) :=
+    Module.finite_of_finrank_pos (by rw [h5]; decide)
+  have hdeg := finrank_compositum_mul_inf (IntermediateField.adjoin F {ζ})
+    (IntermediateField.adjoin F {α}) hG1
+  haveI hfreeI : Module.Free F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) := Module.Free.of_divisionRing _ _
+  haveI hfreeI1 : Module.Free ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {ζ}) :=
+    Module.Free.of_divisionRing _ _
+  haveI hfreeI2 : Module.Free ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {α}) :=
+    Module.Free.of_divisionRing _ _
+  haveI htw1 : IsScalarTower F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {ζ}) :=
+    quinticIsScalarTowerInfLeft F K _ _
+  haveI htw2 : IsScalarTower F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {α}) :=
+    quinticIsScalarTowerInfRight F K _ _
+  have t1 : Module.finrank F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) *
+      Module.finrank ↥(IntermediateField.adjoin F {ζ} ⊓
+        IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {ζ}) =
+      Module.finrank F ↥(IntermediateField.adjoin F {ζ}) := Module.finrank_mul_finrank _ _ _
+  have t2 : Module.finrank F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) *
+      Module.finrank ↥(IntermediateField.adjoin F {ζ} ⊓
+        IntermediateField.adjoin F {α}) ↥(IntermediateField.adjoin F {α}) =
+      Module.finrank F ↥(IntermediateField.adjoin F {α}) := Module.finrank_mul_finrank _ _ _
+  have hd4 : Module.finrank F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ∣ 4 :=
+    ⟨_, by rw [← h4]; exact t1.symm⟩
+  have hd5 : Module.finrank F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) ∣ 5 :=
+    ⟨_, by rw [← h5]; exact t2.symm⟩
+  have hd1 : Module.finrank F ↥(IntermediateField.adjoin F {ζ} ⊓
+      IntermediateField.adjoin F {α}) = 1 := by
+    have h := Nat.dvd_gcd hd4 hd5
+    rw [show Nat.gcd 4 5 = 1 from by decide] at h
+    exact Nat.dvd_one.mp h
+  rw [hd1, Nat.mul_one, h4, h5, show (4 : ℕ) * 5 = 20 from by decide] at hdeg
+  exact ⟨isGalois_quinticCompositum hα hnp hζ, hdeg⟩
+
+/-- FT `ft20`: the fixing subgroup of the copy of `E1` inside `E1 ⊔ E2` has cardinality
+`[E1 ⊔ E2 : F] / [E1 : F] = 20 / 4 = 5` (for the FT `ft20` data, where `E1 = F(ζ)`).
+Proof idea: `IsGalois.card_fixingSubgroup_eq_finrank` gives `|fixingSubgroup| = [E1copy : E]`,
+the degree of the copy equals `[E1 : F] = 4` via the `restrict_algEquiv` transport, and the
+tower law gives `[E1 ⊔ E2 : F] = 4 · [E1 ⊔ E2 : E1copy] = 20`. -/
+theorem quintic_fixZeta_card {F K : Type u} [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) (hG : IsGalois F ↥(E1 ⊔ E2))
+    (hFD : FiniteDimensional F ↥(E1 ⊔ E2)) (h4 : Module.finrank F ↥E1 = 4)
+    (h20 : Module.finrank F ↥(E1 ⊔ E2) = 20) :
+    Nat.card ↥((E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)).fixingSubgroup) = 5 := by
+  have hcopy : Module.finrank F ↥(E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)) = 4 := by
+    rw [← LinearEquiv.finrank_eq
+      (IntermediateField.restrict_algEquiv (le_sup_left : E1 ≤ E1 ⊔ E2)).toLinearEquiv]
+    exact h4
+  haveI hfree1 : Module.Free F ↥(E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)) :=
+    Module.Free.of_divisionRing _ _
+  haveI hfree2 : Module.Free ↥(E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+    Module.Free.of_divisionRing _ _
+  haveI htw : IsScalarTower F ↥(E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+    quinticIsScalarTowerRestrictLeft F K E1 E2
+  have hcard := IsGalois.card_fixingSubgroup_eq_finrank (E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2))
+  rw [hcard]
+  have tower := Module.finrank_mul_finrank F ↥(E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2))
+    ↥(E1 ⊔ E2)
+  rw [hcopy, h20] at tower
+  omega
+
+/-- FT `ft20`: the fixing subgroup of the copy of `E2` inside `E1 ⊔ E2` has cardinality
+`[E1 ⊔ E2 : F] / [E2 : F] = 20 / 5 = 4` (for the FT `ft20` data, where `E2 = F(α)`).
+Proof idea: as for `quintic_fixZeta_card`, with the roles of the two subfields exchanged. -/
+theorem quintic_fixAlpha_card {F K : Type u} [Field F] [Field K] [Algebra F K]
+    (E1 E2 : IntermediateField F K) (hG : IsGalois F ↥(E1 ⊔ E2))
+    (hFD : FiniteDimensional F ↥(E1 ⊔ E2)) (h5 : Module.finrank F ↥E2 = 5)
+    (h20 : Module.finrank F ↥(E1 ⊔ E2) = 20) :
+    Nat.card ↥((E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)).fixingSubgroup) = 4 := by
+  have hcopy : Module.finrank F ↥(E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) = 5 := by
+    rw [← LinearEquiv.finrank_eq
+      (IntermediateField.restrict_algEquiv (le_sup_right : E2 ≤ E1 ⊔ E2)).toLinearEquiv]
+    exact h5
+  haveI hfree1 : Module.Free F ↥(E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) :=
+    Module.Free.of_divisionRing _ _
+  haveI hfree2 : Module.Free ↥(E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+    Module.Free.of_divisionRing _ _
+  haveI htw : IsScalarTower F ↥(E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) ↥(E1 ⊔ E2) :=
+    quinticIsScalarTowerRestrictRight F K E1 E2
+  have hcard := IsGalois.card_fixingSubgroup_eq_finrank
+    (E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2))
+  rw [hcard]
+  have tower := Module.finrank_mul_finrank F ↥(E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2))
+    ↥(E1 ⊔ E2)
+  rw [hcopy, h20] at tower
+  omega
+
+section Ft20Group
+
+/-- **FT `ft20`**: `|Gal(E/F)| = [E : F] = 20`. -/
+theorem natCard_gal_quinticCompositum {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} {ζ : K}
+    (hdata : IsGalois F ↥(quinticCompositum F K a α ζ)
+      ∧ Module.finrank F ↥(quinticCompositum F K a α ζ) = 20) :
+    Nat.card Gal(↥(quinticCompositum F K a α ζ)/F) = 20 := by
+  haveI hG : IsGalois F ↥(quinticCompositum F K a α ζ) := hdata.1
+  haveI hFD : FiniteDimensional F ↥(quinticCompositum F K a α ζ) :=
+    FiniteDimensional.of_finrank_pos (by omega)
+  rw [IsGalois.card_aut_eq_finrank F _]
+  exact hdata.2
+
+/-- The order of `N := Gal(E/F(ζ))` is `|G| / [F(ζ) : F] = 20 / 4 = 5`
+(Milne: `N` has order 5, via the Galois correspondence on the copy of `F(ζ)` in `E`). -/
+theorem natCard_quinticFixZeta {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} {ζ : K} (hζ : IsPrimitiveRoot ζ 5)
+    (hΦ : Irreducible (Polynomial.cyclotomic 5 F))
+    (hdata : IsGalois F ↥(quinticCompositum F K a α ζ)
+      ∧ Module.finrank F ↥(quinticCompositum F K a α ζ) = 20) :
+    Nat.card ↥(quinticFixZeta F K a α ζ) = 5 := by
+  haveI hG : IsGalois F ↥(quinticCompositum F K a α ζ) := hdata.1
+  haveI hFD : FiniteDimensional F ↥(quinticCompositum F K a α ζ) :=
+    FiniteDimensional.of_finrank_pos (by omega)
+  exact quintic_fixZeta_card (IntermediateField.adjoin F {ζ})
+    (IntermediateField.adjoin F {α}) hG hFD
+    (finrank_adjoin_primitiveRoot_five hζ hΦ) hdata.2
+
+/-- The order of `H := Gal(E/F(α))` is `|G| / [F(α) : F] = 20 / 5 = 4`. -/
+theorem natCard_quinticFixAlpha {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} {ζ : K} (hα : α ^ 5 = algebraMap F K a) (hnp : ∀ b : F, b ^ 5 ≠ a)
+    (hdata : IsGalois F ↥(quinticCompositum F K a α ζ)
+      ∧ Module.finrank F ↥(quinticCompositum F K a α ζ) = 20) :
+    Nat.card ↥(quinticFixAlpha F K a α ζ) = 4 := by
+  haveI hG : IsGalois F ↥(quinticCompositum F K a α ζ) := hdata.1
+  haveI hFD : FiniteDimensional F ↥(quinticCompositum F K a α ζ) :=
+    FiniteDimensional.of_finrank_pos (by omega)
+  exact quintic_fixAlpha_card (IntermediateField.adjoin F {ζ})
+    (IntermediateField.adjoin F {α}) hG hFD
+    (finrank_adjoin_root_of_X_pow_sub_C_five hα hnp) hdata.2
+
+/-- **FT `ft20`**: `N ∩ H = 1` — the compositum argument: the fixing subgroup of
+`F(ζ) ⊔ F(α) = E` is trivial (`FT.fixingSubgroup_compositum` = FT `ft18` (a)). -/
+theorem quinticFixZeta_inf_fixAlpha_eq_bot {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} {ζ : K} :
+    quinticFixZeta F K a α ζ ⊓ quinticFixAlpha F K a α ζ = ⊥ := by
+  show (((IntermediateField.adjoin F {ζ}).restrict
+      (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+        IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})).fixingSubgroup) ⊓
+    (((IntermediateField.adjoin F {α}).restrict
+      (le_sup_right : IntermediateField.adjoin F {α} ≤
+        IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})).fixingSubgroup) = ⊥
+  rw [← IntermediateField.fixingSubgroup_sup]
+  have hTop :
+      (IntermediateField.adjoin F {ζ}).restrict
+          (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+            IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})
+        ⊔ (IntermediateField.adjoin F {α}).restrict
+          (le_sup_right : IntermediateField.adjoin F {α} ≤
+            IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})
+      = ⊤ := by
+    refine (IntermediateField.lift_inj _ _).mp ?_
+    rw [IntermediateField.lift_sup,
+      IntermediateField.lift_restrict
+        (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+          IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α}),
+      IntermediateField.lift_restrict
+        (le_sup_right : IntermediateField.adjoin F {α} ≤
+          IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α}),
+      IntermediateField.lift_top]
+  rw [hTop]
+  exact IntermediateField.fixingSubgroup_top
+
+/-- **FT `ft20`**: `N ⊴ G` — `F(ζ)/F` is normal (it is the splitting field of `X ^ 5 - 1`,
+`isGalois_adjoin_primitiveRoot_five`), so its fixing subgroup is normal in `Gal(E/F)`
+(Mathlib `InfiniteGalois.normal_iff_isGalois`). -/
+theorem quinticFixZeta_normal {F K : Type u} [Field F] [Field K] [Algebra F K]
+    {a : F} {α : K} {ζ : K} (hζ : IsPrimitiveRoot ζ 5)
+    (hG : IsGalois F ↥(quinticCompositum F K a α ζ)) :
+    (quinticFixZeta F K a α ζ).Normal := by
+  haveI : IsGalois F ↥(IntermediateField.adjoin F {ζ}
+      ⊔ IntermediateField.adjoin F {α}) := hG
+  haveI hE1 : IsGalois F ↥(IntermediateField.adjoin F {ζ}) :=
+    isGalois_adjoin_primitiveRoot_five hζ
+  show (((IntermediateField.adjoin F {ζ}).restrict
+      (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+        IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})).fixingSubgroup).Normal
+  exact (InfiniteGalois.normal_iff_isGalois
+    ((IntermediateField.adjoin F {ζ}).restrict
+      (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+        IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α}))).mpr
+    (IsGalois.of_algEquiv
+      (IntermediateField.restrict_algEquiv
+        (le_sup_left : IntermediateField.adjoin F {ζ} ≤
+          IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})))
+
+end Ft20Group
+
 /-!
 ### Chapter III ledger — remaining in-scope items (work in progress)
 
 Theorem-like labels formalized: `ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`,
-`ft17`, `ft18f`, `ft18g`, `ft18h`, `ft22`, `ft23` (12 of 13).  The definition-like labels `ft10m`, `ft10n`,
+`ft17`, `ft18f`, `ft18g`, `ft18h`, `ft22`, `ft23`, `ft24` (13 of 13); examples
+`ft19` and `ft20` (the group-fact clauses; the τ/σ/semidirect-product
+presentation is a recorded handover) are additionally delivered.  The definition-like labels `ft10m`, `ft10n`,
 `ft11m`, `ft21` are encoded (`FT.separableExt_iff`, `FT.normalExt_iff`,
 `FT.IsGaloisExt`/`FT.galoisGroup`, `FT.IsCyclicExt`/`FT.IsAbelianExt`/
 `FT.IsSolvableExt`), and remark/example content is carried by
@@ -6961,13 +7785,25 @@ Pending in scope (to be recorded in the final ledger as pending or AUDIT-DEFERRE
   (fixed-field tower + TowerOK assembly), `FT.quadStep` (quadratic step via
   FT `ft23` + `IntermediateField.extendScalars`), and ch.I's
   `FT.constructible_of_towerOK`.
-- `ft24` (Fermat prime ⇒ cos(2π/p) constructible): pending (needs `ft22` plus the
-  cyclotomic Galois-group identification).
+- (resolved) `ft24`: `FT.constructible_cos_two_div` — Fermat prime ⇒ cos(2π/p)
+  constructible, via the cyclotomic degree fact
+  (`FT.finrank_cyclotomic_rat_prime`, Gal ≅ (ℤ/pℤ)ˣ of order 2^k), the cos bridge
+  (`ζ + ζ⁻¹ = 2 cos(2π/p)`, `FT.cos_two_pi_div_add_inv`), the real-subfield degree
+  `2^(k−1)` (`FT.finrank_adjoin_cos_two_div`), and FT `ft22`.
 - (resolved) `ft19`: the ℚ(ζ₇) subfield analysis — nontrivial-root sum
   (`FT.zeta7_sum_eq_neg_one`), the cubic of ζ + ζ⁻¹ and its minimality
   (`FT.zeta7_minpoly_add_inv`, from scratch via the source's ζ²-degree trick),
   and the ℚ(√−7) subfield identity (`FT.zeta7_sqrt_neg_seven`).
-- Example `ft20` (Gal of X^5−2 splitting field): concrete computation, pending.
+- (resolved) `ft20`: the Galois group of the splitting field of `X^5 − a` —
+  `FT.quinticCompositum` (splitting field as compositum F(ζ)⊔F(α)), degree facts
+  (`[F(ζ):F]=4`, `[F(α):F]=5`, `[E:F]=20` via FT `ft18g` with the
+  coprime-intersection argument), the group facts as separate theorems
+  (`|G| = 20` `FT.natCard_gal_quinticCompositum`, `|N| = 5`
+  `FT.natCard_quinticFixZeta`, `|H| = 4` `FT.natCard_quinticFixAlpha`,
+  `N ∩ H = 1` `FT.quinticFixZeta_inf_fixAlpha_eq_bot`, `N ⊴ G`
+  `FT.quinticFixZeta_normal`); NOT delivered (stretch, handover recorded):
+  the explicit generators τ, σ, the relation `τστ⁻¹ = σ²` and the
+  semidirect-product iso `G ≅ N ⋊ H`.
 - `ft7` (Aut(ℂ), PGL₂, Cremona group): expositional, forward references
   (`te16`, `te17a`); pending a scope citation.
 - `ft11` (ℚ(∛2) not normal; F_p(T)/F_p(T^p) not separable): concrete instances,
