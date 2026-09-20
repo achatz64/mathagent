@@ -9,6 +9,7 @@ import Mathlib.NumberTheory.Transcendental.Liouville.LiouvilleNumber
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Roots
 import Mathlib.FieldTheory.PolynomialGaloisGroup
+import Mathlib.FieldTheory.Relrank
 import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
 import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
@@ -63,12 +64,13 @@ formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
 theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
 `sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
 cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
-unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 11 of
+unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 12 of
 13 theorem-like labels formalized (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`,
-`ft15`, `ft17`, `ft18f`, `ft18g`, `ft18h`, `ft23`) plus the definition-like labels
-`ft10m`, `ft10n`, `ft11m`, `ft21` and remark content (`ft9`, `ft13` (b) equality
-part, `ft18` (a), the ggp section); pending: `ft22` (partial: the 2-group chain
-lemma is done, the field-tower bridge pending), `ft24`, examples `ft19`/`ft20`, and
+`ft15`, `ft17`, `ft18f`, `ft18g`, `ft18h`, `ft22`, `ft23`) plus the definition-like
+labels `ft10m`, `ft10n`, `ft11m`, `ft21`, the example `ft19`, and remark content
+(`ft9`, `ft13` (b) equality part, `ft18` (a), the ggp section); pending: `ft24`
+(needs the ft22 result plus the cyclotomic Galois-group identification), example
+`ft20`, and
 the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
 `ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
 Chapters 4-7 (computing Galois groups, applications, algebraic closures,
@@ -6440,11 +6442,504 @@ theorem exists_subgroup_chain_of_two_pow_card (r : ℕ) :
 
 end TwoGroupChain
 
+section QuadStep
+
+/-- **FT `ft22` step 2** (quadratic tower step): if `A` is a relative degree-2 extension of
+`B` (both intermediate fields of `ℝ/ℚ`), then `A` is generated over `B` by a square root:
+there exists `a > 0` in `B` with `A ≤ B ⊔ ℚ⟮√a⟯`.
+
+Proof idea (Milne `ft22` via FT `ft23`): form `S := extendScalars hBA` over the copy of `B`;
+`[S : B] = 2` (via `relfinrank_eq_finrank_of_le`), so FT `ft23` gives `d ∈ B` and `x ∈ S`
+with `x² = d` generating `S` over `B`; `x ≠ 0` (else `A = B`, contradicting degree 2);
+`a := (d : ℝ) > 0` (a square of a nonzero real), and `xr := S.val x` satisfies
+`xr² = a`, so `xr = ±√a ∈ ℚ⟮√a⟯`; membership `A ≤ B ⊔ ℚ⟮√a⟯` transports `z ∈ A` as a
+`B`-rational function in `x` (`mem_adjoin_simple_iff`) along `S.val` term-by-term
+(`aeval_algHom_apply` + `eval₂_eq_sum_range`), concluding with `div_mem` (no nonzero
+hypothesis needed — 0-div is 0). -/
+theorem quadStep (A B : IntermediateField ℚ ℝ) (hBA : B ≤ A) (h2 : B.relfinrank A = 2) :
+    ∃ a : ℝ, 0 < a ∧ a ∈ B ∧ A ≤ B ⊔ IntermediateField.adjoin ℚ {√a} := by
+  -- steps 1-3: S := extendScalars hBA, relfinrank -> finrank = 2, Free/Finite/IsAlgebraic
+  obtain ⟨S, hS⟩ : ∃ S : IntermediateField ↥B ℝ, S = IntermediateField.extendScalars hBA := ⟨_, rfl⟩
+  have hfr : Module.finrank ↥B ↥S = 2 := by
+    rw [hS]; exact (IntermediateField.relfinrank_eq_finrank_of_le hBA).symm.trans h2
+  haveI hfree : Module.Free ↥B ↥S := Module.Free.of_divisionRing ↥B ↥S
+  haveI hFD : Module.Finite ↥B ↥S := Module.finite_of_finrank_pos (h := by omega)
+  haveI halg : Algebra.IsAlgebraic ↥B ↥S := Algebra.IsAlgebraic.of_finite ↥B ↥S
+  -- step 4: char != 2
+  have hchar : (2 : ↥B) ≠ 0 := by
+    have h2' : ((2 : ↥B) : ℝ) = 2 := rfl
+    intro hc; rw [hc] at h2'; norm_num at h2'
+  -- step 5: FT ft23
+  obtain ⟨d, x, hx2, hgen⟩ := FT.quadratic_extension_exists_root (F := ↥B) (E := ↥S) hchar ⟨hFD, hfr⟩
+  have hIgen : IntermediateField.adjoin ↥B ({x} : Set ↥S) = ⊤ :=
+    (IntermediateField.adjoin_eq_top_iff (F := ↥B) (E := ↥S)).mpr hgen
+  -- step 6: xr, a, hxra
+  obtain ⟨xr, hxr⟩ : ∃ xr : ℝ, xr = IntermediateField.val S x := ⟨_, rfl⟩
+  obtain ⟨a, ha⟩ : ∃ a : ℝ, a = ((d : ↥B) : ℝ) := ⟨_, rfl⟩
+  have hco : ∀ c : ↥B, IntermediateField.val S (algebraMap ↥B ↥S c) = (c : ℝ) := fun c => rfl
+  have hxra : xr ^ 2 = a := by
+    rw [ha, hxr, ← map_pow (IntermediateField.val S) x 2, hx2, hco d]
+  -- step 8: x != 0 (else adjoin {0} = bottom = top => algebraMap surjective => A <= B => relfinrank 2 = 1)
+  have hx0 : x ≠ 0 := by
+    intro hxx
+    rw [hxx] at hIgen
+    have h0 : ((0 : ↥S) : ↥S) ∈ (⊥ : IntermediateField ↥B ↥S) :=
+      IntermediateField.mem_bot.mpr ⟨0, map_zero _⟩
+    have hle : IntermediateField.adjoin ↥B ({(0 : ↥S)} : Set ↥S) ≤ (⊥ : IntermediateField ↥B ↥S) := by
+      rw [IntermediateField.adjoin_le_iff]
+      rintro y (hy : y = 0)
+      subst hy; exact h0
+    have htb : (⊤ : IntermediateField ↥B ↥S) = ⊥ := by rw [← hIgen]; exact le_antisymm hle bot_le
+    have hsurj : ∀ z : ↥S, ∃ c : ↥B, (algebraMap ↥B ↥S) c = z := fun z =>
+      IntermediateField.mem_bot.mp (by
+        have hm : z ∈ (⊤ : IntermediateField ↥B ↥S) := IntermediateField.mem_top
+        rw [htb] at hm; exact hm)
+    have hAB : A ≤ B := by
+      intro z hzA
+      obtain ⟨c, hc⟩ := hsurj ⟨z, (by rw [hS]; exact (IntermediateField.mem_extendScalars hBA).mpr hzA)⟩
+      have hzval : (c : ℝ) = z := by
+        have hv := congrArg (IntermediateField.val S) hc
+        simpa using hv
+      rw [← hzval]
+      exact (c : ↥B).2
+    have hfin : B.relfinrank A = 1 := IntermediateField.relfinrank_eq_one_iff.mpr hAB
+    rw [hfin] at h2; norm_num at h2
+  -- step 9: 0 < a, a ∈ B, sign of sqrt a
+  have hxr0 : xr ≠ 0 := by
+    intro hzero
+    apply hx0
+    have hv : IntermediateField.val S x = 0 := by rw [← hxr]; exact hzero
+    exact Subtype.ext hv
+  have hapos : 0 < a := by
+    rw [← hxra]; exact sq_pos_iff.mpr hxr0
+  have hdiv : ∀ (u v : ↥S), IntermediateField.val S (u / v) =
+      IntermediateField.val S u / IntermediateField.val S v := fun u v => by
+    rw [div_eq_inv_mul, div_eq_inv_mul, map_mul, map_inv₀]
+  refine ⟨a, hapos, ?_, ?_⟩
+  · rw [ha]; exact (d : ↥B).2
+  -- step 10: membership transport
+  · intro z hzA
+    have hzS : z ∈ S := by rw [hS]; exact (IntermediateField.mem_extendScalars hBA).mpr hzA
+    have hzad : (⟨z, hzS⟩ : ↥S) ∈ IntermediateField.adjoin ↥B ({x} : Set ↥S) := by
+      rw [hIgen]; exact IntermediateField.mem_top
+    obtain ⟨r, s, hz'⟩ :=
+      (IntermediateField.mem_adjoin_simple_iff (F := ↥B) (α := x) (⟨z, hzS⟩ : ↥S)).mp hzad
+    have hzr : z = (Polynomial.aeval xr) r / (Polynomial.aeval xr) s := by
+      have h1 : IntermediateField.val S ((Polynomial.aeval x) r / (Polynomial.aeval x) s)
+          = IntermediateField.val S (⟨z, hzS⟩ : ↥S) := by rw [hz']
+      rw [hdiv, ← Polynomial.aeval_algHom_apply (IntermediateField.val S) x r,
+        ← Polynomial.aeval_algHom_apply (IntermediateField.val S) x s, ← hxr] at h1
+      simpa using h1.symm
+    have hsq : Real.sqrt a = |xr| := by rw [← hxra, Real.sqrt_sq_eq_abs]
+    have hxrmem : xr ∈ IntermediateField.adjoin ℚ {Real.sqrt a} := by
+      rcases lt_or_ge 0 xr with hlt | hle
+      · have h1 : xr = Real.sqrt a := by rw [hsq, abs_of_nonneg hlt.le]
+        rw [h1]; exact IntermediateField.mem_adjoin_simple_self ℚ _
+      · have h1 : Real.sqrt a = -xr := by rw [hsq, abs_of_nonpos hle]
+        have h2' : xr = -Real.sqrt a := by rw [h1]; ring
+        rw [h2']
+        exact IntermediateField.neg_mem _ (IntermediateField.mem_adjoin_simple_self ℚ _)
+    have hvalmem : ∀ p : Polynomial ↥B,
+        (Polynomial.aeval xr) p ∈ B ⊔ IntermediateField.adjoin ℚ {Real.sqrt a} := by
+      intro p
+      rw [Polynomial.aeval_def, Polynomial.eval₂_eq_sum_range]
+      refine IntermediateField.sum_mem _ fun i _ => ?_
+      refine IntermediateField.mul_mem _ ?_ ?_
+      · have hcoe : (algebraMap ↥B ℝ) (p.coeff i) = ((p.coeff i : ↥B) : ℝ) := rfl
+        rw [hcoe]
+        exact le_sup_left (α := IntermediateField ℚ ℝ) (a := B)
+          (b := IntermediateField.adjoin ℚ {Real.sqrt a}) ((p.coeff i : ↥B).2)
+      · exact le_sup_right (α := IntermediateField ℚ ℝ) (a := B)
+          (b := IntermediateField.adjoin ℚ {Real.sqrt a})
+          (IntermediateField.pow_mem _ hxrmem (i : ℤ))
+    rw [hzr]
+    exact IntermediateField.div_mem _ (hvalmem r) (hvalmem s)
+
+end QuadStep
+
+section FT22Assembly
+
+/-- Helper: the tower law for two consecutive fixed fields in a subgroup chain:
+`[F(H1) : F(H2)] · |H1| = |H2|` for `H1 ≤ H2` (Artin: `[E : F(H)] = |H|`). -/
+theorem fixedField_relfinrank_card {F : Type*} [Field F] {E : Type*} [Field E] [Algebra F E]
+    [FiniteDimensional F E] {H1 H2 : Subgroup Gal(E/F)} (hsub : H1 ≤ H2) :
+    (IntermediateField.fixedField H2).relfinrank (IntermediateField.fixedField H1) *
+        Nat.card ↥H1 = Nat.card ↥H2 := by
+  have h := IntermediateField.relfinrank_mul_finrank_top
+    (IntermediateField.fixedField_le hsub)
+  rwa [IntermediateField.finrank_fixedField_eq_card,
+    IntermediateField.finrank_fixedField_eq_card] at h
+
+/-- FT `ft22` step 2, main downward induction: the fixed fields of a `2^r`-chain in
+`Gal(K/ℚ)`, transported to ℝ along `K.val`, are covered by a well-formed quadratic
+tower (the quadratic step taken as hypothesis `hstep`). -/
+theorem exists_tower_of_fixedField_chain (K : IntermediateField ℚ ℝ) [IsGalois ℚ ↥K]
+    [FiniteDimensional ℚ ↥K] (H : ℕ → Subgroup Gal(↥K/ℚ)) (r : ℕ)
+    (hHr : H r = ⊤) (hmono : ∀ i < r, H i ≤ H (i + 1))
+    (hcard : ∀ i ≤ r, Nat.card ↥(H i) = 2 ^ i)
+    (hstep : ∀ A B : IntermediateField ℚ ℝ, B ≤ A → B.relfinrank A = 2 →
+        ∃ a : ℝ, 0 < a ∧ a ∈ B ∧ A ≤ B ⊔ IntermediateField.adjoin ℚ {√a}) :
+    ∀ i ≤ r, ∃ as : List ℝ, FT.TowerOK as ∧
+      IntermediateField.map K.val (IntermediateField.fixedField (H i)) ≤ FT.quadTower as := by
+  have main : ∀ n : ℕ, ∀ i ≤ r, n + i = r → ∃ as : List ℝ, FT.TowerOK as ∧
+      IntermediateField.map K.val (IntermediateField.fixedField (H i)) ≤ FT.quadTower as := by
+    intro n
+    induction n with
+    | zero =>
+      intro i _ hn
+      have hbot : IntermediateField.fixedField (H r) = ⊥ := by
+        rw [hHr]; exact IsGalois.fixedField_top
+      have hmap : IntermediateField.map K.val (IntermediateField.fixedField (H r)) = ⊥ :=
+        Eq.trans (congrArg (IntermediateField.map K.val) hbot)
+          (IntermediateField.map_bot K.val)
+      have hir : i = r := by omega
+      refine ⟨[], FT.TowerOK.nil, ?_⟩
+      rw [hir]
+      exact le_of_eq hmap
+    | succ m ih =>
+      intro i _ hn
+      have hi1 : i + 1 ≤ r := by omega
+      obtain ⟨as, hOK, hle⟩ := ih (i + 1) hi1 (by omega)
+      have hsub : H i ≤ H (i + 1) := hmono i (by omega)
+      have hFF : IntermediateField.fixedField (H (i + 1)) ≤ IntermediateField.fixedField (H i) :=
+        IntermediateField.fixedField_le hsub
+      have hd2 : (IntermediateField.fixedField (H (i + 1))).relfinrank
+          (IntermediateField.fixedField (H i)) = 2 := by
+        have h := fixedField_relfinrank_card hsub
+        rw [hcard i (le_of_lt (by omega : i < r)), hcard (i + 1) hi1, pow_succ'] at h
+        exact Nat.eq_of_mul_eq_mul_right (by positivity : 0 < (2 : ℕ) ^ i) h
+      have hd2' : (IntermediateField.map K.val
+          (IntermediateField.fixedField (H (i + 1)))).relfinrank
+          (IntermediateField.map K.val (IntermediateField.fixedField (H i))) = 2 := by
+        rw [IntermediateField.relfinrank_map_map]; exact hd2
+      have hFFmap : IntermediateField.map K.val (IntermediateField.fixedField (H (i + 1))) ≤
+          IntermediateField.map K.val (IntermediateField.fixedField (H i)) :=
+        IntermediateField.map_mono _ hFF
+      obtain ⟨a, hapos, ham, hsup⟩ := hstep
+        (IntermediateField.map K.val (IntermediateField.fixedField (H i)))
+        (IntermediateField.map K.val (IntermediateField.fixedField (H (i + 1)))) hFFmap hd2'
+      refine ⟨a :: as, FT.TowerOK.cons hapos ?_ hOK, ?_⟩
+      · exact SetLike.le_def.mp hle ham
+      · rw [FT.quadTower_cons]
+        exact hsup.trans (sup_le_sup_right hle _)
+  intro i hi
+  exact main (r - i) i hi (Nat.sub_add_cancel hi)
+
+/-- FT `ft22` step 2 (tower assembly), hypothesis form. -/
+theorem constructible_of_quadChain {α : ℝ} {K : IntermediateField ℚ ℝ} [IsGalois ℚ ↥K]
+    (hα : α ∈ K) (hdeg : ∃ r : ℕ, Module.finrank ℚ ↥K = 2 ^ r)
+    (hstep : ∀ A B : IntermediateField ℚ ℝ, B ≤ A → B.relfinrank A = 2 →
+        ∃ a : ℝ, 0 < a ∧ a ∈ B ∧ A ≤ B ⊔ IntermediateField.adjoin ℚ {√a}) :
+    FT.Constructible α := by
+  obtain ⟨r, hdeg⟩ := hdeg
+  haveI hfinK : FiniteDimensional ℚ ↥K :=
+    Module.finite_of_finrank_pos (by rw [hdeg]; positivity)
+  obtain ⟨H, hcard, hH0, hHr, hmono, -⟩ :=
+    FT.exists_subgroup_chain_of_two_pow_card r Gal(↥K/ℚ)
+      (by rw [IsGalois.card_aut_eq_finrank ℚ ↥K]; exact hdeg)
+  obtain ⟨as, hOK, hle⟩ := exists_tower_of_fixedField_chain K H r hHr hmono hcard hstep
+    0 (Nat.zero_le r)
+  have hmem : (⟨α, hα⟩ : ↥K) ∈ IntermediateField.fixedField (H 0) := by
+    rw [hH0]
+    exact Eq.subst (motive := fun S => (⟨α, hα⟩ : ↥K) ∈ S)
+      (IntermediateField.fixedField_bot (F := ℚ) (E := ↥K)).symm
+      IntermediateField.mem_top
+  have hαm : α ∈ IntermediateField.map K.val (IntermediateField.fixedField (H 0)) :=
+    (IntermediateField.mem_map (f := K.val) (y := α)
+      (IntermediateField.fixedField (H 0))).mpr ⟨⟨α, hα⟩, hmem, rfl⟩
+  exact FT.constructible_of_towerOK as hOK α (hle hαm)
+
+/-- **FT `ft22`** (Theorem [constructible numbers]).  If `α` is contained in a subfield of `ℝ`
+that is Galois of degree `2^r` over `ℚ`, then it is constructible.
+
+Proof idea (Milne): `G = Gal(K/ℚ)` is a 2-group of order `2^r`, so it admits a chain of
+subgroups with index-2 steps (`FT.exists_subgroup_chain_of_two_pow_card`); the fixed fields
+give a tower `K = E_0 ⊃ E_1 ⊃ … ⊃ E_r = ℚ` with quadratic steps (degrees via
+`finrank_fixedField_eq_card`); each step is generated by `√a` with `a > 0` in the smaller
+field (`FT.quadStep`, from FT `ft23`; positivity because the field is real); the resulting
+tower is a `TowerOK` tower, and ch.I's `FT.constructible_of_towerOK` gives
+constructibility of every element, in particular `α`. -/
+theorem constructible_of_two_pow_galois {α : ℝ} {K : IntermediateField ℚ ℝ} [IsGalois ℚ ↥K]
+    (hα : α ∈ K) (hdeg : ∃ r : ℕ, Module.finrank ℚ ↥K = 2 ^ r) : FT.Constructible α :=
+  constructible_of_quadChain hα hdeg (fun A B hBA h2 => quadStep A B hBA h2)
+
+end FT22Assembly
+
+section Ft19Cyclotomic
+
+/-- FT `ft19` (support): the nontrivial seventh roots of unity sum to `-1`.
+
+Proof idea (source): `(ζ - 1) * (1 + ζ + ⋯ + ζ⁶) = ζ⁷ - 1 = 0` and `ζ ≠ 1` (for a primitive
+root, `ζ = 1` would force `7 ∣ 2`). -/
+theorem zeta7_sum_eq_neg_one {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
+    ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6 = -1 := by
+  have h1 : ζ ^ 7 = 1 := hζ.pow_eq_one
+  have hne : ζ ≠ 1 := by
+    intro h
+    exact absurd (hζ.dvd_of_pow_eq_one 2 (by simp [h])) (by decide)
+  have hkey : (ζ - 1) * (1 + (ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6)) = ζ ^ 7 - 1 := by ring
+  have h0 : (ζ - 1) * (1 + (ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6)) = 0 := by
+    rw [hkey, h1, sub_self]
+  have hs : 1 + (ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6) = 0 := by
+    rcases mul_eq_zero.mp h0 with hl | hr
+    · exact absurd hl (sub_ne_zero.mpr hne)
+    · exact hr
+  exact eq_neg_of_add_eq_zero_right hs
+
+/-- FT `ft19` (support): with `t := ζ + ζ⁻¹` for a primitive 7th root of unity `ζ`,
+`t³ + t² - 2t - 1 = 0`.
+
+Proof idea (source): `t³ = ζ³ + ζ⁴ + 3t`, `t² = ζ² + ζ⁵ + 2`, so `t³ + t² - 2t - 1`
+`= (ζ + ζ² + ζ³ + ζ⁴ + ζ⁵ + ζ⁶) + 1 = 0` by the sum identity. -/
+theorem zeta7_t_cubic_eq_zero {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
+    (ζ + ζ⁻¹) ^ 3 + (ζ + ζ⁻¹) ^ 2 - 2 * (ζ + ζ⁻¹) - 1 = 0 := by
+  have h1 : ζ ^ 7 = 1 := hζ.pow_eq_one
+  have hz7 : ζ * ζ ^ 6 = 1 := by rw [← pow_succ']; exact h1
+  have h6 : ζ⁻¹ = ζ ^ 6 := (eq_inv_of_mul_eq_one_right hz7).symm
+  have hsum := zeta7_sum_eq_neg_one hζ
+  have e8 : ζ ^ 8 = ζ := by rw [show (8 : ℕ) = 1 + 7 by norm_num, pow_add, h1, mul_one, pow_one]
+  have e11 : ζ ^ 11 = ζ ^ 4 := by rw [show (11 : ℕ) = 4 + 7 by norm_num, pow_add, h1, mul_one]
+  have e12 : ζ ^ 12 = ζ ^ 5 := by rw [show (12 : ℕ) = 5 + 7 by norm_num, pow_add, h1, mul_one]
+  have hz66 : ζ ^ 6 * ζ ^ 6 = ζ ^ 5 := by rw [← pow_add]; exact e12
+  have hz26 : ζ ^ 2 * ζ ^ 6 = ζ := by rw [← pow_add]; exact e8
+  have hz5z : ζ ^ 5 * ζ = ζ ^ 6 := by rw [← pow_succ]
+  have hz56 : ζ ^ 5 * ζ ^ 6 = ζ ^ 4 := by rw [← pow_add]; exact e11
+  have hsq : (ζ + ζ ^ 6) ^ 2 = ζ ^ 2 + 2 + ζ ^ 5 := by
+    have hex : (ζ + ζ ^ 6) ^ 2 = ζ ^ 2 + 2 * (ζ * ζ ^ 6) + (ζ ^ 6 * ζ ^ 6) := by ring
+    rw [hex, hz7, hz66]
+    ring
+  have hcu : (ζ + ζ ^ 6) ^ 3 = ζ ^ 3 + ζ ^ 4 + 3 * ζ + 3 * ζ ^ 6 := by
+    have hp3 : (ζ + ζ ^ 6) ^ 3 = (ζ + ζ ^ 6) ^ 2 * (ζ + ζ ^ 6) := by
+      rw [show (3 : ℕ) = 2 + 1 by norm_num, pow_succ]
+    rw [hp3, hsq]
+    have hex : (ζ ^ 2 + 2 + ζ ^ 5) * (ζ + ζ ^ 6)
+        = ζ ^ 3 + (ζ ^ 2 * ζ ^ 6) + 2 * ζ + 2 * ζ ^ 6 + (ζ ^ 5 * ζ) + (ζ ^ 5 * ζ ^ 6) := by ring
+    rw [hex, hz26, hz5z, hz56]
+    ring
+  calc (ζ + ζ⁻¹) ^ 3 + (ζ + ζ⁻¹) ^ 2 - 2 * (ζ + ζ⁻¹) - 1
+      = (ζ + ζ ^ 6) ^ 3 + (ζ + ζ ^ 6) ^ 2 - 2 * (ζ + ζ ^ 6) - 1 := by simp only [h6]
+    _ = (ζ ^ 3 + ζ ^ 4 + 3 * ζ + 3 * ζ ^ 6) + (ζ ^ 2 + 2 + ζ ^ 5) - 2 * (ζ + ζ ^ 6) - 1 := by
+        rw [hcu, hsq]
+    _ = ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6 + 1 := by ring
+    _ = 0 := by rw [hsum]; ring
+
+/-- FT `ft19` (the `√-7` subfield claim): for `β := ζ + ζ² + ζ⁴` and `β' := ζ³ + ζ⁵ + ζ⁶`
+(the image of `β` under `σ : ζ ↦ ζ³`), `(β - β')² = -7`, i.e. `(β - β')² + 7 = 0`.
+
+Proof idea (source): `β + β' = -1` (the sum of the nontrivial 7th roots splits in two) and
+`ββ' = 2` (each of `ζ, ζ², ζ⁴` times each of `ζ³, ζ⁵, ζ⁶` reduces modulo `ζ⁷ = 1`, giving
+the full sum plus `3`); then `(β - β')² = (β + β')² - 4ββ' = 1 - 8 = -7`. -/
+theorem zeta7_sqrt_neg_seven {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
+    (ζ + ζ ^ 2 + ζ ^ 4 - (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)) ^ 2 + 7 = 0 := by
+  have h1 : ζ ^ 7 = 1 := hζ.pow_eq_one
+  have hsum := zeta7_sum_eq_neg_one hζ
+  have e8 : ζ ^ 8 = ζ := by rw [show (8 : ℕ) = 1 + 7 by norm_num, pow_add, h1, mul_one, pow_one]
+  have e9 : ζ ^ 9 = ζ ^ 2 := by rw [show (9 : ℕ) = 2 + 7 by norm_num, pow_add, h1, mul_one]
+  have e10 : ζ ^ 10 = ζ ^ 3 := by rw [show (10 : ℕ) = 3 + 7 by norm_num, pow_add, h1, mul_one]
+  have hbb : (ζ + ζ ^ 2 + ζ ^ 4) + (ζ ^ 3 + ζ ^ 5 + ζ ^ 6) = -1 := by
+    rw [← hsum]; abel
+  have hprod : (ζ + ζ ^ 2 + ζ ^ 4) * (ζ ^ 3 + ζ ^ 5 + ζ ^ 6) = 2 := by
+    have hex : (ζ + ζ ^ 2 + ζ ^ 4) * (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)
+        = ζ ^ 4 + ζ ^ 6 + ζ ^ 7 + ζ ^ 5 + ζ ^ 7 + ζ ^ 8 + ζ ^ 7 + ζ ^ 9 + ζ ^ 10 := by ring
+    have hre : ζ ^ 4 + ζ ^ 6 + ζ ^ 7 + ζ ^ 5 + ζ ^ 7 + ζ ^ 8 + ζ ^ 7 + ζ ^ 9 + ζ ^ 10
+        = (ζ + ζ ^ 2 + ζ ^ 3 + ζ ^ 4 + ζ ^ 5 + ζ ^ 6) + 3 := by
+      rw [h1, e8, e9, e10]
+      ring
+    rw [hex, hre, hsum]
+    ring
+  have hsq2 : (ζ + ζ ^ 2 + ζ ^ 4 - (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)) ^ 2
+      = ((ζ + ζ ^ 2 + ζ ^ 4) + (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)) ^ 2
+        - 4 * ((ζ + ζ ^ 2 + ζ ^ 4) * (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)) := by ring
+  rw [hsq2, hprod, hbb]
+  ring
+
+open Polynomial in
+private theorem zeta7_cubic_natDegree :
+    ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1).natDegree = 3 := by
+  have e1 : natDegree ((2 : Polynomial ℚ) * Polynomial.X) ≤ 1 := by simp
+  have e2 : natDegree ((Polynomial.X : Polynomial ℚ) ^ 2) = 2 := by simp
+  have e3 : natDegree ((Polynomial.X : Polynomial ℚ) ^ 3) = 3 := by simp
+  have hlt32 : natDegree ((Polynomial.X : Polynomial ℚ) ^ 2)
+      < natDegree ((Polynomial.X : Polynomial ℚ) ^ 3) := by
+    rw [e2, e3]; norm_num
+  have h32 : natDegree ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2) = 3 := by
+    rw [natDegree_add_eq_left_of_natDegree_lt hlt32]
+    simp
+  have hlt2 : natDegree ((2 : Polynomial ℚ) * Polynomial.X)
+      < natDegree ((Polynomial.X : Polynomial ℚ) ^ 2) := by
+    rw [e2]; exact lt_of_le_of_lt e1 (by norm_num)
+  have d2 : natDegree ((Polynomial.X : Polynomial ℚ) ^ 2 - 2 * Polynomial.X) = 2 := by
+    rw [natDegree_sub_eq_left_of_natDegree_lt hlt2]
+    simp
+  have hltA : natDegree ((2 : Polynomial ℚ) * Polynomial.X)
+      < natDegree ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2) := by
+    rw [h32]; exact lt_of_le_of_lt e1 (by norm_num)
+  have dA : natDegree ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X)
+      = 3 := by
+    rw [natDegree_sub_eq_left_of_natDegree_lt hltA]
+    exact h32
+  have hz1 : natDegree ((1 : Polynomial ℚ)) = 0 := by simp
+  have hlt1 : natDegree ((1 : Polynomial ℚ))
+      < natDegree ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X) := by
+    rw [hz1, dA]; norm_num
+  rw [natDegree_sub_eq_left_of_natDegree_lt hlt1]
+  exact dA
+
+open Polynomial in
+private theorem zeta7_cubic_monic :
+    ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1).Monic := by
+  rw [Polynomial.Monic]
+  simp only [Polynomial.leadingCoeff]
+  rw [zeta7_cubic_natDegree]
+  simp [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_X, Polynomial.coeff_one]
+
+open Polynomial in
+private theorem zeta7_cubic_aeval {E : Type u} [Field E] [CharZero E] (t : E) :
+    Polynomial.aeval t
+      ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1)
+      = t ^ 3 + t ^ 2 - 2 * t - 1 := by
+  simp [show ((2 : ℚ[X]) : Polynomial ℚ) = Polynomial.C (2 : ℚ) by rfl]
+
+/-- Support for FT `ft19`: no `ℚ`-linear relation of degree ≤ 2 between `1`, `t := ζ + ζ⁻¹`
+and `t²`.  In particular `{1, t, t²}` is `ℚ`-linearly independent, so `deg minpoly ℚ t ≥ 3`.
+
+Proof idea (source): multiplying by `ζ²` and reducing `ζ⁷ = 1` turns the relation into a
+polynomial in `ζ` of degree `≤ 4` vanishing at `ζ`, contradicting
+`deg minpoly ℚ ζ = φ(7) = 6` (`cyclotomic_eq_minpoly_rat`) unless all coefficients vanish. -/
+private theorem zeta7_lindep_key {E : Type u} [Field E] [CharZero E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
+    ∀ c₀ c₁ c₂ : ℚ,
+      (algebraMap ℚ E c₀) + (algebraMap ℚ E c₁) * (ζ + ζ⁻¹)
+        + (algebraMap ℚ E c₂) * (ζ + ζ⁻¹) ^ 2 = 0 →
+      c₀ = 0 ∧ c₁ = 0 ∧ c₂ = 0 := by
+  intro c₀ c₁ c₂ h
+  have h1 : ζ ^ 7 = 1 := hζ.pow_eq_one
+  have h0 : ζ ≠ 0 := by
+    intro hc; rw [hc] at h1; simp at h1
+  have hz7 : ζ * ζ ^ 6 = 1 := by rw [← pow_succ']; exact h1
+  have h6 : ζ⁻¹ = ζ ^ 6 := (eq_inv_of_mul_eq_one_right hz7).symm
+  have e8 : ζ ^ 8 = ζ := by rw [show (8 : ℕ) = 1 + 7 by norm_num, pow_add, h1, mul_one, pow_one]
+  have e12 : ζ ^ 12 = ζ ^ 5 := by rw [show (12 : ℕ) = 5 + 7 by norm_num, pow_add, h1, mul_one]
+  have hz66 : ζ ^ 6 * ζ ^ 6 = ζ ^ 5 := by rw [← pow_add]; exact e12
+  have ht2 : (ζ + ζ⁻¹) ^ 2 = ζ ^ 2 + 2 + ζ ^ 5 := by
+    rw [h6]
+    have hex : (ζ + ζ ^ 6) ^ 2 = ζ ^ 2 + 2 * (ζ * ζ ^ 6) + (ζ ^ 6 * ζ ^ 6) := by ring
+    rw [hex, hz7, hz66]; ring
+  have h2 : ζ ^ 2 * ((algebraMap ℚ E c₀) + (algebraMap ℚ E c₁) * (ζ + ζ⁻¹)
+      + (algebraMap ℚ E c₂) * (ζ + ζ⁻¹) ^ 2) = 0 := by rw [h, mul_zero]
+  have hz26 : ζ ^ 2 * ζ ^ 6 = ζ := by rw [← pow_add]; exact e8
+  have hz25 : ζ ^ 2 * ζ ^ 5 = 1 := by rw [← pow_add]; exact h1
+  have h2q : (algebraMap ℚ E) ((2 : ℚ)) = 2 := by simp
+  have hexp : ζ ^ 2 * ((algebraMap ℚ E c₀) + (algebraMap ℚ E c₁) * (ζ + ζ⁻¹)
+        + (algebraMap ℚ E c₂) * (ζ + ζ⁻¹) ^ 2)
+      = (algebraMap ℚ E c₂) + (algebraMap ℚ E c₁) * ζ + (algebraMap ℚ E (c₀ + 2 * c₂)) * ζ ^ 2
+        + (algebraMap ℚ E c₁) * ζ ^ 3 + (algebraMap ℚ E c₂) * ζ ^ 4 := by
+    rw [ht2, h6]
+    have hex : ζ ^ 2 * ((algebraMap ℚ E c₀) + (algebraMap ℚ E c₁) * (ζ + ζ ^ 6)
+          + (algebraMap ℚ E c₂) * (ζ ^ 2 + 2 + ζ ^ 5))
+        = (algebraMap ℚ E c₀) * ζ ^ 2 + (algebraMap ℚ E c₁) * ζ ^ 3
+          + (algebraMap ℚ E c₁) * (ζ ^ 2 * ζ ^ 6) + (algebraMap ℚ E c₂) * ζ ^ 4
+          + 2 * (algebraMap ℚ E c₂) * ζ ^ 2 + (algebraMap ℚ E c₂) * (ζ ^ 2 * ζ ^ 5) := by ring
+    rw [hex, hz26, hz25]
+    simp only [map_add, map_mul, h2q]
+    ring
+  rw [hexp] at h2
+  set w : ℕ → ℚ := fun k => if k = 0 then c₂ else if k = 1 then c₁
+      else if k = 2 then c₀ + 2 * c₂ else if k = 3 then c₁ else c₂ with hw
+  set p : Polynomial ℚ := ∑ i ∈ Finset.range 5, Polynomial.C (w i) * Polynomial.X ^ i with hp
+  have hae : Polynomial.aeval ζ p = 0 := by
+    rw [hp, map_sum]
+    simp only [map_mul, map_pow, Polynomial.aeval_C, Polynomial.aeval_X]
+    have hsum5 : ∑ i ∈ Finset.range 5, (algebraMap ℚ E) (w i) * ζ ^ i
+        = (algebraMap ℚ E) c₂ + (algebraMap ℚ E) c₁ * ζ + (algebraMap ℚ E) (c₀ + 2 * c₂) * ζ ^ 2
+          + (algebraMap ℚ E) c₁ * ζ ^ 3 + (algebraMap ℚ E) c₂ * ζ ^ 4 := by
+      simp only [Finset.sum_range_succ, hw]
+      simp
+    rw [hsum5]
+    exact h2
+  have hintζ : IsIntegral ℚ ζ := by
+    refine ⟨Polynomial.cyclotomic 7 ℚ, Polynomial.cyclotomic.monic 7 ℚ, ?_⟩
+    rw [Polynomial.cyclotomic_eq_minpoly_rat hζ (by norm_num)]
+    exact minpoly.aeval ℚ ζ
+  have hdvd : minpoly ℚ ζ ∣ p := minpoly.dvd ℚ ζ hae
+  have h6d : (minpoly ℚ ζ).natDegree = 6 := by
+    rw [← Polynomial.cyclotomic_eq_minpoly_rat hζ (by norm_num), Polynomial.natDegree_cyclotomic,
+      Nat.totient_prime (by decide)]
+  have hcw : ∀ k < 5, p.coeff k = w k := by
+    intro k hk
+    rw [hp]; simp
+    intro h5; omega
+  have hp4 : p.natDegree ≤ 4 := by
+    rw [hp]
+    refine Polynomial.natDegree_sum_le_of_forall_le _ _ ?_
+    intro i hi
+    refine le_trans (Polynomial.natDegree_C_mul_X_pow_le _ _) ?_
+    exact Nat.lt_succ_iff.mp (Finset.mem_range.mp hi)
+  by_cases hp0 : p = 0
+  · rw [hp0] at hcw
+    simp only [Polynomial.coeff_zero] at hcw
+    have w0 : w 0 = c₂ := by simp [hw]
+    have w1 : w 1 = c₁ := by simp [hw]
+    have w2 : w 2 = c₀ + 2 * c₂ := by simp [hw]
+    have hz2 : c₂ = 0 := (w0 ▸ hcw 0 (by norm_num)).symm
+    have hz1 : c₁ = 0 := (w1 ▸ hcw 1 (by norm_num)).symm
+    refine ⟨?_, hz1, hz2⟩
+    have hc0 : c₀ + 2 * c₂ = 0 := (w2 ▸ (hcw 2 (by norm_num))).symm
+    linarith
+  · have hle : (minpoly ℚ ζ).natDegree ≤ p.natDegree :=
+      Polynomial.natDegree_le_of_dvd hdvd hp0
+    omega
+
+/-- FT `ft19` (minimality): for `ζ` a primitive 7th root of unity in a characteristic-zero
+field, the minimal polynomial of `t := ζ + ζ⁻¹` over `ℚ` is
+`g(X) = X³ + X² - 2X - 1`, the cubic satisfied by the conjugates
+`ζ + ζ⁶, ζ² + ζ⁵, ζ³ + ζ⁴`.
+
+Proof idea: `g(t) = 0` (`zeta7_t_cubic_eq_zero`), `g` is monic of degree `3`
+(`zeta7_cubic_natDegree`, `zeta7_cubic_monic`), so `deg minpoly ℚ t ≤ 3` (`minpoly.dvd`);
+conversely `{1, t, t²}` is `ℚ`-linearly independent (`zeta7_lindep_key`), so
+`deg minpoly ℚ t ≥ 3`.  Both polynomials are monic, `minpoly` divides `g` and the degrees
+agree, hence they are equal (`eq_of_monic_of_dvd_of_natDegree_le`). -/
+theorem zeta7_minpoly_add_inv {E : Type u} [Field E] [CharZero E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
+    minpoly ℚ (ζ + ζ⁻¹) = Polynomial.X ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1 := by
+  have hgmonic := zeta7_cubic_monic
+  have hgd := zeta7_cubic_natDegree
+  have hae : Polynomial.aeval (ζ + ζ⁻¹)
+      ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1) = 0 := by
+    rw [zeta7_cubic_aeval]
+    exact zeta7_t_cubic_eq_zero hζ
+  have hint : IsIntegral ℚ (ζ + ζ⁻¹) :=
+    ⟨Polynomial.X ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1, hgmonic, hae⟩
+  have hdvd : minpoly ℚ (ζ + ζ⁻¹) ∣ Polynomial.X ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1 :=
+    minpoly.dvd ℚ (ζ + ζ⁻¹) hae
+  have hle : (minpoly ℚ (ζ + ζ⁻¹)).natDegree ≤ 3 := by
+    refine le_trans (Polynomial.natDegree_le_of_dvd hdvd ?_) hgd.le
+    · intro hc; rw [hc] at hgd; simp at hgd
+  have hge : 3 ≤ (minpoly ℚ (ζ + ζ⁻¹)).natDegree := by
+    by_contra hc
+    push Not at hc
+    have hz : (algebraMap ℚ E) ((minpoly ℚ (ζ + ζ⁻¹)).coeff 0)
+        + (algebraMap ℚ E) ((minpoly ℚ (ζ + ζ⁻¹)).coeff 1) * (ζ + ζ⁻¹)
+        + (algebraMap ℚ E) ((minpoly ℚ (ζ + ζ⁻¹)).coeff 2) * (ζ + ζ⁻¹) ^ 2 = 0 := by
+      have hr : Polynomial.aeval (ζ + ζ⁻¹) (minpoly ℚ (ζ + ζ⁻¹))
+          = ∑ i ∈ Finset.range 3, (minpoly ℚ (ζ + ζ⁻¹)).coeff i • (ζ + ζ⁻¹) ^ i :=
+        Polynomial.aeval_eq_sum_range' (n := 3) hc (ζ + ζ⁻¹)
+      rw [minpoly.aeval ℚ (ζ + ζ⁻¹)] at hr
+      simpa [Algebra.smul_def, Finset.sum_range_succ] using hr.symm
+    obtain ⟨hz0, hz1', hz2⟩ := zeta7_lindep_key hζ _ _ _ hz
+    have hme : minpoly ℚ (ζ + ζ⁻¹) = 0 := by
+      rw [Polynomial.as_sum_range_C_mul_X_pow' (minpoly ℚ (ζ + ζ⁻¹)) hc]
+      simp [Finset.sum_range_succ, hz0, hz1', hz2]
+    exact absurd hme (minpoly.monic hint).ne_zero
+  exact (Polynomial.eq_of_monic_of_dvd_of_natDegree_le (minpoly.monic hint) hgmonic hdvd
+    (by rw [hgd]; exact hge)).symm
+
+end Ft19Cyclotomic
+
 /-!
 ### Chapter III ledger — remaining in-scope items (work in progress)
 
 Theorem-like labels formalized: `ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`,
-`ft17`, `ft18f`, `ft18g`, `ft18h`, `ft23` (11 of 13).  The definition-like labels `ft10m`, `ft10n`,
+`ft17`, `ft18f`, `ft18g`, `ft18h`, `ft22`, `ft23` (12 of 13).  The definition-like labels `ft10m`, `ft10n`,
 `ft11m`, `ft21` are encoded (`FT.separableExt_iff`, `FT.normalExt_iff`,
 `FT.IsGaloisExt`/`FT.galoisGroup`, `FT.IsCyclicExt`/`FT.IsAbelianExt`/
 `FT.IsSolvableExt`), and remark/example content is carried by
@@ -6460,16 +6955,19 @@ Pending in scope (to be recorded in the final ledger as pending or AUDIT-DEFERRE
   bijectivity via `FT.galRestrictIsoMap_injective/_surjective`).
 - (resolved) `ft18g`: `FT.finrank_compositum_mul_inf` (with `[FiniteDimensional F E]
   [FiniteDimensional F L]` — Milne's Galois extensions are finite by definition).
-- `ft22` (Galois 2^r subfield of ℝ ⇒ constructible): PARTIAL — the finite-2-group
-  subgroup-chain lemma is done (`FT.exists_subgroup_chain_of_two_pow_card` with
-  `FT.card_comap_of_surjective`); pending: the field-tower bridge (quadratic step
-  from `FT.quadratic_extension_exists_root` via `IntermediateField.extendScalars`/
-  `relfinrank_map_map` transported along `IntermediateField.val`), the TowerOK
-  list assembly, and the final `FT.constructible_of_towerOK` application.
+- (resolved) `ft22`: `FT.constructible_of_two_pow_galois` — assembled from
+  `FT.exists_subgroup_chain_of_two_pow_card` (2-group chain),
+  `FT.constructible_of_quadChain`/`FT.exists_tower_of_fixedField_chain`
+  (fixed-field tower + TowerOK assembly), `FT.quadStep` (quadratic step via
+  FT `ft23` + `IntermediateField.extendScalars`), and ch.I's
+  `FT.constructible_of_towerOK`.
 - `ft24` (Fermat prime ⇒ cos(2π/p) constructible): pending (needs `ft22` plus the
   cyclotomic Galois-group identification).
-- Examples `ft19` (ℚ(ζ₇) subfield analysis), `ft20` (Gal of X^5−2 splitting
-  field): concrete number-field computations, pending.
+- (resolved) `ft19`: the ℚ(ζ₇) subfield analysis — nontrivial-root sum
+  (`FT.zeta7_sum_eq_neg_one`), the cubic of ζ + ζ⁻¹ and its minimality
+  (`FT.zeta7_minpoly_add_inv`, from scratch via the source's ζ²-degree trick),
+  and the ℚ(√−7) subfield identity (`FT.zeta7_sqrt_neg_seven`).
+- Example `ft20` (Gal of X^5−2 splitting field): concrete computation, pending.
 - `ft7` (Aut(ℂ), PGL₂, Cremona group): expositional, forward references
   (`te16`, `te17a`); pending a scope citation.
 - `ft11` (ℚ(∛2) not normal; F_p(T)/F_p(T^p) not separable): concrete instances,
