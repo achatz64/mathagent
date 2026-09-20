@@ -7871,6 +7871,13 @@ end Ft20Group
 
 section Ft24Pgon
 
+/-!
+AUDIT-GAP (delta audit of remediation commit f2ab420; documentation audit, minor):
+the docstring of `FT.exists_odd_mul_two_pow` states the result but neither documents
+the idea entering the proof (strong induction on `r`, splitting off a factor of `2`
+while `r` is even; the odd case is immediate with `s = 0`) nor declares the proof
+trivial, as the documentation audit requires of every theorem/lemma.
+-/
 /-- Every positive natural number is a power of `2` times an odd number. -/
 theorem exists_odd_mul_two_pow {r : ℕ} (hr : 0 < r) :
     ∃ s t : ℕ, r = 2 ^ s * t ∧ Odd t := by
