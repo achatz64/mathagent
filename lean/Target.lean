@@ -7878,7 +7878,10 @@ the idea entering the proof (strong induction on `r`, splitting off a factor of 
 while `r` is even; the odd case is immediate with `s = 0`) nor declares the proof
 trivial, as the documentation audit requires of every theorem/lemma.
 -/
-/-- Every positive natural number is a power of `2` times an odd number. -/
+/-- Every positive natural number is a power of `2` times an odd number.
+
+Proof idea: strong induction on `r` — if `r = 2u` is even, peel one factor of `2` off
+`u`'s decomposition (`0 < u < r`); if `r` is odd, it is itself `2^0 * r`. -/
 theorem exists_odd_mul_two_pow {r : ℕ} (hr : 0 < r) :
     ∃ s t : ℕ, r = 2 ^ s * t ∧ Odd t := by
   induction r using Nat.strong_induction_on with
