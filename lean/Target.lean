@@ -8,6 +8,7 @@ import Mathlib.Algebra.AlgebraicCard
 import Mathlib.NumberTheory.Transcendental.Liouville.LiouvilleNumber
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Basic
 import Mathlib.RingTheory.Polynomial.Cyclotomic.Roots
+import Mathlib.FieldTheory.PolynomialGaloisGroup
 import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
 import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
@@ -62,10 +63,17 @@ formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
 theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
 `sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
 cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
-unity lie in `F`; perfect-field examples).  Chapters 3-7 (fundamental theorem of Galois theory, computing
-Galois groups, applications, algebraic closures, infinite Galois extensions,
-etale algebras, transcendental extensions; the `ft`/`te`/`ag`/`cg`/`ig`/
-`ca` label clusters) are pending although in scope per the provenance
+unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 9 of
+13 theorem-like labels formalized (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`,
+`ft15`, `ft17`, `ft18h`, `ft23`) plus the definition-like labels `ft10m`,
+`ft10n`, `ft11m`, `ft21` and remark content (`ft9`, `ft13` (b) equality part,
+`ft18` (a), the ggp section); pending: `ft18f` (partial: Galois clauses proven,
+restriction iso pending), `ft18g`, `ft22`, `ft24`, examples `ft19`/`ft20`, and
+the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
+`ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
+Chapters 4-7 (computing Galois groups, applications, algebraic closures,
+infinite Galois extensions, etale algebras, transcendental extensions; the
+`cg`/`ag`/`ig`/`ca` label clusters) are pending although in scope per the provenance
 `scope` field (which omits only exercises, solutions, and expositional
 material).  To be recorded in the final ledger as pending or as
 AUDIT-DEFERRED.
@@ -4316,3 +4324,1543 @@ theorem exists_algHom_of_finiteDimensional {F E L : Type u} [Field F] [Field E] 
       (fun x _ => minpoly.monic (hint x))
 
 end Sf8ii
+
+/-!
+## Chapter III — The Fundamental Theorem of Galois Theory (FT.tex:2554–3578)
+-/
+
+/-!
+## Galois extensions (FT ch. III, `ft12`)
+-/
+
+section GaloisExtensions
+
+open Polynomial IntermediateField
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+
+private theorem priv_mem_fixedPoints_subfield {G : Type u} [Group G] [MulSemiringAction G E]
+    (x : E) : x ∈ FixedPoints.subfield G E ↔ ∀ g : G, g • x = x := Iff.rfl
+
+/-- (Plumbing for FT `ft12` (c) ⇒ (d).)  If the fixed subfield `E ^ G` equals the range of
+`algebraMap F E`, then `algebraMap F E` identifies `F` with the subfield `E ^ G` of `E`. -/
+private noncomputable def priv_ringEquivOfFixedSubfield {G : Type u} [Group G]
+    [MulSemiringAction G E]
+    (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange) :
+    F ≃+* FixedPoints.subfield G E :=
+  RingEquiv.ofBijective
+    ((algebraMap F E).codRestrict (FixedPoints.subfield G E)
+      fun a => by rw [h]; exact RingHom.mem_fieldRange.mpr ⟨a, rfl⟩)
+    ⟨fun a b hab => RingHom.injective (algebraMap F E) (congrArg Subtype.val hab), fun y => by
+      have hy2 : (y : E) ∈ (algebraMap F E).fieldRange := by rw [← h]; exact y.2
+      obtain ⟨a, ha⟩ := RingHom.mem_fieldRange.mp hy2
+      exact ⟨a, Subtype.ext ha⟩⟩
+
+private theorem priv_ringEquivOfFixedSubfield_apply {G : Type u} [Group G] [MulSemiringAction G E]
+    (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange) (a : F) :
+    ((priv_ringEquivOfFixedSubfield h a : FixedPoints.subfield G E) : E) = algebraMap F E a :=
+  rfl
+
+private theorem priv_ringEquivOfFixedSubfield_symm_apply {G : Type u} [Group G]
+    [MulSemiringAction G E]
+    (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange)
+    (y : FixedPoints.subfield G E) :
+    algebraMap F E ((priv_ringEquivOfFixedSubfield h).symm y) = (y : E) := by
+  have h1 := congrArg Subtype.val
+    (RingEquiv.apply_symm_apply (priv_ringEquivOfFixedSubfield h) y)
+  rwa [priv_ringEquivOfFixedSubfield_apply] at h1
+
+/-- (Plumbing for FT `ft12` (c) ⇒ (d).)  The identity map is semilinear from the `F`-module
+structure on `E` (via `algebraMap F E`) to the `E ^ G`-module structure, because `E ^ G` is the
+range of `algebraMap F E`. -/
+private noncomputable def priv_semilinearOfFixedSubfield {G : Type u} [Group G]
+    [MulSemiringAction G E]
+    (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange) :
+    E →ₛₗ[(priv_ringEquivOfFixedSubfield h : F →+* FixedPoints.subfield G E)] E where
+  toFun := id
+  map_add' := fun _ _ => rfl
+  map_smul' := fun a x => by
+    rw [Algebra.smul_def, Algebra.smul_def, FixedPoints.coe_algebraMap, Subfield.subtype_apply]
+    congr 1
+
+/-- (Plumbing for FT `ft12` (c) ⇒ (d).)  Finiteness transports from `E ^ G` to `F`: `E` is
+finite over `E ^ G` (Mathlib's `FixedPoints` finite-dimensionality instance, i.e. FT `ft10`),
+and the `E ^ G`-module structure factors through the isomorphism `F ≃ (E ^ G)`. -/
+private theorem priv_finite_of_fixedSubfield {G : Type u} [Group G] [Fintype G]
+    [MulSemiringAction G E]
+    (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange) : Module.Finite F E := by
+  haveI hK : Module.Finite (FixedPoints.subfield G E) E := inferInstance
+  haveI : IsNoetherian (FixedPoints.subfield G E) E := inferInstance
+  haveI := RingHomInvPair.of_ringEquiv (priv_ringEquivOfFixedSubfield h)
+  haveI := RingHomInvPair.of_ringEquiv_symm (priv_ringEquivOfFixedSubfield h)
+  exact Module.Finite.of_injective (σ' := (priv_ringEquivOfFixedSubfield h).symm)
+    (priv_semilinearOfFixedSubfield h) (fun x y hxy => hxy)
+
+/-- FT `ft12`, clause (c) ⇒ (d), hypothesis form: if the fixed subfield `E ^ G` of a finite
+group `G` of semiring automorphisms of `E` equals the range of `algebraMap F E` (encoding
+Milne's `F = E ^ G`), then `E` is normal, separable and finite over `F`.
+
+Proof idea: Artin's theorem (`IsGalois.of_fixed_field`) gives `IsGalois (E ^ G) E`; normality,
+separability and finite-dimensionality over `E ^ G` are transported along the field isomorphism
+`F ≃ (E ^ G)` induced by `algebraMap F E` via `Normal.of_equiv_equiv`,
+`Algebra.IsSeparable.of_equiv_equiv` and `Module.Finite.of_injective`. -/
+private theorem priv_normal_separable_finite_of_fixedSubfield_eq {G : Type u} [Group G]
+    [Fintype G] [MulSemiringAction G E]
+    (hsub : FixedPoints.subfield G E = (algebraMap F E).fieldRange) :
+    Normal F E ∧ Algebra.IsSeparable F E ∧ FiniteDimensional F E := by
+  haveI hgal : IsGalois (FixedPoints.subfield G E) E := IsGalois.of_fixed_field E G
+  haveI hnorm : Normal (FixedPoints.subfield G E) E := hgal.to_normal
+  haveI hsep : Algebra.IsSeparable (FixedPoints.subfield G E) E := hgal.to_isSeparable
+  have hcomp : (algebraMap F E).comp
+      ((priv_ringEquivOfFixedSubfield hsub).symm :
+        FixedPoints.subfield G E →+* F) =
+      ((↑(RingEquiv.refl E) : E →+* E)).comp (algebraMap (FixedPoints.subfield G E) E) := by
+    ext y
+    simp only [RingHom.comp_apply]
+    rw [FixedPoints.coe_algebraMap, Subfield.subtype_apply]
+    exact priv_ringEquivOfFixedSubfield_symm_apply hsub y
+  refine ⟨Normal.of_equiv_equiv
+      (f := (priv_ringEquivOfFixedSubfield hsub).symm) (g := RingEquiv.refl E) hcomp,
+    Algebra.IsSeparable.of_equiv_equiv (priv_ringEquivOfFixedSubfield hsub).symm
+      (RingEquiv.refl E) hcomp, ?_⟩
+  exact priv_finite_of_fixedSubfield hsub
+
+/-- FT `ft12`, clause (c) ⇒ (d): if `F = E ^ G` for some finite group `G` of automorphisms of
+`E` (encoded as: the fixed subfield of a `MulSemiringAction G E` structure equals the range of
+`algebraMap F E`), then `E` is normal, separable and finite over `F`.
+
+Proof idea: Artin's theorem (`IsGalois.of_fixed_field`) gives `IsGalois (E ^ G) E`; normality,
+separability and finite-dimensionality over `E ^ G` are transported along the field isomorphism
+`F ≃ (E ^ G)` induced by `algebraMap F E` via `Normal.of_equiv_equiv`,
+`Algebra.IsSeparable.of_equiv_equiv` and `Module.Finite.of_injective`. -/
+theorem normal_separable_finite_of_fixedGroup
+    (h : ∃ (G : Type u) (_ : Group G) (_ : Fintype G) (_ : MulSemiringAction G E),
+      FixedPoints.subfield G E = (algebraMap F E).fieldRange) :
+    Normal F E ∧ Algebra.IsSeparable F E ∧ FiniteDimensional F E := by
+  obtain ⟨G, hG, hFG, hact, hsub⟩ := h
+  exact @priv_normal_separable_finite_of_fixedSubfield_eq (F := F) (E := E) _ _ _ G hG hFG hact
+    hsub
+
+/-- FT `ft12` (b)-bridge.  Milne's clause (b) `F = E ^ Aut(E/F)` (encoded as the equality of
+subfields `FixedPoints.subfield (E ≃ₐ[F] E) E = (algebraMap F E).fieldRange`, the fixed field of
+the full automorphism group of `E` over `F`) is equivalent to Mathlib's `IsGalois.fixedField_top`
+characterization `fixedField (⊤ : Subgroup Gal(E/F)) = ⊥` (the bottom intermediate field has
+underlying set `Set.range (algebraMap F E)` by `IntermediateField.mem_bot`).
+
+Proof idea: both sides describe the same fixed points.  Membership in `FixedPoints.subfield` is
+`∀ σ, σ • x = x`, which is `∀ σ, σ x = x` by `AlgEquiv.smul_def`, i.e. membership in
+`fixedField ⊤` by `IntermediateField.mem_fixedField_iff` and `Subgroup.mem_top`; the bottom
+intermediate field is `Set.range (algebraMap F E)` by `IntermediateField.mem_bot`, which is the
+underlying set of `(algebraMap F E).fieldRange` by `RingHom.mem_fieldRange`. -/
+theorem fixedSubfieldAut_eq_fieldRange_iff_fixedField_top :
+    FixedPoints.subfield (E ≃ₐ[F] E) E = (algebraMap F E).fieldRange ↔
+      IntermediateField.fixedField (⊤ : Subgroup (E ≃ₐ[F] E)) = ⊥ := by
+  constructor
+  · intro h
+    refine IntermediateField.ext fun x => ?_
+    rw [IntermediateField.mem_fixedField_iff]
+    simp only [Subgroup.mem_top, true_implies]
+    rw [IntermediateField.mem_bot]
+    have key : (∀ σ : E ≃ₐ[F] E, σ x = x) ↔
+        x ∈ (algebraMap F E).fieldRange := by
+      rw [← h, priv_mem_fixedPoints_subfield]
+      exact forall_congr' fun σ => by rw [AlgEquiv.smul_def]
+    exact key.trans RingHom.mem_fieldRange
+  · intro h
+    refine Subfield.ext fun x => ?_
+    rw [priv_mem_fixedPoints_subfield, RingHom.mem_fieldRange, ← Set.mem_range,
+      ← IntermediateField.mem_bot, ← h, IntermediateField.mem_fixedField_iff]
+    simp only [Subgroup.mem_top, true_implies]
+    exact forall_congr' fun σ => by rw [AlgEquiv.smul_def]
+
+/-- FT `ft12`, equivalence of clauses (a) and (d): `E/F` is the splitting field of a separable
+polynomial iff `E` is normal, separable and finite over `F`.
+
+Proof idea: (a) ⇒ (d) is `IsGalois.of_separable_splitting_field` plus
+`Polynomial.IsSplittingField.finiteDimensional`; (d) ⇒ (a) is
+`IsGalois.is_separable_splitting_field` from Mathlib's "equivalent characterizations of a Galois
+extension of finite degree". -/
+theorem isSplittingField_separable_iff :
+    (∃ p : F[X], p.Separable ∧ p.IsSplittingField F E) ↔
+      Normal F E ∧ Algebra.IsSeparable F E ∧ FiniteDimensional F E := by
+  constructor
+  · rintro ⟨p, hp, hsp⟩
+    haveI := hsp
+    haveI := Polynomial.IsSplittingField.finiteDimensional E p
+    have hgal : IsGalois F E := IsGalois.of_separable_splitting_field hp
+    exact ⟨hgal.to_normal, hgal.to_isSeparable, inferInstance⟩
+  · rintro ⟨hn, hs, hfd⟩
+    haveI : FiniteDimensional F E := hfd
+    haveI : IsGalois F E := isGalois_iff.mpr ⟨hs, hn⟩
+    exact IsGalois.is_separable_splitting_field F E
+
+/-- FT `ft12` (**Galois extensions**).  For an extension `E/F` the following are equivalent:
+(a) `E` is the splitting field of a separable polynomial `f ∈ F[X]`;
+(b) `E` is finite over `F` and `F = E ^ Aut(E/F)` (encoded as the equality of subfields of `E`:
+    `FixedPoints.subfield (E ≃ₐ[F] E) E = (algebraMap F E).fieldRange`, since the algebra map
+    embeds `F` into `E`);
+(c) `F = E ^ G` for some finite group `G` of automorphisms of `E` (encoded as in (b), with the
+    action of `G` on `E` given by a `MulSemiringAction G E` structure);
+(d) `E` is normal, separable, and finite over `F`.
+
+This packages and extends Mathlib's `IsGalois.tfae` ("equivalent characterizations of a Galois
+extension of finite degree"): item (a) is `IsGalois.tfae`'s fourth item verbatim, item (b) is
+equivalent to its second item (`fixedField ⊤ = ⊥`) by
+`FT.fixedSubfieldAut_eq_fieldRange_iff_fixedField_top`, item (d) is its first item conjoined
+with finiteness (via `IsGalois.isGalois_iff`), and item (c) is Milne's group-action
+formulation, which Mathlib does not list.
+
+Proof idea: (a) ⇒ (d) by `IsGalois.of_separable_splitting_field` and
+`Polynomial.IsSplittingField.finiteDimensional`; (d) ⇒ (a) by
+`IsGalois.is_separable_splitting_field`; (a) ⇒ (b) by Artin via `IsGalois.fixedField_top`
+(`F = E ^ Aut(E/F)`); (b) ⇒ (c) with `G := Gal(E/F) = E ≃ₐ[F] E`, which is finite because `E/F`
+is finite; (c) ⇒ (d) by `FT.normal_separable_finite_of_fixedGroup` (Artin plus transport along
+`F ≃ E ^ G`). -/
+theorem galois_iff :
+    List.TFAE
+      [∃ p : F[X], p.Separable ∧ p.IsSplittingField F E,
+        FiniteDimensional F E ∧
+          FixedPoints.subfield (E ≃ₐ[F] E) E = (algebraMap F E).fieldRange,
+        ∃ (G : Type u) (_ : Group G) (_ : Fintype G) (_ : MulSemiringAction G E),
+          FixedPoints.subfield G E = (algebraMap F E).fieldRange,
+        Normal F E ∧ Algebra.IsSeparable F E ∧ FiniteDimensional F E] := by
+  tfae_have 1 → 2 := by
+    rintro ⟨p, hp, hsp⟩
+    haveI := hsp
+    haveI := Polynomial.IsSplittingField.finiteDimensional E p
+    have hgal : IsGalois F E := IsGalois.of_separable_splitting_field hp
+    exact ⟨inferInstance, fixedSubfieldAut_eq_fieldRange_iff_fixedField_top.mpr
+      IsGalois.fixedField_top⟩
+  tfae_have 2 → 3 := by
+    rintro ⟨hfd, hsub⟩
+    haveI : FiniteDimensional F E := hfd
+    exact ⟨E ≃ₐ[F] E, inferInstance, Fintype.ofFinite (E ≃ₐ[F] E), inferInstance, hsub⟩
+  tfae_have 3 → 4 := normal_separable_finite_of_fixedGroup
+  tfae_have 4 → 1 := fun h => isSplittingField_separable_iff.mpr h
+  tfae_finish
+
+end GaloisExtensions
+
+section Artin
+
+open Function
+
+variable {E : Type u} (G : Type u) [Group G] [Field E] [MulSemiringAction G E] [Fintype G]
+
+private theorem priv_fieldRingHom_injective {E R : Type u} [Field E] [Ring R] [Nontrivial R]
+    (f : E →+* R) : Function.Injective f := by
+  intro a b h
+  have hz : f (a - b) = 0 := by rw [map_sub, h, sub_self]
+  by_contra hab
+  have hd : a - b ≠ 0 := sub_ne_zero_of_ne hab
+  have h1 : f ((a - b) * (a - b)⁻¹) = (1 : R) := by rw [mul_inv_cancel₀ hd, map_one]
+  have h2 : f ((a - b) * (a - b)⁻¹) = (0 : R) := by rw [map_mul, hz, zero_mul]
+  exact one_ne_zero (h1.symm.trans h2)
+
+/-- **FT `ft10`** (Theorem [E. Artin]): Let `G` be a finite group of automorphisms of a field `E`
+and let `E^G = {x : E | ∀ σ : G, σ • x = x}` be the fixed subfield (`FixedPoints.subfield G E`).
+Then `[E : E^G] ≤ (G : 1)`, i.e. `Module.finrank (FixedPoints.subfield G E) E ≤ Nat.card G`.
+
+Proof idea (Milne finrank_fixedPoints_le_card, Artin's original argument; implemented in Mathlib as
+`FixedPoints.finrank_le_card`): writing `G = {σ₁, …, σₘ}` with `σ₁ = id`, any `n > m` elements
+`α₁, …, αₙ ∈ E` satisfy the homogeneous system `σᵢ(α₁)X₁ + … + σᵢ(αₙ)Xₙ = 0` (`i = 1..m`); it
+admits a nontrivial solution chosen with the fewest nonzero entries; after renumbering and
+scaling, `c₁ ∈ E^G`; applying some `σₖ` (which merely permutes the equations since `σₖσⱼ` runs
+over `G`) and subtracting the two solutions shows every `cᵢ` is fixed by `G` (else
+`cᵢ - σₖ(cᵢ)` gives a nonzero solution with more zeros); then `α₁c₁ + … + αₙcₙ = 0` is the
+required `E^G`-linear dependence. -/
+theorem finrank_fixedPoints_le_card : Module.finrank (FixedPoints.subfield G E) E ≤ Nat.card G :=
+  (FixedPoints.finrank_le_card G E).trans (Nat.card_eq_fintype_card (α := G)).symm.le
+
+/-- FT `ft10`, finiteness corollary: `E` is finite-dimensional over the fixed subfield `E^G`.
+This is the numerical content of FT `ft10` (a rank bound `[E : E^G] ≤ |G|` together with
+`|G| > 0` and the nontriviality of the field `E` forces finiteness). -/
+theorem finiteDimensional_fixedPoints : FiniteDimensional (FixedPoints.subfield G E) E :=
+  FiniteDimensional.of_finrank_pos <|
+    Module.finrank_pos (R := ↥(FixedPoints.subfield G E)) (M := E)
+
+omit [Fintype G] in
+/-- The action map `G → Aut(E / E^G)` is injective when the action is faithful: if `σ` acts
+trivially on `E` then `σ = 1`. Trivial for a group of automorphisms. -/
+theorem toAlgAut_injective [FaithfulSMul G E] :
+    Function.Injective (MulSemiringAction.toAlgAut G (FixedPoints.subfield G E) E) := fun _ _ h =>
+  FaithfulSMul.eq_of_smul_eq_smul fun x => DFunLike.congr_fun h x
+
+/-- **FT `ft10d`**, cardinality form: `Nat.card Aut(E / E^G) = Nat.card G`.
+
+Proof idea (Milne toAlgAutEquiv): `G ⊆ Aut(E / E^G)` gives `|G| ≤ |Aut(E / E^G)|` (faithfulness of the
+action), while FT `ft10` and FT `sf8` (a) give `|Aut(E / E^G)| ≤ |End_{E^G}(E)| ≤
+[E : E^G] ≤ |G|`; all inequalities are equalities. -/
+theorem natCard_algEquiv_fixedPoints [FaithfulSMul G E] :
+    Nat.card (E ≃ₐ[FixedPoints.subfield G E] E) = Nat.card G := by
+  classical
+  haveI hfd : FiniteDimensional (FixedPoints.subfield G E) E := finiteDimensional_fixedPoints G
+  haveI hfinEnd : Finite (E →ₐ[FixedPoints.subfield G E] E) :=
+    FT.finite_algHom_of_finiteDimensional
+  haveI hfinAut : Finite (E ≃ₐ[FixedPoints.subfield G E] E) :=
+    Finite.of_injective AlgEquiv.toAlgHom
+      (fun f g h => AlgEquiv.ext fun x => DFunLike.congr_fun h x)
+  have h1 : Nat.card G ≤ Nat.card (E ≃ₐ[FixedPoints.subfield G E] E) :=
+    Nat.card_le_card_of_injective _ (toAlgAut_injective G)
+  have h2 : Nat.card (E ≃ₐ[FixedPoints.subfield G E] E) ≤
+      Nat.card (E →ₐ[FixedPoints.subfield G E] E) :=
+    Nat.card_le_card_of_injective AlgEquiv.toAlgHom
+      (fun f g h => AlgEquiv.ext fun x => DFunLike.congr_fun h x)
+  have h3 : Nat.card (E →ₐ[FixedPoints.subfield G E] E) ≤
+      Module.finrank (FixedPoints.subfield G E) E :=
+    FT.natCard_algHom_le_finrank
+  exact le_antisymm ((h2.trans h3).trans (finrank_fixedPoints_le_card G)) h1
+
+/-- **FT `ft10d`** (Corollary): `G = Aut(E / E^G)`: the canonical action map `G →
+E ≃ₐ[E^G] E` is bijective. Injectivity needs the action to be faithful (automatic for a group
+of automorphisms); surjectivity combines FT `ft10` (`[E : E^G] ≤ |G|`) with FT `sf8` (a)
+(`|End_{E^G}(E)| ≤ [E : E^G]`) and the fact that every `E^G`-homomorphism `E → E` is
+bijective (`algHom_bijective_fixedPoints`). -/
+noncomputable def toAlgAutEquiv [FaithfulSMul G E] :
+    G ≃ (E ≃ₐ[FixedPoints.subfield G E] E) :=
+  (FixedPoints.toAlgAutMulEquiv G E).toEquiv
+
+/-- **FT `ft10d`** (Corollary, homomorphism form): every `E^G`-homomorphism `E →ₐ[E^G] E` is
+bijective — injective because `E` is a field, and surjective since `E` is finite-dimensional
+over `E^G` by FT `ft10`. (This is the route by which Milne's proof obtains `G =
+Aut(E / E^G)`: combined with FT `ft10` and FT `sf8` (a) it forces all cardinalities in the
+chain `|G| ≤ |Aut(E / E^G)| ≤ |End_{E^G}(E)| ≤ [E : E^G] ≤ |G|` to agree.) -/
+theorem algHom_bijective_fixedPoints (f : E →ₐ[FixedPoints.subfield G E] E) :
+    Function.Bijective f := by
+  haveI hfd : FiniteDimensional (FixedPoints.subfield G E) E := finiteDimensional_fixedPoints G
+  constructor
+  · exact priv_fieldRingHom_injective f.toRingHom
+  · exact (LinearMap.injective_iff_surjective (K := FixedPoints.subfield G E)
+      (f := f.toLinearMap)).mp (priv_fieldRingHom_injective f.toRingHom)
+
+/-- **FT `ft13` (b), equality part** (bonus, reused later): for a faithful action of a finite
+group `G` on a field `E`, `(G : 1) = [E : E^G]`. Combines FT `ft10` with FT `ft10d` (Mathlib's
+`FixedPoints.finrank_eq_card` implements both). -/
+theorem natCard_eq_finrank_fixedPoints [FaithfulSMul G E] :
+    Nat.card G = Module.finrank (FixedPoints.subfield G E) E :=
+  (Nat.card_eq_fintype_card (α := G)).trans (FixedPoints.finrank_eq_card G E).symm
+
+end Artin
+
+/-- FT `ft8` (Proposition).  If `E` is a splitting field over `F` of a separable polynomial
+`f ∈ F[X]` (Mathlib's `Polynomial.IsSplittingField F E f`), then the group of `F`-automorphisms
+of `E` has order `[E : F]`: `Nat.card (E ≃ₐ[F] E) = Module.finrank F E`.
+
+Textbook statement (Milne FT III): if `E` is the splitting field of a separable polynomial
+`f ∈ F[X]`, then `#{Aut(E/F)} = [E : F]`.
+
+Proof idea: since `f` is separable, `f.map (algebraMap F E)` has distinct roots
+(`Polynomial.nodup_roots` via `Polynomial.separable_map`), so by FT `sf7` (a), counting
+clause (`FT.natCard_algHom_eq_of_adjoin_rootSet_eq_top_of_splits`, with `Ω := E`, using the
+`IsSplittingField` fields `adjoin_rootSet'` and `splits'`), the number of `F`-homomorphisms
+`E → E` equals `Module.finrank F E`.  Finally `E/F` is finite and algebraic, and for an
+algebraic extension every `F`-endomorphism is an automorphism, so `Algebra`'s
+`algEquivEquivAlgHom` (an `Equiv` between `E ≃ₐ[F] E` and `E →ₐ[F] E`, valid because `E/F` is
+torsion-free and algebraic) transfers the count via `Nat.card_congr`. -/
+theorem natCard_aut_eq_finrank_of_isSplittingField {F E : Type u} [Field F] [Field E] [Algebra F E] (f : F[X]) (hsep : f.Separable)
+    [Polynomial.IsSplittingField F E f] :
+    Nat.card (E ≃ₐ[F] E) = Module.finrank F E := by
+  haveI hfd : FiniteDimensional F E := Polynomial.IsSplittingField.finiteDimensional E f
+  have h := FT.natCard_algHom_eq_of_adjoin_rootSet_eq_top_of_splits (Ω := E) f
+    (Polynomial.IsSplittingField.adjoin_rootSet' (K := F) (L := E) (f := f))
+    (Polynomial.IsSplittingField.splits' (f := f))
+    (Polynomial.nodup_roots ((Polynomial.separable_map (algebraMap F E)).mpr hsep))
+  rw [Nat.card_congr (Algebra.IsAlgebraic.algEquivEquivAlgHom F E).toEquiv]
+  exact h
+
+/-- FT `ft15` (Corollary).  If `E` is Galois over `F` and `M` is an intermediate field
+(`F ⊆ M ⊆ E`, here an `IntermediateField F E`), then `E` is Galois over `M`.
+
+Textbook statement (Milne FT III, Corollary): let `E` be Galois over `F` and let `M` be an
+intermediate field; then `E` is Galois over `M`.
+
+Proof idea (Milne): `E` is the splitting field over `F` of a separable polynomial, hence also
+the splitting field over `M` of the same polynomial regarded in `M[X]`, so `E/M` is Galois.
+In Mathlib this is precisely the instance `IsGalois.tower_top_intermediateField`; the wrapper
+just documents the source argument. -/
+theorem isGalois_tower_top {F E : Type u} [Field F] [Field E] [Algebra F E] (M : IntermediateField F E)
+    [IsGalois F E] : IsGalois M E :=
+  IsGalois.tower_top_intermediateField M
+
+/-- FT `ft14` (Corollary).  Every finite separable extension `E` of `F` is contained in a
+Galois extension: there exist a field `K` of the same universe with `Algebra F K`, `IsGalois F K`,
+and an `F`-algebra homomorphism `E →ₐ[F] K` (which, being a map of fields, is an embedding, so
+`E` sits inside `K`).
+
+Textbook statement (Milne FT III, Corollary): every finite separable extension `E` of `F` is
+contained in a Galois extension of `F`.
+
+Source proof (Milne): write `E = F[α₁,…,αₘ]` and let `f` be the product of the minimal
+polynomials of the `αᵢ` (with repetitions removed); `f` is separable and its splitting field
+`K` is Galois over `F` (splitting field of a separable polynomial ⇒ `IsGalois`) and contains
+`E`.  We realize the same construction via the primitive element theorem
+(`Field.exists_primitive_element`, finite + separable): `E = F⟮α⟯` for some `α`, and the
+splitting field of `minpoly F α` is the normal closure of `E/F`; it is Galois over `F` by
+`IsGalois.of_separable_splitting_field` (the Mathlib form of "splitting field of a separable
+polynomial ⇒ `IsGalois`"), and it receives an `F`-algebra homomorphism from `E` by the
+extension theorem `IntermediateField.nonempty_algHom_of_adjoin_splits` applied to the single
+generator `α`. -/
+theorem exists_galois_superextension {F E : Type u} [Field F] [Field E] [Algebra F E] [FiniteDimensional F E]
+    [Algebra.IsSeparable F E] :
+    ∃ (K : Type u) (_ : Field K) (_ : Algebra F K) (_ : IsGalois F K), Nonempty (E →ₐ[F] K) := by
+  obtain ⟨α, hα⟩ := Field.exists_primitive_element F E
+  refine ⟨(minpoly F α).SplittingField, inferInstance, inferInstance,
+    IsGalois.of_separable_splitting_field (Algebra.IsSeparable.isSeparable F α), ?_⟩
+  exact IntermediateField.nonempty_algHom_of_adjoin_splits (S := {α})
+    (fun s hs => by
+      have hs' : s = α := Set.mem_singleton_iff.mp hs
+      subst hs'
+      exact ⟨Algebra.IsSeparable.isIntegral F s,
+        Polynomial.IsSplittingField.splits' (f := minpoly F s)⟩)
+    hα
+
+section Chapter3
+
+open Polynomial IntermediateField
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+
+/-- FT `ft11m` (definition). An extension `E/F` is *Galois* if it satisfies the equivalent
+conditions of FT `ft12` (it is separable, FT `ft10m`, and normal, FT `ft10n`).
+Mathlib owns the predicate as the class `IsGalois F E`
+(`Mathlib/FieldTheory/Galois/Basic.lean`: two Prop-valued instance fields
+`Algebra.IsSeparable F E` and `Normal F E`), so FT's predicate is the thin abbrev
+`FT.IsGaloisExt F E := IsGalois F E`; the four-way equivalence of FT `ft12` is
+`FT.galois_iff` (its own label). -/
+abbrev IsGaloisExt : Prop := IsGalois F E
+
+/-- FT `ft11m` (definition, Galois group). The *Galois group* `Gal(E/F)` of FT `ft11m` is the
+group `Aut(E/F)` of `F`-automorphisms of `E` under composition. Mathlib realizes it as the
+type `E ≃ₐ[F] E`, which the notation `Gal(E/F)` abbreviates
+(`Mathlib/FieldTheory/Galois/Notation.lean`); it carries its natural group structure, and every
+subgroup appearing in the fundamental theorem (e.g. `IntermediateField.fixingSubgroup`)
+lives in `Subgroup Gal(E/F)`. FT's alias is the thin abbrev
+`FT.galoisGroup F E := Gal(E/F)`. -/
+abbrev galoisGroup : Type u := Gal(E/F)
+
+/-- FT `ft10m` (definition). A (necessarily algebraic) extension `E/F` is *separable* if the
+minimal polynomial of every element of `E` over `F` is separable. Mathlib's
+`Algebra.IsSeparable F E` (`Mathlib/FieldTheory/Separable.lean`) is exactly this clause: its
+defining field is `∀ x, IsSeparable F x` with `IsSeparable F x := Polynomial.Separable
+(minpoly F x)`; since a non-integral element has minimal polynomial `0`, which is not
+separable, the algebraicity required by FT `ft10m` is automatic. This theorem records the
+Milne clause of FT `ft10m` for source visibility. -/
+theorem separableExt_iff :
+    Algebra.IsSeparable F E ↔ ∀ x : E, Polynomial.Separable (minpoly F x) :=
+  ⟨fun h x => h.isSeparable' x, fun h => ⟨h⟩⟩
+
+/-- FT `ft10n` (definition). An extension `E/F` is *normal* if it is algebraic and the minimal
+polynomial of every element of `E` over `F` splits in `E[X]`. Mathlib's `Normal F E`
+(`Mathlib/FieldTheory/Normal/Defs.lean`) is exactly this: the class extends
+`Algebra.IsAlgebraic F E` with the splitting clause
+`∀ x, ((minpoly F x).map (algebraMap F E)).Splits` (see `normal_iff`). This theorem records
+the Milne clause of FT `ft10n` for source visibility. -/
+theorem normalExt_iff :
+    Normal F E ↔
+      Algebra.IsAlgebraic F E ∧ ∀ x : E, ((minpoly F x).map (algebraMap F E)).Splits := by
+  constructor
+  · intro h
+    exact ⟨Algebra.IsAlgebraic.mk fun x => (Normal.isIntegral h x).isAlgebraic,
+      fun x => Normal.splits h x⟩
+  · rintro ⟨halg, hspl⟩
+    exact normal_iff.2 fun x => ⟨(halg.isAlgebraic x).isIntegral, hspl x⟩
+
+/-- FT `ft21` (definition). An extension `E/F` is *cyclic* (resp. *abelian*, resp. *solvable*)
+if it is Galois (FT `ft11m`) and its Galois group `Gal(E/F) = Aut(E/F)` (FT `ft11m`) is cyclic
+(resp. abelian, resp. solvable). Mathlib encodes: `IsCyclic G` (generated by one element),
+`IsMulCommutative G` (commutativity), `IsSolvable G` (eventually trivial derived series);
+`Gal(E/F) = E ≃ₐ[F] E` is a group, so all three apply to it directly. -/
+def IsCyclicExt : Prop :=
+  IsGalois F E ∧ IsCyclic Gal(E/F)
+
+/-- FT `ft21` (definition, abelian case); see `FT.IsCyclicExt`. -/
+def IsAbelianExt : Prop :=
+  IsGalois F E ∧ IsMulCommutative Gal(E/F)
+
+/-- FT `ft21` (definition, solvable case); see `FT.IsCyclicExt`. -/
+def IsSolvableExt : Prop :=
+  IsGalois F E ∧ IsSolvable Gal(E/F)
+
+/-- **FT `ft9`** (example). Let `E = F(α)` be a simple extension (`Algebra.adjoin F {α} = ⊤`)
+and `f ∈ F[X]` a polynomial having `α` as a root. If `α` is the *only* root of `f` in `E`,
+then `Aut(E/F)` is trivial (`Gal(E/F) = E ≃ₐ[F] E` is a subsingleton).
+
+Proof (FT, via the argument of FT `sf1`(b)): an `F`-automorphism `σ` sends `α` to a root of
+`f` (it commutes with polynomial evaluation, `Polynomial.aeval_algHom_apply`), hence
+`σ(α) = α` by uniqueness; the two `F`-algebra maps `σ` and `1` agree on `α`, and since `E`
+is generated by `α` over `F` (`AlgHom.ext_of_adjoin_eq_top`), `σ = 1`.
+
+Milne's concrete instances (via FT `ft2`): over `ℚ`, `E = ℚ(∛2) ⊆ ℝ` with `f = X ^ 3 - 2`
+has only the real root `∛2` in `E`, so `Aut(ℚ(∛2)/ℚ) = 1`; and in characteristic `p`, for
+`a ∈ F` not a `p`-th power, `E = F(a^{1/p})` with `f = X ^ p - a`: by FT `ft2` this
+polynomial is irreducible yet has a single root (Frobenius), so the extension has trivial
+automorphism group. -/
+theorem aut_subsingleton_of_unique_root {α : E} {f : F[X]}
+    (hgen : Algebra.adjoin F {α} = ⊤) (hf : Polynomial.aeval α f = 0)
+    (huniq : ∀ β : E, Polynomial.aeval β f = 0 → β = α) :
+    Subsingleton Gal(E/F) := by
+  have hroot : ∀ σ : Gal(E/F), σ.toAlgHom α = α := by
+    intro σ
+    have h1 : Polynomial.aeval (σ.toAlgHom α) f = 0 := by
+      rw [Polynomial.aeval_algHom_apply σ.toAlgHom α f, hf, map_zero]
+    exact huniq _ h1
+  exact ⟨fun σ τ => AlgEquiv.coe_algHom_injective
+    (AlgHom.ext_of_adjoin_eq_top hgen fun x hx => by
+      rw [Set.mem_singleton_iff.mp hx, hroot σ, hroot τ])⟩
+
+/-- FT `ft18` (a) (remark, compositum correspondence). For intermediate fields `M₁, M₂` of
+`E/F`, the subgroup of `Gal(E/F)` fixing the compositum `M₁ ⊔ M₂` is the intersection of the
+subgroups fixing `M₁` and `M₂`: an `F`-automorphism fixes `M₁ ⊔ M₂` pointwise iff it fixes
+`M₁` and `M₂` pointwise. This does not require `E/F` to be Galois or finite
+(Mathlib's `IntermediateField.fixingSubgroup_sup`); combined with FT `ft17`
+(`FT.IsGalois.fixedField_fixingSubgroup`) it gives the Galois correspondence
+`Gal(E/(M₁ ⊔ M₂)) = Gal(E/M₁) ∩ Gal(E/M₂)`. The `r`-fold statement
+`Gal(E/(M₁ ⊔ ⋯ ⊔ Mᵣ)) = ⋂ Gal(E/Mᵢ)` of FT `ft18` (a) follows by induction on `r`. -/
+theorem fixingSubgroup_compositum (M₁ M₂ : IntermediateField F E) :
+    (M₁ ⊔ M₂).fixingSubgroup = M₁.fixingSubgroup ⊓ M₂.fixingSubgroup :=
+  IntermediateField.fixingSubgroup_sup
+
+open Polynomial in
+/-- FT (unlabeled section "The Galois group of a polynomial", ggp). For a polynomial
+`f ∈ F[X]` (Milne's `F_f/F`; here tested in a further extension `E/F` in which `f` splits),
+Mathlib's `Polynomial.Gal f` (`Mathlib/FieldTheory/PolynomialGaloisGroup.lean`) is
+`f.SplittingField ≃ₐ[F] f.SplittingField`, the automorphism group of the splitting field of
+`f`. Its elements permute the roots of `f` in `E` — concretely via the monoid homomorphism
+`Polynomial.Gal.galActionHom f E : f.Gal →* Equiv.Perm (f.rootSet E)` — and are *determined*
+by that permutation, i.e. `Gal(f)` embeds into the permutation group of the root set. For a
+separable `f` (with `E = f.SplittingField`) this realizes FT's Galois group of `f` as a
+subgroup of `Equiv.Perm` of the roots. -/
+theorem galActionHom_injective {F E : Type u} [Field F] [Field E] [Algebra F E]
+    (p : F[X]) [Fact ((p.map (algebraMap F E)).Splits)] :
+    Function.Injective (Polynomial.Gal.galActionHom p E) :=
+  Polynomial.Gal.galActionHom_injective p E
+
+open Polynomial in
+/-- FT (unlabeled section "The Galois group of a polynomial", ggp, splitting-field case).
+Specializing `FT.galActionHom_injective` to the splitting field `E = p.SplittingField` (whose
+`splits` fact is `Polynomial.IsSplittingField.splits`): the Galois group of `p` acts
+faithfully as permutations of the roots of `p`. -/
+theorem galActionHom_injective_splittingField {F : Type u} [Field F] (p : F[X])
+    [Fact ((p.map (algebraMap F p.SplittingField)).Splits)] :
+    Function.Injective (Polynomial.Gal.galActionHom p p.SplittingField) :=
+  Polynomial.Gal.galActionHom_injective p p.SplittingField
+
+end Chapter3
+
+/-! ## FT `ft17` — The fundamental theorem of Galois theory -/
+
+section GaloisCorrespondence
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+open scoped Pointwise
+variable [FiniteDimensional F E]
+
+/-- FT `ft17` (Galois correspondence, subgroup-to-field half).  For a finite Galois extension
+`E/F` with group `G = Gal(E/F)`, the subgroup fixing the fixed field `E^H` of a subgroup `H ⊆ G`
+is `H` itself: `Gal(E/E^H) = H`.
+
+Proof idea (Milne FT): Mathlib's `IntermediateField.fixingSubgroup_fixedField`; with
+`galCorr_fixedField_fixingSubgroup` this is Milne's bijection `H ↦ E^H`. -/
+theorem galCorr_fixingSubgroup_fixedField (H : Subgroup Gal(E/F)) :
+    (IntermediateField.fixedField H).fixingSubgroup = H :=
+  IntermediateField.fixingSubgroup_fixedField H
+
+/-- FT `ft17` (Galois correspondence, field-to-subgroup half).  Let `E/F` be a finite Galois
+extension with group `G = Gal(E/F)`.  The fixed field of the subgroup fixing an intermediate
+field `M` is `M` itself: `E^{Gal(E/M)} = M`.
+
+Proof idea (Milne FT): Mathlib's `IsGalois.fixedField_fixingSubgroup`; together with
+`galCorr_fixingSubgroup_fixedField` this is Milne's bijection `H ↦ E^H`. -/
+theorem galCorr_fixedField_fixingSubgroup [IsGalois F E] (K : IntermediateField F E) :
+    IntermediateField.fixedField K.fixingSubgroup = K :=
+  IsGalois.fixedField_fixingSubgroup K
+
+/-- FT `ft17` (the bijection).  For a finite Galois extension `E/F`, the map `H ↦ E^H` is a
+bijection from the subgroups of `G = Gal(E/F)` to the intermediate fields `F ⊆ M ⊆ E` (Milne's
+"subextensions"), with inverse `M ↦ Gal(E/M)`.
+
+Proof idea (Milne FT): package `IntermediateField.fixingSubgroup_fixedField` and
+`IsGalois.fixedField_fixingSubgroup` (the two halves of Mathlib's
+`intermediateFieldEquivSubgroup`, which is the dualized order isomorphism `M ↦ Gal(E/M)`). -/
+def galoisCorrespondenceEquiv [IsGalois F E] :
+    Subgroup Gal(E/F) ≃ IntermediateField F E where
+  toFun := IntermediateField.fixedField
+  invFun := IntermediateField.fixingSubgroup
+  left_inv H := IntermediateField.fixingSubgroup_fixedField H
+  right_inv K := IsGalois.fixedField_fixingSubgroup K
+
+/-- FT `ft17` (a), inclusion-reversing: for subgroups `H1, H2` of `G = Gal(E/F)`,
+`H1 ≤ H2 ↔ E^{H1} ⊇ E^{H2}` (i.e. `H1 ⊇ H2 ↔ E^{H1} ⊆ E^{H2}`).
+
+Proof idea (Milne FT): `fixedField` is antitone, and the correspondence is a bijection;
+concretely from Mathlib's `IntermediateField.le_iff_le` plus `fixingSubgroup_fixedField`. -/
+theorem galCorr_le_iff_le (H1 H2 : Subgroup Gal(E/F)) :
+    H1 ≤ H2 ↔ IntermediateField.fixedField H2 ≤ IntermediateField.fixedField H1 := by
+  constructor
+  · exact IntermediateField.fixedField_le
+  · intro h
+    rw [← IntermediateField.fixingSubgroup_fixedField H2]
+    exact (IntermediateField.le_iff_le H1 _).mp h
+
+/-- FT `ft17` (b), indexes equal degrees.  Let `E/F` be a finite Galois extension with group
+`G = Gal(E/F)`, and `H2 ≤ H1 ≤ G`.  Then the relative index `(H1 : H2)` equals the relative
+degree `[E^{H2} : E^{H1}]`, in the equivalent product form
+`(H1 : H2) · [E : E^{H2}] = [E : E^{H1}]` (the intermediate-field degrees are Mathlib
+`Module.finrank`; the tower formula `[E : E^{H1}] = [E : E^{H2}] · [E^{H2} : E^{H1}]` turns the
+product form into Milne's equality `(H1 : H2) = [E^{H2} : E^{H1}]`).
+
+Proof idea (Milne FT): Lagrange's theorem `(H1 : H2) · |H2| = |H1|` (via
+`Subgroup.relIndex_mul_relIndex` and `Subgroup.card_mul_index`), combined with Mathlib's
+`IntermediateField.finrank_fixedField_eq_card` (`[E : E^H] = |H|`). -/
+theorem galCorr_relIndex_mul_finrank (H1 H2 : Subgroup Gal(E/F)) (h12 : H2 ≤ H1) :
+    H2.relIndex H1 * Module.finrank ↥(IntermediateField.fixedField H2) E
+      = Module.finrank ↥(IntermediateField.fixedField H1) E := by
+  have e1 : H2.relIndex H1 * H1.index = H2.index := by
+    have h := Subgroup.relIndex_mul_relIndex H2 H1 ⊤ h12 le_top
+    simp only [Subgroup.relIndex_top_right] at h
+    exact h
+  have Gpos : 0 < Nat.card Gal(E/F) := Nat.card_pos
+  have c1 : Nat.card ↥H1 * H1.index = Nat.card Gal(E/F) := Subgroup.card_mul_index H1
+  have c2 : Nat.card ↥H2 * H2.index = Nat.card Gal(E/F) := Subgroup.card_mul_index H2
+  have idxpos : H1.index ≠ 0 := by
+    intro hz
+    rw [hz, Nat.mul_zero] at c1
+    exact Gpos.ne' c1.symm
+  have lag : H2.relIndex H1 * Nat.card ↥H2 = Nat.card ↥H1 := by
+    refine mul_right_cancel₀ idxpos ?_
+    calc (H2.relIndex H1 * Nat.card ↥H2) * H1.index
+        = Nat.card ↥H2 * (H2.relIndex H1 * H1.index) := by ring
+      _ = Nat.card ↥H2 * H2.index := by rw [e1]
+      _ = Nat.card Gal(E/F) := c2
+      _ = Nat.card ↥H1 * H1.index := c1.symm
+  rw [IntermediateField.finrank_fixedField_eq_card H2,
+    IntermediateField.finrank_fixedField_eq_card H1]
+  exact lag
+
+end GaloisCorrespondence
+
+section GaloisConjugation
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+open scoped Pointwise
+
+/-- DEP: private copy (dedupe at integration).  Membership in the pointwise-conjugated subgroup:
+`x ∈ g • S ↔ ∃ s ∈ S, g s g⁻¹ = x`. -/
+private theorem priv_mem_conj_smul {G : Type*} [Group G] (g : G) (S : Subgroup G) (x : G) :
+    x ∈ MulAut.conj g • S ↔ ∃ s ∈ S, (MulAut.conj g) s = x := by
+  rw [Subgroup.mem_pointwise_smul_iff_inv_smul_mem]
+  constructor
+  · intro h
+    exact ⟨(MulAut.conj g).symm x, h, MulEquiv.apply_symm_apply _ _⟩
+  · rintro ⟨s, hs, rfl⟩
+    have h2 : ((MulAut.conj g)⁻¹) • ((MulAut.conj g) s) = s := by
+      show ((MulAut.conj g)⁻¹) ((MulAut.conj g) s) = s
+      exact MulEquiv.symm_apply_apply _ _
+    rw [h2]
+    exact hs
+
+/-- DEP: private copy (dedupe at integration).  Pointwise conjugation of a subgroup is its image
+under the group automorphism `MulAut.conj g`. -/
+private theorem priv_conj_smul_eq_map {G : Type*} [Group G] (g : G) (S : Subgroup G) :
+    MulAut.conj g • S = S.map (MulAut.conj g) := by
+  ext x
+  rw [priv_mem_conj_smul, Subgroup.mem_map]
+  exact ⟨fun ⟨s, hs, h⟩ => ⟨s, hs, h⟩, fun ⟨s, hs, h⟩ => ⟨s, hs, h⟩⟩
+
+/-- DEP: private copy (dedupe at integration). -/
+private theorem priv_conj_apply (σ τ : Gal(E/F)) (y : E) :
+    ((MulAut.conj σ) τ) y = σ (τ (σ⁻¹ y)) := by
+  simp [MulAut.conj_apply, AlgEquiv.mul_apply]
+
+/-- DEP: private copy (dedupe at integration). -/
+private theorem priv_inv_apply_apply (σ : Gal(E/F)) (y : E) : σ⁻¹ (σ y) = y := by simp
+
+/-- FT `ft17` (c), conjugation, first half: `E^{σHσ⁻¹} = σ(E^H)` for `σ ∈ Gal(E/F)` and `H ≤ G`,
+where `σHσ⁻¹` is encoded as the pointwise conjugation `MulAut.conj σ • H`.
+
+Proof idea (Milne FT): `x` is fixed by `σHσ⁻¹` iff `σ⁻¹x` is fixed by `H`, since
+`(σhσ⁻¹)x = x ↔ h(σ⁻¹x) = σ⁻¹x`. -/
+theorem galCorr_fixedField_conj (σ : Gal(E/F)) (H : Subgroup Gal(E/F)) :
+    IntermediateField.fixedField (MulAut.conj σ • H)
+      = IntermediateField.map (↑σ : E →ₐ[F] E) (IntermediateField.fixedField H) := by
+  ext x
+  rw [IntermediateField.mem_fixedField_iff, IntermediateField.mem_map]
+  constructor
+  · intro hx
+    refine ⟨σ⁻¹ x, (IntermediateField.mem_fixedField_iff H _).mpr fun τ hτ => ?_,
+      show (↑σ : E →ₐ[F] E) (σ⁻¹ x) = x by
+        rw [show (↑σ : E →ₐ[F] E) (σ⁻¹ x) = σ (σ⁻¹ x) from rfl]; simp⟩
+    have h1 : σ (τ (σ⁻¹ x)) = x := by
+      rw [← priv_conj_apply σ τ x]
+      exact hx _ (priv_mem_conj_smul σ H _ |>.mpr ⟨τ, hτ, rfl⟩)
+    have h3 : σ.symm (σ (τ (σ⁻¹ x))) = σ.symm x := congrArg (fun y : E => σ.symm y) h1
+    rw [AlgEquiv.symm_apply_apply] at h3
+    exact h3
+  · rintro ⟨a, ha, rfl⟩
+    intro τ hτ
+    obtain ⟨s, hs, rfl⟩ := (priv_mem_conj_smul σ H τ).mp hτ
+    rw [show (↑σ : E →ₐ[F] E) a = σ a from rfl, priv_conj_apply σ s (σ a), priv_inv_apply_apply]
+    rw [(IntermediateField.mem_fixedField_iff H a).mp ha s hs]
+
+/-- FT `ft17` (c), conjugation, first half in subgroup-image form: `E^{σHσ⁻¹} = σ(E^H)` with
+`σHσ⁻¹` the image of `H` under the group automorphism `MulAut.conj σ`. -/
+theorem galCorr_fixedField_conj_map (σ : Gal(E/F)) (H : Subgroup Gal(E/F)) :
+    IntermediateField.fixedField (H.map (MulAut.conj σ))
+      = IntermediateField.map (↑σ : E →ₐ[F] E) (IntermediateField.fixedField H) := by
+  rw [← priv_conj_smul_eq_map, galCorr_fixedField_conj]
+
+/-- FT `ft17` (c), conjugation, second half: `Gal(E/σM) = σ·Gal(E/M)·σ⁻¹` for `σ ∈ Gal(E/F)` and
+an intermediate field `M`, where the conjugated subgroup `σGal(E/M)σ⁻¹` is encoded as the
+pointwise conjugation `MulAut.conj σ • Gal(E/M)`.
+
+Proof idea (Milne FT): Mathlib's `IsGalois.map_fixingSubgroup` (`τ fixes σM ↔ σ⁻¹τσ fixes M`). -/
+theorem galCorr_fixingSubgroup_conj (M : IntermediateField F E) (σ : Gal(E/F)) :
+    (IntermediateField.map (↑σ : E →ₐ[F] E) M).fixingSubgroup
+      = MulAut.conj σ • M.fixingSubgroup :=
+  IsGalois.map_fixingSubgroup M σ
+
+/-- FT `ft17` (c), second half in subgroup-image form: `Gal(E/σM) = σ Gal(E/M) σ⁻¹` written as
+the image of `Gal(E/M)` under the group automorphism `MulAut.conj σ`. -/
+theorem galCorr_fixingSubgroup_conj_map (M : IntermediateField F E) (σ : Gal(E/F)) :
+    (IntermediateField.map (↑σ : E →ₐ[F] E) M).fixingSubgroup
+      = (M.fixingSubgroup).map (MulAut.conj σ) := by
+  rw [galCorr_fixingSubgroup_conj, priv_conj_smul_eq_map]
+
+end GaloisConjugation
+
+section NormalSubgroupForward
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+
+/-- FT `ft17` (d), forward: if `H ⊴ Gal(E/F)` then the fixed field `E^H` is Galois over `F`.
+
+Proof idea (Milne FT): `σ(E^H) = E^H` for all `σ` (by the conjugation formula), so the
+restriction hom `Gal(E/F) → Gal(E^H/F)` has kernel `H`; Mathlib packages the resulting Galois
+property as `IsGalois.of_fixedField_normal_subgroup`. -/
+theorem galCorr_isGalois_fixedField_of_normal (H : Subgroup Gal(E/F)) [H.Normal] :
+    IsGalois F (IntermediateField.fixedField H) :=
+  IsGalois.of_fixedField_normal_subgroup H
+
+end NormalSubgroupForward
+
+section NormalSubgroup
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+variable [FiniteDimensional F E] [IsGalois F E]
+
+/-- FT `ft17` (d), reverse: if `E^H` is Galois over `F` then `H ⊴ Gal(E/F)`.
+
+Proof idea (Milne FT): `E^H` Galois over `F` implies `Gal(E/E^H) ⊴ Gal(E/F)` (Mathlib's
+`IsGalois.fixingSubgroup_normal_of_isGalois`); by the correspondence `Gal(E/E^H) = H`. -/
+theorem galCorr_normal_of_isGalois_fixedField (H : Subgroup Gal(E/F))
+    [IsGalois F (IntermediateField.fixedField H)] : H.Normal := by
+  have hN := IsGalois.fixingSubgroup_normal_of_isGalois (IntermediateField.fixedField H)
+  rwa [IntermediateField.fixingSubgroup_fixedField] at hN
+
+/-- FT `ft17` (d), the normal-subgroup ↔ Galois-subfield equivalence: `H ⊴ Gal(E/F)` iff the
+fixed field `E^H` is Galois over `F`.
+
+Proof idea (Milne FT): combine the two one-directional results above. -/
+theorem galCorr_normal_iff_isGalois_fixedField (H : Subgroup Gal(E/F)) :
+    H.Normal ↔ IsGalois F (IntermediateField.fixedField H) :=
+  ⟨fun _ => galCorr_isGalois_fixedField_of_normal H,
+    fun _ => galCorr_normal_of_isGalois_fixedField H⟩
+
+/-- FT `ft17` (d), normality form: `H ⊴ Gal(E/F)` iff `E^H` is normal over `F` (and then `E^H`
+is Galois over `F`, separability being inherited from `E/F`).
+
+Proof idea (Milne FT): `isGalois_iff` splits Galois into separability (inherited from `E/F` by
+`Algebra.isSeparable_tower_bot_of_isSeparable`) and normality. -/
+theorem galCorr_normal_iff_normal_fixedField (H : Subgroup Gal(E/F)) :
+    H.Normal ↔ Normal F (IntermediateField.fixedField H) := by
+  rw [galCorr_normal_iff_isGalois_fixedField]
+  constructor
+  · exact fun _ => IsGalois.to_normal
+  · intro h
+    exact isGalois_iff.mpr
+      ⟨Algebra.isSeparable_tower_bot_of_isSeparable F (IntermediateField.fixedField H) E, h⟩
+
+/-- FT `ft17` (d), the quotient isomorphism: if `H ⊴ Gal(E/F)` then
+`Gal(E^H/F) ≅ Gal(E/F)/H`, Milne's "Gal(E^H/F) ≅ G/H".
+
+Proof idea (Milne FT): the restriction hom `Gal(E/F) → Gal(E^H/F)` is surjective with kernel `H`
+(Mathlib: `IsGalois.normalAutEquivQuotient`). -/
+noncomputable def galCorrQuotientEquiv (H : Subgroup Gal(E/F)) [H.Normal] :
+    Gal(↥(IntermediateField.fixedField H)/F) ≃* Gal(E/F) ⧸ H :=
+  (IsGalois.normalAutEquivQuotient H).symm
+
+/-- FT `ft17` (d), kernel form: with `H ⊴ Gal(E/F)`, the restriction hom
+`Gal(E/F) →* Gal(E^H/F)` has kernel exactly `H`.
+
+Proof idea (Milne FT): the kernel is `Gal(E/E^H) = H` (correspondence). -/
+theorem galCorr_restrictNormalHom_ker (H : Subgroup Gal(E/F)) [H.Normal] :
+    (AlgEquiv.restrictNormalHom (IntermediateField.fixedField H)).ker = H := by
+  haveI : IsGalois F (IntermediateField.fixedField H) :=
+    galCorr_isGalois_fixedField_of_normal H
+  rw [IntermediateField.restrictNormalHom_ker, IntermediateField.fixingSubgroup_fixedField]
+
+end NormalSubgroup
+
+/-!
+### FT `ft18f`/`ft18g` supporting instances and transport facts
+
+Mathlib supplies the `inf`-side `Algebra ↥(E ⊓ L) ↥E` (and only that); the `sup`-side
+instance below is the interface-filler needed to state `E ⊔ L ≃ₐ[L] E ⊔ L` and
+`IsGalois L (E ⊔ L)`.
+-/
+
+open Polynomial IntermediateField
+
+variable {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω] (E L : IntermediateField F Ω)
+
+/-- The `↥L → ↥(E ⊔ L)` algebra structure (inclusion); Mathlib only provides the `⊓` version.
+Needed at every use site of FT `ft18f`/`ft18g`. -/
+instance instAlgebraSupRight (E L : IntermediateField F Ω) :
+    Algebra ↥L ↥(E ⊔ L) :=
+  RingHom.toAlgebra (IntermediateField.inclusion (le_sup_right : L ≤ E ⊔ L))
+
+private instance priv_isScalarTowerSup (E L : IntermediateField F Ω) :
+    IsScalarTower F ↥L ↥(E ⊔ L) :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+private instance priv_isScalarTowerInf (E L : IntermediateField F Ω) :
+    IsScalarTower F ↥(E ⊓ L) ↥E :=
+  IsScalarTower.of_algebraMap_eq' rfl
+
+/-- The copy of `E` inside `E ⊔ L`. -/
+noncomputable def compositumRestrictLeft (E L : IntermediateField F Ω) :
+    IntermediateField F ↥(E ⊔ L) :=
+  E.restrict (le_sup_left : E ≤ E ⊔ L)
+
+/-- The copy of `L` inside `E ⊔ L`. -/
+noncomputable def compositumRestrictRight (E L : IntermediateField F Ω) :
+    IntermediateField F ↥(E ⊔ L) :=
+  L.restrict (le_sup_right : L ≤ E ⊔ L)
+
+theorem rootSet_mem_of_isSplittingField {p : F[X]} (hp : p.IsSplittingField F E) :
+    ∀ x ∈ p.rootSet Ω, x ∈ E :=
+  (IntermediateField.splits_iff_mem
+    ((IsSplittingField.splits E p).of_algHom (IsScalarTower.toAlgHom F E Ω))).mp
+      (IsSplittingField.splits E p)
+
+theorem eq_adjoin_rootSet_of_isSplittingField {p : F[X]} (hp : p.IsSplittingField F E) :
+    E = IntermediateField.adjoin F (p.rootSet Ω) :=
+  (IntermediateField.isSplittingField_iff.mp hp).2
+
+theorem val_image_rootSet_of_separable {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) :
+    Subtype.val '' (p.rootSet ↥(E ⊔ L)) = p.rootSet Ω := by
+  have hp0 := hps.ne_zero
+  refine Set.ext fun x => ?_
+  constructor
+  · rintro ⟨y, hy, rfl⟩
+    rw [mem_rootSet'] at hy ⊢
+    exact ⟨Polynomial.map_ne_zero hp0, by rw [aeval_coe]; simpa using hy.2⟩
+  · intro hx
+    have hx' := hx
+    rw [mem_rootSet'] at hx
+    refine ⟨⟨x, (le_sup_left : E ≤ E ⊔ L) (rootSet_mem_of_isSplittingField E hp x hx')⟩, ?_, rfl⟩
+    rw [mem_rootSet']
+    refine ⟨Polynomial.map_ne_zero hp0, Subtype.ext ?_⟩
+    rw [← aeval_coe]
+    simpa using hx.2
+
+theorem adjoin_rootSet_eq_compositumRestrictLeft {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) :
+    IntermediateField.adjoin F (p.rootSet ↥(E ⊔ L)) = compositumRestrictLeft E L := by
+  simp only [compositumRestrictLeft]
+  refine (IntermediateField.lift_inj _ _).mp ?_
+  rw [IntermediateField.lift_adjoin F (E ⊔ L), val_image_rootSet_of_separable E L hps hp,
+    ← eq_adjoin_rootSet_of_isSplittingField E hp, IntermediateField.lift_restrict (le_sup_left : E ≤ E ⊔ L)]
+
+theorem compositumRestrict_sup_eq_top (E L : IntermediateField F Ω) :
+    compositumRestrictLeft E L ⊔ compositumRestrictRight E L = ⊤ := by
+  simp only [compositumRestrictLeft, compositumRestrictRight]
+  rw [← IntermediateField.lift_inj, IntermediateField.lift_top,
+    IntermediateField.lift_sup, IntermediateField.lift_restrict (le_sup_left : E ≤ E ⊔ L),
+    IntermediateField.lift_restrict (le_sup_right : L ≤ E ⊔ L)]
+
+theorem rootSet_map_compositumRestrictRight {p : F[X]} :
+    (p.map (algebraMap F ↥(compositumRestrictRight E L))).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L) := by
+  refine Set.ext fun x => ?_
+  have hmap : Polynomial.map (algebraMap ↥(compositumRestrictRight E L) ↥(E ⊔ L))
+      (p.map (algebraMap F ↥(compositumRestrictRight E L))) = p.map (algebraMap F ↥(E ⊔ L)) := by
+    rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥(compositumRestrictRight E L) ↥(E ⊔ L)]
+  simp only [mem_rootSet', hmap, Polynomial.aeval_map_algebraMap]
+
+/-- `E ⊔ L` is the splitting field over `L` of the `L`-polynomial attached to `f`
+(FT `ft18f`, first Galois clause). -/
+theorem compositum_isSplittingField {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) :
+    (p.map (algebraMap F ↥(compositumRestrictRight E L))).IsSplittingField
+      ↥(compositumRestrictRight E L) ↥(E ⊔ L) := by
+  rw [isSplittingField_iff_intermediateField]
+  constructor
+  · have hmap : (p.map (algebraMap F ↥(compositumRestrictRight E L))).map
+        (algebraMap ↥(compositumRestrictRight E L) ↥(E ⊔ L)) = p.map (algebraMap F ↥(E ⊔ L)) := by
+      rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥(compositumRestrictRight E L) ↥(E ⊔ L)]
+    rw [hmap]
+    exact (IsSplittingField.splits E p).of_algHom
+      (IntermediateField.inclusion (le_sup_left : E ≤ E ⊔ L))
+  · rw [← IntermediateField.restrictScalars_eq_top_iff (K := F),
+      IntermediateField.restrictScalars_adjoin_eq_sup (K := compositumRestrictRight E L),
+      rootSet_map_compositumRestrictRight, adjoin_rootSet_eq_compositumRestrictLeft E L hps hp]
+    exact (sup_comm _ _).trans (compositumRestrict_sup_eq_top E L)
+
+/-- FT `ft18f` clause 1: `E ⊔ L` is Galois over `L`. -/
+theorem isGalois_compositum_of_isSplittingField {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) : IsGalois ↥(compositumRestrictRight E L) ↥(E ⊔ L) := by
+  haveI := compositum_isSplittingField E L hps hp
+  exact IsGalois.of_separable_splitting_field
+    ((Polynomial.separable_map (algebraMap F ↥(compositumRestrictRight E L))).mpr hps)
+
+theorem finiteDimensional_compositum {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) : FiniteDimensional ↥(compositumRestrictRight E L) ↥(E ⊔ L) := by
+  have h := compositum_isSplittingField E L hps hp
+  exact Polynomial.IsSplittingField.finiteDimensional ↥(E ⊔ L)
+    (p.map (algebraMap F ↥(compositumRestrictRight E L)))
+
+/-- FT `ft18f` clause 2: `E` is Galois over `E ⊓ L` (splitting field of `f` over `E ⊓ L`). -/
+theorem isGalois_of_inf_of_isSplittingField {p : F[X]} (hps : p.Separable) (hp : p.IsSplittingField F E) :
+    IsGalois ↥(E ⊓ L) ↥E := by
+  haveI hST : IsScalarTower F ↥(E ⊓ L) ↥E := IsScalarTower.of_algebraMap_eq' rfl
+  haveI : (p.map (algebraMap F ↥(E ⊓ L))).IsSplittingField ↥(E ⊓ L) ↥E :=
+    @Polynomial.IsSplittingField.map F ↥(E ⊓ L) ↥E _ _ _ _ _ _ _ p hp
+  exact IsGalois.of_separable_splitting_field
+    ((Polynomial.separable_map (algebraMap F ↥(E ⊓ L))).mpr hps)
+
+theorem finiteDimensional_of_inf {p : F[X]} (hp : p.IsSplittingField F E) :
+    FiniteDimensional ↥(E ⊓ L) ↥E := by
+  haveI hST : IsScalarTower F ↥(E ⊓ L) ↥E := IsScalarTower.of_algebraMap_eq' rfl
+  exact Polynomial.IsSplittingField.finiteDimensional ↥E (p.map (algebraMap F ↥(E ⊓ L)))
+
+/-- Normality of the copy of `E` inside `E ⊔ L` (needed for the restriction hom). -/
+theorem normal_compositumRestrictLeft [FiniteDimensional F E] (hE : IsGalois F E) :
+    Normal F ↥(compositumRestrictLeft E L) := by
+  haveI hE' : IsGalois F ↥(compositumRestrictLeft E L) :=
+    IsGalois.of_algEquiv (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))
+  exact (isGalois_iff.mp hE').2
+
+/-- The restriction homomorphism `Gal(↥(E⊔L)/↥(compositumRestrictRight E L)) →*
+Gal(↥(compositumRestrictLeft E L)/F)`
+coming from `IntermediateField.restrictRestrictAlgEquivMapHom`. -/
+noncomputable def galRestrictHom [FiniteDimensional F E] (hE : IsGalois F E) :
+    (↥(E ⊔ L) ≃ₐ[↥(compositumRestrictRight E L)] ↥(E ⊔ L)) →*
+    (↥(compositumRestrictLeft E L) ≃ₐ[F] ↥(compositumRestrictLeft E L)) := by
+  haveI := normal_compositumRestrictLeft E L hE
+  exact IntermediateField.restrictRestrictAlgEquivMapHom F ↥(compositumRestrictLeft E L)
+    ↥(compositumRestrictRight E L) ↥(E ⊔ L)
+
+/-- View an `F`-automorphism of `E` fixing `E ⊓ L` pointwise as an `E ⊓ L`-automorphism. -/
+noncomputable def algEquivOfFixes (E L : IntermediateField F Ω)
+    (f : ↥E ≃ₐ[F] ↥E) (h : ∀ y : ↥E, y.1 ∈ E ⊓ L → f y = y) :
+    ↥E ≃ₐ[↥(E ⊓ L)] ↥E :=
+  { f with commutes' := fun s => h (algebraMap ↥(E ⊓ L) ↥E s) (by
+      rw [show ((algebraMap ↥(E ⊓ L) ↥E s) : Ω) = (s : Ω) from rfl]; exact s.2) }
+
+theorem eq_smul_of_mem_base {σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)} {x : ↥(E ⊔ L)}
+    (hx : x.1 ∈ L) : σ x = x := by
+  have hcomm := σ.commutes' (⟨x.1, hx⟩ : ↥L)
+  have hcoe : ((algebraMap ↥L ↥(E ⊔ L)) (⟨x.1, hx⟩ : ↥L) : ↥(E ⊔ L)) = x := Subtype.ext rfl
+  rw [hcoe] at hcomm
+  exact hcomm
+
+/-- Transport `Gal(↥(E⊔L)/↥L)` into the `IntermediateField`-based group over
+`compositumRestrictRight E L` (the base used by Mathlib's restriction machinery). -/
+noncomputable def toGalRestrictBase (E L : IntermediateField F Ω)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) :
+    ↥(E ⊔ L) ≃ₐ[↥(compositumRestrictRight E L)] ↥(E ⊔ L) := by
+  refine { σ with commutes' := fun a => ?_ }
+  exact eq_smul_of_mem_base E L
+    ((IntermediateField.mem_restrict (le_sup_right : L ≤ E ⊔ L) a).mp a.2)
+
+section FiberProduct
+open Polynomial IntermediateField
+variable {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω] (E1 E2 : IntermediateField F Ω)
+variable [IsGalois F E1] [IsGalois F E2] [FiniteDimensional F E1] [FiniteDimensional F E2]
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` (first half, intersection).  If `E1/F` and `E2/F` are Galois extensions (given as
+Galois intermediate fields of a common field `Ω`), then the intersection `E1 ⊓ E2` is Galois over
+`F`: normality is Mathlib's `IntermediateField.normal_inf` (every root of the minimal polynomial
+of `a ∈ E1 ⊓ E2` lies in both `E1` and `E2`, hence in the intersection), and separability is
+inherited from `E1 ⊇ E1 ⊓ E2` along the inclusion. -/
+theorem isGalois_inf_of_isGalois : IsGalois F ↥(E1 ⊓ E2) where
+  to_isSeparable :=
+    Algebra.IsSeparable.of_algHom F ↥E1
+      (IntermediateField.inclusion (inf_le_left : E1 ⊓ E2 ≤ E1))
+  to_normal := inferInstance
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` (first half, compositum).  If `E1/F` and `E2/F` are Galois extensions, then the
+compositum `E1 ⊔ E2` is Galois over `F`: it is normal (`IntermediateField.normal_sup`) and
+separable (`IntermediateField.isSeparable_sup`). -/
+theorem isGalois_sup_of_isGalois : IsGalois F ↥(E1 ⊔ E2) where
+  to_isSeparable := inferInstance
+  to_normal := inferInstance
+
+/-- The restriction to `E1` of an `F`-automorphism `σ` of the compositum `E1 ⊔ E2`; well defined
+because `E1/F` is normal. -/
+noncomputable def fiberProductRestrict1 (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) : ↥E1 ≃ₐ[F] ↥E1 := by
+  letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E1 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2))
+  exact (AlgHom.restrictNormal' σ.toAlgHom ↥E1)
+
+/-- The restriction to `E2` of an `F`-automorphism `σ` of the compositum `E1 ⊔ E2`. -/
+noncomputable def fiberProductRestrict2 (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) : ↥E2 ≃ₐ[F] ↥E2 := by
+  letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E2 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2))
+  exact (AlgHom.restrictNormal' σ.toAlgHom ↥E2)
+
+/-- The restriction to `E1 ⊓ E2` of an `F`-automorphism of `E1`. -/
+noncomputable def fiberProductRestrictK1 (σ : ↥E1 ≃ₐ[F] ↥E1) : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2) := by
+  haveI : Normal F ↥(E1 ⊓ E2) := inferInstance
+  letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E1 := IsScalarTower.of_algebraMap_eq fun _ => rfl
+  exact (AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2))
+
+/-- The restriction to `E1 ⊓ E2` of an `F`-automorphism of `E2`. -/
+noncomputable def fiberProductRestrictK2 (σ : ↥E2 ≃ₐ[F] ↥E2) : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2) := by
+  haveI : Normal F ↥(E1 ⊓ E2) := inferInstance
+  letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 := IsScalarTower.of_algebraMap_eq fun _ => rfl
+  exact (AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2))
+
+omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The restriction to `E1` of an automorphism of the compositum acts on `Ω`-elements as the
+automorphism itself. -/
+theorem fiberProductRestrict1_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (x : ↥E1) :
+    (↑(fiberProductRestrict1 E1 E2 σ x) : Ω) = (σ ⟨(x : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) x.2)⟩ : Ω) := by
+  letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E1 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2))
+  have h1 : fiberProductRestrict1 E1 E2 σ = AlgHom.restrictNormal' σ.toAlgHom ↥E1 := rfl
+  have h2 := AlgHom.restrictNormal_commutes σ.toAlgHom ↥E1 x
+  have hcoe : ∀ y : ↥E1, (↑(algebraMap ↥E1 ↥(E1 ⊔ E2) y) : Ω) = (↑y : Ω) := fun _ => rfl
+  rw [h1]
+  show ((↑((AlgHom.restrictNormal σ.toAlgHom ↥E1) x) : Ω)) = _
+  rw [← hcoe ((AlgHom.restrictNormal σ.toAlgHom ↥E1) x), h2,
+    show algebraMap ↥E1 ↥(E1 ⊔ E2) x =
+      ⟨(x : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) x.2)⟩ from Subtype.ext (hcoe x)]
+  rfl
+
+omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The restriction to `E2` of an automorphism of the compositum acts on `Ω`-elements as the
+automorphism itself. -/
+theorem fiberProductRestrict2_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (x : ↥E2) :
+    (↑(fiberProductRestrict2 E1 E2 σ x) : Ω) = (σ ⟨(x : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) x.2)⟩ : Ω) := by
+  letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E2 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2))
+  have h1 : fiberProductRestrict2 E1 E2 σ = AlgHom.restrictNormal' σ.toAlgHom ↥E2 := rfl
+  have h2 := AlgHom.restrictNormal_commutes σ.toAlgHom ↥E2 x
+  have hcoe : ∀ y : ↥E2, (↑(algebraMap ↥E2 ↥(E1 ⊔ E2) y) : Ω) = (↑y : Ω) := fun _ => rfl
+  rw [h1]
+  show ((↑((AlgHom.restrictNormal σ.toAlgHom ↥E2) x) : Ω)) = _
+  rw [← hcoe ((AlgHom.restrictNormal σ.toAlgHom ↥E2) x), h2,
+    show algebraMap ↥E2 ↥(E1 ⊔ E2) x =
+      ⟨(x : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) x.2)⟩ from Subtype.ext (hcoe x)]
+  rfl
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The restriction to `E1 ⊓ E2` of an automorphism of `E1` acts on `Ω`-elements as the
+automorphism itself. -/
+theorem fiberProductRestrictK1_apply (σ : ↥E1 ≃ₐ[F] ↥E1) (x : ↥(E1 ⊓ E2)) :
+    (↑(fiberProductRestrictK1 E1 E2 σ x) : Ω) =
+      (σ ⟨(x : Ω), ((inf_le_left : E1 ⊓ E2 ≤ E1) x.2)⟩ : Ω) := by
+  haveI : Normal F ↥(E1 ⊓ E2) := inferInstance
+  letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E1 := IsScalarTower.of_algebraMap_eq fun _ => rfl
+  have h1 : fiberProductRestrictK1 E1 E2 σ = AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2) := rfl
+  have h2 := AlgHom.restrictNormal_commutes σ.toAlgHom ↥(E1 ⊓ E2) x
+  have hcoe : ∀ y : ↥(E1 ⊓ E2), (↑(algebraMap ↥(E1 ⊓ E2) ↥E1 y) : Ω) = (↑y : Ω) := fun _ => rfl
+  rw [h1]
+  show ((↑((AlgHom.restrictNormal σ.toAlgHom ↥(E1 ⊓ E2)) x) : Ω)) = _
+  rw [← hcoe ((AlgHom.restrictNormal σ.toAlgHom ↥(E1 ⊓ E2)) x), h2,
+    show algebraMap ↥(E1 ⊓ E2) ↥E1 x =
+      ⟨(x : Ω), ((inf_le_left : E1 ⊓ E2 ≤ E1) x.2)⟩ from Subtype.ext (hcoe x)]
+  rfl
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The restriction to `E1 ⊓ E2` of an automorphism of `E2` acts on `Ω`-elements as the
+automorphism itself. -/
+theorem fiberProductRestrictK2_apply (σ : ↥E2 ≃ₐ[F] ↥E2) (x : ↥(E1 ⊓ E2)) :
+    (↑(fiberProductRestrictK2 E1 E2 σ x) : Ω) =
+      (σ ⟨(x : Ω), ((inf_le_right : E1 ⊓ E2 ≤ E2) x.2)⟩ : Ω) := by
+  haveI : Normal F ↥(E1 ⊓ E2) := inferInstance
+  letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 := IsScalarTower.of_algebraMap_eq fun _ => rfl
+  have h1 : fiberProductRestrictK2 E1 E2 σ = AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2) := rfl
+  have h2 := AlgHom.restrictNormal_commutes σ.toAlgHom ↥(E1 ⊓ E2) x
+  have hcoe : ∀ y : ↥(E1 ⊓ E2), (↑(algebraMap ↥(E1 ⊓ E2) ↥E2 y) : Ω) = (↑y : Ω) := fun _ => rfl
+  rw [h1]
+  show ((↑((AlgHom.restrictNormal σ.toAlgHom ↥(E1 ⊓ E2)) x) : Ω)) = _
+  rw [← hcoe ((AlgHom.restrictNormal σ.toAlgHom ↥(E1 ⊓ E2)) x), h2,
+    show algebraMap ↥(E1 ⊓ E2) ↥E2 x =
+      ⟨(x : Ω), ((inf_le_right : E1 ⊓ E2 ≤ E2) x.2)⟩ from Subtype.ext (hcoe x)]
+  rfl
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The `Ω`-valued form of the restriction bridge, with the base point given as an element of
+`Ω`. -/
+theorem fiberProductRestrictK1_apply' (σ1 : ↥E1 ≃ₐ[F] ↥E1) (x : Ω) (hx : x ∈ E1 ⊓ E2) :
+    (↑(fiberProductRestrictK1 E1 E2 σ1 ⟨x, hx⟩) : Ω) =
+      (σ1 ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩ : Ω) :=
+  fiberProductRestrictK1_apply E1 E2 σ1 ⟨x, hx⟩
+
+/-- The fiber-product agreement condition on `E1 ⊓ E2`: the `Ω`-valued restrictions of the two
+automorphisms to `E1 ⊓ E2` agree. -/
+def fiberProductAgree (σ1 : ↥E1 ≃ₐ[F] ↥E1) (σ2 : ↥E2 ≃ₐ[F] ↥E2) : Prop :=
+  ∀ (x : Ω) (hx : x ∈ E1 ⊓ E2),
+    (↑(σ1 ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) =
+      (↑(σ2 ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω)
+
+/-- FT `ft18h`: the subgroup `H = {(σ1, σ2) ∈ Gal(E1/F) × Gal(E2/F) | σ1|(E1∩E2) = σ2|(E1∩E2)}`. -/
+def fiberProductSubgroup : Subgroup ((↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2)) where
+  carrier := {p | fiberProductAgree E1 E2 p.1 p.2}
+  mul_mem' := by
+    intro p q hp hq x hx
+    have hpagree : fiberProductAgree E1 E2 p.1 p.2 := hp
+    have hqagree : fiberProductAgree E1 E2 q.1 q.2 := hq
+    obtain ⟨w, hwK, hw1, hw2⟩ : ∃ w : Ω, w ∈ E1 ⊓ E2 ∧
+        ↑(q.1 ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) = w ∧
+        ↑(q.2 ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) = w :=
+      ⟨↑(fiberProductRestrictK1 E1 E2 q.1 ⟨x, hx⟩), (fiberProductRestrictK1 E1 E2 q.1 ⟨x, hx⟩).2,
+        (fiberProductRestrictK1_apply E1 E2 q.1 ⟨x, hx⟩).symm,
+        (hqagree x hx).symm.trans (fiberProductRestrictK1_apply E1 E2 q.1 ⟨x, hx⟩).symm⟩
+    show (↑(p.1 (q.1 ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩)) : Ω) =
+      (↑(p.2 (q.2 ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩)) : Ω)
+    rw [Subtype.ext (a1 := q.1 ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩)
+          (a2 := ⟨w, ((inf_le_left : E1 ⊓ E2 ≤ E1) hwK)⟩) hw1,
+        Subtype.ext (a1 := q.2 ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩)
+          (a2 := ⟨w, ((inf_le_right : E1 ⊓ E2 ≤ E2) hwK)⟩) hw2]
+    exact hpagree w hwK
+  one_mem' := fun x hx => rfl
+  inv_mem' := by
+    intro p hp x hx
+    have hpagree : fiberProductAgree E1 E2 p.1 p.2 := hp
+    show (↑(p.1⁻¹ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) =
+      (↑(p.2⁻¹ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω)
+    have hK1 : (↑(p.1⁻¹ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) =
+        ↑(fiberProductRestrictK1 E1 E2 p.1⁻¹ ⟨x, hx⟩) :=
+      (fiberProductRestrictK1_apply E1 E2 p.1⁻¹ ⟨x, hx⟩).symm
+    have hwK : (↑(p.1⁻¹ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) ∈ E1 ⊓ E2 := by
+      rw [hK1]; exact (fiberProductRestrictK1 E1 E2 p.1⁻¹ ⟨x, hx⟩).2
+    set w : Ω := ↑(p.1⁻¹ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) with hwdef
+    have hagree := hpagree w hwK
+    have hleft : (↑(p.1 ⟨w, ((inf_le_left : E1 ⊓ E2 ≤ E1) hwK)⟩) : Ω) = x := by
+      have e : p.1 ⟨w, ((inf_le_left : E1 ⊓ E2 ≤ E1) hwK)⟩ =
+          p.1 (p.1⁻¹ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) := Subtype.ext rfl
+      rw [e]
+      show (↑((p.1 * p.1⁻¹) ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) = x
+      rw [mul_inv_cancel]
+      rfl
+    have key : p.2 ⟨w, ((inf_le_right : E1 ⊓ E2 ≤ E2) hwK)⟩ =
+        ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩ :=
+      Subtype.ext (hagree.symm.trans hleft)
+    rw [show p.2⁻¹ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩ =
+          p.2⁻¹ (p.2 ⟨w, ((inf_le_right : E1 ⊓ E2 ≤ E2) hwK)⟩) from by rw [key]]
+    show w = (↑((p.2⁻¹ * p.2) ⟨w, ((inf_le_right : E1 ⊓ E2 ≤ E2) hwK)⟩) : Ω)
+    rw [inv_mul_cancel]
+    rfl
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+@[simp]
+theorem fiberProductSubgroup_mem (p : (↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2)) :
+    p ∈ fiberProductSubgroup E1 E2 ↔ fiberProductAgree E1 E2 p.1 p.2 := Iff.rfl
+
+omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductRestrict1_one : fiberProductRestrict1 E1 E2 1 = 1 := by
+  letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E1 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2))
+  have hcoe : ∀ y : ↥E1, (↑(algebraMap ↥E1 ↥(E1 ⊔ E2) y) : Ω) = (↑y : Ω) := fun _ => rfl
+  have hinj : Function.Injective (algebraMap ↥E1 ↥(E1 ⊔ E2)) := by
+    intro a b hab
+    exact Subtype.ext (by rw [← hcoe a, ← hcoe b, hab])
+  apply AlgEquiv.ext
+  intro x
+  show fiberProductRestrict1 E1 E2 1 x = x
+  have d : fiberProductRestrict1 E1 E2 1 x =
+      ((AlgHom.restrictNormal (1 : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)).toAlgHom ↥E1) x) := rfl
+  have h2 := AlgHom.restrictNormal_commutes
+    ((1 : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)).toAlgHom) ↥E1 x
+  rw [d]
+  apply hinj
+  rw [h2]
+  rfl
+
+omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductRestrict2_one : fiberProductRestrict2 E1 E2 1 = 1 := by
+  letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E2 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2))
+  have hcoe : ∀ y : ↥E2, (↑(algebraMap ↥E2 ↥(E1 ⊔ E2) y) : Ω) = (↑y : Ω) := fun _ => rfl
+  have hinj : Function.Injective (algebraMap ↥E2 ↥(E1 ⊔ E2)) := by
+    intro a b hab
+    exact Subtype.ext (by rw [← hcoe a, ← hcoe b, hab])
+  apply AlgEquiv.ext
+  intro x
+  show fiberProductRestrict2 E1 E2 1 x = x
+  have d : fiberProductRestrict2 E1 E2 1 x =
+      ((AlgHom.restrictNormal (1 : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)).toAlgHom ↥E2) x) := rfl
+  have h2 := AlgHom.restrictNormal_commutes
+    ((1 : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)).toAlgHom) ↥E2 x
+  rw [d]
+  apply hinj
+  rw [h2]
+  rfl
+
+omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductRestrict1_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
+    fiberProductRestrict1 E1 E2 (σ * τ) = fiberProductRestrict1 E1 E2 σ * fiberProductRestrict1 E1 E2 τ := by
+  letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E1 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2))
+  have hcomp : (σ * τ).toAlgHom = σ.toAlgHom.comp τ.toAlgHom := AlgHom.ext fun y => rfl
+  have h := AlgHom.restrictNormal_comp (E := ↥E1) (ψ := σ.toAlgHom) (ϕ := τ.toAlgHom)
+  apply AlgEquiv.ext
+  intro x
+  show fiberProductRestrict1 E1 E2 (σ * τ) x = fiberProductRestrict1 E1 E2 σ (fiberProductRestrict1 E1 E2 τ x)
+  have d : fiberProductRestrict1 E1 E2 (σ * τ) x = ((AlgHom.restrictNormal (σ * τ).toAlgHom ↥E1) x) := rfl
+  rw [d, hcomp, ← h]
+  rfl
+
+omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductRestrict2_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
+    fiberProductRestrict2 E1 E2 (σ * τ) = fiberProductRestrict2 E1 E2 σ * fiberProductRestrict2 E1 E2 τ := by
+  letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
+    (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
+  haveI : IsScalarTower F ↥E2 ↥(E1 ⊔ E2) :=
+    IsScalarTower.of_algHom (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2))
+  have hcomp : (σ * τ).toAlgHom = σ.toAlgHom.comp τ.toAlgHom := AlgHom.ext fun y => rfl
+  have h := AlgHom.restrictNormal_comp (E := ↥E2) (ψ := σ.toAlgHom) (ϕ := τ.toAlgHom)
+  apply AlgEquiv.ext
+  intro x
+  show fiberProductRestrict2 E1 E2 (σ * τ) x = fiberProductRestrict2 E1 E2 σ (fiberProductRestrict2 E1 E2 τ x)
+  have d : fiberProductRestrict2 E1 E2 (σ * τ) x = ((AlgHom.restrictNormal (σ * τ).toAlgHom ↥E2) x) := rfl
+  rw [d, hcomp, ← h]
+  rfl
+
+/-- FT `ft18h`: the restriction pair map `Gal((E1⊔E2)/F) → Gal(E1/F) × Gal(E2/F)`, `σ ↦ (σ|E1, σ|E2)`. -/
+noncomputable def fiberProductPair (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
+    (↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2) :=
+  (fiberProductRestrict1 E1 E2 σ, fiberProductRestrict2 E1 E2 σ)
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The image of the restriction map lies in the fiber product `H`. -/
+theorem fiberProductPair_mem (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
+    fiberProductPair E1 E2 σ ∈ fiberProductSubgroup E1 E2 := by
+  rw [fiberProductSubgroup_mem]
+  intro x hx
+  show (↑(fiberProductRestrict1 E1 E2 σ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩) : Ω) =
+    (↑(fiberProductRestrict2 E1 E2 σ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω)
+  rw [fiberProductRestrict1_apply E1 E2 σ ⟨x, ((inf_le_left : E1 ⊓ E2 ≤ E1) hx)⟩,
+      fiberProductRestrict2_apply E1 E2 σ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩]
+
+/-- FT `ft18h`: the restriction homomorphism `Gal((E1 ⊔ E2)/F) → H`. -/
+noncomputable def fiberProductPairHom :
+    (↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) →* ↥(fiberProductSubgroup E1 E2) where
+  toFun σ := ⟨fiberProductPair E1 E2 σ, fiberProductPair_mem E1 E2 σ⟩
+  map_one' := Subtype.ext (Prod.ext (fiberProductRestrict1_one E1 E2) (fiberProductRestrict2_one E1 E2))
+  map_mul' σ τ :=
+    Subtype.ext (Prod.ext (fiberProductRestrict1_mul E1 E2 σ τ) (fiberProductRestrict2_mul E1 E2 σ τ))
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The intermediate field of `E1 ⊔ E2` on which the two automorphisms `σ` and `τ` agree. -/
+noncomputable def fiberProductFixField (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
+    IntermediateField F ↥(E1 ⊔ E2) where
+  carrier := {y | σ y = τ y}
+  mul_mem' := by
+    intro a b ha hb
+    have hsa : σ a = τ a := ha
+    have hsb : σ b = τ b := hb
+    rw [Set.mem_setOf_eq, map_mul σ, map_mul τ, hsa, hsb]
+  add_mem' := by
+    intro a b ha hb
+    have hsa : σ a = τ a := ha
+    have hsb : σ b = τ b := hb
+    rw [Set.mem_setOf_eq, map_add σ, map_add τ, hsa, hsb]
+  algebraMap_mem' := fun r => by rw [Set.mem_setOf_eq, σ.commutes r, τ.commutes r]
+  inv_mem' := by
+    intro x hx
+    have hsa : σ x = τ x := hx
+    rw [Set.mem_setOf_eq]
+    simp [hsa]
+
+omit [IsGalois F ↥E1] [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductFixField_mem_iff (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (y : ↥(E1 ⊔ E2)) :
+    y ∈ fiberProductFixField E1 E2 σ τ ↔ σ y = τ y := Iff.rfl
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+theorem fiberProductPairHom_injective : Function.Injective (fiberProductPairHom E1 E2) := by
+  intro σ τ h
+  have hpair : fiberProductPair E1 E2 σ = fiberProductPair E1 E2 τ := congrArg Subtype.val h
+  obtain ⟨hr1, hr2⟩ := Prod.ext_iff.mp hpair
+  have pt1 : ∀ z : ↥E1, fiberProductRestrict1 E1 E2 σ z = fiberProductRestrict1 E1 E2 τ z :=
+    fun z => DFunLike.congr_fun hr1 z
+  have pt2 : ∀ z : ↥E2, fiberProductRestrict2 E1 E2 σ z = fiberProductRestrict2 E1 E2 τ z :=
+    fun z => DFunLike.congr_fun hr2 z
+  have key1 : ∀ y : ↥(E1 ⊔ E2), (y : Ω) ∈ E1 → ((↑(σ y) : Ω)) = ((↑(τ y) : Ω)) := by
+    intro y hy
+    have eeq : ((⟨(y : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) hy)⟩ : ↥(E1 ⊔ E2))) = y := Subtype.ext rfl
+    calc ((↑(σ y) : Ω)) = ((↑(σ ⟨(y : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) hy)⟩) : Ω)) :=
+          congrArg Subtype.val (congrArg σ eeq).symm
+      _ = ((↑(fiberProductRestrict1 E1 E2 σ ⟨(y : Ω), hy⟩) : Ω)) :=
+          (fiberProductRestrict1_apply E1 E2 σ ⟨(y : Ω), hy⟩).symm
+      _ = ((↑(fiberProductRestrict1 E1 E2 τ ⟨(y : Ω), hy⟩) : Ω)) :=
+          congrArg Subtype.val (pt1 ⟨(y : Ω), hy⟩)
+      _ = ((↑(τ ⟨(y : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) hy)⟩) : Ω)) :=
+          fiberProductRestrict1_apply E1 E2 τ ⟨(y : Ω), hy⟩
+      _ = ((↑(τ y) : Ω)) := congrArg Subtype.val (congrArg τ eeq)
+  have key2 : ∀ y : ↥(E1 ⊔ E2), (y : Ω) ∈ E2 → ((↑(σ y) : Ω)) = ((↑(τ y) : Ω)) := by
+    intro y hy
+    have eeq : ((⟨(y : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) hy)⟩ : ↥(E1 ⊔ E2))) = y := Subtype.ext rfl
+    calc ((↑(σ y) : Ω)) = ((↑(σ ⟨(y : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) hy)⟩) : Ω)) :=
+          congrArg Subtype.val (congrArg σ eeq).symm
+      _ = ((↑(fiberProductRestrict2 E1 E2 σ ⟨(y : Ω), hy⟩) : Ω)) :=
+          (fiberProductRestrict2_apply E1 E2 σ ⟨(y : Ω), hy⟩).symm
+      _ = ((↑(fiberProductRestrict2 E1 E2 τ ⟨(y : Ω), hy⟩) : Ω)) :=
+          congrArg Subtype.val (pt2 ⟨(y : Ω), hy⟩)
+      _ = ((↑(τ ⟨(y : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) hy)⟩) : Ω)) :=
+          fiberProductRestrict2_apply E1 E2 τ ⟨(y : Ω), hy⟩
+      _ = ((↑(τ y) : Ω)) := congrArg Subtype.val (congrArg τ eeq)
+  have hall : ∀ y : ↥(E1 ⊔ E2), σ y = τ y := by
+    have hsup : (E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2) ⊔
+          E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) = ⊤ := by
+      rw [← IntermediateField.lift_inj, IntermediateField.lift_top (F := F) (K := E1 ⊔ E2),
+        IntermediateField.lift_sup (F := F) (K := E1 ⊔ E2),
+        IntermediateField.lift_restrict (le_sup_left : E1 ≤ E1 ⊔ E2),
+        IntermediateField.lift_restrict (le_sup_right : E2 ≤ E1 ⊔ E2)]
+    have hle1 : E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2) ≤ fiberProductFixField E1 E2 σ τ := by
+      intro x hx
+      have hx' : ((x : ↥(E1 ⊔ E2)) : Ω) ∈ E1 :=
+        (IntermediateField.mem_restrict (le_sup_left : E1 ≤ E1 ⊔ E2) x).mp hx
+      rw [fiberProductFixField_mem_iff]
+      exact Subtype.ext (key1 (x : ↥(E1 ⊔ E2)) hx')
+    have hle2 : E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2) ≤ fiberProductFixField E1 E2 σ τ := by
+      intro x hx
+      have hx' : ((x : ↥(E1 ⊔ E2)) : Ω) ∈ E2 :=
+        (IntermediateField.mem_restrict (le_sup_right : E2 ≤ E1 ⊔ E2) x).mp hx
+      rw [fiberProductFixField_mem_iff]
+      exact Subtype.ext (key2 (x : ↥(E1 ⊔ E2)) hx')
+    have hle := sup_le hle1 hle2
+    intro y
+    have hymem : y ∈ (E1.restrict (le_sup_left : E1 ≤ E1 ⊔ E2) ⊔
+        E2.restrict (le_sup_right : E2 ≤ E1 ⊔ E2)) := by
+      rw [hsup]; exact IntermediateField.mem_top
+    exact hle hymem
+  exact AlgEquiv.ext hall
+
+omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- The agreement of `σ1` and `σ2` on `E1 ⊓ E2` is the fiber condition over the restriction of
+`σ1`. -/
+theorem fiberProductAgree_fibiff (σ1 : ↥E1 ≃ₐ[F] ↥E1) (σ2 : ↥E2 ≃ₐ[F] ↥E2) :
+    fiberProductAgree E1 E2 σ1 σ2 ↔
+      ∀ (x : Ω) (hx : x ∈ E1 ⊓ E2),
+        (↑(σ2 ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω) =
+          (fiberProductRestrictK1 E1 E2 σ1 ⟨x, hx⟩ : Ω) := by
+  constructor
+  · intro h x hx
+    exact (h x hx).symm.trans (fiberProductRestrictK1_apply' E1 E2 σ1 x hx).symm
+  · intro h x hx
+    exact (fiberProductRestrictK1_apply' E1 E2 σ1 x hx).symm.trans (h x hx).symm
+
+/-- The cardinality of the fiber product `H`: `|H| = [E1:F] · [E2 : E1 ⊓ E2]`. -/
+theorem fiberProductSubgroup_card
+    (hft17b : ∀ τ : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2),
+        Nat.card {σ : ↥E2 ≃ₐ[F] ↥E2 // ∀ (x : Ω) (hx : x ∈ E1 ⊓ E2),
+          (↑(σ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω) = (τ ⟨x, hx⟩ : Ω)} =
+          Module.finrank ↥(E1 ⊓ E2) ↥E2) :
+    Nat.card ↥(fiberProductSubgroup E1 E2) =
+      Module.finrank F ↥E1 * Module.finrank ↥(E1 ⊓ E2) ↥E2 := by
+  have fibiff := fiberProductAgree_fibiff E1 E2
+  haveI fibfin : ∀ a : ↥E1 ≃ₐ[F] ↥E1, Finite {σ2 : ↥E2 ≃ₐ[F] ↥E2 // fiberProductAgree E1 E2 a σ2} :=
+    fun _ => Finite.of_injective Subtype.val Subtype.val_injective
+  have fib : ∀ σ1 : ↥E1 ≃ₐ[F] ↥E1,
+      Nat.card {σ2 : ↥E2 ≃ₐ[F] ↥E2 // fiberProductAgree E1 E2 σ1 σ2} =
+        Module.finrank ↥(E1 ⊓ E2) ↥E2 := by
+    intro σ1
+    have h := hft17b (fiberProductRestrictK1 E1 E2 σ1)
+    rw [Nat.card_congr (Equiv.subtypeEquivRight (fun σ2 => fibiff σ1 σ2))]
+    exact h
+  have e : ↥(fiberProductSubgroup E1 E2) ≃
+      Σ σ1 : ↥E1 ≃ₐ[F] ↥E1, {σ2 : ↥E2 ≃ₐ[F] ↥E2 // fiberProductAgree E1 E2 σ1 σ2} :=
+    { toFun := fun p => ⟨p.1.1, ⟨p.1.2, p.2⟩⟩
+      invFun := fun s => ⟨(s.1, s.2.1), s.2.2⟩
+      left_inv := fun s => rfl
+      right_inv := fun p => rfl }
+  rw [Nat.card_congr e, Nat.card_sigma]
+  rw [Finset.sum_congr rfl (fun a _ => fib a), Finset.sum_const, Finset.card_univ,
+    Nat.nsmul_eq_mul]
+  rw [← Nat.card_eq_fintype_card, IsGalois.card_aut_eq_finrank F ↥E1]
+
+/-- FT `ft18h` (main statement).  Let `E1/F` and `E2/F` be finite Galois extensions in a common
+field `Ω`.  Then the restriction map `Gal((E1⊔E2)/F) → Gal(E1/F) × Gal(E2/F)`, `σ ↦ (σ|E1, σ|E2)`,
+is an isomorphism onto the fiber-product subgroup `H` of automorphism pairs agreeing on
+`E1 ⊓ E2`: it is injective (see `fiberProductPairHom_injective`) and surjective by the degree count,
+using the degree formula `hft18g` and the extension-count hypothesis `hft17b`. -/
+theorem fiberProductPairHom_bijective
+    (hft18g : Module.finrank F ↥(E1 ⊔ E2) * Module.finrank F ↥(E1 ⊓ E2) =
+        Module.finrank F ↥E1 * Module.finrank F ↥E2)
+    (hft17b : ∀ τ : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2),
+        Nat.card {σ : ↥E2 ≃ₐ[F] ↥E2 // ∀ (x : Ω) (hx : x ∈ E1 ⊓ E2),
+          (↑(σ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω) = (τ ⟨x, hx⟩ : Ω)} =
+          Module.finrank ↥(E1 ⊓ E2) ↥E2) :
+    Function.Bijective (fiberProductPairHom E1 E2) := by
+  refine ⟨fiberProductPairHom_injective E1 E2, ?_⟩
+  have hcard : Nat.card (↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) = Nat.card ↥(fiberProductSubgroup E1 E2) := by
+    haveI := isGalois_sup_of_isGalois E1 E2
+    have hGL : Nat.card (↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) = Module.finrank F ↥(E1 ⊔ E2) :=
+      IsGalois.card_aut_eq_finrank F ↥(E1 ⊔ E2)
+    haveI : Normal F ↥(E1 ⊓ E2) := inferInstance
+    letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 := IsScalarTower.of_algebraMap_eq fun _ => rfl
+    have tower2 : Module.finrank F ↥(E1 ⊓ E2) * Module.finrank ↥(E1 ⊓ E2) ↥E2 =
+        Module.finrank F ↥E2 := Module.finrank_mul_finrank F ↥(E1 ⊓ E2) ↥E2
+    have hk : 0 < Module.finrank F ↥(E1 ⊓ E2) := by
+      rcases Nat.eq_zero_or_pos (Module.finrank F ↥(E1 ⊓ E2)) with h | h
+      · rw [h, Nat.mul_zero] at hft18g
+        rcases Nat.mul_eq_zero.mp hft18g.symm with h1 | h2
+        · exact absurd h1 (Module.finrank_pos (R := F) (M := ↥E1)).ne'
+        · exact absurd h2 (Module.finrank_pos (R := F) (M := ↥E2)).ne'
+      · exact h
+    have heq : Module.finrank F ↥E1 * Module.finrank ↥(E1 ⊓ E2) ↥E2 =
+        Module.finrank F ↥(E1 ⊔ E2) := by
+      have key := hft18g
+      rw [← tower2, mul_comm (Module.finrank F ↥(E1 ⊓ E2))
+          (Module.finrank ↥(E1 ⊓ E2) ↥E2), ← mul_assoc] at key
+      exact (Nat.eq_of_mul_eq_mul_right hk key).symm
+    rw [hGL, fiberProductSubgroup_card E1 E2 hft17b, heq]
+  exact ((Nat.bijective_iff_injective_and_card (fiberProductPairHom E1 E2)).mpr
+    ⟨fiberProductPairHom_injective E1 E2, hcard⟩).2
+
+end FiberProduct
+
+/-- **FT `ft23` (Lemma).**  Let `E/F` be a field extension with `char F ≠ 2` and `[E : F] = 2`.
+Then `E` is generated over `F` by a square root: there exist `d : F` and `x : E` with
+`x ^ 2 = algebraMap F E d` and `F[x] = E`, i.e. `E = F[√d]`.
+
+Proof idea (Milne FT III): pick `α ∈ E` with `α ∉ F` (exists since `[E : F] = 2 > 1`).  Then
+`F[α] = E`, so `α ^ 2 = p • 1 + q • α` with `p, q ∈ F`.  The element
+`x := α - algebraMap F E (q / 2)` satisfies
+`x ^ 2 = p • 1 + (q / 2) ^ 2 • 1 = algebraMap F E (p + (q / 2) ^ 2)`, and `F[x] ∋ α`
+(since `α = x + (q / 2) • 1`), so `F[x] = F[α] = E`. -/
+theorem quadratic_extension_exists_root {F E : Type u} [Field F] [Field E] [Algebra F E]
+    (hchar : (2 : F) ≠ 0) (hquad : FiniteDimensional F E ∧ Module.finrank F E = 2) :
+    ∃ (d : F) (x : E), x ^ 2 = algebraMap F E d ∧ Algebra.adjoin F {x} = ⊤ := by
+  obtain ⟨hFD, h2⟩ := hquad
+  -- An element outside the scalar multiples of 1.
+  obtain ⟨α, hα⟩ : ∃ α : E, α ∉ Submodule.span F ({1} : Set E) := by
+    by_contra hall
+    push Not at hall
+    have hw : ∀ w : E, ∃ c : F, c • (1 : E) = w := fun w =>
+      Submodule.mem_span_singleton.mp (by
+        rw [Submodule.eq_top_iff'.mpr hall]
+        exact Submodule.mem_top)
+    exact absurd (finrank_eq_one (1 : E) one_ne_zero hw) (by omega)
+  -- `{1, α}` spans `E`, since `F` is one-dimensional inside `E` and `α ∉ F`.
+  have hfin1 : Module.finrank F ↥(Submodule.span F ({1} : Set E)) = 1 :=
+    finrank_span_singleton (one_ne_zero : (1 : E) ≠ 0)
+  have hsp : Submodule.span F ({1} : Set E) < Submodule.span F {1, α} := by
+    refine lt_of_le_of_ne (Submodule.span_mono (by simp)) (fun he => hα ?_)
+    have hm : α ∈ Submodule.span F {1, α} := Submodule.mem_span_pair.mpr ⟨0, 1, by simp⟩
+    rwa [← he] at hm
+  have hfin2 : Module.finrank F ↥(Submodule.span F {1, α}) = 2 := by
+    have h1 : Module.finrank F ↥(Submodule.span F ({1} : Set E)) <
+        Module.finrank F ↥(Submodule.span F {1, α}) := Submodule.finrank_lt_finrank_of_lt hsp
+    have h3 : Module.finrank F ↥(Submodule.span F {1, α}) ≤ Module.finrank F E :=
+      le_trans (Submodule.finrank_mono (le_top : Submodule.span F {1, α} ≤ (⊤ : Submodule F E)))
+        (finrank_top F E).le
+    omega
+  have htop2 : Submodule.span F {1, α} = ⊤ :=
+    Submodule.eq_top_of_finrank_eq (hfin2.trans h2.symm)
+  -- The quadratic relation.
+  obtain ⟨p, q, hpq⟩ : ∃ p q : F, p • (1 : E) + q • α = α ^ 2 :=
+    Submodule.mem_span_pair.mp (by rw [htop2]; exact Submodule.mem_top)
+  have hsmul1 : ∀ r : F, r • (1 : E) = algebraMap F E r :=
+    fun r => (Algebra.algebraMap_eq_smul_one r).symm
+  have hsmulE : ∀ r : F, r • α = algebraMap F E r * α := fun r => Algebra.smul_def r α
+  have key : (2 : E) * algebraMap F E (q / 2) = algebraMap F E q := by
+    rw [two_mul, ← map_add]
+    congr 1
+    rw [← add_div, ← two_mul]
+    exact mul_div_cancel_left₀ q hchar
+  have h1 : (2 : E) * (algebraMap F E (q / 2) * α) = q • α := by
+    rw [hsmulE, ← mul_assoc, key]
+  have h2' : α ^ 2 - (2 : E) * (algebraMap F E (q / 2) * α) +
+      (algebraMap F E (q / 2)) ^ 2 = p • (1 : E) + (algebraMap F E (q / 2)) ^ 2 := by
+    rw [← hpq, h1, add_sub_cancel_right]
+  have h3 : (α - algebraMap F E (q / 2)) ^ 2
+      = α ^ 2 - (2 : E) * (algebraMap F E (q / 2) * α) + (algebraMap F E (q / 2)) ^ 2 := by
+    rw [sq, sub_mul, mul_sub]; ring
+  have hx2 : (α - algebraMap F E (q / 2)) ^ 2 = algebraMap F E (p + (q / 2) ^ 2) := by
+    rw [h3, h2', hsmul1, ← map_pow, ← map_add]
+  -- `{1, x}` spans, where `x = α - (q / 2) • 1`.
+  have hle' : Submodule.span F {1, α} ≤ Submodule.span F {1, α - algebraMap F E (q / 2)} := by
+    refine Submodule.span_le.2 ?_
+    rintro z (rfl | rfl)
+    · exact Submodule.subset_span (by simp)
+    · refine Submodule.mem_span_pair.mpr ⟨(q / 2 : F), 1, ?_⟩
+      rw [one_smul, hsmul1, add_comm, sub_add_cancel]
+  have hspanx : Submodule.span F {1, α - algebraMap F E (q / 2)} = ⊤ :=
+    top_le_iff.mp (by rw [← htop2]; exact hle')
+  refine ⟨p + (q / 2) ^ 2, α - algebraMap F E (q / 2), hx2, eq_top_iff.mpr ?_⟩
+  intro z _
+  have hz : z ∈ Submodule.span F {1, α - algebraMap F E (q / 2)} := by
+    rw [hspanx]; exact Submodule.mem_top
+  have hle : Submodule.span F {1, α - algebraMap F E (q / 2)} ≤
+      (Algebra.adjoin F {α - algebraMap F E (q / 2)}).toSubmodule := by
+    refine Submodule.span_le.2 ?_
+    rintro w (rfl | rfl)
+    · exact (Subalgebra.mem_toSubmodule
+        (Algebra.adjoin F {α - algebraMap F E (q / 2)})).mpr (Subalgebra.one_mem _)
+    · exact (Subalgebra.mem_toSubmodule
+        (Algebra.adjoin F {α - algebraMap F E (q / 2)})).mp
+        (Algebra.self_mem_adjoin_singleton F (α - algebraMap F E (q / 2)))
+  exact (Subalgebra.mem_toSubmodule
+    (Algebra.adjoin F {α - algebraMap F E (q / 2)})).mp (hle hz)
+
+/-!
+### Chapter III ledger — remaining in-scope items (work in progress)
+
+Theorem-like labels formalized: `ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`,
+`ft17`, `ft18h`, `ft23` (9 of 13).  The definition-like labels `ft10m`, `ft10n`,
+`ft11m`, `ft21` are encoded (`FT.separableExt_iff`, `FT.normalExt_iff`,
+`FT.IsGaloisExt`/`FT.galoisGroup`, `FT.IsCyclicExt`/`FT.IsAbelianExt`/
+`FT.IsSolvableExt`), and remark/example content is carried by
+`FT.aut_subsingleton_of_unique_root` (`ft9`),
+`FT.natCard_eq_finrank_fixedPoints` (`ft13` (b) equality part; the faithful-action
+hypothesis is essential — a non-faithful finite group action falsifies the claim),
+`FT.fixingSubgroup_compositum` (`ft18` (a)) and the ggp visibility theorems
+(`FT.galActionHom_injective`).
+
+Pending in scope (to be recorded in the final ledger as pending or AUDIT-DEFERRED):
+- `ft18f` (partial): the Galois clauses (E⊔L over L; E over E⊓L) are proven as
+  private lemmas (`isGalois_compositum_of_isSplittingField`, `isGalois_of_inf_of_isSplittingField`) with the
+  sup-side `Algebra`/`IsScalarTower` interface fillers (`FT.instAlgebraSupRight`);
+  the restriction isomorphism Gal(EL/L) ≅ Gal(E/E∩L) and public packaging pending.
+- `ft18g` (degree formula [EL:F] = [E:F]·[L:F]/[E∩L:F]): pending.
+- `ft22` (Galois 2^r subfield of ℝ ⇒ constructible): pending; `ft23` and the
+  ch.I tower machinery (`FT.constructible_of_towerOK`) are in place; the missing
+  piece is the finite-2-group subgroup-chain lemma.
+- `ft24` (Fermat prime ⇒ cos(2π/p) constructible): pending (needs `ft22` plus the
+  cyclotomic Galois-group identification).
+- Examples `ft19` (ℚ(ζ₇) subfield analysis), `ft20` (Gal of X^5−2 splitting
+  field): concrete number-field computations, pending.
+- `ft7` (Aut(ℂ), PGL₂, Cremona group): expositional, forward references
+  (`te16`, `te17a`); pending a scope citation.
+- `ft11` (ℚ(∛2) not normal; F_p(T)/F_p(T^p) not separable): concrete instances,
+  pending (abstract content in `FT.aut_subsingleton_of_unique_root`).
+- `ft16` (separable elements form a subfield E_sep; separable degree): pending a
+  scope decision (Mathlib has no E_sep subobject).
+- `ft25` (Galois 1832): stated in chapter III, proved at `ag23` in chapter IV; to
+  be formalized there.
+- `ft26` (characteristic-p failure): expositional remark; pending scope.
+- `ft23r` (nonconstructible degree-4 number): cites `cg8a` (chapter IV); to be
+  formalized with chapter IV.
+-/
