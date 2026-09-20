@@ -90,6 +90,38 @@ independent main-agent work remains. Before waiting, fill any idle worker slots
 with useful independent tasks where possible. Do not manufacture redundant work
 just to occupy a slot.
 
+## Decomposition and checkpoint discipline (ratified 2026-09-20)
+
+- **The 30-minute rule.** A worker that runs longer than 30 minutes means the task
+  split was too coarse — the failure is the main agent's decomposition, not the
+  worker's. At the 30-minute mark (or earlier if progress stalls): ping the worker
+  for (i) a handover/decomposition design — how it would split its remaining work
+  into bounded subtasks — and (ii) immediate emission of everything verified so
+  far; then end the worker (collect after emission) and redistribute the subtasks
+  across the free slots. Never let a long-running worker hold slots that could run
+  independent subtasks in parallel; end-phase waves must launch at the same
+  parallelism as opening waves. Apparent dependencies between subtasks are usually
+  breakable with hypothesis binders (see the ft18h pattern).
+- **Checkpoint cadence.** Check worker states and shared-REPL restart counters
+  every ~15 minutes; ping any worker that has not emitted verified text in ~10
+  minutes to emit what it has. Every new REPL crash is analyzed immediately
+  (service evidence + worker testimony) before continuing. NOTE: the wait tools
+  have no timeout parameter yet (BUILDER_FEEDBACK_SUBAGENT_WAIT_TIMEOUT.md);
+  until delivered, checkpoints fall to user-turn boundaries — treat every return
+  of control as a mandatory checkpoint, and prefer waiting on the earliest-likely
+  worker so completions trigger the wake-up.
+- **Mid-flight steering.** Workers regress to bad habits (consolidated
+  mega-calls, hoarding) after several turns. Read every progress-stream update
+  for strategy drift and steer in the same turn it is observed; reminders are not
+  durable across turns.
+- **Brief requirements learned from chapter-3 delivery defects:**
+  (a) the delivery message must be self-contained — the code text itself, never a
+  reference to an earlier message; (b) verification calls stay small — never
+  verify a consolidated multi-hundred-line block in one REPL call (120 s timeouts
+  kill the process and the branch); (c) emit each verified declaration into the
+  stream immediately, and state explicitly which emitted declarations are
+  verified vs. unverified scratch.
+
 There is no automatic worker deadline. Check `subagent_status` at natural
 checkpoints; it includes REPL health. Abort stalled workers and investigate any
 REPL warning before adding work or starting a build.
