@@ -4645,6 +4645,18 @@ theorem natCard_eq_finrank_fixedPoints [FaithfulSMul G E] :
     Nat.card G = Module.finrank (FixedPoints.subfield G E) E :=
   (Nat.card_eq_fintype_card (α := G)).trans (FixedPoints.finrank_eq_card G E).symm
 
+/-!
+AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
+the remark FT `ft13` (FT.tex:2853) has two clauses, but only clause (b)'s equality part
+`[E : F] = |Gal(E/F)|` is delivered here (`FT.natCard_eq_finrank_fixedPoints`).  Clause (a) —
+"the conjugates of α (the elements of its orbit under G) are exactly the roots of its minimal
+polynomial in E; the minimal polynomial is ∏(X − αᵢ)" — is neither formalized nor recorded as
+pending in the chapter III ledger note or the coverage note in the file header.  It must either
+be formalized (e.g. as a statement that the roots of `minpoly F α` in `E` are exactly the orbit
+of α under the action of `G`, which Mathlib's minpoly API should make routine) or added to the
+pending list so the chapter-3 coverage claim stops overclaiming remark content.
+-/
+
 end Artin
 
 /-- FT `ft8` (Proposition).  If `E` is a splitting field over `F` of a separable polynomial
@@ -4824,6 +4836,19 @@ subgroups fixing `M₁` and `M₂`: an `F`-automorphism fixes `M₁ ⊔ M₂` po
 theorem fixingSubgroup_compositum (M₁ M₂ : IntermediateField F E) :
     (M₁ ⊔ M₂).fixingSubgroup = M₁.fixingSubgroup ⊓ M₂.fixingSubgroup :=
   IntermediateField.fixingSubgroup_sup
+
+/-!
+AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
+the remark FT `ft18` (FT.tex:3009) has two clauses, but only clause (a) (the compositum
+statement `Gal(E/(M₁ ⊔ M₂)) = Gal(E/M₁) ∩ Gal(E/M₂)`, here) is delivered.  Clause (b) — for
+`H ≤ G` with `M = E^H`, the intersection `N = ⋂_{σ∈G} σHσ⁻¹` of the conjugates of `H` is the
+largest normal subgroup contained in `H`, `E^N` is the smallest normal subextension of `F`
+containing `M` (the normal, or Galois, closure of `M` in `E`), and `E^N` is the composite of the
+fields `σM` — is neither formalized nor recorded as pending in the chapter III ledger note or
+the coverage note in the file header.  It carries mathematical content (Mathlib has
+`IntermediateField.normalClosure` machinery to anchor it) and is in scope per the provenance
+`scope` field, so it must be formalized or explicitly listed as pending/deferred.
+-/
 
 open Polynomial in
 /-- FT (unlabeled section "The Galois group of a polynomial", ggp). For a polynomial
@@ -5141,6 +5166,26 @@ noncomputable def compositumRestrictLeft (E L : IntermediateField F Ω) :
 noncomputable def compositumRestrictRight (E L : IntermediateField F Ω) :
     IntermediateField F ↥(E ⊔ L) :=
   L.restrict (le_sup_right : L ≤ E ⊔ L)
+
+/-!
+AUDIT-GAP (documentation audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
+15 public declarations lack the docstring the file's every-declaration-documented convention
+requires (same violation class as the audits of commits 9b9e5bd/aa975a7): `rootSet_mem_of_isSplittingField`
+(next declaration), `eq_adjoin_rootSet_of_isSplittingField`, `val_image_rootSet_of_separable`,
+`adjoin_rootSet_eq_compositumRestrictLeft`, `compositumRestrict_sup_eq_top`,
+`rootSet_map_compositumRestrictRight`, `finiteDimensional_compositum`, `finiteDimensional_of_inf`,
+`eq_smul_of_mem_base`, `fiberProductSubgroup_mem` (state that it is the definitional `Iff.rfl`, i.e.
+trivial), `fiberProductRestrict1_one`, `fiberProductRestrict2_one`, `fiberProductRestrict1_mul`,
+`fiberProductRestrict2_mul`, `fiberProductFixField_mem_iff` (trivial), and
+`fiberProductPairHom_injective`.  Additionally the private plumbing lemmas
+`priv_mem_fixedPoints_subfield`, `priv_ringEquivOfFixedSubfield_apply`,
+`priv_ringEquivOfFixedSubfield_symm_apply`, `priv_fieldRingHom_injective`,
+`priv_isScalarTowerSup`, `priv_isScalarTowerInf`, `restrict_algEquiv_apply_omega`,
+`restrict_algEquiv_symm_apply_omega`, `autCongr_apply_omega`, `autCongr_symm_apply_omega`,
+`galToBaseF_apply_omega`, `galToBaseF_fixes`, `zeta7_cubic_natDegree`, `zeta7_cubic_monic` and
+`zeta7_cubic_aeval` are undocumented; for the pure-`rfl` plumbing ones a one-line "trivial"
+statement of content suffices per the documentation standard.
+-/
 
 theorem rootSet_mem_of_isSplittingField {p : F[X]} (hp : p.IsSplittingField F E) :
     ∀ x ∈ p.rootSet Ω, x ∈ E :=
@@ -5704,6 +5749,25 @@ theorem fiberProductSubgroup_card
   rw [Finset.sum_congr rfl (fun a _ => fib a), Finset.sum_const, Finset.card_univ,
     Nat.nsmul_eq_mul]
   rw [← Nat.card_eq_fintype_card, IsGalois.card_aut_eq_finrank F ↥E1]
+
+/-!
+AUDIT-GAP (semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block): FT `ft18h`
+(FT.tex:3105) claims *unconditionally* that the restriction map `σ ↦ (σ|E1, σ|E2)` is an
+isomorphism of `Gal(E1E2/F)` onto the fiber-product subgroup `H`.  The main statement below
+(`fiberProductPairHom_bijective`) delivers the bijectivity clause only in *hypothesis form*,
+under two nontrivial mathematical hypotheses that are not discharged anywhere in the target:
+`hft18g` (the degree formula `[E1⊔E2:F]·[E1⊓E2:F] = [E1:F]·[E2:F]`) and `hft17b` (the fiber-card
+bound `|{σ2 ∈ Gal(E2/F) | σ2 agrees with τ on E1⊓E2}| = [E2 : E1⊓E2]`).  With the section
+hypotheses in scope, both are provable from declarations already in this file — `hft18g` is
+exactly `FT.finrank_compositum_mul_inf` with `E := E1`, `L := E2` (its hypotheses
+`[IsGalois F E1] [FiniteDimensional F E1] [FiniteDimensional F E2]` all hold here), and `hft17b`
+follows because `E1⊓E2` is Galois over `F` (`FT.isGalois_inf_of_isGalois`), so the restriction
+hom `Gal(E2/F) → Gal(E1⊓E2/F)` is surjective and the fiber over `τ` is a coset of
+`Gal(E2/(E1⊓E2))`, whose order is `[E2 : E1⊓E2]` by FT `ft8` (`IsGalois.card_aut_eq_finrank`).
+Until both hypotheses are discharged (or `ft18h` restated unconditionally), the source's
+unconditional claim is not visible in Lean types and the header's "all 13 theorem-like labels
+formalized" claim overstates `ft18h`.
+-/
 
 /-- FT `ft18h` (main statement).  Let `E1/F` and `E2/F` be finite Galois extensions in a common
 field `Ω`.  Then the restriction map `Gal((E1⊔E2)/F) → Gal(E1/F) × Gal(E2/F)`, `σ ↦ (σ|E1, σ|E2)`,
@@ -6935,6 +6999,24 @@ theorem zeta7_minpoly_add_inv {E : Type u} [Field E] [CharZero E] {ζ : E} (hζ 
     exact absurd hme (minpoly.monic hint).ne_zero
   exact (Polynomial.eq_of_monic_of_dvd_of_natDegree_le (minpoly.monic hint) hgmonic hdvd
     (by rw [hgd]; exact hge)).symm
+
+/-!
+AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
+the example FT `ft19` (FT.tex:3171) contains substantially more than the algebraic identities
+delivered in this section.  Delivered: the sum identity (`zeta7_sum_eq_neg_one`), the cubic
+identity and its minimality (`zeta7_minpoly_add_inv`), and the `(β − β')² = −7` identity
+(`zeta7_sqrt_neg_seven`).  Not delivered and not recorded as pending in the chapter III ledger
+note or the file-header coverage note:
+(a) the identification `Gal(ℚ[ζ]/ℚ) ≅ (ℤ/7ℤ)^×` via `σ(ζ) = ζ^i ↦ i`, and that `σ` with
+    `σζ = ζ³` generates (powers of 3 mod 7);
+(b) the subfield determinations from the correspondence: `ℚ[ζ]^{⟨σ³⟩} = ℚ[ζ + ζ̄]` (degree-3
+    real subfield, Galois over ℚ with group `⟨σ⟩/⟨σ³⟩`) and `ℚ[ζ]^{⟨σ²⟩} = ℚ[√−7]` — the
+    `√−7` identity alone does not yield the fixed-field claim;
+(c) the minimal polynomial `g(2X)/8 = X³ + X²/2 − X/2 − 1/8` of `cos(2π/7)`.
+These carry mathematical content, are in scope per the provenance `scope` field, and the header
+currently lists `ft19` among "the examples ... additionally delivered" without qualification, so
+they must be formalized or explicitly recorded as pending/deferred.
+-/
 
 end Ft19Cyclotomic
 
