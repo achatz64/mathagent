@@ -3515,6 +3515,19 @@ the source identifier is Proposition `ft3` (FT.tex, `\begin{proposition}
 the docstring and thus misattributes the source reference that the provenance
 `source-hooks = ["labels"]` convention relies on; the stable TeX label should
 read here, e.g. "(source, Proposition ft3)".
+
+AUDIT-GAP (audit bookkeeping, delta audit of commit bd0c27e vs audit commit
+17778ac): the AUDIT-GAP block immediately above is now stale.  Its remediation
+commit bd0c27e did fix the defect it describes -- the `ft3` docstring below now
+reads "(source, Proposition `ft3`, FT.tex)", correctly citing the stable TeX
+label `ft3` (FT.tex:2350, a proposition), verified against the source -- but it
+left this marker block in place, and the marker block is repository
+documentation only the remediation agent may remove (the auditor does not
+close markers).  The block asserts a misattribution that no longer exists in
+the adjacent docstring and will mislead subsequent audits and remediation
+rounds; the remediation agent should delete this entire stale `/-! ... -/`
+marker block (both paragraphs are removable only together by the remediator;
+the second paragraph is this marker).
 -/
 
 /-- **FT `ft3`** (source, Proposition `ft3`, FT.tex).  For a nonconstant irreducible polynomial
