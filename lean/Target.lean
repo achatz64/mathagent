@@ -2728,6 +2728,26 @@ theorem finrank_adjoin_exp_two_pi_i_over_prime {p : ℕ} (hp : p.Prime) :
   rw [IntermediateField.adjoin.finrank hint, ← cyclotomic_eq_minpoly_rat hζ hp.pos,
     natDegree_cyclotomic, Nat.totient_prime hp]
 
+/-!
+AUDIT-GAP (coverage/semantic audit): the unlabeled mathematical prose following the proof of
+FT `ef31` (FT.tex:1681-1733) is in scope per the provenance `scope` field (which omits only
+exercises, solutions, and expositional material) but is neither formalized nor recorded as
+pending in a scope note or the chapter ledger:
+(a) the degree computation `deg(Q[e^{2πi/p}] / Q[cos(2π/p)]) = 2`
+(the equation `α^2 - 2·cos(2π/p)·α + 1 = 0`, `α = e^{2πi/p}`, shows degree `≤ 2`, and
+`α ∉ ℝ` shows degree `≠ 1`), hence `[Q[cos(2π/p)] : Q] = (p-1)/2`;
+(b) the claim "if the regular `p`-gon is constructible, then `(p-1)/2` is a power of `2`"
+(the source defers the converse to `ag11`, chapter IV), concluding that the regular `p`-gon
+is constructible iff `p = 2^r + 1` for some positive `r`;
+(c) the claim "`2^r + 1` prime forces `r` to be a power of `2`" (the `Y^t + 1` factorization
+for odd `t`), so the constructible primes are exactly the Fermat primes `p = 2^{2^s} + 1`.
+The historical material in the same paragraphs (Gauss's explicit `cos(2π/17)` formula,
+Euler's factorization `2^32 + 1 = 641 · 6700417`) is expositional and may be omitted under
+the provenance rule; the mathematical claims (a)-(c) are not covered by that justification.
+(The chapter-III route `FT.finrank_adjoin_cos_two_div` proves the degree `2^{k-1}` for
+Fermat primes only, not the `(p-1)/2` computation of (a) for general prime `p`.)
+-/
+
 end ConstructionsStraightEdgeCompass
 
 /-!
@@ -7346,6 +7366,18 @@ theorem constructible_cos_two_div (p k : ℕ) (hp : p = 2 ^ k + 1) (hpp : Nat.Pr
       LinearEquiv.finrank_eq e2.toLinearEquiv
     exact FT.constructible_of_two_pow_galois (IntermediateField.mem_adjoin_simple_self ℚ t)
       ⟨k - 1, by rw [hdegK]; exact hdegE0⟩
+
+/-!
+AUDIT-GAP (coverage/semantic audit): the unlabeled mathematical claim following the proof of
+FT `ft24` (FT.tex:3392) — "Thus a regular `p`-gon, `p` prime, is constructible if and only if
+`p` is a Fermat prime" — is in scope per the provenance `scope` field but is neither
+formalized nor recorded as pending in the chapter III ledger.  The delivered
+`FT.constructible_cos_two_div` is only the ⇐ direction (`p = 2^k + 1` prime ⇒ `cos(2π/p)`
+constructible); the ⇒ direction additionally requires the chapter-I computation
+`[Q[cos(2π/p)] : Q] = (p-1)/2` (FT.tex:1681-1704), which is itself undelivered — see the
+AUDIT-GAP marker beside `FT.finrank_adjoin_exp_two_pi_i_over_prime` (end of section
+`ConstructionsStraightEdgeCompass`).
+-/
 
 end Ft24CosConstructible
 
