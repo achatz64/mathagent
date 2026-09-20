@@ -67,13 +67,17 @@ formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
 theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
 `sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
 cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
-unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578) is complete on its theorem-like labels: all
-13 (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`, `ft17`, `ft18f`, `ft18g`,
-`ft18h`, `ft22`, `ft23`, `ft24`) plus the definition-like labels `ft10m`, `ft10n`,
-`ft11m`, `ft21`, the examples `ft19` and `ft20` (ft20's group-fact clauses;
-the τ/σ/semidirect-product presentation is a recorded handover), and remark
-content (`ft9`, `ft13` (b) equality part, `ft18` (a), the ggp section); pending:
-the final scope/ledger items and
+unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 12 of 13 theorem-like labels formalized
+unconditionally (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`, `ft17`, `ft18f`,
+`ft18g`, `ft22`, `ft23`, `ft24`), the 13th (`ft18h`) delivered with the
+degree-formula hypothesis discharged (`FT.fiberProductPairHom_bijective_of_degrees`)
+and the fiber-count hypothesis `hft17b` pending (ledger route), plus the
+definition-like labels `ft10m`, `ft10n`, `ft11m`, `ft21`, the examples `ft19`
+(algebraic identities + minimality; correspondence clauses pending) and `ft20`
+(group-fact clauses; the τ/σ/semidirect-product presentation is a recorded
+handover), and remark content (`ft9`, `ft13` (b) equality part, `ft18` (a), the
+ggp section); pending:
+the ledger items above and
 the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
 `ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
 Chapters 4-7 (computing Galois groups, applications, algebraic closures,
@@ -4344,6 +4348,7 @@ open Polynomial IntermediateField
 
 variable {F E : Type u} [Field F] [Field E] [Algebra F E]
 
+/-- Membership in the fixed subfield `E^G`.  Trivial (`Iff.rfl`). -/
 private theorem priv_mem_fixedPoints_subfield {G : Type u} [Group G] [MulSemiringAction G E]
     (x : E) : x ∈ FixedPoints.subfield G E ↔ ∀ g : G, g • x = x := Iff.rfl
 
@@ -4361,11 +4366,14 @@ private noncomputable def priv_ringEquivOfFixedSubfield {G : Type u} [Group G]
       obtain ⟨a, ha⟩ := RingHom.mem_fieldRange.mp hy2
       exact ⟨a, Subtype.ext ha⟩⟩
 
+/-- Definitional unfolding of the `F ≃ E^G` ring equiv on elements.  Trivial (`rfl`). -/
 private theorem priv_ringEquivOfFixedSubfield_apply {G : Type u} [Group G] [MulSemiringAction G E]
     (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange) (a : F) :
     ((priv_ringEquivOfFixedSubfield h a : FixedPoints.subfield G E) : E) = algebraMap F E a :=
   rfl
 
+/-- The inverse direction of the `F ≃ E^G` ring equiv.  Proof is elementary (inverse
+property + the apply lemma). -/
 private theorem priv_ringEquivOfFixedSubfield_symm_apply {G : Type u} [Group G]
     [MulSemiringAction G E]
     (h : FixedPoints.subfield G E = (algebraMap F E).fieldRange)
@@ -4552,6 +4560,8 @@ open Function
 
 variable {E : Type u} (G : Type u) [Group G] [Field E] [MulSemiringAction G E] [Fintype G]
 
+/-- A field homomorphism into a nontrivial ring is injective.  Proof is trivial
+(elementwise via inverses). -/
 private theorem priv_fieldRingHom_injective {E R : Type u} [Field E] [Ring R] [Nontrivial R]
     (f : E →+* R) : Function.Injective f := by
   intro a b h
@@ -4645,17 +4655,6 @@ theorem natCard_eq_finrank_fixedPoints [FaithfulSMul G E] :
     Nat.card G = Module.finrank (FixedPoints.subfield G E) E :=
   (Nat.card_eq_fintype_card (α := G)).trans (FixedPoints.finrank_eq_card G E).symm
 
-/-!
-AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
-the remark FT `ft13` (FT.tex:2853) has two clauses, but only clause (b)'s equality part
-`[E : F] = |Gal(E/F)|` is delivered here (`FT.natCard_eq_finrank_fixedPoints`).  Clause (a) —
-"the conjugates of α (the elements of its orbit under G) are exactly the roots of its minimal
-polynomial in E; the minimal polynomial is ∏(X − αᵢ)" — is neither formalized nor recorded as
-pending in the chapter III ledger note or the coverage note in the file header.  It must either
-be formalized (e.g. as a statement that the roots of `minpoly F α` in `E` are exactly the orbit
-of α under the action of `G`, which Mathlib's minpoly API should make routine) or added to the
-pending list so the chapter-3 coverage claim stops overclaiming remark content.
--/
 
 end Artin
 
@@ -4837,18 +4836,6 @@ theorem fixingSubgroup_compositum (M₁ M₂ : IntermediateField F E) :
     (M₁ ⊔ M₂).fixingSubgroup = M₁.fixingSubgroup ⊓ M₂.fixingSubgroup :=
   IntermediateField.fixingSubgroup_sup
 
-/-!
-AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
-the remark FT `ft18` (FT.tex:3009) has two clauses, but only clause (a) (the compositum
-statement `Gal(E/(M₁ ⊔ M₂)) = Gal(E/M₁) ∩ Gal(E/M₂)`, here) is delivered.  Clause (b) — for
-`H ≤ G` with `M = E^H`, the intersection `N = ⋂_{σ∈G} σHσ⁻¹` of the conjugates of `H` is the
-largest normal subgroup contained in `H`, `E^N` is the smallest normal subextension of `F`
-containing `M` (the normal, or Galois, closure of `M` in `E`), and `E^N` is the composite of the
-fields `σM` — is neither formalized nor recorded as pending in the chapter III ledger note or
-the coverage note in the file header.  It carries mathematical content (Mathlib has
-`IntermediateField.normalClosure` machinery to anchor it) and is in scope per the provenance
-`scope` field, so it must be formalized or explicitly listed as pending/deferred.
--/
 
 open Polynomial in
 /-- FT (unlabeled section "The Galois group of a polynomial", ggp). For a polynomial
@@ -5149,10 +5136,14 @@ instance instAlgebraSupRight (E L : IntermediateField F Ω) :
     Algebra ↥L ↥(E ⊔ L) :=
   RingHom.toAlgebra (IntermediateField.inclusion (le_sup_right : L ≤ E ⊔ L))
 
+/-- Scalar-tower instance for the sup-side restrict transports.  Trivial
+(`of_algebraMap_eq'`). -/
 private instance priv_isScalarTowerSup (E L : IntermediateField F Ω) :
     IsScalarTower F ↥L ↥(E ⊔ L) :=
   IsScalarTower.of_algebraMap_eq' rfl
 
+/-- Scalar-tower instance for the inf-side restrict transports.  Trivial
+(`of_algebraMap_eq'`). -/
 private instance priv_isScalarTowerInf (E L : IntermediateField F Ω) :
     IsScalarTower F ↥(E ⊓ L) ↥E :=
   IsScalarTower.of_algebraMap_eq' rfl
@@ -5167,36 +5158,25 @@ noncomputable def compositumRestrictRight (E L : IntermediateField F Ω) :
     IntermediateField F ↥(E ⊔ L) :=
   L.restrict (le_sup_right : L ≤ E ⊔ L)
 
-/-!
-AUDIT-GAP (documentation audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
-15 public declarations lack the docstring the file's every-declaration-documented convention
-requires (same violation class as the audits of commits 9b9e5bd/aa975a7): `rootSet_mem_of_isSplittingField`
-(next declaration), `eq_adjoin_rootSet_of_isSplittingField`, `val_image_rootSet_of_separable`,
-`adjoin_rootSet_eq_compositumRestrictLeft`, `compositumRestrict_sup_eq_top`,
-`rootSet_map_compositumRestrictRight`, `finiteDimensional_compositum`, `finiteDimensional_of_inf`,
-`eq_smul_of_mem_base`, `fiberProductSubgroup_mem` (state that it is the definitional `Iff.rfl`, i.e.
-trivial), `fiberProductRestrict1_one`, `fiberProductRestrict2_one`, `fiberProductRestrict1_mul`,
-`fiberProductRestrict2_mul`, `fiberProductFixField_mem_iff` (trivial), and
-`fiberProductPairHom_injective`.  Additionally the private plumbing lemmas
-`priv_mem_fixedPoints_subfield`, `priv_ringEquivOfFixedSubfield_apply`,
-`priv_ringEquivOfFixedSubfield_symm_apply`, `priv_fieldRingHom_injective`,
-`priv_isScalarTowerSup`, `priv_isScalarTowerInf`, `restrict_algEquiv_apply_omega`,
-`restrict_algEquiv_symm_apply_omega`, `autCongr_apply_omega`, `autCongr_symm_apply_omega`,
-`galToBaseF_apply_omega`, `galToBaseF_fixes`, `zeta7_cubic_natDegree`, `zeta7_cubic_monic` and
-`zeta7_cubic_aeval` are undocumented; for the pure-`rfl` plumbing ones a one-line "trivial"
-statement of content suffices per the documentation standard.
--/
 
+/-- FT `ft18f` support: the roots of a polynomial `p` (of which `E` is a splitting field)
+in the ambient field `Ω` all lie in `E`.  Proof idea: transport the splitting along the
+tower map `F → E → Ω`. -/
 theorem rootSet_mem_of_isSplittingField {p : F[X]} (hp : p.IsSplittingField F E) :
     ∀ x ∈ p.rootSet Ω, x ∈ E :=
   (IntermediateField.splits_iff_mem
     ((IsSplittingField.splits E p).of_algHom (IsScalarTower.toAlgHom F E Ω))).mp
       (IsSplittingField.splits E p)
 
+/-- FT `ft18f` support: `E` is the `F`-adjoin, inside `Ω`, of the roots of `p` (the adjoin
+clause of the `IsSplittingField` record).  Trivial (projection). -/
 theorem eq_adjoin_rootSet_of_isSplittingField {p : F[X]} (hp : p.IsSplittingField F E) :
     E = IntermediateField.adjoin F (p.rootSet Ω) :=
   (IntermediateField.isSplittingField_iff.mp hp).2
 
+/-- FT `ft18f` support: the `Ω`-roots of `p` are exactly the images of the roots inside
+`E ⊔ L` (the restrict copy is injective).  Proof idea: rootSet membership via `aeval`
+after the tower coercion. -/
 theorem val_image_rootSet_of_separable {p : F[X]} (hps : p.Separable)
     (hp : p.IsSplittingField F E) :
     Subtype.val '' (p.rootSet ↥(E ⊔ L)) = p.rootSet Ω := by
@@ -5215,6 +5195,8 @@ theorem val_image_rootSet_of_separable {p : F[X]} (hps : p.Separable)
     rw [← aeval_coe]
     simpa using hx.2
 
+/-- FT `ft18f` support: the `F`-adjoin of the roots of `p` inside `E ⊔ L` is the copy of
+`E`.  Proof idea: `lift_adjoin` + `lift_inj` with the root-set identification. -/
 theorem adjoin_rootSet_eq_compositumRestrictLeft {p : F[X]} (hps : p.Separable)
     (hp : p.IsSplittingField F E) :
     IntermediateField.adjoin F (p.rootSet ↥(E ⊔ L)) = compositumRestrictLeft E L := by
@@ -5223,6 +5205,9 @@ theorem adjoin_rootSet_eq_compositumRestrictLeft {p : F[X]} (hps : p.Separable)
   rw [IntermediateField.lift_adjoin F (E ⊔ L), val_image_rootSet_of_separable E L hps hp,
     ← eq_adjoin_rootSet_of_isSplittingField E hp, IntermediateField.lift_restrict (le_sup_left : E ≤ E ⊔ L)]
 
+/-- FT `ft18f` support: the copies of `E` and `L` inside `E ⊔ L` compositum to the whole
+compositum.  Proof idea: `lift_inj`/`lift_sup`/`lift_restrict` reduction to
+`E ⊔ L = ⊤`. -/
 theorem compositumRestrict_sup_eq_top (E L : IntermediateField F Ω) :
     compositumRestrictLeft E L ⊔ compositumRestrictRight E L = ⊤ := by
   simp only [compositumRestrictLeft, compositumRestrictRight]
@@ -5230,6 +5215,9 @@ theorem compositumRestrict_sup_eq_top (E L : IntermediateField F Ω) :
     IntermediateField.lift_sup, IntermediateField.lift_restrict (le_sup_left : E ≤ E ⊔ L),
     IntermediateField.lift_restrict (le_sup_right : L ≤ E ⊔ L)]
 
+/-- FT `ft18f` support: the roots of the `L`-copy polynomial `p.map (algebraMap F ↥L)` in
+`E ⊔ L` coincide with the roots of `p`.  Proof idea: both detected by `p.aeval` via
+the tower map. -/
 theorem rootSet_map_compositumRestrictRight {p : F[X]} :
     (p.map (algebraMap F ↥(compositumRestrictRight E L))).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L) := by
   refine Set.ext fun x => ?_
@@ -5264,6 +5252,8 @@ theorem isGalois_compositum_of_isSplittingField {p : F[X]} (hps : p.Separable)
   exact IsGalois.of_separable_splitting_field
     ((Polynomial.separable_map (algebraMap F ↥(compositumRestrictRight E L))).mpr hps)
 
+/-- FT `ft18f` support: `E ⊔ L` is finite-dimensional over the `L`-copy, from the
+splitting-field record.  Trivial (projection). -/
 theorem finiteDimensional_compositum {p : F[X]} (hps : p.Separable)
     (hp : p.IsSplittingField F E) : FiniteDimensional ↥(compositumRestrictRight E L) ↥(E ⊔ L) := by
   have h := compositum_isSplittingField E L hps hp
@@ -5279,6 +5269,8 @@ theorem isGalois_of_inf_of_isSplittingField {p : F[X]} (hps : p.Separable) (hp :
   exact IsGalois.of_separable_splitting_field
     ((Polynomial.separable_map (algebraMap F ↥(E ⊓ L))).mpr hps)
 
+/-- FT `ft18f` support: `E` is finite-dimensional over `E ⊓ L`, from the splitting-field
+record.  Trivial (projection). -/
 theorem finiteDimensional_of_inf {p : F[X]} (hp : p.IsSplittingField F E) :
     FiniteDimensional ↥(E ⊓ L) ↥E := by
   haveI hST : IsScalarTower F ↥(E ⊓ L) ↥E := IsScalarTower.of_algebraMap_eq' rfl
@@ -5308,6 +5300,8 @@ noncomputable def algEquivOfFixes (E L : IntermediateField F Ω)
   { f with commutes' := fun s => h (algebraMap ↥(E ⊓ L) ↥E s) (by
       rw [show ((algebraMap ↥(E ⊓ L) ↥E s) : Ω) = (s : Ω) from rfl]; exact s.2) }
 
+/-- FT `ft18f` support: an automorphism of the compositum fixing `L` pointwise fixes the
+copy of `L` pointwise.  Proof is elementary (`commutes'` + the coercion `rfl`). -/
 theorem eq_smul_of_mem_base {σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)} {x : ↥(E ⊔ L)}
     (hx : x.1 ∈ L) : σ x = x := by
   have hcomm := σ.commutes' (⟨x.1, hx⟩ : ↥L)
@@ -5517,11 +5511,15 @@ def fiberProductSubgroup : Subgroup ((↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F]
     rfl
 
 omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: membership in the fiber-product subgroup.  Trivial
+(definitional, `Iff.rfl`). -/
 @[simp]
 theorem fiberProductSubgroup_mem (p : (↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2)) :
     p ∈ fiberProductSubgroup E1 E2 ↔ fiberProductAgree E1 E2 p.1 p.2 := Iff.rfl
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: the restriction of the identity automorphism is the identity.
+Proof is elementary (`restrictNormal` commutation + injectivity of the inclusion). -/
 theorem fiberProductRestrict1_one : fiberProductRestrict1 E1 E2 1 = 1 := by
   letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
     (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
@@ -5544,6 +5542,8 @@ theorem fiberProductRestrict1_one : fiberProductRestrict1 E1 E2 1 = 1 := by
   rfl
 
 omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: the restriction of the identity to `E2` is the identity.
+Proof is elementary (as for `FT.fiberProductRestrict1_one`). -/
 theorem fiberProductRestrict2_one : fiberProductRestrict2 E1 E2 1 = 1 := by
   letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
     (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
@@ -5566,6 +5566,8 @@ theorem fiberProductRestrict2_one : fiberProductRestrict2 E1 E2 1 = 1 := by
   rfl
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: restriction to `E1` is multiplicative.  Proof is elementary
+(`AlgHom.restrictNormal_comp`). -/
 theorem fiberProductRestrict1_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
     fiberProductRestrict1 E1 E2 (σ * τ) = fiberProductRestrict1 E1 E2 σ * fiberProductRestrict1 E1 E2 τ := by
   letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
@@ -5582,6 +5584,8 @@ theorem fiberProductRestrict1_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E
   rfl
 
 omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: restriction to `E2` is multiplicative.  Proof is elementary
+(as for `FT.fiberProductRestrict1_mul`). -/
 theorem fiberProductRestrict2_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
     fiberProductRestrict2 E1 E2 (σ * τ) = fiberProductRestrict2 E1 E2 σ * fiberProductRestrict2 E1 E2 τ := by
   letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
@@ -5644,10 +5648,15 @@ noncomputable def fiberProductFixField (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 
     simp [hsa]
 
 omit [IsGalois F ↥E1] [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: membership in the agreement fixed field.  Trivial
+(`Iff.rfl`). -/
 theorem fiberProductFixField_mem_iff (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (y : ↥(E1 ⊔ E2)) :
     y ∈ fiberProductFixField E1 E2 σ τ ↔ σ y = τ y := Iff.rfl
 
 omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
+/-- FT `ft18h` support: the restriction pair map is injective — the pair determines `σ`
+on `E1` and `E2`, hence on their compositum.  Proof idea: the restrictions determine
+`σ` Ω-pointwise on both copies; the compositum is generated. -/
 theorem fiberProductPairHom_injective : Function.Injective (fiberProductPairHom E1 E2) := by
   intro σ τ h
   have hpair : fiberProductPair E1 E2 σ = fiberProductPair E1 E2 τ := congrArg Subtype.val h
@@ -5750,24 +5759,6 @@ theorem fiberProductSubgroup_card
     Nat.nsmul_eq_mul]
   rw [← Nat.card_eq_fintype_card, IsGalois.card_aut_eq_finrank F ↥E1]
 
-/-!
-AUDIT-GAP (semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block): FT `ft18h`
-(FT.tex:3105) claims *unconditionally* that the restriction map `σ ↦ (σ|E1, σ|E2)` is an
-isomorphism of `Gal(E1E2/F)` onto the fiber-product subgroup `H`.  The main statement below
-(`fiberProductPairHom_bijective`) delivers the bijectivity clause only in *hypothesis form*,
-under two nontrivial mathematical hypotheses that are not discharged anywhere in the target:
-`hft18g` (the degree formula `[E1⊔E2:F]·[E1⊓E2:F] = [E1:F]·[E2:F]`) and `hft17b` (the fiber-card
-bound `|{σ2 ∈ Gal(E2/F) | σ2 agrees with τ on E1⊓E2}| = [E2 : E1⊓E2]`).  With the section
-hypotheses in scope, both are provable from declarations already in this file — `hft18g` is
-exactly `FT.finrank_compositum_mul_inf` with `E := E1`, `L := E2` (its hypotheses
-`[IsGalois F E1] [FiniteDimensional F E1] [FiniteDimensional F E2]` all hold here), and `hft17b`
-follows because `E1⊓E2` is Galois over `F` (`FT.isGalois_inf_of_isGalois`), so the restriction
-hom `Gal(E2/F) → Gal(E1⊓E2/F)` is surjective and the fiber over `τ` is a coset of
-`Gal(E2/(E1⊓E2))`, whose order is `[E2 : E1⊓E2]` by FT `ft8` (`IsGalois.card_aut_eq_finrank`).
-Until both hypotheses are discharged (or `ft18h` restated unconditionally), the source's
-unconditional claim is not visible in Lean types and the header's "all 13 theorem-like labels
-formalized" claim overstates `ft18h`.
--/
 
 /-- FT `ft18h` (main statement).  Let `E1/F` and `E2/F` be finite Galois extensions in a common
 field `Ω`.  Then the restriction map `Gal((E1⊔E2)/F) → Gal(E1/F) × Gal(E2/F)`, `σ ↦ (σ|E1, σ|E2)`,
@@ -6118,10 +6109,13 @@ theorem galRestrictComposite_mem_fixedField_iff [FiniteDimensional F E] (hE : Is
       exact congrArg Subtype.val hcomm
     exact Subtype.ext (Subtype.ext hpt)
 
+/-- Ω-coordinate triviality of `IntermediateField.restrict_algEquiv`.  Trivial (`rfl`). -/
 private theorem restrict_algEquiv_apply_omega (x : ↥E) :
     ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L) x :
         ↥(compositumRestrictLeft E L)) : Ω) = (x : Ω) := rfl
 
+/-- Ω-coordinate form of the inverse of `restrict_algEquiv`.  Proof is elementary
+(inverse property). -/
 private theorem restrict_algEquiv_symm_apply_omega (z : ↥(compositumRestrictLeft E L)) :
     ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm z : Ω) =
       (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
@@ -6130,12 +6124,15 @@ private theorem restrict_algEquiv_symm_apply_omega (z : ↥(compositumRestrictLe
   exact congrArg Subtype.val (congrArg Subtype.val
     ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).apply_symm_apply z))
 
+/-- Ω-coordinate form of `AlgEquiv.autCongr`.  Trivial (`rfl`). -/
 private theorem autCongr_apply_omega (τF : ↥E ≃ₐ[F] ↥E) (x : ↥(compositumRestrictLeft E L)) :
     ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) τF x :
         ↥(compositumRestrictLeft E L)) : Ω) =
       ((τF ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm x : ↥E)) : Ω) :=
   rfl
 
+/-- Ω-coordinate form of the inverse of `AlgEquiv.autCongr`.  Proof is elementary
+(inverse property). -/
 private theorem autCongr_symm_apply_omega
     (ρ : ↥(compositumRestrictLeft E L) ≃ₐ[F] ↥(compositumRestrictLeft E L)) (y : ↥E) :
     (((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
@@ -6175,10 +6172,14 @@ private def galToBaseF (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
     (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) :
     ↥E ≃ₐ[F] ↥E := { τ with commutes' := hcomm }
 
+/-- Ω-coordinate agreement of `galToBaseF` with its underlying automorphism.  Trivial
+(`rfl`). -/
 private theorem galToBaseF_apply_omega (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
     (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) (w : ↥E) :
     ((galToBaseF E L τ hcomm w : ↥E) : Ω) = ((τ w : ↥E) : Ω) := rfl
 
+/-- An `E ⊓ L`-automorphism of `E` fixes `E ⊓ L` pointwise in `Ω`-coordinates.
+Proof is elementary (`commutes'`). -/
 private theorem galToBaseF_fixes (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
     (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) (y : ↥E)
     (hy : (y : Ω) ∈ E ⊓ L) :
@@ -6368,6 +6369,22 @@ theorem finrank_compositum_mul_inf [FiniteDimensional F E] [FiniteDimensional F 
           Nat.mul_comm (Module.finrank ↥(E ⊓ L) ↥E) (Module.finrank F ↥(E ⊓ L))]
     _ = Module.finrank F ↥L * Module.finrank F ↥E := by rw [t4]
     _ = Module.finrank F ↥E * Module.finrank F ↥L := Nat.mul_comm _ _
+
+/-- FT `ft18h` (main statement, degree-formula discharged).  The bijectivity of the
+restriction pair map holds unconditionally on the `hft18g` side: the degree formula
+`[E1⊔E2:F]·[E1⊓E2:F] = [E1:F]·[E2:F]` is exactly FT `ft18g`
+(`FT.finrank_compositum_mul_inf`), leaving only the fiber-count hypothesis `hft17b`
+(recorded as pending). -/
+theorem fiberProductPairHom_bijective_of_degrees {F Ω : Type u} [Field F] [Field Ω]
+    [Algebra F Ω] (E1 E2 : IntermediateField F Ω) [IsGalois F E1] [IsGalois F E2]
+    [FiniteDimensional F E1] [FiniteDimensional F E2]
+    (hft17b : ∀ τ : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2),
+        Nat.card {σ : ↥E2 ≃ₐ[F] ↥E2 // ∀ (x : Ω) (hx : x ∈ E1 ⊓ E2),
+          (↑(σ ⟨x, ((inf_le_right : E1 ⊓ E2 ≤ E2) hx)⟩) : Ω) = (τ ⟨x, hx⟩ : Ω)} =
+          Module.finrank ↥(E1 ⊓ E2) ↥E2) :
+    Function.Bijective (fiberProductPairHom E1 E2) :=
+  fiberProductPairHom_bijective E1 E2 (finrank_compositum_mul_inf E1 E2 ‹IsGalois F E1›) hft17b
+
 
 end GaloisRestriction
 
@@ -6821,6 +6838,8 @@ theorem zeta7_sqrt_neg_seven {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitiveR
   ring
 
 open Polynomial in
+/-- The cubic `X³ + X² − 2X − 1` has degree `3`.  Proof is elementary degree
+bookkeeping. -/
 private theorem zeta7_cubic_natDegree :
     ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1).natDegree = 3 := by
   have e1 : natDegree ((2 : Polynomial ℚ) * Polynomial.X) ≤ 1 := by simp
@@ -6853,6 +6872,7 @@ private theorem zeta7_cubic_natDegree :
   exact dA
 
 open Polynomial in
+/-- The cubic `X³ + X² − 2X − 1` is monic.  Proof is elementary. -/
 private theorem zeta7_cubic_monic :
     ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1).Monic := by
   rw [Polynomial.Monic]
@@ -6861,6 +6881,7 @@ private theorem zeta7_cubic_monic :
   simp [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_X, Polynomial.coeff_one]
 
 open Polynomial in
+/-- `aeval` on the cubic unfolds to the cubic expression.  Trivial. -/
 private theorem zeta7_cubic_aeval {E : Type u} [Field E] [CharZero E] (t : E) :
     Polynomial.aeval t
       ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2 - 2 * Polynomial.X - 1)
@@ -7000,23 +7021,6 @@ theorem zeta7_minpoly_add_inv {E : Type u} [Field E] [CharZero E] {ζ : E} (hζ 
   exact (Polynomial.eq_of_monic_of_dvd_of_natDegree_le (minpoly.monic hint) hgmonic hdvd
     (by rw [hgd]; exact hge)).symm
 
-/-!
-AUDIT-GAP (coverage/semantic audit, delta audit of commits 53bd796..32b1341, chapter-3 block):
-the example FT `ft19` (FT.tex:3171) contains substantially more than the algebraic identities
-delivered in this section.  Delivered: the sum identity (`zeta7_sum_eq_neg_one`), the cubic
-identity and its minimality (`zeta7_minpoly_add_inv`), and the `(β − β')² = −7` identity
-(`zeta7_sqrt_neg_seven`).  Not delivered and not recorded as pending in the chapter III ledger
-note or the file-header coverage note:
-(a) the identification `Gal(ℚ[ζ]/ℚ) ≅ (ℤ/7ℤ)^×` via `σ(ζ) = ζ^i ↦ i`, and that `σ` with
-    `σζ = ζ³` generates (powers of 3 mod 7);
-(b) the subfield determinations from the correspondence: `ℚ[ζ]^{⟨σ³⟩} = ℚ[ζ + ζ̄]` (degree-3
-    real subfield, Galois over ℚ with group `⟨σ⟩/⟨σ³⟩`) and `ℚ[ζ]^{⟨σ²⟩} = ℚ[√−7]` — the
-    `√−7` identity alone does not yield the fixed-field claim;
-(c) the minimal polynomial `g(2X)/8 = X³ + X²/2 − X/2 − 1/8` of `cos(2π/7)`.
-These carry mathematical content, are in scope per the provenance `scope` field, and the header
-currently lists `ft19` among "the examples ... additionally delivered" without qualification, so
-they must be formalized or explicitly recorded as pending/deferred.
--/
 
 end Ft19Cyclotomic
 
@@ -7840,6 +7844,23 @@ theorem quinticFixZeta_normal {F K : Type u} [Field F] [Field K] [Algebra F K]
 end Ft20Group
 
 /-!
+Note (chapter-3 delta audit 149d60a, remediated): the five audit gaps are resolved
+as follows.  (1) FT `ft13` (a) (conjugates = roots of the minimal polynomial) is
+recorded as pending in the chapter III ledger.  (2) FT `ft18` (b) (normal/Galois
+closure of `M` in `E` via `N = ⋂ σHσ⁻¹`) is recorded as pending in the ledger.
+(3) The chapter-3 support declarations now carry docstrings.  (4) FT `ft18h`: the
+degree-formula hypothesis is discharged in
+`FT.fiberProductPairHom_bijective_of_degrees` (via FT `ft18g`,
+`FT.finrank_compositum_mul_inf`), the fiber-count hypothesis `hft17b` is recorded
+as pending (with its discharge route) in the ledger, and the coverage claim is
+qualified accordingly.  (5) FT `ft19`: the delivered content is the algebraic
+identities plus the minimality of `X³ + X² − 2X − 1`; the
+subgroup-correspondence clauses (Gal ≅ (ℤ/7ℤ)ˣ, σ-generator, the fixed-field
+identifications `ℚ[ζ]^⟨σ³⟩ = ℚ[ζ+ζ̄]` and `ℚ[ζ]^⟨σ²⟩ = ℚ[√−7]`) are recorded as
+pending in the ledger.
+-/
+
+/-!
 ### Chapter III ledger — remaining in-scope items (work in progress)
 
 Theorem-like labels formalized: `ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`,
@@ -7867,6 +7888,24 @@ Pending in scope (to be recorded in the final ledger as pending or AUDIT-DEFERRE
   (fixed-field tower + TowerOK assembly), `FT.quadStep` (quadratic step via
   FT `ft23` + `IntermediateField.extendScalars`), and ch.I's
   `FT.constructible_of_towerOK`.
+- `ft13` (a) (remark): the conjugates of `α` (the orbit under `G = Gal(E/F)`) are
+  exactly the roots of `minpoly F α` in `E`, and the minimal polynomial is
+  `∏(X − αᵢ)` — pending (the orbit/roots argument is the `c ⇒ d` route of
+  `FT.galois_iff`; to be extracted as its own lemma).
+- `ft18` (b) (remark): the normal (Galois) closure of `M = E^H` in `E` —
+  `N = ⋂ σHσ⁻¹` is the largest normal subgroup of `H`, `E^N` is the smallest
+  normal subextension containing `M` and is the composite of the `σM` — pending.
+- `ft18h` fiber-count hypothesis: the binder `hft17b` of
+  `FT.fiberProductPairHom_bijective` (the fiber over `τ` of the restriction
+  `Gal(E2/F) → Gal(E1⊓E2/F)` has cardinality `[E2 : E1⊓E2]`) is pending discharge:
+  route — `E1⊓E2/F` Galois via `FT.isGalois_inf_of_isGalois`, the restriction hom
+  is surjective with coset fibers, fiber size = `|Gal(E2/(E1⊓E2))| = [E2 : E1⊓E2]`
+  (FT `ft8`).
+- `ft19` (qualification): delivered content = the algebraic identities and the
+  minimality of `X³ + X² − 2X − 1`; the subgroup-correspondence clauses
+  (`Gal(ℚ[ζ]/ℚ) ≅ (ℤ/7ℤ)ˣ`, the σ-generator, the fixed-field identifications
+  `ℚ[ζ]^⟨σ³⟩ = ℚ[ζ+ζ̄]` and `ℚ[ζ]^⟨σ²⟩ = ℚ[√−7]`, and the minimal polynomial of
+  `cos(2π/7)`) are pending.
 - (resolved) `ft24`: `FT.constructible_cos_two_div` — Fermat prime ⇒ cos(2π/p)
   constructible, via the cyclotomic degree fact
   (`FT.finrank_cyclotomic_rat_prime`, Gal ≅ (ℤ/pℤ)ˣ of order 2^k), the cos bridge
