@@ -54,12 +54,14 @@ target against the extracted inventory.
 
 AUDIT-GAP (coverage audit, expected for work-in-progress; updated after the
 audit of commit a86787d, which found the previous note stale): the target covers
-chapter 1 completely - all 24 of its theorem-like labels are formalized and
-mentioned, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1 labels.
-Chapters 2-7 (splitting fields, fundamental theorem of Galois theory, computing
+chapters 1 and 2 completely - all 24 (ch1) and all 9 (ch2: `sf1`, `sf2`, `sf4`,
+`sf7`, `sf8`, `ft1`, `ft3`, `ft3a`, `ft5`; the definition-like labels `ft4`,
+`ft4m` and the examples/asides are additionally formalized) theorem-like labels
+are formalized and mentioned, and `tools/ft_coverage.py` reports 0 unmentioned
+chapter-1/2 labels.  Chapters 3-7 (fundamental theorem of Galois theory, computing
 Galois groups, applications, algebraic closures, infinite Galois extensions,
-etale algebras, transcendental extensions; the `ft`/`sf`/`te`/`ag`/`cg`/`ig`/
-`ca` label clusters) are entirely absent although in scope per the provenance
+etale algebras, transcendental extensions; the `ft`/`te`/`ag`/`cg`/`ig`/
+`ca` label clusters) are pending although in scope per the provenance
 `scope` field (which omits only exercises, solutions, and expositional
 material).  To be recorded in the final ledger as pending or as
 AUDIT-DEFERRED.
@@ -3198,6 +3200,164 @@ theorem natCard_algHomAdjoinIntegralEquivRootSet (hα : IsIntegral F α) :
   (Nat.card_congr (algHomAdjoinIntegralEquivRootSet F hα)).trans (Nat.card_coe_set_eq _)
 
 end SF1
+/-!
+### FT `sf2`: Extensions of a homomorphism to a simple extension
+
+FT `sf2` (Milne, *Fields and Galois Theory*, Prop. 5.6/sf2): let `F(α)` be a simple
+extension of `F` and `φ₀ : F →+* Ω` a homomorphism from `F` into a second field `Ω`.
+An *extension of `φ₀`* to `F(α)` is a homomorphism `φ : F(α) → Ω` whose restriction to
+`F` is `φ₀`.
+
+Encoding: `Ω` is made an `F`-algebra *via* `φ₀` (`let _ : Algebra F Ω :=
+RingHom.toAlgebra φ₀`; then `algebraMap F Ω = φ₀` holds by `rfl`), so FT's extensions of
+`φ₀` are exactly the `AlgHom F F⟮α⟯ Ω` for the induced structure, and FT's `φ₀f` is
+`f.map φ₀`.  Under this structure `Transcendental F γ` says exactly that `γ` is
+transcendental over `φ₀(F)` (see `FT.transcendental_toAlgebra_iff`), while the root
+condition `Polynomial.eval γ ((minpoly F α).map φ₀) = 0` does not mention the induced
+structure at all.
+-/
+
+section SF2
+
+open scoped IntermediateField
+open scoped Polynomial
+
+variable (F : Type*) [Field F] {E : Type*} [Field E] [Algebra F E] {Ω : Type*} [Field Ω]
+  {α : E}
+
+/-- FT `sf2`, auxiliary (b): for a nonzero polynomial `p ∈ F[X]` and a homomorphism
+`φ₀ : F →+* Ω` (making `Ω` an `F`-algebra via `φ₀`), reindexing "roots of `φ₀p` in `Ω`
+as a multiset" (`p.aroots Ω`) to "roots of `φ₀p` in `Ω` as bare elements"
+(`eval γ (p.map φ₀) = 0`). -/
+noncomputable def sf2RootsSubtypeEquiv (φ₀ : F →+* Ω) (p : F[X]) (hp : p ≠ 0) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    {γ : Ω // γ ∈ p.aroots Ω} ≃ {γ : Ω // Polynomial.eval γ (p.map φ₀) = 0} :=
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  { toFun := fun x => ⟨x.1, by
+      obtain ⟨-, hae⟩ := Polynomial.mem_aroots'.mp x.2
+      rw [Polynomial.aeval_def] at hae
+      rw [Polynomial.eval_map]
+      exact hae⟩,
+    invFun := fun x => ⟨x.1, by
+      rw [Polynomial.mem_aroots']
+      refine ⟨(Polynomial.map_ne_zero_iff (RingHom.injective φ₀)).mpr hp, ?_⟩
+      rw [Polynomial.aeval_def, ← Polynomial.eval_map]
+      exact x.2⟩,
+    left_inv := fun x => rfl,
+    right_inv := fun x => rfl }
+
+/-- **FT `sf2` (b).**  Let `F(α)` be a simple extension of `F` and `φ₀ : F →+* Ω` a
+homomorphism into a second field `Ω`.  If `α` is algebraic over `F` with minimal polynomial
+`f = minpoly F α`, then `φ ↦ φ(α)` is a bijection from the extensions `φ : F⟮α⟯ →ₐ[F] Ω`
+of `φ₀` (i.e. `F`-algebra homomorphisms for the `F`-algebra structure on `Ω` induced by
+`φ₀` via `RingHom.toAlgebra`; such a `φ` satisfies `φ (algebraMap F _ a) = φ₀ a`, so it is
+an extension of `φ₀`) to the roots of `φ₀f` in `Ω`, where `φ₀f = f.map φ₀`.
+
+In particular, the number of extensions of `φ₀` to `F[α]` is the number of distinct roots
+of `φ₀f` in `Ω` (count via `Nat.card_congr sf2ExtEquiv`).
+
+Construction: Mathlib's `IntermediateField.algHomAdjoinIntegralEquiv` (via the power basis
+of `F⟮α⟯`), reindexed by `FT.sf2RootsSubtypeEquiv` from multiset-roots to bare roots. -/
+noncomputable def sf2ExtEquiv (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0} :=
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  (IntermediateField.algHomAdjoinIntegralEquiv F hα).trans
+    (sf2RootsSubtypeEquiv F φ₀ (minpoly F α) (minpoly.ne_zero hα))
+
+/-- FT `sf2` (b): the bijection is `φ ↦ φ(α)`. -/
+theorem sf2ExtEquiv_apply (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
+      (sf2ExtEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α) := by
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  show ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
+    (sf2ExtEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
+  intro φ
+  simp only [sf2ExtEquiv, Equiv.trans_apply, IntermediateField.algHomAdjoinIntegralEquiv,
+    Equiv.subtypeEquiv_apply, IntermediateField.adjoin.powerBasis_gen,
+    PowerBasis.liftEquiv'_apply_coe, Equiv.refl_apply]
+  rfl
+
+/-- FT `sf2` (b): the inverse sends a root `γ` of `φ₀(minpoly F α)` to the extension
+`F⟮α⟯ → Ω` of `φ₀` mapping `α` to `γ`. -/
+theorem sf2ExtEquiv_symm_gen (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    ∀ (γ : {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0}),
+      (sf2ExtEquiv F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  show ∀ (γ : {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0}),
+    (sf2ExtEquiv F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1
+  intro γ
+  show (IntermediateField.algHomAdjoinIntegralEquiv F hα).symm
+    ((sf2RootsSubtypeEquiv F φ₀ (minpoly F α) (minpoly.ne_zero hα)).symm γ)
+    (IntermediateField.AdjoinSimple.gen F α) = γ.1
+  rw [IntermediateField.algHomAdjoinIntegralEquiv_symm_apply_gen]
+  rfl
+
+/-- **FT `sf2` (a).**  Let `F(α)` be a simple extension of `F` and `φ₀ : F →+* Ω` a
+homomorphism into a second field `Ω`.  If `α` is transcendental over `F`, then `φ ↦ φ(α)`
+is a bijection from the extensions `φ : F⟮α⟯ →ₐ[F] Ω` of `φ₀` (`F`-algebra homomorphisms
+for the `F`-algebra structure on `Ω` induced by `φ₀` via `RingHom.toAlgebra`) to the
+elements of `Ω` transcendental over `φ₀(F)` — encoded as `Transcendental F γ` for the
+induced structure: no nonzero `p ∈ F[X]` has `p(γ) = 0` after applying `φ₀` to the
+coefficients.
+
+This is FT's `sf2` (a); it is FT `sf1` (a) (`FT.algHomAdjoinTranscendentalEquiv`) read
+over the `φ₀`-induced `F`-algebra structure on `Ω`. -/
+noncomputable def sf2ExtTranscendentalEquiv (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // Transcendental F γ} :=
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  algHomAdjoinTranscendentalEquiv F hα
+
+/-- FT `sf2` (a), interpretation: for the `F`-algebra structure on `Ω` induced by `φ₀`,
+`Transcendental F γ` says exactly that `γ` is transcendental over `φ₀(F)` in FT's sense:
+no nonzero `p ∈ F[X]` vanishes at `γ` after `φ₀` is applied to its coefficients. -/
+theorem transcendental_toAlgebra_iff (φ₀ : F →+* Ω) (γ : Ω) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    (Transcendental F γ ↔ ∀ p : F[X], p ≠ 0 → Polynomial.eval γ (p.map φ₀) ≠ 0) := by
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  show (Transcendental F γ ↔ ∀ p : F[X], p ≠ 0 → Polynomial.eval γ (p.map φ₀) ≠ 0)
+  constructor
+  · intro h p hp hev
+    exact h ⟨p, hp, by rw [Polynomial.aeval_def]; rw [Polynomial.eval_map] at hev; exact hev⟩
+  · intro h ⟨p, hp, hae⟩
+    refine h p hp ?_
+    rw [Polynomial.aeval_def] at hae
+    rw [Polynomial.eval_map]
+    exact hae
+
+/-- FT `sf2` (a): the bijection is `φ ↦ φ(α)`. -/
+theorem sf2ExtTranscendentalEquiv_apply (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
+      (sf2ExtTranscendentalEquiv F φ₀ hα φ).1 =
+        φ (IntermediateField.AdjoinSimple.gen F α) := by
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  show ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
+    (sf2ExtTranscendentalEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
+  intro φ
+  rfl
+
+/-- FT `sf2` (a): the inverse sends `γ` transcendental over `φ₀(F)` to the extension
+`F⟮α⟯ → Ω` of `φ₀` mapping `α` to `γ`. -/
+theorem sf2ExtTranscendentalEquiv_symm_gen (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+    let _ : Algebra F Ω := RingHom.toAlgebra φ₀
+    ∀ (γ : {γ : Ω // Transcendental F γ}),
+      (sf2ExtTranscendentalEquiv F φ₀ hα).symm γ
+        (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
+  letI : Algebra F Ω := RingHom.toAlgebra φ₀
+  show ∀ (γ : {γ : Ω // Transcendental F γ}),
+    (sf2ExtTranscendentalEquiv F φ₀ hα).symm γ
+      (IntermediateField.AdjoinSimple.gen F α) = γ.1
+  intro γ
+  show (FT.liftAlgHomOfTranscendental F hα γ.2)
+    (IntermediateField.AdjoinSimple.gen F α) = γ.1
+  exact FT.liftAlgHomOfTranscendental_gen F hα γ.2
+
+end SF2
+
 section FT3
 
 open Polynomial
