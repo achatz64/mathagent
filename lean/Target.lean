@@ -2729,32 +2729,20 @@ theorem finrank_adjoin_exp_two_pi_i_over_prime {p : ℕ} (hp : p.Prime) :
     natDegree_cyclotomic, Nat.totient_prime hp]
 
 /-!
-AUDIT-GAP (delta audit of remediation commit 0f09e9b; re-records the marker of audit commit
-7df41c1): remediation 0f09e9b deleted audit 7df41c1's AUDIT-GAP marker at this site on the
-false premise that a pre-existing AUDIT-GAP marker in section `ConstructionsStraightEdgeCompass`
-already recorded it verbatim — no such pre-existing marker ever existed (the tree before
-7df41c1 contains no coverage/semantic AUDIT-GAP at all), so the deletion removed the sole
-record of this gap and left a dangling cross-reference to a nonexistent marker.  The gap is
-live and unrecorded; it is restored here verbatim: the unlabeled mathematical prose following
-the proof of
-FT `ef31` (FT.tex:1681-1733) is in scope per the provenance `scope` field (which omits only
-exercises, solutions, and expositional material) but is neither formalized nor recorded as
-pending in a scope note or the chapter ledger:
-(a) the degree computation `deg(Q[e^{2πi/p}] / Q[cos(2π/p)]) = 2`
-(the equation `α^2 - 2·cos(2π/p)·α + 1 = 0`, `α = e^{2πi/p}`, shows degree `≤ 2`, and
-`α ∉ ℝ` shows degree `≠ 1`), hence `[Q[cos(2π/p)] : Q] = (p-1)/2`;
-(b) the claim "if the regular `p`-gon is constructible, then `(p-1)/2` is a power of `2`"
-(the source defers the converse to `ag11`, chapter IV), concluding that the regular `p`-gon
-is constructible iff `p = 2^r + 1` for some positive `r`;
-(c) the claim "`2^r + 1` prime forces `r` to be a power of `2`" (the `Y^t + 1` factorization
-for odd `t`), so the constructible primes are exactly the Fermat primes `p = 2^{2^s} + 1`.
-The historical material in the same paragraphs (Gauss's explicit `cos(2π/17)` formula,
-Euler's factorization `2^32 + 1 = 641 · 6700417`) is expositional and may be omitted under
-the provenance rule; the mathematical claims (a)-(c) are not covered by that justification.
-(The chapter-III route `FT.finrank_adjoin_cos_two_div` proves the degree `2^{k-1}` for
-Fermat primes only, not the `(p-1)/2` computation of (a) for general prime `p`.)
+Note (delta audit of remediation commit 0f09e9b; re-records the marker of audit
+commit 7df41c1 — now REMEDIATED): the unlabeled mathematical prose following the
+proof of FT `ef31` (FT.tex:1681-1733) is now formalized: (a) the degree
+computation `[ℚ[cos(2π/p)] : ℚ] = (p−1)/2` for odd prime `p` is
+`FT.finrank_adjoin_cos_rat` (ℝ-side; ℂ-side `FT.finrank_adjoin_cos_two_div_of_odd`);
+(c) `2^r + 1` prime forces `r` a power of `2` — `FT.fermat_exponent_of_prime` (via
+the `y + 1 ∣ y^t + 1` factorization `FT.dvd_add_one_of_odd_exp`); the historical
+material (Gauss/Euler) remains expositional.  (b) "regular p-gon constructible ⇒
+(p−1)/2 a power of 2" is `FT.cos_half_two_pow_of_constructible` (the
+constructible-degree clause of FT `ef27`); the full regular-p-gon equivalence is
+formalized at the level of `cos(2π/p)` as `FT.regular_pgon_iff_fermat_form` — its
+geometric ⇐ bridge (cos constructible ⇒ polygon constructible via the vertices) is
+NOT formalized and is recorded in that docstring as an encoding residue.
 -/
-
 end ConstructionsStraightEdgeCompass
 
 /-!
@@ -7375,23 +7363,16 @@ theorem constructible_cos_two_div (p k : ℕ) (hp : p = 2 ^ k + 1) (hpp : Nat.Pr
       ⟨k - 1, by rw [hdegK]; exact hdegE0⟩
 
 /-!
-AUDIT-GAP (delta audit of remediation commit 0f09e9b; re-records the marker of audit commit
-7df41c1): remediation 0f09e9b deleted audit 7df41c1's AUDIT-GAP marker at this site on the
-false premise that a pre-existing AUDIT-GAP marker in section `ConstructionsStraightEdgeCompass`
-already recorded it — that marker did not exist before 7df41c1 and was itself deleted by
-0f09e9b, so the deletion removed the sole record of this gap and left a dangling
-cross-reference to a nonexistent marker.  The gap is live and unrecorded; it is restored here
-verbatim: the unlabeled mathematical claim following the proof of
-FT `ft24` (FT.tex:3392) — "Thus a regular `p`-gon, `p` prime, is constructible if and only if
-`p` is a Fermat prime" — is in scope per the provenance `scope` field but is neither
-formalized nor recorded as pending in the chapter III ledger.  The delivered
-`FT.constructible_cos_two_div` is only the ⇐ direction (`p = 2^k + 1` prime ⇒ `cos(2π/p)`
-constructible); the ⇒ direction additionally requires the chapter-I computation
-`[Q[cos(2π/p)] : Q] = (p-1)/2` (FT.tex:1681-1704), which is itself undelivered — see the
-AUDIT-GAP marker beside `FT.finrank_adjoin_exp_two_pi_i_over_prime` (end of section
-`ConstructionsStraightEdgeCompass`).
+Note (delta audit of remediation commit 0f09e9b; re-records the marker of audit
+7df41c1 — now REMEDIATED): the unlabeled claim following FT `ft24` (FT.tex:3392)
+— "a regular `p`-gon, `p` prime, is constructible iff `p` is a Fermat prime" — is
+now formalized as `FT.regular_pgon_iff_fermat_form` (⇐ via FT
+`constructible_cos_two_div`; ⇒ via `FT.cos_constructible_imp_fermat` with the
+chapter-I degree `FT.finrank_adjoin_cos_rat` and FT `ef27`), at the level of
+`cos(2π/p)`; the geometric ⇐ bridge (vertices from the cos value) is NOT
+formalized and is recorded as an encoding residue in that docstring; restricted
+to odd primes (documented).
 -/
-
 end Ft24CosConstructible
 
 section Ft20Quintic
@@ -7887,6 +7868,284 @@ theorem quinticFixZeta_normal {F K : Type u} [Field F] [Field K] [Algebra F K]
           IntermediateField.adjoin F {ζ} ⊔ IntermediateField.adjoin F {α})))
 
 end Ft20Group
+
+section Ft24Pgon
+
+/-- Every positive natural number is a power of `2` times an odd number. -/
+theorem exists_odd_mul_two_pow {r : ℕ} (hr : 0 < r) :
+    ∃ s t : ℕ, r = 2 ^ s * t ∧ Odd t := by
+  induction r using Nat.strong_induction_on with
+  | _ r ih =>
+    rcases Nat.even_or_odd r with he | ho
+    · obtain ⟨u, rfl⟩ := he
+      have hu : 0 < u := by omega
+      have hur : u < u + u := by omega
+      obtain ⟨s, t, hu', ht⟩ := ih u hur hu
+      refine ⟨s + 1, t, ?_, ht⟩
+      calc u + u = 2 * (2 ^ s * t) := by rw [hu']; ring
+        _ = 2 ^ (s + 1) * t := by rw [Nat.pow_succ]; ring
+    · exact ⟨0, r, by rw [pow_zero, one_mul], ho⟩
+
+/-- For odd `t`, `y + 1` divides `y ^ t + 1` (the geometric factorization
+`y ^ t + 1 = (y + 1) * (y^{t-1} - y^{t-2} + … - y + 1)` of the source). -/
+theorem dvd_add_one_of_odd_exp {y t : ℕ} (hodd : Odd t) : (y + 1) ∣ y ^ t + 1 := by
+  obtain ⟨n, rfl⟩ : ∃ n, t = 2 * n + 1 := ⟨t / 2, by
+    rw [Nat.odd_iff] at hodd; omega⟩
+  clear hodd
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    have hA : y ^ (2 * n + 2) = y * y ^ (2 * n + 1) := by
+      rw [show (2 : ℕ) * n + 2 = 2 * n + 1 + 1 by ring, pow_succ, mul_comm]
+    have hB : y ^ (2 * n + 3) = y ^ 2 * y ^ (2 * n + 1) := by
+      rw [show (2 : ℕ) * n + 3 = 2 + (2 * n + 1) by ring, pow_add]
+    have h1 : (y + 1) ∣ (y + 1) * (y ^ (2 * n + 2) + 1) := ⟨_, rfl⟩
+    have h2 : (y + 1) ∣ y * (y ^ (2 * n + 1) + 1) := dvd_mul_of_dvd_right ih y
+    have h3' : (y + 1) * (y ^ (2 * n + 2) + 1)
+        = y * (y ^ (2 * n + 1) + 1) + (y ^ (2 * n + 3) + 1) := by
+      rw [hA, hB]; ring
+    have hE : y ^ (2 * (n + 1) + 1) + 1
+        = (y + 1) * (y ^ (2 * n + 2) + 1) - y * (y ^ (2 * n + 1) + 1) := by
+      rw [show (2 : ℕ) * (n + 1) + 1 = 2 * n + 3 by ring, h3', Nat.add_sub_cancel_left]
+    rw [hE]
+    exact Nat.dvd_sub h1 h2
+
+/-- **FT (unlabeled prose after `ef31`, FT.tex:1720–1733).**  If `2 ^ r + 1` is prime and
+`r ≥ 1`, then `r` is a power of `2`.  (For `r = 0` one has `2 ^ 0 + 1 = 2`, prime, but `0` is
+not a power of `2`; the source claim concerns the odd primes `2 ^ r + 1 ≥ 3`, i.e. `r ≥ 1`.)
+Proof idea (source): write `r = 2 ^ s * t` with `t` odd; if `t > 1` (so `t ≥ 3`) then, since
+`Y ^ t + 1` is divisible by `Y + 1` for odd `t`, the number `2 ^ r + 1 = (2 ^ (2 ^ s)) ^ t + 1`
+has the proper divisor `2 ^ (2 ^ s) + 1`, with `1 < 2 ^ (2 ^ s) + 1 < 2 ^ r + 1`, contradicting
+primality. -/
+theorem fermat_exponent_of_prime {r : ℕ} (hr1 : 0 < r) (hp : Nat.Prime (2 ^ r + 1)) :
+    ∃ s : ℕ, r = 2 ^ s := by
+  obtain ⟨s, t, hrt, hodd⟩ := exists_odd_mul_two_pow hr1
+  by_cases ht1 : t = 1
+  · exact ⟨s, by rw [hrt, ht1, mul_one]⟩
+  have ht3 : 3 ≤ t := by obtain ⟨m, rfl⟩ := hodd; omega
+  have hyy : 1 < 2 ^ (2 ^ s) := by
+    have h2le : (2 : ℕ) ≤ 2 ^ (2 ^ s) :=
+      Nat.pow_le_pow_right (n := 2) (by omega) Nat.one_le_two_pow
+    omega
+  have hyt : (2 ^ (2 ^ s)) ^ t = 2 ^ r := by rw [hrt, Nat.pow_mul]
+  have hdvd : (2 ^ (2 ^ s) + 1) ∣ 2 ^ r + 1 := by
+    have h := dvd_add_one_of_odd_exp (y := 2 ^ (2 ^ s)) hodd
+    rwa [hyt] at h
+  have hlt : 2 ^ (2 ^ s) < 2 ^ r := by
+    rw [← hyt]
+    have h1 : (2 ^ (2 ^ s)) ^ 1 < (2 ^ (2 ^ s)) ^ t :=
+      Nat.pow_lt_pow_right hyy (show 1 < t by omega)
+    have h2 : 2 ^ (2 ^ s) = (2 ^ (2 ^ s)) ^ 1 := (pow_one _).symm
+    omega
+  rcases hp.eq_one_or_self_of_dvd (2 ^ (2 ^ s) + 1) hdvd with h | h <;> omega
+
+/-- **FT (ch.I degree computation, FT.tex:1681–1704, cyclotomic input).**  For a primitive
+`p`-th root of unity `ζ` in `ℂ` with `p` prime, the cyclotomic field `ℚ(ζ)` has degree `p − 1`
+over `ℚ` (generalization of `FT.finrank_cyclotomic_rat_prime` beyond Fermat primes; same
+proof: `Gal(ℚ(ζ)/ℚ) ≅ (ℤ/pℤ)ˣ` of order `p − 1`). -/
+theorem finrank_cyclotomic_rat_of_prime {ζ : ℂ} {p : ℕ} (hζ : IsPrimitiveRoot ζ p)
+    (hpp : Nat.Prime p) :
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {ζ}) = p - 1 := by
+  have hp0 : 0 < p := hpp.pos
+  haveI : NeZero p := ⟨hp0.ne'⟩
+  haveI : Fact (Nat.Prime p) := ⟨hpp⟩
+  have hintζ : IsIntegral ℚ ζ :=
+    ⟨Polynomial.X ^ p - 1, Polynomial.monic_X_pow_sub_C 1 hp0.ne',
+      by simp [hζ.pow_eq_one]⟩
+  have hc : IsCyclotomicExtension {p} ℚ ↥(IntermediateField.adjoin ℚ {ζ}) := by
+    change IsCyclotomicExtension {p} ℚ (IntermediateField.adjoin ℚ {ζ}).toSubalgebra
+    rw [IntermediateField.adjoin_simple_toSubalgebra_of_isAlgebraic hintζ.isAlgebraic]
+    exact hζ.adjoin_isCyclotomicExtension ℚ
+  haveI hfd : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ {ζ}) :=
+    IsCyclotomicExtension.finiteDimensional {p} ℚ _
+  haveI hg : IsGalois ℚ ↥(IntermediateField.adjoin ℚ {ζ}) :=
+    IsCyclotomicExtension.isGalois {p} ℚ _
+  have hirr : Irreducible (Polynomial.cyclotomic p ℚ) :=
+    (Polynomial.cyclotomic_eq_minpoly_rat hζ hp0) ▸ minpoly.irreducible hintζ
+  calc
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {ζ})
+        = Nat.card Gal(↥(IntermediateField.adjoin ℚ {ζ})/ℚ) :=
+      (IsGalois.card_aut_eq_finrank ℚ (IntermediateField.adjoin ℚ {ζ})).symm
+    _ = Nat.card (ZMod p)ˣ :=
+      Nat.card_congr (IsCyclotomicExtension.autEquivPow _ hirr).toEquiv
+    _ = p - 1 := by
+      rw [Nat.card_eq_fintype_card, ZMod.card_units p]
+
+/-- **FT (ch.I degree computation, FT.tex:1681–1704), ℂ-side.**  For an odd prime `p`,
+`ℚ(cos(2π/p)) ⊂ ℂ` has `ℚ`-degree `(p - 1) / 2`.  Proof idea (source, generalizing
+`FT.finrank_adjoin_cos_two_div` beyond Fermat primes): `ℚ(cos(2π/p)) ⊆ ℚ(ζ_p)`;
+`ζ_p` satisfies the quadratic `X² − 2·cos(2π/p)·X + 1` over it and is not real, so
+`[ℚ(ζ_p) : ℚ(cos)] = 2`; the tower law and the cyclotomic degree `p − 1`
+(`finrank_cyclotomic_rat_of_prime`) give `[ℚ(cos) : ℚ] = (p − 1)/2` (`p` odd). -/
+theorem finrank_adjoin_cos_two_div_of_odd (p : ℕ) (hpp : Nat.Prime p) (hpodd : ¬ 2 ∣ p) :
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {(Real.cos (2 * Real.pi / p) : ℂ)})
+      = (p - 1) / 2 := by
+  have hp2 : ¬ (p = 2) := fun h => hpodd (by omega)
+  have h1p : 1 < p := hpp.one_lt
+  have hp3 : 3 ≤ p := by omega
+  set θ : ℝ := 2 * Real.pi / p with hθ
+  set t : ℝ := Real.cos θ with ht
+  set z : ℂ := Complex.exp (2 * Real.pi * Complex.I / p) with hzdef
+  have hp0 : 0 < p := hpp.pos
+  have hζ : IsPrimitiveRoot z p := Complex.isPrimitiveRoot_exp p (by positivity)
+  have hz0 : z ≠ 0 := hζ.ne_zero hp0.ne'
+  set L : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {z} with hLdef
+  set E0 : IntermediateField ℚ ℂ := IntermediateField.adjoin ℚ {(t : ℂ)} with hE0def
+  have hzL : z ∈ L := IntermediateField.mem_adjoin_simple_self ℚ z
+  have htE0 : (t : ℂ) ∈ E0 := IntermediateField.mem_adjoin_simple_self ℚ (t : ℂ)
+  have hsum : z + z⁻¹ = 2 * (t : ℂ) := FT.cos_two_pi_div_add_inv p hp3
+  have htL : (t : ℂ) ∈ L := by
+    have h1 : (z + z⁻¹) / 2 = (t : ℂ) := by rw [hsum]; ring
+    rw [← h1]
+    exact IntermediateField.div_mem L
+      (IntermediateField.add_mem L hzL (IntermediateField.inv_mem L hzL))
+      (IntermediateField.algebraMap_mem L (2 : ℚ))
+  have hE0L : E0 ≤ L := IntermediateField.adjoin_le_iff.mpr
+    (by rintro x (rfl : x = (t : ℂ)); exact htL)
+  have hreal : ∀ x ∈ E0, (x : ℂ).im = 0 := by
+    rw [hE0def, ← FT.map_coe_adjoin_real t]
+    intro x hx
+    obtain ⟨y, -, rfl⟩ := Iff.mp (IntermediateField.mem_map (IntermediateField.adjoin ℚ {t})) hx
+    rw [IsScalarTower.toAlgHom_apply]
+    exact Complex.ofReal_im y
+  have hznr : z ∉ (algebraMap ↥E0 ℂ).range := by
+    rintro ⟨y, hy⟩
+    refine FT.im_exp_two_pi_div_ne_zero p hp3 ?_
+    rw [← hzdef, ← hy, IntermediateField.algebraMap_apply]
+    exact hreal y y.2
+  have hkey : (2 : ℂ) * (t : ℂ) * z = z * z + 1 := by
+    rw [← hsum, add_mul, inv_mul_cancel₀ hz0]
+  set c : ↥E0 := ⟨(t : ℂ), htE0⟩ with hcd
+  have h2m : (algebraMap ↥E0 ℂ) 2 * (algebraMap ↥E0 ℂ) c = 2 * (t : ℂ) := by
+    rw [IntermediateField.algebraMap_apply, IntermediateField.algebraMap_apply]; rfl
+  set q : Polynomial ↥E0 := (Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X + 1 with hqdef
+  have hq0 : Polynomial.aeval z q = 0 := by
+    rw [hqdef, sub_mul]
+    simp only [map_add, map_sub, map_mul, map_one, Polynomial.aeval_C, Polynomial.aeval_X, h2m]
+    rw [hkey]; ring
+  have hdeg1 : (((Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X : Polynomial ↥E0)).degree = 2 := by
+    rw [Polynomial.degree_mul, Polynomial.degree_X_sub_C, Polynomial.degree_X]
+    norm_num
+  have hqmon : q.Monic := by
+    have h1m : ((Polynomial.X - Polynomial.C (2 * c)) * Polynomial.X : Polynomial ↥E0).Monic :=
+      (Polynomial.monic_X_sub_C (2 * c)).mul (Polynomial.monic_X (R := ↥E0))
+    exact h1m.add_of_left (by rw [hdeg1]; norm_num)
+  have hdq2 : q.natDegree = 2 := by
+    have h2 : q.degree = ((2 : ℕ) : WithBot ℕ) := by
+      rw [hqdef]
+      refine (Polynomial.degree_add_eq_left_of_degree_lt ?_).trans hdeg1
+      rw [hdeg1]
+      simp
+    exact (Polynomial.degree_eq_iff_natDegree_eq_of_pos (by norm_num)).mp h2
+  have hzint : IsIntegral ↥E0 z := ⟨q, hqmon, hq0⟩
+  have hdle : (minpoly ↥E0 z).natDegree ≤ 2 := by
+    have h := Polynomial.natDegree_le_of_dvd (minpoly.dvd ↥E0 z hq0) hqmon.ne_zero
+    rw [hdq2] at h
+    exact h
+  have hd2 : 2 ≤ (minpoly ↥E0 z).natDegree := (minpoly.two_le_natDegree_iff hzint).mpr hznr
+  have hcarrier : ((IntermediateField.adjoin ↥E0 {z} : IntermediateField ↥E0 ℂ) : Set ℂ)
+      = (L : Set ℂ) := by
+    refine le_antisymm ?_ ?_
+    · intro x hx
+      obtain ⟨r, s, hx'⟩ := Iff.mp (IntermediateField.mem_adjoin_simple_iff ↥E0 x) hx
+      have hAE : ∀ p2 : Polynomial ↥E0, (Polynomial.aeval z p2 : ℂ) ∈ L := by
+        intro p2
+        rw [Polynomial.aeval_eq_sum_range]
+        refine IntermediateField.sum_mem L fun i _ => ?_
+        rw [Algebra.smul_def]
+        exact IntermediateField.mul_mem L (hE0L (p2.coeff i).property)
+          (IntermediateField.pow_mem L hzL i)
+      rw [hx']
+      exact IntermediateField.div_mem L (hAE r) (hAE s)
+    · intro x hx
+      obtain ⟨r, s, hx'⟩ := Iff.mp (IntermediateField.mem_adjoin_simple_iff ℚ x) hx
+      refine Iff.mpr (IntermediateField.mem_adjoin_simple_iff ↥E0 x)
+        ⟨r.map (algebraMap ℚ ↥E0), s.map (algebraMap ℚ ↥E0), ?_⟩
+      rw [Polynomial.aeval_map_algebraMap ↥E0 z, Polynomial.aeval_map_algebraMap ↥E0 z]
+      exact hx'
+  have hEE : (IntermediateField.extendScalars hE0L : IntermediateField ↥E0 ℂ)
+      = (IntermediateField.adjoin ↥E0 {z} : IntermediateField ↥E0 ℂ) :=
+    SetLike.coe_injective (by rw [IntermediateField.coe_extendScalars, hcarrier])
+  have hrel2 : IntermediateField.relfinrank E0 L = 2 := by
+    rw [IntermediateField.relfinrank_eq_finrank_of_le hE0L, hEE,
+      IntermediateField.adjoin.finrank hzint, Nat.le_antisymm hdle hd2]
+  have htower : Module.finrank ℚ ↥E0 * IntermediateField.relfinrank E0 L = Module.finrank ℚ ↥L :=
+    IntermediateField.finrank_bot_mul_relfinrank hE0L
+  rw [hrel2, finrank_cyclotomic_rat_of_prime hζ hpp] at htower
+  rw [← htower]
+  omega
+
+/-- **FT (ch.I degree computation, FT.tex:1681–1704).**  For an odd prime `p`,
+`[ℚ(cos(2π/p)) : ℚ] = (p - 1) / 2` (ℝ-side; the ℂ-side is
+`finrank_adjoin_cos_two_div_of_odd`, transferred along `FT.map_coe_adjoin_real` via the
+`IntermediateField.equivMap` linear equivalence, as in `FT.constructible_cos_two_div`). -/
+theorem finrank_adjoin_cos_rat {p : ℕ} (hpp : Nat.Prime p) (hpodd : ¬ 2 ∣ p) :
+    Module.finrank ℚ ↥(IntermediateField.adjoin ℚ {(Real.cos (2 * Real.pi / p) : ℝ)})
+      = (p - 1) / 2 := by
+  have hdegC : Module.finrank ℚ ↥(IntermediateField.adjoin ℚ
+      {((Real.cos (2 * Real.pi / p) : ℝ) : ℂ)}) = (p - 1) / 2 :=
+    finrank_adjoin_cos_two_div_of_odd p hpp hpodd
+  have e2 := IntermediateField.equivMap
+    (IntermediateField.adjoin ℚ {(Real.cos (2 * Real.pi / p) : ℝ)})
+    (IsScalarTower.toAlgHom ℚ ℝ ℂ)
+  rw [FT.map_coe_adjoin_real (Real.cos (2 * Real.pi / p))] at e2
+  exact (LinearEquiv.finrank_eq e2.toLinearEquiv).trans hdegC
+
+/-- **FT (regular-p-gon claim after `ft24`, FT.tex:3392), ⇒ direction, degree clause.**  If
+`p` is an odd prime and `cos(2π/p)` is constructible, then `(p - 1) / 2` is a power of `2` —
+the source's "if the regular `p`-gon is constructible, then `(p-1)/2` is a power of `2`":
+chapter I gives `[ℚ(cos(2π/p)) : ℚ] = (p - 1)/2` (`finrank_adjoin_cos_rat`) and FT `ef27`
+(`FT.constructible_algebraic_and_degree`) forces the degree of a constructible number to be a
+power of `2` (FT.tex:1690).  (For `p = 2` the claim is degenerate: a regular 2-gon is not a
+polygon, and `(p - 1)/2 = 0` is not a power of `2` while `cos π = -1` is constructible.) -/
+theorem cos_half_two_pow_of_constructible {p : ℕ} (hpp : Nat.Prime p) (hpodd : ¬ 2 ∣ p)
+    (hcons : FT.Constructible (Real.cos (2 * Real.pi / p))) :
+    ∃ s : ℕ, (p - 1) / 2 = 2 ^ s := by
+  obtain ⟨-, j, hj⟩ := FT.constructible_algebraic_and_degree hcons
+  exact ⟨j, by rw [← finrank_adjoin_cos_rat hpp hpodd]; exact hj⟩
+
+/-- **FT (regular-p-gon claim after `ft24`, FT.tex:3392), ⇒ direction.**  If `p` is an odd
+prime and `cos(2π/p)` is constructible, then `p` is a Fermat prime, `p = 2 ^ (2 ^ s) + 1`:
+`cos_half_two_pow_of_constructible` gives `(p - 1)/2 = 2 ^ s`, so `p - 1 = 2 ^ (s + 1)`; then
+`2 ^ (s + 1) + 1 = p` is prime, and `fermat_exponent_of_prime` (the `Y ^ t + 1` factorization)
+forces `s + 1` itself to be a power of `2`. -/
+theorem cos_constructible_imp_fermat {p : ℕ} (hpp : Nat.Prime p) (hpodd : ¬ 2 ∣ p)
+    (hcons : FT.Constructible (Real.cos (2 * Real.pi / p))) :
+    ∃ s : ℕ, p = 2 ^ (2 ^ s) + 1 := by
+  have hp3 : 3 ≤ p := by
+    have h1p : 1 < p := hpp.one_lt
+    omega
+  obtain ⟨s, hs⟩ := cos_half_two_pow_of_constructible hpp hpodd hcons
+  have hpe : p - 1 = 2 ^ (s + 1) := by omega
+  have hpF : Nat.Prime (2 ^ (s + 1) + 1) := by
+    have h : 2 ^ (s + 1) + 1 = p := by omega
+    rwa [h]
+  obtain ⟨u, hu⟩ := fermat_exponent_of_prime (r := s + 1) (by omega) hpF
+  have h2 : 2 ^ (s + 1) = 2 ^ (2 ^ u) := by rw [hu]
+  refine ⟨u, ?_⟩
+  rw [← h2]
+  omega
+
+/-- **FT `ft24`, post-proof claim (FT.tex:3392): "Thus a regular `p`-gon, `p` prime, is
+constructible if and only if `p` is a Fermat prime."**  Encoding: the constructibility of the
+regular `p`-gon is encoded as the constructibility of `cos(2π/p)` (`FT.Constructible`), the
+quantity the degree analysis controls; the source takes the ⇐ transfer "cos(2π/p)
+constructible ⇒ the regular `p`-gon constructible" as known from the chapter-I construction
+facts (the vertices lie on the unit circle with coordinates rational expressions in
+`cos(2π/p)` and `sin(2π/p) = √(1 − cos²)`), and that geometric bridge is NOT formalized here —
+the claim is recorded at the level of `cos(2π/p)`.  Fermat prime means `p = 2 ^ (2 ^ s) + 1`.
+⇐: `FT.constructible_cos_two_div`.  ⇒: `cos_constructible_imp_fermat` (ch.I degree
+`(p-1)/2` + FT `ef27` + the `Y ^ t + 1` factorization).  Restricted to odd primes: for
+`p = 2` both directions fail (`cos π` is constructible but `2 ≠ 2 ^ (2 ^ s) + 1`); a regular
+2-gon is not a polygon. -/
+theorem regular_pgon_iff_fermat_form {p : ℕ} (hpp : Nat.Prime p) (hpodd : ¬ 2 ∣ p) :
+    FT.Constructible (Real.cos (2 * Real.pi / p)) ↔ ∃ s : ℕ, p = 2 ^ (2 ^ s) + 1 := by
+  constructor
+  · exact fun hcons => cos_constructible_imp_fermat hpp hpodd hcons
+  · rintro ⟨s, rfl⟩
+    exact FT.constructible_cos_two_div _ (2 ^ s) rfl hpp
+
+end Ft24Pgon
 
 /-!
 Note (chapter-3 delta audit 149d60a, remediated): the five audit gaps are resolved
