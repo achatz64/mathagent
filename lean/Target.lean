@@ -63,12 +63,12 @@ formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
 theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
 `sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
 cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
-unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 9 of
+unity lie in `F`; perfect-field examples).  Chapter 3 (FT.tex:2554-3578): 11 of
 13 theorem-like labels formalized (`ft8`, `ft10`, `ft10d`, `ft12`, `ft14`,
-`ft15`, `ft17`, `ft18h`, `ft23`) plus the definition-like labels `ft10m`,
-`ft10n`, `ft11m`, `ft21` and remark content (`ft9`, `ft13` (b) equality part,
-`ft18` (a), the ggp section); pending: `ft18f` (partial: Galois clauses proven,
-restriction iso pending), `ft18g`, `ft22`, `ft24`, examples `ft19`/`ft20`, and
+`ft15`, `ft17`, `ft18f`, `ft18g`, `ft18h`, `ft23`) plus the definition-like labels
+`ft10m`, `ft10n`, `ft11m`, `ft21` and remark content (`ft9`, `ft13` (b) equality
+part, `ft18` (a), the ggp section); pending: `ft22` (partial: the 2-group chain
+lemma is done, the field-tower bridge pending), `ft24`, examples `ft19`/`ft20`, and
 the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
 `ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
 Chapters 4-7 (computing Galois groups, applications, algebraic closures,
@@ -5825,11 +5825,626 @@ theorem quadratic_extension_exists_root {F E : Type u} [Field F] [Field E] [Alge
   exact (Subalgebra.mem_toSubmodule
     (Algebra.adjoin F {α - algebraMap F E (q / 2)})).mp (hle hz)
 
+section GaloisRestriction
+
+open Polynomial IntermediateField
+
+variable {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω] (E L : IntermediateField F Ω)
+
+/-- FT `ft18f` support: the roots of the `↥L`-polynomial `p.map (algebraMap F ↥L)` in `E ⊔ L`
+are exactly the roots of `p`.
+
+Proof idea: both root sets are detected by `p.aeval` after the tower map
+`F → ↥L → E ⊔ L`; the two compositions agree. -/
+theorem rootSet_map_supBase {p : F[X]} :
+    (p.map (algebraMap F ↥L)).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L) := by
+  refine Set.ext fun x => ?_
+  have hmap : (p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L)) =
+      p.map (algebraMap F ↥(E ⊔ L)) := by
+    rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]
+  simp only [mem_rootSet', hmap, Polynomial.aeval_map_algebraMap]
+
+/-- FT `ft18f` support: the base field `↥L` maps into the `↥L`-adjoin of any set in `E ⊔ L`. -/
+private theorem algebraMap_mem_adjoin_supBase (S : Set ↥(E ⊔ L)) (z : ↥L) :
+    ((algebraMap ↥L ↥(E ⊔ L)) z : ↥(E ⊔ L)) ∈ IntermediateField.adjoin ↥L S :=
+  Subfield.subset_closure (Or.inl (Set.mem_range_self z))
+
+/-- FT `ft18f` support: the `↥L`-adjoin of the root set of `p` in `E ⊔ L` is everything, i.e.
+`E ⊔ L` is generated over `L` by the roots of `p`.
+
+Proof idea: the adjoin contains the copy of `E` (`adjoin_rootSet_eq_compositumRestrictLeft`,
+via `adjoin_subset_adjoin_iff` with the tower map for the base images) and the base `↥L`;
+their compositum is all of `E ⊔ L` (`compositumRestrict_sup_eq_top`). -/
+theorem adjoin_supBase_eq_top {p : F[X]} (hps : p.Separable) (hp : p.IsSplittingField F E) :
+    IntermediateField.adjoin ↥L (p.rootSet ↥(E ⊔ L)) = ⊤ := by
+  have h1 : compositumRestrictLeft E L ≤
+      IntermediateField.restrictScalars F (IntermediateField.adjoin ↥L (p.rootSet ↥(E ⊔ L))) := by
+    intro x hx
+    rw [IntermediateField.mem_restrictScalars F]
+    rw [← adjoin_rootSet_eq_compositumRestrictLeft E L hps hp] at hx
+    exact (IntermediateField.adjoin_subset_adjoin_iff F).mpr
+      ⟨fun y hy => by
+        obtain ⟨z, rfl⟩ := hy
+        rw [IsScalarTower.algebraMap_apply F ↥L ↥(E ⊔ L)]
+        exact algebraMap_mem_adjoin_supBase E L _ _,
+      IntermediateField.subset_adjoin ↥L _⟩ hx
+  have h2 : compositumRestrictRight E L ≤
+      IntermediateField.restrictScalars F (IntermediateField.adjoin ↥L (p.rootSet ↥(E ⊔ L))) := by
+    intro x hx
+    rw [IntermediateField.mem_restrictScalars F]
+    have hval : x = (algebraMap ↥L ↥(E ⊔ L))
+        (⟨x.1, (IntermediateField.mem_restrict (le_sup_right : L ≤ E ⊔ L) x).mp hx⟩ : ↥L) := rfl
+    rw [hval]
+    exact algebraMap_mem_adjoin_supBase E L _ _
+  have hle : (⊤ : IntermediateField F ↥(E ⊔ L)) ≤
+      IntermediateField.restrictScalars F (IntermediateField.adjoin ↥L (p.rootSet ↥(E ⊔ L))) := by
+    have hs : compositumRestrictLeft E L ⊔ compositumRestrictRight E L ≤
+        IntermediateField.restrictScalars F (IntermediateField.adjoin ↥L (p.rootSet ↥(E ⊔ L))) :=
+      sup_le h1 h2
+    rwa [compositumRestrict_sup_eq_top] at hs
+  exact (IntermediateField.restrictScalars_eq_top_iff (K := F)).mp (top_le_iff.mp hle)
+
+/-- FT `ft18f` support: same for the mapped polynomial's root set. -/
+theorem adjoin_supBase_eq_top_map {p : F[X]} (hps : p.Separable) (hp : p.IsSplittingField F E) :
+    IntermediateField.adjoin ↥L ((p.map (algebraMap F ↥L)).rootSet ↥(E ⊔ L)) = ⊤ :=
+  congrArg (IntermediateField.adjoin ↥L) (rootSet_map_supBase E L) |>.trans
+    (adjoin_supBase_eq_top E L hps hp)
+
+/-- FT `ft18f` support: `E ⊔ L` is the splitting field over `↥L` (with the
+`FT.instAlgebraSupRight` algebra structure) of the `↥L`-polynomial attached to `p`.
+
+Proof idea: splits because `p` splits in `E ⊔ L` via the tower; the adjoin of the roots is
+everything by `adjoin_supBase_eq_top_map`. -/
+theorem compositum_isSplittingField_supBase {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) :
+    (p.map (algebraMap F ↥L)).IsSplittingField ↥L ↥(E ⊔ L) := by
+  have hsplit : ((p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L))).Splits := by
+    have hmap : (p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L)) =
+        p.map (algebraMap F ↥(E ⊔ L)) := by
+      rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]
+    rw [hmap]
+    exact (IsSplittingField.splits E p).of_algHom
+      (IntermediateField.inclusion (le_sup_left : E ≤ E ⊔ L))
+  have htop : Algebra.adjoin ↥L ((p.map (algebraMap F ↥L)).rootSet ↥(E ⊔ L)) = ⊤ :=
+    (IntermediateField.adjoin_eq_top_iff_of_isAlgebraic
+      (fun x hx => (isAlgebraic_of_mem_rootSet (R := ↥L) (A := ↥(E ⊔ L))
+        (p := p.map (algebraMap F ↥L)) hx : IsAlgebraic ↥L x))).mp
+      (adjoin_supBase_eq_top_map E L hps hp)
+  exact ⟨hsplit, htop⟩
+
+/-- FT `ft18f` clause 1 (with the `FT.instAlgebraSupRight` base structure): `E ⊔ L` is Galois
+over `L`. -/
+theorem isGalois_compositum_supBase {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) : IsGalois ↥L ↥(E ⊔ L) := by
+  haveI := compositum_isSplittingField_supBase E L hps hp
+  exact IsGalois.of_separable_splitting_field
+    ((Polynomial.separable_map (algebraMap F ↥L)).mpr hps)
+
+/-- FT `ft18f`/`ft18g` support: `E ⊔ L` is finite-dimensional over `↥L`. -/
+theorem finiteDimensional_compositum_supBase {p : F[X]} (hps : p.Separable)
+    (hp : p.IsSplittingField F E) : FiniteDimensional ↥L ↥(E ⊔ L) := by
+  haveI := compositum_isSplittingField_supBase E L hps hp
+  exact Polynomial.IsSplittingField.finiteDimensional ↥(E ⊔ L) (p.map (algebraMap F ↥L))
+
+/-- FT `ft18f` (pointwise action of the restriction hom): for `σ` in the compositum Galois
+group over the copy of `L`, the restriction hom acts on the copy of `E` exactly as `σ` does,
+in `Ω`-coordinates.
+
+Proof idea: `galRestrictHom` is Mathlib's `restrictRestrictAlgEquivMapHom`, whose pointwise
+action lemma is `restrictRestrictAlgEquivMapHom_apply`. -/
+theorem galRestrictHom_apply [FiniteDimensional F E] (hE : IsGalois F E)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥(compositumRestrictRight E L)] ↥(E ⊔ L))
+    (x : ↥(compositumRestrictLeft E L)) :
+    ((galRestrictHom E L hE σ x : ↥(compositumRestrictLeft E L)) : Ω) =
+      ((σ ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L))) : Ω) := by
+  haveI := normal_compositumRestrictLeft E L hE
+  exact congrArg Subtype.val (IntermediateField.restrictRestrictAlgEquivMapHom_apply
+    (compositumRestrictLeft E L) (compositumRestrictRight E L) σ x)
+
+/-- FT `ft18f`: the (identity-on-points) group homomorphism from the `↥L`-based compositum
+Galois group into the `compositumRestrictRight`-based one used by Mathlib's restriction
+machinery (transport of `FT.toGalRestrictBase`). -/
+noncomputable def toGalRestrictBaseHom (E L : IntermediateField F Ω) :
+    (↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) →*
+      (↥(E ⊔ L) ≃ₐ[↥(compositumRestrictRight E L)] ↥(E ⊔ L)) :=
+  { toFun := fun σ => toGalRestrictBase E L σ
+    map_one' := by
+      ext x
+      rfl
+    map_mul' σ τ := by
+      ext x
+      rfl }
+
+/-- FT `ft18f`: the restriction homomorphism `σ ↦ σ|E` from `Gal((E ⊔ L)/L)` to
+`Gal(↥(compositumRestrictLeft E L)/F)`: `galRestrictHom` precomposed with the base transport. -/
+noncomputable def galRestrictComposite [FiniteDimensional F E] (hE : IsGalois F E) :
+    (↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) →*
+      (↥(compositumRestrictLeft E L) ≃ₐ[F] ↥(compositumRestrictLeft E L)) :=
+  (galRestrictHom E L hE).comp (toGalRestrictBaseHom E L)
+
+/-- FT `ft18f`: pointwise action of the composite restriction hom, in `Ω`-coordinates. -/
+theorem galRestrictComposite_apply [FiniteDimensional F E] (hE : IsGalois F E)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) (x : ↥(compositumRestrictLeft E L)) :
+    ((galRestrictComposite E L hE σ x : ↥(compositumRestrictLeft E L)) : Ω) =
+      ((σ ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L))) : Ω) := by
+  haveI := normal_compositumRestrictLeft E L hE
+  exact congrArg Subtype.val (IntermediateField.restrictRestrictAlgEquivMapHom_apply
+    (compositumRestrictLeft E L) (compositumRestrictRight E L) (toGalRestrictBase E L σ) x)
+
+/-- `toGalRestrictBaseHom` is injective (it is the identity on underlying automorphisms). -/
+theorem toGalRestrictBaseHom_injective (E L : IntermediateField F Ω) :
+    Function.Injective (toGalRestrictBaseHom E L) := by
+  intro σ τ h
+  refine AlgEquiv.ext fun x => Subtype.ext ?_
+  exact congrArg Subtype.val (DFunLike.congr_fun h x)
+
+/-- FT `ft18f`: the composite restriction homomorphism is injective (the compositum is
+generated by the two copies; `restrictRestrictAlgEquivMapHom_injective`). -/
+theorem galRestrictComposite_injective [FiniteDimensional F E] (hE : IsGalois F E) :
+    Function.Injective (galRestrictComposite E L hE) := by
+  haveI := normal_compositumRestrictLeft E L hE
+  have hinj : Function.Injective (galRestrictHom E L hE) :=
+    IntermediateField.restrictRestrictAlgEquivMapHom_injective (compositumRestrictLeft E L)
+      (compositumRestrictRight E L) (compositumRestrict_sup_eq_top E L)
+  intro σ τ h
+  change galRestrictHom E L hE (toGalRestrictBase E L σ) =
+    galRestrictHom E L hE (toGalRestrictBase E L τ) at h
+  exact toGalRestrictBaseHom_injective E L (hinj h)
+
+/-- FT `ft18f` (fixed field): the fixed field in the copy of `E` of the image of the
+restriction map `Gal((E ⊔ L)/L) → Gal(↥E/F)` is exactly the copy of `E ⊓ L`.
+
+Proof idea (⇐): every `L`-automorphism of `E ⊔ L` fixes `E ⊓ L` pointwise (elements of
+`E ⊓ L` lie in `L`).  (⇒): an element fixed by all restrictions is fixed by all of
+`Gal((E ⊔ L)/L)`, hence lies in the base copy of `L` (`IsGalois.mem_bot_iff_fixed`); being in
+the copy of `E` it lies in `E ⊓ L`. -/
+theorem galRestrictComposite_mem_fixedField_iff [FiniteDimensional F E] (hE : IsGalois F E)
+    (x : ↥(compositumRestrictLeft E L)) :
+    x ∈ IntermediateField.fixedField (MonoidHom.range (galRestrictComposite E L hE)) ↔
+      (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) ∈ E ⊓ L := by
+  obtain ⟨p, hps, hp⟩ := IsGalois.is_separable_splitting_field F E
+  haveI hGS : IsGalois ↥L ↥(E ⊔ L) := isGalois_compositum_supBase E L hps hp
+  haveI hFD : FiniteDimensional ↥L ↥(E ⊔ L) := finiteDimensional_compositum_supBase E L hps hp
+  rw [IntermediateField.mem_fixedField_iff]
+  constructor
+  · intro hfix
+    have hxE : (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) ∈ E :=
+      (IntermediateField.mem_restrict (le_sup_left : E ≤ E ⊔ L)
+        ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L))).mp x.2
+    have hall : ∀ σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L),
+        ((σ ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L))) : Ω) =
+          (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
+      intro σ
+      have hmem : galRestrictComposite E L hE σ ∈
+          MonoidHom.range (galRestrictComposite E L hE) := ⟨σ, rfl⟩
+      have h2 : ((galRestrictComposite E L hE σ x : ↥(compositumRestrictLeft E L)) : Ω) =
+          (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) :=
+        congrArg Subtype.val (congrArg Subtype.val (hfix _ hmem))
+      rw [galRestrictComposite_apply E L hE] at h2
+      exact h2
+    have hbot : ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) ∈
+        (⊥ : IntermediateField ↥L ↥(E ⊔ L)) :=
+      (IsGalois.mem_bot_iff_fixed (F := ↥L) (E := ↥(E ⊔ L)) _).mpr
+        (fun σ => Subtype.ext (hall σ))
+    obtain ⟨y, hy⟩ := IntermediateField.mem_bot.mp hbot
+    have hxL : (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) ∈ L := by
+      have hcoe : ((algebraMap ↥L ↥(E ⊔ L)) y : Ω) = (y : Ω) := rfl
+      rw [← hy, hcoe]
+      exact y.2
+    exact IntermediateField.mem_inf.mpr ⟨hxE, hxL⟩
+  · intro hmem
+    rw [IntermediateField.mem_inf] at hmem
+    obtain ⟨hE_, hL_⟩ := hmem
+    intro ρ hrange
+    obtain ⟨σ, rfl⟩ := MonoidHom.mem_range.mp hrange
+    have hpt : ((galRestrictComposite E L hE σ x : ↥(compositumRestrictLeft E L)) : Ω) =
+        (((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
+      rw [galRestrictComposite_apply E L hE]
+      have hcomm := σ.commutes'
+        (⟨(((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω), hL_⟩ : ↥L)
+      have heq : ((algebraMap ↥L ↥(E ⊔ L))
+          (⟨(((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω), hL_⟩ : ↥L) : ↥(E ⊔ L)) =
+          ((x : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) := rfl
+      rw [heq] at hcomm
+      exact congrArg Subtype.val hcomm
+    exact Subtype.ext (Subtype.ext hpt)
+
+private theorem restrict_algEquiv_apply_omega (x : ↥E) :
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L) x :
+        ↥(compositumRestrictLeft E L)) : Ω) = (x : Ω) := rfl
+
+private theorem restrict_algEquiv_symm_apply_omega (z : ↥(compositumRestrictLeft E L)) :
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm z : Ω) =
+      (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
+  refine (restrict_algEquiv_apply_omega E L
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm z)).symm.trans ?_
+  exact congrArg Subtype.val (congrArg Subtype.val
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).apply_symm_apply z))
+
+private theorem autCongr_apply_omega (τF : ↥E ≃ₐ[F] ↥E) (x : ↥(compositumRestrictLeft E L)) :
+    ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) τF x :
+        ↥(compositumRestrictLeft E L)) : Ω) =
+      ((τF ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm x : ↥E)) : Ω) :=
+  rfl
+
+private theorem autCongr_symm_apply_omega
+    (ρ : ↥(compositumRestrictLeft E L) ≃ₐ[F] ↥(compositumRestrictLeft E L)) (y : ↥E) :
+    (((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+        ρ y : ↥E) : Ω) =
+      ((ρ ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y :
+        ↥(compositumRestrictLeft E L))) : Ω) := by
+  have e1 := DFunLike.congr_fun
+    ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).apply_symm_apply ρ :
+      AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))
+        ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm ρ)
+        = ρ)
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y)
+  have key := autCongr_apply_omega E L
+    ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm ρ)
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y)
+  rw [(IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm_apply_apply y] at key
+  exact key.symm.trans (congrArg Subtype.val (congrArg Subtype.val e1))
+
+/-- FT `ft18f`/`ft18g` support: the copy of `E` in `E ⊔ L` is finite-dimensional over `F`. -/
+theorem finiteDimensional_compositumRestrictLeft [FiniteDimensional F E] :
+    FiniteDimensional F ↥(compositumRestrictLeft E L) := by
+  have ϕ : ↥E ≃ₐ[F] ↥(compositumRestrictLeft E L) :=
+    IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)
+  exact Module.Finite.of_surjective (σ := RingHom.id F)
+    (ϕ.toLinearEquiv : ↥E →ₗ[F] ↥(compositumRestrictLeft E L)) ϕ.surjective
+
+/-- FT `ft18f`: an `E ⊓ L`-automorphism of `E` fixes its elements in `Ω`-coordinates. -/
+private theorem galFixes_omega (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E) {y : ↥E} (hy : (y : Ω) ∈ E ⊓ L) :
+    ((τ y : ↥E) : Ω) = (y : Ω) := by
+  have h4 : ((algebraMap ↥(E ⊓ L) ↥E) (⟨(y : Ω), hy⟩ : ↥(E ⊓ L)) : ↥E) = y := rfl
+  have hc := τ.commutes' (⟨(y : Ω), hy⟩ : ↥(E ⊓ L))
+  rw [h4] at hc
+  exact congrArg Subtype.val hc
+
+/-- FT `ft18f`: the tautological `F`-automorphism of `E` underlying an `E ⊓ L`-automorphism. -/
+private def galToBaseF (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
+    (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) :
+    ↥E ≃ₐ[F] ↥E := { τ with commutes' := hcomm }
+
+private theorem galToBaseF_apply_omega (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
+    (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) (w : ↥E) :
+    ((galToBaseF E L τ hcomm w : ↥E) : Ω) = ((τ w : ↥E) : Ω) := rfl
+
+private theorem galToBaseF_fixes (τ : ↥E ≃ₐ[↥(E ⊓ L)] ↥E)
+    (hcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a) (y : ↥E)
+    (hy : (y : Ω) ∈ E ⊓ L) :
+    ((galToBaseF E L τ hcomm y : ↥E) : Ω) = (y : Ω) := by
+  rw [galToBaseF_apply_omega E L τ hcomm y]
+  exact galFixes_omega E L τ hy
+
+/-- FT `ft18f`: the image of the restriction map fixes the copy of `E ⊓ L` pointwise. -/
+theorem galRestrictComposite_fixes [FiniteDimensional F E] (hE : IsGalois F E)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) (z : ↥(compositumRestrictLeft E L))
+    (hz : (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) ∈ E ⊓ L) :
+    ((galRestrictComposite E L hE σ z : ↥(compositumRestrictLeft E L)) : Ω) =
+      (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
+  have hmem : galRestrictComposite E L hE σ ∈ MonoidHom.range (galRestrictComposite E L hE) :=
+    ⟨σ, rfl⟩
+  have h := (galRestrictComposite_mem_fixedField_iff E L hE z).mpr hz
+  rw [IntermediateField.mem_fixedField_iff] at h
+  have h2 := congrArg Subtype.val (congrArg Subtype.val (h (galRestrictComposite E L hE σ) hmem))
+  rw [galRestrictComposite_apply E L hE] at h2
+  rw [galRestrictComposite_apply E L hE]
+  exact h2
+
+/-- FT `ft18f`: the restriction `σ ↦ σ|E`, transported to `E`, fixes the copy of `E ⊓ L`. -/
+theorem galRestrictIsoMapFixes [FiniteDimensional F E] (hE : IsGalois F E)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) (y : ↥E) (hy : (y : Ω) ∈ E ⊓ L) :
+    ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+      (galRestrictComposite E L hE σ) y) = y := by
+  refine Subtype.ext ?_
+  rw [autCongr_symm_apply_omega E L (galRestrictComposite E L hE σ) y]
+  exact (galRestrictComposite_fixes E L hE σ
+    ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y)
+    (by rw [restrict_algEquiv_apply_omega E L y]; exact hy)).trans
+      (restrict_algEquiv_apply_omega E L y)
+
+/-- FT `ft18f`: the map `σ ↦ σ|E`, realized as an isomorphism onto the group of `E`-automorphisms
+fixing `E ⊓ L`: `algEquivOfFixes` applied to the transported restriction. -/
+noncomputable def galRestrictIsoMap [FiniteDimensional F E] (hE : IsGalois F E)
+    (σ : ↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) : ↥E ≃ₐ[↥(E ⊓ L)] ↥E :=
+  algEquivOfFixes E L
+    ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+      (galRestrictComposite E L hE σ)) (galRestrictIsoMapFixes E L hE σ)
+
+/-- FT `ft18f`: the restriction map `σ ↦ σ|E` is injective.
+
+Proof idea: `galRestrictComposite` is injective (the compositum is generated by the two
+copies) and the `autCongr` transport is a group isomorphism. -/
+theorem galRestrictIsoMap_injective [FiniteDimensional F E] (hE : IsGalois F E) :
+    Function.Injective (galRestrictIsoMap E L hE) := by
+  intro σ τ h
+  have h1 : (AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+      (galRestrictComposite E L hE σ) =
+      (AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+        (galRestrictComposite E L hE τ) := by
+    refine AlgEquiv.ext fun y => Subtype.ext ?_
+    exact congrArg Subtype.val (DFunLike.congr_fun h y)
+  have h2 := congrArg (fun Z : ↥E ≃ₐ[F] ↥E =>
+      AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) Z) h1
+  rw [(AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).apply_symm_apply
+      (galRestrictComposite E L hE σ),
+    (AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).apply_symm_apply
+      (galRestrictComposite E L hE τ)] at h2
+  exact galRestrictComposite_injective E L hE h2
+
+/-- FT `ft18f`: the restriction map `σ ↦ σ|E` is surjective onto `Gal(E/(E ⊓ L))`.
+
+Proof idea (Milne `ft10d` counting, executed via the Galois correspondence): the image group
+`H` has fixed field exactly the copy of `E ⊓ L`, so by the Galois correspondence
+(`fixingSubgroup_fixedField`) `H` is the full fixing subgroup of that copy; transporting a
+given `τ : Gal(E/(E ⊓ L))` along `restrict_algEquiv` lands in that fixing subgroup, so it is
+the restriction of some `σ`. -/
+theorem galRestrictIsoMap_surjective [FiniteDimensional F E] (hE : IsGalois F E) :
+    Function.Surjective (galRestrictIsoMap E L hE) := by
+  haveI hFD : FiniteDimensional F ↥(compositumRestrictLeft E L) :=
+    finiteDimensional_compositumRestrictLeft E L
+  intro τ
+  have τFcomm : ∀ a : F, τ ((algebraMap F ↥E) a) = (algebraMap F ↥E) a := by
+    intro a
+    rw [IsScalarTower.algebraMap_apply F ↥(E ⊓ L) ↥E]
+    exact τ.commutes' _
+  have τfix : ∀ z : ↥(compositumRestrictLeft E L),
+      (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) ∈ E ⊓ L →
+      ((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))
+          (galToBaseF E L τ τFcomm) z : ↥(compositumRestrictLeft E L)) : Ω) =
+        (((z : ↥(compositumRestrictLeft E L)) : ↥(E ⊔ L)) : Ω) := by
+    intro z hz
+    refine (autCongr_apply_omega E L (galToBaseF E L τ τFcomm) z).trans ?_
+    have hzy : ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm z : Ω) ∈ E ⊓ L := by
+      rw [restrict_algEquiv_symm_apply_omega E L z]
+      exact hz
+    exact (galToBaseF_fixes E L τ τFcomm _ hzy).trans (restrict_algEquiv_symm_apply_omega E L z)
+  have hrange : ∃ σ, galRestrictComposite E L hE σ =
+      AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))
+        (galToBaseF E L τ τFcomm) := by
+    have h1 : (IntermediateField.fixedField
+        (MonoidHom.range (galRestrictComposite E L hE))).fixingSubgroup =
+        MonoidHom.range (galRestrictComposite E L hE) :=
+      IntermediateField.fixingSubgroup_fixedField _
+    have h2 := (IntermediateField.mem_fixingSubgroup_iff
+      (IntermediateField.fixedField (MonoidHom.range (galRestrictComposite E L hE)))
+      (AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))
+        (galToBaseF E L τ τFcomm))).mpr
+      (fun z hz => Subtype.ext (Subtype.ext (τfix z
+        ((galRestrictComposite_mem_fixedField_iff E L hE z).mp hz))))
+    rw [h1] at h2
+    exact MonoidHom.mem_range.mp h2
+  obtain ⟨σ, hσ⟩ := hrange
+  have hpt : ∀ y : ↥E,
+      (((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+          (galRestrictComposite E L hE σ) y : ↥E) : Ω) = ((τ y : ↥E) : Ω) := by
+    intro y
+    refine (autCongr_symm_apply_omega E L (galRestrictComposite E L hE σ) y).trans ?_
+    refine (congrArg Subtype.val (congrArg Subtype.val
+      (DFunLike.congr_fun hσ
+        ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y)))).trans ?_
+    refine (autCongr_apply_omega E L (galToBaseF E L τ τFcomm)
+      ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)) y)).trans ?_
+    exact congrArg (fun w : ↥E => ((τ w : ↥E) : Ω))
+      ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm_apply_apply y)
+  refine ⟨σ, ?_⟩
+  refine AlgEquiv.ext fun y => Subtype.ext ?_
+  show (((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
+    (galRestrictComposite E L hE σ) y : ↥E) : Ω) = ((τ y : ↥E) : Ω)
+  rw [hpt y]
+
+/-- FT `ft18f`: the restriction `σ ↦ σ|E` is bijective. -/
+theorem galRestrictIsoMap_bijective [FiniteDimensional F E] (hE : IsGalois F E) :
+    Function.Bijective (galRestrictIsoMap E L hE) :=
+  ⟨galRestrictIsoMap_injective E L hE, galRestrictIsoMap_surjective E L hE⟩
+
+/-- **FT `ft18f` (isomorphism clause).**  If `E/F` is finite Galois, restriction to `E` gives a
+bijection `Gal((E ⊔ L)/L) ≃ Gal(E/(E ⊓ L))` (Milne FT: `σ ↦ σ|E`).
+
+Proof idea: forward via `toGalRestrictBaseHom` (base transport), `galRestrictHom`
+(Mathlib's restriction to the copy of `E`, normal by `normal_compositumRestrictLeft`) and the
+`autCongr` transport to `E`; the image fixes `E ⊓ L` pointwise, so `algEquivOfFixes` views it
+over `E ⊓ L`.  Bijectivity: injectivity from the generation of the compositum by the two
+copies; surjectivity from the fixed-field computation
+(`galRestrictComposite_mem_fixedField_iff`) plus the Galois correspondence. -/
+noncomputable def galRestrictIso [FiniteDimensional F E] (hE : IsGalois F E) :
+    (↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) ≃ (↥E ≃ₐ[↥(E ⊓ L)] ↥E) :=
+  Equiv.ofBijective (galRestrictIsoMap E L hE) (galRestrictIsoMap_bijective E L hE)
+
+/-- **FT `ft18f`.**  If `E/F` is finite Galois, then (i) `E ⊔ L` is Galois over `L`
+(splitting field of the `L`-polynomial attached to the splitting polynomial of `E/F`),
+(ii) `E` is Galois over `E ⊓ L`, and (iii) restriction to `E` gives a group isomorphism
+`Gal((E ⊔ L)/L) ≅ Gal(E/(E ⊓ L))` (Milne FT: `σ ↦ σ|E`). -/
+theorem galoisRestriction_compositum [FiniteDimensional F E] (hE : IsGalois F E) :
+    IsGalois ↥L ↥(E ⊔ L) ∧ IsGalois ↥(E ⊓ L) ↥E ∧
+    Nonempty ((↥(E ⊔ L) ≃ₐ[↥L] ↥(E ⊔ L)) ≃ (↥E ≃ₐ[↥(E ⊓ L)] ↥E)) := by
+  obtain ⟨p, hps, hp⟩ := IsGalois.is_separable_splitting_field F E
+  exact ⟨isGalois_compositum_supBase E L hps hp, isGalois_of_inf_of_isSplittingField E L hps hp,
+    ⟨galRestrictIso E L hE⟩⟩
+
+/-- **FT `ft18g` (degree formula).**  If `E/F` and `L/F` are finite with `E/F` Galois, then
+`[E ⊔ L : F] · [E ⊓ L : F] = [E : F] · [L : F]`.
+
+Proof idea: `[E ⊔ L : F] = [L : F] · [E ⊔ L : L]` (tower); `[E ⊔ L : L] = |Gal((E ⊔ L)/L)| =
+|Gal(E/(E ⊓ L))| (the isomorphism `ft18f`) `= [E : E ⊓ L]` (`IsGalois.card_aut_eq_finrank`);
+and `[E : F] = [E ⊓ L : F] · [E : E ⊓ L]` (tower). -/
+theorem finrank_compositum_mul_inf [FiniteDimensional F E] [FiniteDimensional F L]
+    (hE : IsGalois F E) :
+    Module.finrank F ↥(E ⊔ L) * Module.finrank F ↥(E ⊓ L) =
+      Module.finrank F ↥E * Module.finrank F ↥L := by
+  obtain ⟨p, hps, hp⟩ := IsGalois.is_separable_splitting_field F E
+  haveI hGS : IsGalois ↥L ↥(E ⊔ L) := isGalois_compositum_supBase E L hps hp
+  haveI hFDs : FiniteDimensional ↥L ↥(E ⊔ L) := finiteDimensional_compositum_supBase E L hps hp
+  haveI hGI : IsGalois ↥(E ⊓ L) ↥E := isGalois_of_inf_of_isSplittingField E L hps hp
+  haveI hFDi : FiniteDimensional ↥(E ⊓ L) ↥E := finiteDimensional_of_inf E L hp
+  haveI hfree : Module.Free ↥(E ⊓ L) ↥E := Module.Free.of_divisionRing _ _
+  have t1 : Module.finrank F ↥L * Module.finrank ↥L ↥(E ⊔ L) = Module.finrank F ↥(E ⊔ L) :=
+    Module.finrank_mul_finrank F ↥L ↥(E ⊔ L)
+  have hcard : Nat.card Gal(↥(E ⊔ L)/↥L) = Nat.card Gal(↥E/↥(E ⊓ L)) :=
+    Nat.card_congr (galRestrictIso E L hE)
+  have t2 : Nat.card Gal(↥(E ⊔ L)/↥L) = Module.finrank ↥L ↥(E ⊔ L) :=
+    IsGalois.card_aut_eq_finrank ↥L ↥(E ⊔ L)
+  have t3 : Nat.card Gal(↥E/↥(E ⊓ L)) = Module.finrank ↥(E ⊓ L) ↥E :=
+    IsGalois.card_aut_eq_finrank ↥(E ⊓ L) ↥E
+  have key : Module.finrank F ↥(E ⊔ L) = Module.finrank F ↥L * Module.finrank ↥(E ⊓ L) ↥E := by
+    rw [← t1, ← t2, hcard, t3]
+  have t4 : Module.finrank F ↥(E ⊓ L) * Module.finrank ↥(E ⊓ L) ↥E = Module.finrank F ↥E :=
+    Module.finrank_mul_finrank F ↥(E ⊓ L) ↥E
+  calc Module.finrank F ↥(E ⊔ L) * Module.finrank F ↥(E ⊓ L)
+      = Module.finrank F ↥L * Module.finrank ↥(E ⊓ L) ↥E * Module.finrank F ↥(E ⊓ L) := by
+        rw [key]
+    _ = Module.finrank F ↥L * (Module.finrank F ↥(E ⊓ L) * Module.finrank ↥(E ⊓ L) ↥E) := by
+        rw [Nat.mul_assoc,
+          Nat.mul_comm (Module.finrank ↥(E ⊓ L) ↥E) (Module.finrank F ↥(E ⊓ L))]
+    _ = Module.finrank F ↥L * Module.finrank F ↥E := by rw [t4]
+    _ = Module.finrank F ↥E * Module.finrank F ↥L := Nat.mul_comm _ _
+
+end GaloisRestriction
+
+section TwoGroupChain
+
+open Subgroup
+
+/-- Auxiliary for FT `ft22` step 1: the cardinality of the preimage of a subgroup under a
+surjective group homomorphism. -/
+theorem card_comap_of_surjective {G : Type} [Group G] {G' : Type} [Group G'] [Finite G']
+    (f : G' →* G) (hf : Function.Surjective f) (K : Subgroup G) :
+    Nat.card (Subgroup.comap f K) = Nat.card K * Nat.card f.ker := by
+  haveI : Finite G := Finite.of_surjective f hf
+  haveI hfi : K.FiniteIndex := inferInstance
+  haveI hcfi : (Subgroup.comap f K).FiniteIndex := inferInstance
+  have hrange : f.range = ⊤ := MonoidHom.range_eq_top.mpr hf
+  have hidx : (Subgroup.comap f K).index = K.index := by
+    rw [Subgroup.index_comap K f, hrange, Subgroup.relIndex_top_right]
+  have hker : Nat.card (G' ⧸ f.ker) = Nat.card G :=
+    Nat.card_congr (QuotientGroup.quotientKerEquivOfSurjective f hf).toEquiv
+  have e0 := Subgroup.index_mul_card (Subgroup.comap f K)
+  rw [hidx] at e0
+  have e3 : Nat.card G' = K.index * (Nat.card K * Nat.card f.ker) := by
+    rw [Subgroup.card_eq_card_quotient_mul_card_subgroup f.ker, hker,
+      ← Subgroup.index_mul_card K, Nat.mul_assoc]
+  exact Nat.eq_of_mul_eq_mul_left (Nat.pos_of_ne_zero hfi.index_ne_zero) (e0.trans e3)
+
+/-- **FT `ft22` step 1** (2-group chain). If `G` is a group with `Nat.card G = 2 ^ r`, there is a
+chain of subgroups `{1} = H 0 ⊴ H 1 ⊴ ⋯ ⊴ H r = G` with each step of index `2`. Normality is
+stated elementwise (`H i` is normal in `H (i + 1)`); the index-2 condition is recorded through the
+cardinalities `Nat.card (H i) = 2 ^ i` (which give `[H (i+1) : H i] = 2` given monotonicity). -/
+theorem exists_subgroup_chain_of_two_pow_card (r : ℕ) :
+    ∀ (G : Type) [Group G], Nat.card G = 2 ^ r →
+      ∃ H : ℕ → Subgroup G,
+        (∀ i : ℕ, i ≤ r → Nat.card (H i) = 2 ^ i) ∧
+        H 0 = ⊥ ∧ H r = ⊤ ∧
+        (∀ i : ℕ, i < r → H i ≤ H (i + 1)) ∧
+        (∀ i : ℕ, i < r → ∀ x ∈ H i, ∀ g ∈ H (i + 1), g * x * g⁻¹ ∈ H i) := by
+  induction r with
+  | zero =>
+    intro G _ hcard
+    rw [Nat.pow_zero] at hcard
+    haveI : Subsingleton G := (Nat.card_eq_one_iff_unique.mp hcard).1
+    refine ⟨fun _ => ⊥, fun i hi => ?_, rfl, ?_, ?_, ?_⟩
+    · rcases Nat.eq_zero_or_pos i with h | h
+      · rw [h, pow_zero, Subgroup.card_bot]
+      · omega
+    · exact (Subgroup.eq_bot_of_subsingleton ⊤).symm
+    · exact fun i hi => absurd hi (Nat.not_lt_zero i)
+    · exact fun i hi => absurd hi (Nat.not_lt_zero i)
+  | succ n ih =>
+    intro G _ hcard
+    haveI hfin : Finite G := Nat.finite_of_card_ne_zero
+      (by rw [hcard]; exact pow_ne_zero _ (by norm_num))
+    haveI hnt : Nontrivial G := Finite.one_lt_card_iff_nontrivial.mp
+      (by rw [hcard]; exact one_lt_pow₀ (a := 2) (by norm_num) (by positivity))
+    haveI hp2 : Fact (Nat.Prime 2) := ⟨Nat.prime_two⟩
+    have hp : IsPGroup 2 G := IsPGroup.of_card hcard
+    haveI hfinC : Finite ↥(Subgroup.center G) :=
+      Finite.of_injective Subtype.val Subtype.coe_injective
+    have hClt : ⊥ < Subgroup.center G := hp.bot_lt_center
+    obtain ⟨k, hk⟩ :=
+      (IsPGroup.iff_card (p := 2) (G := ↥(Subgroup.center G))).mp
+        (hp.to_subgroup (Subgroup.center G))
+    have hCne : k ≠ 0 := by
+      intro h
+      rw [h, pow_zero] at hk
+      haveI : Subsingleton ↥(Subgroup.center G) := (Nat.card_eq_one_iff_unique.mp hk).1
+      exact absurd (Subgroup.eq_bot_of_subsingleton _) ((bot_lt_iff_ne_bot).mp hClt)
+    obtain ⟨k', hk'⟩ := Nat.exists_eq_succ_of_ne_zero hCne
+    have h2dvd : 2 ∣ Nat.card ↥(Subgroup.center G) := by
+      rw [hk, hk', Nat.pow_succ']
+      exact dvd_mul_right _ _
+    obtain ⟨g, hg⟩ := exists_prime_orderOf_dvd_card' 2 h2dvd
+    set g' : G := (g : G) with hg'co
+    have hg2 : orderOf g' = 2 := by
+      have h1 : g ^ 2 = 1 := by
+        rw [← hg]; exact pow_orderOf_eq_one g
+      have hsq : g' ^ 2 = 1 := by
+        have hsub : (Subgroup.center G).subtype g ^ 2 = 1 := by
+          rw [← map_pow (Subgroup.center G).subtype g, h1, map_one]
+        simpa [hg'co] using hsub
+      have hdvd : orderOf g' ∣ 2 := orderOf_dvd_iff_pow_eq_one.mpr hsq
+      have hne : orderOf g' ≠ 1 := by
+        intro h
+        have hgo : g = 1 := by
+          apply Subtype.ext
+          rw [← hg'co, orderOf_eq_one_iff.mp h]
+          simp
+        have : orderOf g = 1 := by rw [hgo]; simp
+        rw [this] at hg
+        exact (by norm_num : (1 : ℕ) ≠ 2) hg
+      have hle : orderOf g' ≤ 2 := Nat.le_of_dvd (by norm_num) hdvd
+      have hpos : 0 < orderOf g' := orderOf_pos g'
+      omega
+    set N : Subgroup G := Subgroup.zpowers g' with hNdef
+    have hNcard : Nat.card ↥N = 2 := by rw [hNdef, Nat.card_zpowers, hg2]
+    have hNle : N ≤ Subgroup.center G := Subgroup.zpowers_le.mpr g.2
+    have hNnorm : N.Normal :=
+      Subgroup.Normal.mk fun x hx y => by
+        have hcomm : y * x = x * y := Subgroup.mem_center_iff.mp (hNle hx) y
+        rw [hcomm, mul_inv_cancel_right]
+        exact hx
+    haveI : Finite (G ⧸ N) :=
+      Finite.of_surjective (QuotientGroup.mk' N) (QuotientGroup.mk'_surjective N)
+    have hQcard : Nat.card (G ⧸ N) = 2 ^ n := by
+      have hcc := Subgroup.card_eq_card_quotient_mul_card_subgroup N
+      rw [hcard, hNcard, Nat.pow_succ] at hcc
+      have h2 : Nat.card (G ⧸ N) * 2 = 2 ^ n * 2 := by
+        rw [← Nat.mul_comm 2 (2 ^ n)]
+        linarith [hcc]
+      exact Nat.eq_of_mul_eq_mul_right (by norm_num) h2
+    haveI hQp : IsPGroup 2 (G ⧸ N) := hp.to_quotient N
+    obtain ⟨Q, hQcard', hQ0, hQtop, hQmono, hQnorm⟩ := ih (G ⧸ N) hQcard
+    refine ⟨fun i => match i with
+      | 0 => ⊥
+      | (i + 1) => Subgroup.comap (QuotientGroup.mk' N) (Q i), ?_, rfl, ?_, ?_, ?_⟩
+    · intro i hi
+      rcases i with _ | m
+      · simp
+      · rw [card_comap_of_surjective (QuotientGroup.mk' N) (QuotientGroup.mk'_surjective N) (Q m),
+          QuotientGroup.ker_mk', hNcard, hQcard' m (by omega)]
+        rw [Nat.pow_succ, Nat.mul_comm]
+    · show Subgroup.comap (QuotientGroup.mk' N) (Q n) = ⊤
+      rw [hQtop, Subgroup.comap_top]
+    · intro i hi
+      rcases i with _ | m
+      · exact bot_le
+      · exact Subgroup.comap_mono (hQmono m (by omega))
+    · intro i hi x hx gg hgg
+      rcases i with _ | m
+      · rw [Subgroup.mem_bot] at hx ⊢
+        obtain rfl := hx
+        simp
+      · have h1 : QuotientGroup.mk' N gg ∈ Q (m + 1) := Subgroup.mem_comap.mp hgg
+        have h2 : QuotientGroup.mk' N x ∈ Q m := Subgroup.mem_comap.mp hx
+        have h3 := hQnorm m (by omega) _ h2 _ h1
+        exact Subgroup.mem_comap.mpr (by simpa [map_mul, map_inv] using h3)
+
+end TwoGroupChain
+
 /-!
 ### Chapter III ledger — remaining in-scope items (work in progress)
 
 Theorem-like labels formalized: `ft8`, `ft10`, `ft10d`, `ft12`, `ft14`, `ft15`,
-`ft17`, `ft18h`, `ft23` (9 of 13).  The definition-like labels `ft10m`, `ft10n`,
+`ft17`, `ft18f`, `ft18g`, `ft18h`, `ft23` (11 of 13).  The definition-like labels `ft10m`, `ft10n`,
 `ft11m`, `ft21` are encoded (`FT.separableExt_iff`, `FT.normalExt_iff`,
 `FT.IsGaloisExt`/`FT.galoisGroup`, `FT.IsCyclicExt`/`FT.IsAbelianExt`/
 `FT.IsSolvableExt`), and remark/example content is carried by
@@ -5840,14 +6455,17 @@ hypothesis is essential — a non-faithful finite group action falsifies the cla
 (`FT.galActionHom_injective`).
 
 Pending in scope (to be recorded in the final ledger as pending or AUDIT-DEFERRED):
-- `ft18f` (partial): the Galois clauses (E⊔L over L; E over E⊓L) are proven as
-  private lemmas (`isGalois_compositum_of_isSplittingField`, `isGalois_of_inf_of_isSplittingField`) with the
-  sup-side `Algebra`/`IsScalarTower` interface fillers (`FT.instAlgebraSupRight`);
-  the restriction isomorphism Gal(EL/L) ≅ Gal(E/E∩L) and public packaging pending.
-- `ft18g` (degree formula [EL:F] = [E:F]·[L:F]/[E∩L:F]): pending.
-- `ft22` (Galois 2^r subfield of ℝ ⇒ constructible): pending; `ft23` and the
-  ch.I tower machinery (`FT.constructible_of_towerOK`) are in place; the missing
-  piece is the finite-2-group subgroup-chain lemma.
+- (resolved) `ft18f`: `FT.galoisRestriction_compositum` — Galois clauses plus the
+  restriction isomorphism Gal((E⊔L)/L) ≃ Gal(E/(E⊓L)) (`FT.galRestrictIso`,
+  bijectivity via `FT.galRestrictIsoMap_injective/_surjective`).
+- (resolved) `ft18g`: `FT.finrank_compositum_mul_inf` (with `[FiniteDimensional F E]
+  [FiniteDimensional F L]` — Milne's Galois extensions are finite by definition).
+- `ft22` (Galois 2^r subfield of ℝ ⇒ constructible): PARTIAL — the finite-2-group
+  subgroup-chain lemma is done (`FT.exists_subgroup_chain_of_two_pow_card` with
+  `FT.card_comap_of_surjective`); pending: the field-tower bridge (quadratic step
+  from `FT.quadratic_extension_exists_root` via `IntermediateField.extendScalars`/
+  `relfinrank_map_map` transported along `IntermediateField.val`), the TowerOK
+  list assembly, and the final `FT.constructible_of_towerOK` application.
 - `ft24` (Fermat prime ⇒ cos(2π/p) constructible): pending (needs `ft22` plus the
   cyclotomic Galois-group identification).
 - Examples `ft19` (ℚ(ζ₇) subfield analysis), `ft20` (Gal of X^5−2 splitting
