@@ -144,7 +144,16 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, signal, _update, ctx) {
       const config = await loadConfig(ctx.cwd);
       if (workers.size >= config.maxWorkers) {
-        throw new Error(`Worker limit reached (${config.maxWorkers}); collect or abort a worker first`);
+        // Point the caller at terminal workers that still occupy a slot, so
+        // registry management does not require trial-and-error collection.
+        const collectible = [...workers.values()]
+          .filter((worker) => worker.state === "done" || worker.state === "failed")
+          .map((worker) => `${worker.id}[${worker.state}]`)
+          .join(", ");
+        throw new Error(
+          `Worker limit reached (${config.maxWorkers}); collect or abort a worker first`
+          + (collectible ? `; collectible: ${collectible}` : ""),
+        );
       }
 
       const profileName = params.profile ?? "research";
@@ -248,8 +257,21 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({ id: Type.Optional(Type.String()) }),
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const selected = params.id ? [workers.get(params.id)].filter(Boolean) as Worker[] : [...workers.values()];
+      const config = await loadConfig(ctx.cwd);
+      // Terminal workers stay in the registry (and occupy a slot) until
+      // collected with dispose (default) or aborted; surface them so the
+      // caller can free slots without guessing which ids to collect.
+      const collectible = [...workers.values()]
+        .filter((worker) => worker.state === "done" || worker.state === "failed")
+        .map((worker) => ({ id: worker.id, label: worker.label, state: worker.state }));
       const details = {
         workers: selected.map(snapshot),
+        slots: {
+          cap: config.maxWorkers,
+          used: workers.size,
+          free: Math.max(0, config.maxWorkers - workers.size),
+          collectible,
+        },
         leanRepl: getSharedReplStatus(`${ctx.cwd}/lean`),
       };
       return { content: [{ type: "text", text: JSON.stringify(details, null, 2) }], details };

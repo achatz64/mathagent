@@ -76,7 +76,11 @@ clauses.
 
 Keep the main agent and all useful worker slots productive. When independent
 proof, source-extraction, API-search, audit, or consolidation tasks are
-available, launch them up to the configured concurrency limit. As workers run,
+available, launch them up to the configured concurrency limit ("maxWorkers"
+in `.pi/subagents.json`, currently 8). Terminal workers occupy a slot until
+collected with dispose (the `subagent_collect` default) or aborted;
+`subagent_status` reports the cap, free slots, and collectible worker ids. As
+workers run,
 the main agent continues integration, semantic review, REPL checking,
 documentation, or infrastructure work; it must not wait merely because one
 worker is live.
