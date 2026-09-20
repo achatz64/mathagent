@@ -65,6 +65,21 @@ etale algebras, transcendental extensions; the `ft`/`te`/`ag`/`cg`/`ig`/
 `scope` field (which omits only exercises, solutions, and expositional
 material).  To be recorded in the final ledger as pending or as
 AUDIT-DEFERRED.
+
+AUDIT-GAP (coverage audit, delta audit of commits 85a37c0..2c5adf7): the
+sentence "the examples/asides are additionally formalized" above is false for
+chapter 2.  The chapter-2 example/aside/remark labels `sf3`, `sf5`, `sf6`,
+`sf9`, `ft6` and the unlabeled aside following `ft6` (FT.tex:2484) are neither
+formalized nor mentioned anywhere in the target.  `sf3`, `sf6` and `ft6`
+carry mathematical content (splitting-field degree claims for quadratic and
+irreducible cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th
+roots of unity lie in `F`; finite fields, fields algebraic over `F_p`, and
+algebraically closed fields are perfect while `F_0(X)` in characteristic `p`
+is not) and are in scope per the provenance `scope` field, so they fall
+outside both the "chapters 1 and 2 completely" claim and the pending
+chapters 3-7 list.  The expositional items `sf5`, `sf9` and the unlabeled
+aside are legitimate omissions but lack the scope citations this file
+establishes for chapter 1 (cf. the "Scope notes for omitted material" list).
 -/
 
 namespace FT
@@ -2715,6 +2730,29 @@ degree-≤3 root criterion, so the project's
 `FT.exists_root_of_not_irreducible_cubic` is a thin composition rather than
 an upstream gap.  The project declaration is retained for source-faithfulness
 to the proof of FT `ef29`.)
+
+AUDIT-GAP (external-library-obligation audit, delta audit of commits
+85a37c0..2c5adf7): the blanket "no substantive upstream obligations" note
+predates the chapter-2 block and was not re-evaluated for it.  Two candidate
+obligations emerge from the new code and must be recorded here (with the four
+required identifications) or explicitly withdrawn with justification:
+(1) The bound `Nat.card (E →ₐ[F] L) ≤ Module.finrank F E` for a finite
+    extension `E/F` and an *arbitrary* target field `L`
+    (`FT.natCard_algHom_le_finrank` / `FT.sf8_natCard_algHom_le`).  Mathlib
+    bounds the number of `F`-embeddings only into an algebraic closure of `E`
+    (`Field.finSepDegree_le_finrank`, Mathlib/FieldTheory/SeparableDegree.lean,
+    on `Field.Emb F E = E →ₐ[F] Ē`), for `K →ₐ[F] K` (`AlgHom.card_le`,
+    Mathlib/FieldTheory/Fixed.lean), or by the function-space dimension
+    (`cardinalMk_algHom`, Mathlib/FieldTheory/Fixed.lean).  Absence check:
+    `rg` over `Mathlib/FieldTheory` for cardinality-vs-`finrank` bounds returns
+    no arbitrary-target statement.  Proof route: checked project code (fiber
+    induction over simple subextensions, `FT.count_of_fiber_bound`).
+(2) `FT.sf8_ii`: every finite extension `E/F` embeds `F`-homomorphically into
+    a finite extension of any given field `L` — a possible reusable packaging
+    of the `Polynomial.SplittingField`-transport argument.  To be evaluated
+    against the content check (it may be a wrapper around
+    `Polynomial.lift_of_splits` plus `Polynomial.IsSplittingField.finiteDimensional`,
+    in which case a documented withdrawal is required instead).
 -/
 
 /-!
@@ -2735,6 +2773,24 @@ Encoding conventions for this chapter:
   (`IsCoprime f (derivative f)`); the equivalence with "f has only simple roots"
   is FT `ft3a` below. FT `ft4m` (perfect field) is `FT.PerfectFT` below; the
   equivalence with Mathlib's `PerfectField` (every irreducible separable) is FT `ft5`.
+
+AUDIT-GAP (coding-conventions audit, delta audit of commits 85a37c0..2c5adf7):
+the chapter-2 block introduces 21 label-based declaration names, the same
+violation class flagged by the audit of commit 4b90ac9 for chapter 1 and
+remediated in 73801da: `sf4_aeval_adjoin`, `sf4_aux`, `sf2RootsSubtypeEquiv`,
+`sf2ExtEquiv`, `sf2ExtEquiv_apply`, `sf2ExtEquiv_symm_gen`,
+`sf2ExtTranscendentalEquiv`, `sf2ExtTranscendentalEquiv_apply`,
+`sf2ExtTranscendentalEquiv_symm_gen`, `ft3_map_ne_zero`, `ft3_splits`,
+`ft3_exists_root`, `ft3_notSeparable_of_commonRoot`,
+`ft3_char_of_derivative_eq_zero`, `ft3_derivative_eq_zero_of_comp`, `ft3`,
+`sf8_algebraMap_injective_of_field`, `sf8_natCard_algHom_le`,
+`sf8_minpoly_splits`, `sf8_hom_of_adjoin_eq_top`, `sf8_ii`.  Names must
+describe the mathematical content per the Mathlib naming conventions (e.g.
+`ft3` is a multiple-roots characterization of a nonconstant irreducible
+polynomial and needs a content-based name; `sf8_ii` states existence of a
+homomorphism from a finite extension into a finite extension of an arbitrary
+given field).  The stable TeX labels stay in the docstrings per the file's
+source-hook convention.
 -/
 
 /-- FT `ft4m` (definition). A field is *perfect* if it has characteristic zero, or it has
@@ -2812,6 +2868,23 @@ section SF4
 
 open Polynomial Module
 variable {K E : Type u} [Field K] [Field E] [Algebra K E]
+
+/-!
+AUDIT-GAP (documentation audit, delta audit of commits 85a37c0..2c5adf7): 9
+declarations of the chapter-2 block lack the docstring the file's
+every-declaration-documented convention requires (same violation class as the
+audit of commit 9b9e5bd): `sf4_aeval_adjoin` (next declaration), `sf4_aux`,
+`liftAlgHomOfTranscendental_def`, `arootsSubtypeEquivRootSet_apply`,
+`arootsSubtypeEquivRootSet_symm_apply`, `sf8_algebraMap_injective_of_field`,
+`finrank_eq_one_of_surjective`, `subsingleton_algHom_of_surjective`, and
+`finiteDimensional_of_tower` (the latter four private helpers; the former
+three public restatement/simp lemmas whose parent definitions carry
+docstrings).  Additionally, the docstring of the key theorem
+`natCard_algHom_le_finrank` documents only the statement, not the idea
+entering its proof (strong induction on `[B : A]` with fiber decomposition
+over a nontrivial simple subextension `A⟮y⟯`, per the documentation audit's
+requirement that theorems document their proof ideas).
+-/
 
 /-- The structure map of a field extension of a field is injective (helper for FT `sf4`). -/
 private lemma algebraMap_injective_of_field : Function.Injective (algebraMap K E) := by
