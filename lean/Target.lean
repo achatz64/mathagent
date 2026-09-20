@@ -55,10 +55,14 @@ target against the extracted inventory.
 AUDIT-GAP (coverage audit, expected for work-in-progress; updated after the
 audit of commit a86787d, which found the previous note stale): the target covers
 chapters 1 and 2 completely - all 24 (ch1) and all 9 (ch2: `sf1`, `sf2`, `sf4`,
-`sf7`, `sf8`, `ft1`, `ft3`, `ft3a`, `ft5`; the definition-like labels `ft4`,
-`ft4m` and the examples/asides are additionally formalized) theorem-like labels
-are formalized and mentioned, and `tools/ft_coverage.py` reports 0 unmentioned
-chapter-1/2 labels.  Chapters 3-7 (fundamental theorem of Galois theory, computing
+`sf7`, `sf8`, `ft1`, `ft3`, `ft3a`, `ft5`) theorem-like labels are formalized
+and mentioned, the definition-like labels `ft4` (via `FT.OnlySimpleRoots` and
+Mathlib's `Polynomial.Separable`) and `ft4m` (`FT.PerfectFT`) are additionally
+formalized, and `tools/ft_coverage.py` reports 0 unmentioned chapter-1/2
+theorem-like labels.  Still pending in scope: the chapter-2 examples `sf3`,
+`sf6`, `ft6` (splitting-field degree claims for quadratic and irreducible
+cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th roots of
+unity lie in `F`; perfect-field examples).  Chapters 3-7 (fundamental theorem of Galois theory, computing
 Galois groups, applications, algebraic closures, infinite Galois extensions,
 etale algebras, transcendental extensions; the `ft`/`te`/`ag`/`cg`/`ig`/
 `ca` label clusters) are pending although in scope per the provenance
@@ -66,20 +70,12 @@ etale algebras, transcendental extensions; the `ft`/`te`/`ag`/`cg`/`ig`/
 material).  To be recorded in the final ledger as pending or as
 AUDIT-DEFERRED.
 
-AUDIT-GAP (coverage audit, delta audit of commits 85a37c0..2c5adf7): the
-sentence "the examples/asides are additionally formalized" above is false for
-chapter 2.  The chapter-2 example/aside/remark labels `sf3`, `sf5`, `sf6`,
-`sf9`, `ft6` and the unlabeled aside following `ft6` (FT.tex:2484) are neither
-formalized nor mentioned anywhere in the target.  `sf3`, `sf6` and `ft6`
-carry mathematical content (splitting-field degree claims for quadratic and
-irreducible cubics; `F[α]` is the splitting field of `X^n - a` iff all `n`th
-roots of unity lie in `F`; finite fields, fields algebraic over `F_p`, and
-algebraically closed fields are perfect while `F_0(X)` in characteristic `p`
-is not) and are in scope per the provenance `scope` field, so they fall
-outside both the "chapters 1 and 2 completely" claim and the pending
-chapters 3-7 list.  The expositional items `sf5`, `sf9` and the unlabeled
-aside are legitimate omissions but lack the scope citations this file
-establishes for chapter 1 (cf. the "Scope notes for omitted material" list).
+Note (coverage, delta audit of commits 85a37c0..2c5adf7, remediated): the
+chapter-2 example/aside/remark labels `sf3`, `sf6`, `ft6` are listed above as
+in-scope pending; the expositional aside `sf5`, the remark `sf9` and the
+unlabeled aside following `ft6` (FT.tex:2484) await the scope citations the
+chapter-1 "Scope notes for omitted material" list establishes (or an
+AUDIT-DEFERRED classification in the final ledger).
 -/
 
 namespace FT
@@ -2720,7 +2716,29 @@ end ConstructionsStraightEdgeCompass
 /-!
 ### Improvements for Mathlib
 
-(No substantive upstream obligations were identified.  An earlier entry
+(Substantive upstream candidate, recorded 2026-09-19 from the chapter-2 block.)
+A bound on the number of `F`-algebra homomorphisms from a finite extension `E/F`
+into an *arbitrary* target field `L`: `Nat.card (E →ₐ[F] L) ≤ finrank F E`
+(project: `FT.natCard_algHom_le_of_finrank_eq`, `FT.natCard_algHom_le_finrank`).
+- *What is missing:* Mathlib bounds `F`-embeddings only into an algebraic closure
+  of the source (`Field.finSepDegree_le_finrank` on `Field.Emb F Ē`,
+  Mathlib/FieldTheory/SeparableDegree.lean) or into the field itself
+  (`AlgHom.card_le`, `cardinalMk_algHom`, Mathlib/FieldTheory/Fixed.lean); an
+  `rg` absence check over Mathlib/FieldTheory finds no arbitrary-target
+  cardinality-vs-`finrank` statement.
+- *Where it would sit:* beside the `Field.finSepDegree` API
+  (Mathlib/FieldTheory/SeparableDegree.lean) or the `AlgHom` counting API
+  (Mathlib/FieldTheory/Fixed.lean).
+- *Proof route:* fiber decomposition over a nontrivial simple subextension
+  `A⟮y⟯` (project: `FT.count_of_fiber_bound`), the one-step power-basis root
+  bound (`IntermediateField.algHomAdjoinIntegralEquiv`), and the tower formula;
+  alternatively a reduction of `finSepDegree` to an arbitrary-target statement.
+- *Impact:* the standard counting lemma behind FT `sf7`/`sf8` (number of
+  `F`-embeddings ≤ degree), used pervasively in Galois theory, with the target
+  field not required to be algebraic.
+
+(Withdrawn entries.
+- An earlier entry
 proposing a cubic no-root irreducibility criterion was withdrawn after the
 audit of commit 73801da: Mathlib's
 `Polynomial.irreducible_iff_roots_eq_zero_of_degree_le_three` and
@@ -2729,32 +2747,22 @@ audit of commit 73801da: Mathlib's
 degree-≤3 root criterion, so the project's
 `FT.exists_root_of_not_irreducible_cubic` is a thin composition rather than
 an upstream gap.  The project declaration is retained for source-faithfulness
-to the proof of FT `ef29`.)
+to the proof of FT `ef29`.
+- `FT.exists_algHom_of_finiteDimensional` (FT `sf8` (ii) packaging, recorded
+  2026-09-19): withdrawn — a thin composition of `Polynomial.lift_of_splits`
+  (universal property of adjoining elements whose minimal polynomials split)
+  and `Polynomial.IsSplittingField.finiteDimensional`; the only content beyond
+  those two is the bookkeeping of the instance fields, which is packaging
+  rather than reusable mathematics.)
 
-AUDIT-GAP (external-library-obligation audit, delta audit of commits
-85a37c0..2c5adf7): the blanket "no substantive upstream obligations" note
-predates the chapter-2 block and was not re-evaluated for it.  Two candidate
-obligations emerge from the new code and must be recorded here (with the four
-required identifications) or explicitly withdrawn with justification:
-(1) The bound `Nat.card (E →ₐ[F] L) ≤ Module.finrank F E` for a finite
-    extension `E/F` and an *arbitrary* target field `L`
-    (`FT.natCard_algHom_le_finrank` / `FT.sf8_natCard_algHom_le`).  Mathlib
-    bounds the number of `F`-embeddings only into an algebraic closure of `E`
-    (`Field.finSepDegree_le_finrank`, Mathlib/FieldTheory/SeparableDegree.lean,
-    on `Field.Emb F E = E →ₐ[F] Ē`), for `K →ₐ[F] K` (`AlgHom.card_le`,
-    Mathlib/FieldTheory/Fixed.lean), or by the function-space dimension
-    (`cardinalMk_algHom`, Mathlib/FieldTheory/Fixed.lean).  Absence check:
-    `rg` over `Mathlib/FieldTheory` for cardinality-vs-`finrank` bounds returns
-    no arbitrary-target statement.  Proof route: checked project code (fiber
-    induction over simple subextensions, `FT.count_of_fiber_bound`).
-(2) `FT.sf8_ii`: every finite extension `E/F` embeds `F`-homomorphically into
-    a finite extension of any given field `L` — a possible reusable packaging
-    of the `Polynomial.SplittingField`-transport argument.  To be evaluated
-    against the content check (it may be a wrapper around
-    `Polynomial.lift_of_splits` plus `Polynomial.IsSplittingField.finiteDimensional`,
-    in which case a documented withdrawal is required instead).
+Note (external-library obligations, delta audit of commits 85a37c0..2c5adf7,
+evaluated against the "Improvements for Mathlib" note at the end of this file):
+candidate (1) — the arbitrary-target counting bound
+`FT.natCard_algHom_le_of_finrank_eq` — is recorded there as a substantive
+upstream candidate; candidate (2) — `FT.exists_algHom_of_finiteDimensional` —
+was withdrawn there as a thin composition of `Polynomial.lift_of_splits` and
+`Polynomial.IsSplittingField.finiteDimensional`.
 -/
-
 /-!
 ### Chapter 2: Splitting fields; multiple roots (FT `sf1`–`sf9`, `ft1`–`ft6`)
 
@@ -2774,25 +2782,15 @@ Encoding conventions for this chapter:
   is FT `ft3a` below. FT `ft4m` (perfect field) is `FT.PerfectFT` below; the
   equivalence with Mathlib's `PerfectField` (every irreducible separable) is FT `ft5`.
 
-AUDIT-GAP (coding-conventions audit, delta audit of commits 85a37c0..2c5adf7):
-the chapter-2 block introduces 21 label-based declaration names, the same
-violation class flagged by the audit of commit 4b90ac9 for chapter 1 and
-remediated in 73801da: `sf4_aeval_adjoin`, `sf4_aux`, `sf2RootsSubtypeEquiv`,
-`sf2ExtEquiv`, `sf2ExtEquiv_apply`, `sf2ExtEquiv_symm_gen`,
-`sf2ExtTranscendentalEquiv`, `sf2ExtTranscendentalEquiv_apply`,
-`sf2ExtTranscendentalEquiv_symm_gen`, `ft3_map_ne_zero`, `ft3_splits`,
-`ft3_exists_root`, `ft3_notSeparable_of_commonRoot`,
-`ft3_char_of_derivative_eq_zero`, `ft3_derivative_eq_zero_of_comp`, `ft3`,
-`sf8_algebraMap_injective_of_field`, `sf8_natCard_algHom_le`,
-`sf8_minpoly_splits`, `sf8_hom_of_adjoin_eq_top`, `sf8_ii`.  Names must
-describe the mathematical content per the Mathlib naming conventions (e.g.
-`ft3` is a multiple-roots characterization of a nonconstant irreducible
-polynomial and needs a content-based name; `sf8_ii` states existence of a
-homomorphism from a finite extension into a finite extension of an arbitrary
-given field).  The stable TeX labels stay in the docstrings per the file's
-source-hook convention.
+Note (coding conventions, delta audit of commits 85a37c0..2c5adf7, remediated):
+the label-based chapter-2 declaration names were renamed to content-based
+Mathlib-style names (TeX labels retained in docstrings): e.g. `ft3` →
+`FT.irreducible_multipleRoot_iff`, `sf8_ii` →
+`FT.exists_algHom_of_finiteDimensional`, `sf2ExtEquiv` →
+`FT.algHomAdjoinIntegralEquivOfRingHom`, `sf4_aux` →
+`FT.finrank_le_factorial_aux`, `sf8_natCard_algHom_le` →
+`FT.natCard_algHom_le_finrank`.
 -/
-
 /-- FT `ft4m` (definition). A field is *perfect* if it has characteristic zero, or it has
 characteristic `p ≠ 0` and every element of `F` is a `p`th power. -/
 def PerfectFT (K : Type*) [Field K] : Prop :=
@@ -2870,35 +2868,31 @@ open Polynomial Module
 variable {K E : Type u} [Field K] [Field E] [Algebra K E]
 
 /-!
-AUDIT-GAP (documentation audit, delta audit of commits 85a37c0..2c5adf7): 9
-declarations of the chapter-2 block lack the docstring the file's
-every-declaration-documented convention requires (same violation class as the
-audit of commit 9b9e5bd): `sf4_aeval_adjoin` (next declaration), `sf4_aux`,
-`liftAlgHomOfTranscendental_def`, `arootsSubtypeEquivRootSet_apply`,
-`arootsSubtypeEquivRootSet_symm_apply`, `sf8_algebraMap_injective_of_field`,
-`finrank_eq_one_of_surjective`, `subsingleton_algHom_of_surjective`, and
-`finiteDimensional_of_tower` (the latter four private helpers; the former
-three public restatement/simp lemmas whose parent definitions carry
-docstrings).  Additionally, the docstring of the key theorem
-`natCard_algHom_le_finrank` documents only the statement, not the idea
-entering its proof (strong induction on `[B : A]` with fiber decomposition
-over a nontrivial simple subextension `A⟮y⟯`, per the documentation audit's
-requirement that theorems document their proof ideas).
+Note (documentation, delta audit of commits 85a37c0..2c5adf7, remediated): the
+previously undocumented auxiliary declarations now carry docstrings (with
+triviality declarations where the proof is trivial), and
+`FT.natCard_algHom_le_of_finrank_eq` documents its proof idea (strong induction
+on `[B : A]` with fiber decomposition over a nontrivial simple subextension
+`A⟮y⟯`).
 -/
-
-/-- The structure map of a field extension of a field is injective (helper for FT `sf4`). -/
-private lemma algebraMap_injective_of_field : Function.Injective (algebraMap K E) := by
+/-- The structure map of a field extension of a field is injective (helper for FT `sf4`, `sf8`).
+Proof is trivial (a field homomorphism is injective; elementwise via inverses). -/
+private lemma algebraMap_injective_of_field {A B : Type*} [Field A] [Field B] [Algebra A B] :
+    Function.Injective (algebraMap A B) := by
   rw [injective_iff_map_eq_zero]
   intro a ha
   by_cases h0 : a = 0
   · exact h0
   · exfalso
-    have h1 : (1 : E) = algebraMap K E a * algebraMap K E a⁻¹ := by
+    have h1 : (1 : B) = algebraMap A B a * algebraMap A B a⁻¹ := by
       rw [← map_mul, mul_inv_cancel₀ h0, map_one]
     rw [ha, zero_mul] at h1
     exact one_ne_zero h1
 
-private lemma sf4_aeval_adjoin {F : IntermediateField K E} {α : E} {f : K[X]}
+/-- Auxiliary for FT `sf4`: if `α ∈ F` (an intermediate field) satisfies `f(α) = 0`, then `f`
+evaluated at the coerced element `⟨α, hαm⟩ : F` is also `0`.  Proof idea: transport along
+`hom_eval₂` and the injectivity of the structure map `F →ₐ E`. -/
+private lemma aeval_adjoin_coe_eq_zero {F : IntermediateField K E} {α : E} {f : K[X]}
     (hαm : α ∈ F) (h0 : aeval α f = 0) :
     aeval (⟨α, hαm⟩ : ↥F) f = 0 := by
   have h1 := hom_eval₂ f (algebraMap K ↥F) (algebraMap ↥F E) (⟨α, hαm⟩ : ↥F)
@@ -2907,7 +2901,12 @@ private lemma sf4_aeval_adjoin {F : IntermediateField K E} {α : E} {f : K[X]}
   rw [show (algebraMap ↥F E) (⟨α, hαm⟩ : ↥F) = α from rfl, h0] at h1
   exact algebraMap_injective_of_field (h1.trans (map_zero _).symm)
 
-private lemma sf4_aux : ∀ (n : ℕ) {K : Type u} [Field K] {E : Type u} [Field E] [Algebra K E]
+/-- Auxiliary for FT `sf4` (the stem-field induction core): for a splitting field `E` of a
+nonzero `f ∈ K[X]` with `deg f = n`, `[E : K] ≤ (deg f)!`.  Proof idea (FT): take a root `α` of
+`f` in `E`; then `E` is a splitting field over `K⟮α⟯` of `f /ₘ (X - α)` of degree `n - 1`, and
+`[E : K] = [K⟮α⟯ : K] · [E : K⟮α⟯] ≤ deg f · (n-1)! = n!` (tower formula, `adjoin.finrank`,
+induction hypothesis); the base case `n = 0` (nonzero constant) has `E = K`. -/
+private lemma finrank_le_factorial_aux : ∀ (n : ℕ) {K : Type u} [Field K] {E : Type u} [Field E] [Algebra K E]
     (f : K[X]), f.natDegree = n → f ≠ 0 → [IsSplittingField K E f] →
     Module.finrank K E ≤ Nat.factorial f.natDegree := by
   intro n
@@ -2944,7 +2943,7 @@ private lemma sf4_aux : ∀ (n : ℕ) {K : Type u} [Field K] {E : Type u} [Field
     have hp0 : f.map (algebraMap K ↥(IntermediateField.adjoin K {α})) ≠ 0 :=
       (Polynomial.map_ne_zero_iff hinjKF).mpr hf0
     have haeval : aeval (⟨α, hαm⟩ : ↥(IntermediateField.adjoin K {α})) f = 0 :=
-      sf4_aeval_adjoin hαm hα0
+      aeval_adjoin_coe_eq_zero hαm hα0
     set a : ↥(IntermediateField.adjoin K {α}) := ⟨α, hαm⟩ with ha_def
     have hcoe : (algebraMap ↥(IntermediateField.adjoin K {α}) E) a = α := by
       rw [ha_def, IntermediateField.algebraMap_apply, Subtype.coe_mk]
@@ -3034,10 +3033,10 @@ theorem finiteDimensional_splittingField (f : K[X]) :
 
 /-- FT `sf4` (degree bound, general form). If `E` is a splitting field over `K` of the
 nonzero polynomial `f ∈ K[X]`, then `[E : K] = finrank K E ≤ (deg f)!`. -/
-theorem isSplittingField_finrank_le {E : Type u} [Field E] [Algebra K E]
+theorem finrank_le_factorial_of_isSplittingField {E : Type u} [Field E] [Algebra K E]
     (f : K[X]) (hf0 : f ≠ 0) [IsSplittingField K E f] :
     Module.finrank K E ≤ Nat.factorial f.natDegree :=
-  sf4_aux _ f rfl hf0
+  finrank_le_factorial_aux _ f rfl hf0
 
 /-- FT `sf4` (degree bound). Every polynomial `f ∈ K[X]` has a splitting field `E_f` with
 `[E_f : K] = finrank K E_f ≤ (deg f)!` (factorial of `deg f`).
@@ -3046,7 +3045,7 @@ Proof idea (Milne FT, stem-field induction): if `f ≠ 0` has a root `α` in its
 `E`, then `E` is a splitting field over `K⟮α⟯` of `h = f /ₘ (X - α)` with `deg h = deg f - 1`,
 so `[E : K] = [K⟮α⟯ : K] · [E : K⟮α⟯] ≤ deg f · (deg f - 1)! ≤ (deg f)!`; a nonzero constant
 has splitting field `K` itself (`finrank = 1 = 0!`). -/
-theorem splitField_finrank_le (f : K[X]) :
+theorem finrank_SplittingField_le_factorial (f : K[X]) :
     Module.finrank K (SplittingField f) ≤ Nat.factorial f.natDegree := by
   by_cases hf0 : f = 0
   · subst hf0
@@ -3058,7 +3057,7 @@ theorem splitField_finrank_le (f : K[X]) :
         (Algebra.botEquiv K (SplittingField (0 : K[X]))).toLinearEquiv.finrank_eq,
         Module.finrank_self]
     rw [h1, natDegree_zero, Nat.factorial_zero]
-  · exact sf4_aux _ f rfl hf0
+  · exact finrank_le_factorial_aux _ f rfl hf0
 
 end SF4
 /-- FT `sf7` (a), existence clause.  Let `f ∈ F[X]`, let `E` be an extension of `F` generated
@@ -3177,6 +3176,7 @@ noncomputable def liftAlgHomOfTranscendental (hα : Transcendental F α) {γ : �
     (Polynomial.algEquivOfTranscendental F α hα).symm.toAlgHom)
     (injective_aeval_comp_algEquivOfTranscendental_symm F hα hγ)
 
+/-- Definitional unfolding of `FT.liftAlgHomOfTranscendental`.  Trivial (`rfl`). -/
 theorem liftAlgHomOfTranscendental_def (hα : Transcendental F α) {γ : Ω}
     (hγ : Transcendental F γ) : liftAlgHomOfTranscendental F hα hγ =
     IsFractionRing.liftAlgHom (g := (Polynomial.aeval γ).comp
@@ -3226,12 +3226,14 @@ noncomputable def arootsSubtypeEquivRootSet (p : Polynomial F) :
   left_inv _ := rfl
   right_inv _ := rfl
 
+/-- Forward map of `FT.arootsSubtypeEquivRootSet`.  Trivial (`rfl`). -/
 @[simp]
 theorem arootsSubtypeEquivRootSet_apply (p : Polynomial F)
     (x : {γ : Ω // γ ∈ p.aroots Ω}) :
     arootsSubtypeEquivRootSet F p x =
       ⟨x.1, (Polynomial.mem_rootSet'.trans Polynomial.mem_aroots'.symm).mpr x.2⟩ := rfl
 
+/-- Inverse map of `FT.arootsSubtypeEquivRootSet`.  Trivial (`rfl`). -/
 @[simp]
 theorem arootsSubtypeEquivRootSet_symm_apply (p : Polynomial F)
     (x : {γ : Ω // γ ∈ p.rootSet Ω}) :
@@ -3302,7 +3304,7 @@ variable (F : Type*) [Field F] {E : Type*} [Field E] [Algebra F E] {Ω : Type*} 
 `φ₀ : F →+* Ω` (making `Ω` an `F`-algebra via `φ₀`), reindexing "roots of `φ₀p` in `Ω`
 as a multiset" (`p.aroots Ω`) to "roots of `φ₀p` in `Ω` as bare elements"
 (`eval γ (p.map φ₀) = 0`). -/
-noncomputable def sf2RootsSubtypeEquiv (φ₀ : F →+* Ω) (p : F[X]) (hp : p ≠ 0) :
+noncomputable def aroots_subtypeEquivEvalMap (φ₀ : F →+* Ω) (p : F[X]) (hp : p ≠ 0) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     {γ : Ω // γ ∈ p.aroots Ω} ≃ {γ : Ω // Polynomial.eval γ (p.map φ₀) = 0} :=
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
@@ -3327,43 +3329,43 @@ of `φ₀` (i.e. `F`-algebra homomorphisms for the `F`-algebra structure on `Ω`
 an extension of `φ₀`) to the roots of `φ₀f` in `Ω`, where `φ₀f = f.map φ₀`.
 
 In particular, the number of extensions of `φ₀` to `F[α]` is the number of distinct roots
-of `φ₀f` in `Ω` (count via `Nat.card_congr sf2ExtEquiv`).
+of `φ₀f` in `Ω` (count via `Nat.card_congr algHomAdjoinIntegralEquivOfRingHom`).
 
 Construction: Mathlib's `IntermediateField.algHomAdjoinIntegralEquiv` (via the power basis
-of `F⟮α⟯`), reindexed by `FT.sf2RootsSubtypeEquiv` from multiset-roots to bare roots. -/
-noncomputable def sf2ExtEquiv (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+of `F⟮α⟯`), reindexed by `FT.aroots_subtypeEquivEvalMap` from multiset-roots to bare roots. -/
+noncomputable def algHomAdjoinIntegralEquivOfRingHom (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0} :=
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
   (IntermediateField.algHomAdjoinIntegralEquiv F hα).trans
-    (sf2RootsSubtypeEquiv F φ₀ (minpoly F α) (minpoly.ne_zero hα))
+    (aroots_subtypeEquivEvalMap F φ₀ (minpoly F α) (minpoly.ne_zero hα))
 
 /-- FT `sf2` (b): the bijection is `φ ↦ φ(α)`. -/
-theorem sf2ExtEquiv_apply (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+theorem algHomAdjoinIntegralEquivOfRingHom_apply (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
-      (sf2ExtEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α) := by
+      (algHomAdjoinIntegralEquivOfRingHom F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α) := by
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
   show ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
-    (sf2ExtEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
+    (algHomAdjoinIntegralEquivOfRingHom F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
   intro φ
-  simp only [sf2ExtEquiv, Equiv.trans_apply, IntermediateField.algHomAdjoinIntegralEquiv,
+  simp only [algHomAdjoinIntegralEquivOfRingHom, Equiv.trans_apply, IntermediateField.algHomAdjoinIntegralEquiv,
     Equiv.subtypeEquiv_apply, IntermediateField.adjoin.powerBasis_gen,
     PowerBasis.liftEquiv'_apply_coe, Equiv.refl_apply]
   rfl
 
 /-- FT `sf2` (b): the inverse sends a root `γ` of `φ₀(minpoly F α)` to the extension
 `F⟮α⟯ → Ω` of `φ₀` mapping `α` to `γ`. -/
-theorem sf2ExtEquiv_symm_gen (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
+theorem algHomAdjoinIntegralEquivOfRingHom_symm_gen (φ₀ : F →+* Ω) (hα : IsIntegral F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     ∀ (γ : {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0}),
-      (sf2ExtEquiv F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
+      (algHomAdjoinIntegralEquivOfRingHom F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
   show ∀ (γ : {γ : Ω // Polynomial.eval γ ((minpoly F α).map φ₀) = 0}),
-    (sf2ExtEquiv F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1
+    (algHomAdjoinIntegralEquivOfRingHom F φ₀ hα).symm γ (IntermediateField.AdjoinSimple.gen F α) = γ.1
   intro γ
   show (IntermediateField.algHomAdjoinIntegralEquiv F hα).symm
-    ((sf2RootsSubtypeEquiv F φ₀ (minpoly F α) (minpoly.ne_zero hα)).symm γ)
+    ((aroots_subtypeEquivEvalMap F φ₀ (minpoly F α) (minpoly.ne_zero hα)).symm γ)
     (IntermediateField.AdjoinSimple.gen F α) = γ.1
   rw [IntermediateField.algHomAdjoinIntegralEquiv_symm_apply_gen]
   rfl
@@ -3378,7 +3380,7 @@ coefficients.
 
 This is FT's `sf2` (a); it is FT `sf1` (a) (`FT.algHomAdjoinTranscendentalEquiv`) read
 over the `φ₀`-induced `F`-algebra structure on `Ω`. -/
-noncomputable def sf2ExtTranscendentalEquiv (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+noncomputable def algHomAdjoinTranscendentalEquivOfRingHom (φ₀ : F →+* Ω) (hα : Transcendental F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     (F⟮α⟯ →ₐ[F] Ω) ≃ {γ : Ω // Transcendental F γ} :=
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
@@ -3402,27 +3404,27 @@ theorem transcendental_toAlgebra_iff (φ₀ : F →+* Ω) (γ : Ω) :
     exact hae
 
 /-- FT `sf2` (a): the bijection is `φ ↦ φ(α)`. -/
-theorem sf2ExtTranscendentalEquiv_apply (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+theorem algHomAdjoinTranscendentalEquivOfRingHom_apply (φ₀ : F →+* Ω) (hα : Transcendental F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
-      (sf2ExtTranscendentalEquiv F φ₀ hα φ).1 =
+      (algHomAdjoinTranscendentalEquivOfRingHom F φ₀ hα φ).1 =
         φ (IntermediateField.AdjoinSimple.gen F α) := by
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
   show ∀ (φ : F⟮α⟯ →ₐ[F] Ω),
-    (sf2ExtTranscendentalEquiv F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
+    (algHomAdjoinTranscendentalEquivOfRingHom F φ₀ hα φ).1 = φ (IntermediateField.AdjoinSimple.gen F α)
   intro φ
   rfl
 
 /-- FT `sf2` (a): the inverse sends `γ` transcendental over `φ₀(F)` to the extension
 `F⟮α⟯ → Ω` of `φ₀` mapping `α` to `γ`. -/
-theorem sf2ExtTranscendentalEquiv_symm_gen (φ₀ : F →+* Ω) (hα : Transcendental F α) :
+theorem algHomAdjoinTranscendentalEquivOfRingHom_symm_gen (φ₀ : F →+* Ω) (hα : Transcendental F α) :
     let _ : Algebra F Ω := RingHom.toAlgebra φ₀
     ∀ (γ : {γ : Ω // Transcendental F γ}),
-      (sf2ExtTranscendentalEquiv F φ₀ hα).symm γ
+      (algHomAdjoinTranscendentalEquivOfRingHom F φ₀ hα).symm γ
         (IntermediateField.AdjoinSimple.gen F α) = γ.1 := by
   letI : Algebra F Ω := RingHom.toAlgebra φ₀
   show ∀ (γ : {γ : Ω // Transcendental F γ}),
-    (sf2ExtTranscendentalEquiv F φ₀ hα).symm γ
+    (algHomAdjoinTranscendentalEquivOfRingHom F φ₀ hα).symm γ
       (IntermediateField.AdjoinSimple.gen F α) = γ.1
   intro γ
   show (FT.liftAlgHomOfTranscendental F hα γ.2)
@@ -3439,28 +3441,28 @@ variable {F : Type*} [Field F] {f : F[X]}
 
 /-- FT `ft3` auxiliary: a nonzero polynomial stays nonzero under the (injective) algebra map
 into its canonical splitting field `Polynomial.SplittingField f`. -/
-private theorem ft3_map_ne_zero (hf : f ≠ 0) :
+private theorem map_splittingField_ne_zero (hf : f ≠ 0) :
     f.map (algebraMap F f.SplittingField) ≠ 0 :=
   (Polynomial.map_ne_zero_iff (algebraMap F f.SplittingField).injective).mpr hf
 
 /-- FT `ft3` auxiliary: the canonical splitting field `Polynomial.SplittingField f` splits `f`
 (field of the `IsSplittingField` structure of `f.SplittingField`). -/
-private theorem ft3_splits : (f.map (algebraMap F f.SplittingField)).Splits :=
+private theorem splits_splittingField_self : (f.map (algebraMap F f.SplittingField)).Splits :=
   (IsSplittingField.splittingField f).splits'
 
 /-- FT `ft3` auxiliary: a nonconstant irreducible polynomial has a root in its canonical
 splitting field (its map splits there and has positive degree, so its `roots` is nonempty). -/
-private theorem ft3_exists_root (hf : Irreducible f) :
+private theorem exists_root_splittingField_of_irreducible (hf : Irreducible f) :
     ∃ ζ, ζ ∈ (f.map (algebraMap F f.SplittingField)).roots := by
   have hfnd : f.natDegree ≠ 0 :=
     ((natDegree_pos_iff_degree_pos).mpr (degree_pos_of_irreducible hf)).ne'
   exact Multiset.exists_mem_of_ne_zero
-    (ft3_splits.roots_ne_zero (by rw [natDegree_map]; exact hfnd))
+    (splits_splittingField_self.roots_ne_zero (by rw [natDegree_map]; exact hfnd))
 
 /-- FT `ft3` auxiliary (source eq. (2) step): a common root `ζ` of `f` and `f'` in the
 splitting field of `f` obstructs separability, because mapping a Bézout identity
 `u · f + v · f' = 1` into the splitting field and evaluating at `ζ` gives `0 = 1`. -/
-private theorem ft3_notSeparable_of_commonRoot {ζ : f.SplittingField}
+private theorem not_separable_of_commonRoot {ζ : f.SplittingField}
     (hr1 : (f.map (algebraMap F f.SplittingField)).IsRoot ζ)
     (hr2 : ((f.map (algebraMap F f.SplittingField)).derivative).IsRoot ζ) :
     ¬ f.Separable := by
@@ -3484,7 +3486,7 @@ private theorem ft3_notSeparable_of_commonRoot {ζ : f.SplittingField}
 /-- FT `ft3` auxiliary: if `f' = 0` for a nonconstant irreducible `f`, then `F` has nonzero
 characteristic `p = ringChar F` and `f` is a polynomial in `X ^ p`, namely
 `f = (contract p f)(X ^ p)` (Mathlib's `Polynomial.contract`). -/
-private theorem ft3_char_of_derivative_eq_zero (hf : Irreducible f)
+private theorem irreducible_eq_comp_X_pow_of_derivative_eq_zero (hf : Irreducible f)
     (hf' : derivative f = 0) :
     ringChar F ≠ 0 ∧ ∃ g : F[X], f = g.comp (X ^ ringChar F) := by
   have hrc : ringChar F ≠ 0 := by
@@ -3498,13 +3500,13 @@ private theorem ft3_char_of_derivative_eq_zero (hf : Irreducible f)
 
 /-- FT `ft3` auxiliary: if `f = g(X ^ p)` with `p = ringChar F`, then `f' = 0`, since
 `(X ^ p)' = p · X ^ (p - 1) = 0` in characteristic `p`. -/
-private theorem ft3_derivative_eq_zero_of_comp (g : F[X])
+private theorem derivative_eq_zero_of_eq_comp_X_pow (g : F[X])
     (hgc : f = g.comp (X ^ ringChar F)) :
     derivative f = 0 := by
   have hpF : (ringChar F : F) = 0 := (ringChar.spec F (ringChar F)).mpr dvd_rfl
   rw [hgc, derivative_comp, derivative_X_pow, hpF, C_0, zero_mul, zero_mul]
 
-/-- **FT `ft3`** (source, Proposition ft3).  For a nonconstant irreducible polynomial
+/-- **FT `ft3`** (source, Proposition irreducible_multipleRoot_iff).  For a nonconstant irreducible polynomial
 `f ∈ F[X]` the following are equivalent:
 (a) `f` has a multiple root (in the canonical splitting field `Polynomial.SplittingField f`);
 (b) `gcd(f, f') ≠ 1`, i.e. `f` is not separable (Mathlib's `Polynomial.Separable`, defined
@@ -3521,7 +3523,7 @@ evaluates a Bézout identity for `(f, f')` to `0 = 1`.  (b) → (c): since `deg 
 (`Polynomial.separable_iff_derivative_ne_zero`), and then `f = g(X ^ ringChar F)` by
 Mathlib's `Polynomial.contract`.  (c) → (d): `f = g(X ^ p)` has `f' = 0`, so every root of
 `f` is multiple by eq. (2) again.  (d) → (a): `f` has a root in its splitting field. -/
-theorem ft3 (hf : Irreducible f) :
+theorem irreducible_multipleRoot_iff (hf : Irreducible f) :
     ((∃ ζ ∈ (f.map (algebraMap F f.SplittingField)).roots,
         1 < (f.map (algebraMap F f.SplittingField)).rootMultiplicity ζ) ↔
       ¬f.Separable) ∧
@@ -3534,13 +3536,13 @@ theorem ft3 (hf : Irreducible f) :
     (algebraMap F f.SplittingField).injective
   have hfm : f.map (algebraMap F f.SplittingField) ≠ 0 :=
     (Polynomial.map_ne_zero_iff hinj).mpr hf.ne_zero
-  have hroot := ft3_exists_root hf
+  have hroot := exists_root_splittingField_of_irreducible hf
   refine ⟨?_, ?_, ?_⟩
   · -- (a) ↔ (b)
     constructor
     · rintro ⟨ζ, hζ, hm⟩
       obtain ⟨hr1, hr2⟩ := (one_lt_rootMultiplicity_iff_isRoot hfm).1 hm
-      exact ft3_notSeparable_of_commonRoot hr1 hr2
+      exact not_separable_of_commonRoot hr1 hr2
     · intro hsep
       have hf' : derivative f = 0 := by
         by_contra h
@@ -3553,23 +3555,23 @@ theorem ft3 (hf : Irreducible f) :
   · -- (b) ↔ (c)
     constructor
     · intro hsep
-      exact ft3_char_of_derivative_eq_zero hf
+      exact irreducible_eq_comp_X_pow_of_derivative_eq_zero hf
         (by by_contra h; exact hsep ((separable_iff_derivative_ne_zero hf).2 h))
     · rintro ⟨hrc, g, hgc⟩ hsep
-      exact absurd (ft3_derivative_eq_zero_of_comp g hgc)
+      exact absurd (derivative_eq_zero_of_eq_comp_X_pow g hgc)
         ((separable_iff_derivative_ne_zero hf).1 hsep)
   · -- (c) ↔ (d)
     constructor
     · rintro ⟨hrc, g, hgc⟩ ζ hζ
-      have hf' := ft3_derivative_eq_zero_of_comp g hgc
+      have hf' := derivative_eq_zero_of_eq_comp_X_pow g hgc
       rw [one_lt_rootMultiplicity_iff_isRoot hfm]
       exact ⟨(mem_roots' |>.1 hζ).2, by
         rw [derivative_map, hf', Polynomial.map_zero]; exact eval_zero⟩
     · intro hd
       obtain ⟨ζ, hζ⟩ := hroot
       obtain ⟨hr1, hr2⟩ := (one_lt_rootMultiplicity_iff_isRoot hfm).1 (hd ζ hζ)
-      have hns := ft3_notSeparable_of_commonRoot hr1 hr2
-      exact ft3_char_of_derivative_eq_zero hf
+      have hns := not_separable_of_commonRoot hr1 hr2
+      exact irreducible_eq_comp_X_pow_of_derivative_eq_zero hf
         (by by_contra h; exact hns ((separable_iff_derivative_ne_zero hf).2 h))
 
 end FT3
@@ -3982,29 +3984,27 @@ theorem card_algHom_adjoin_le {F K L : Type*} [Field F] [Field K] [Field L] [Alg
   rw [Polynomial.natDegree_map (algebraMap F L)] at h1
   exact h1
 
-private theorem sf8_algebraMap_injective_of_field : Function.Injective (algebraMap A B) :=
-  fun a b h => by
-    by_contra hne
-    have hne' : a - b ≠ 0 := sub_ne_zero_of_ne hne
-    have h0 : algebraMap A B (a - b) = 0 := by rw [map_sub, h, sub_self]
-    have h1 : (1 : B) = 0 := by
-      have e1 : algebraMap A B ((a - b)⁻¹ * (a - b)) = 1 := by
-        rw [inv_mul_cancel₀ hne', map_one]
-      rw [← e1, map_mul, h0, mul_zero]
-    exact absurd h1 (one_ne_zero)
-
+/-- Auxiliary for FT `sf8` (i): if the structure map `A → B` of a field extension is
+surjective, then `[B : A] = 1`.  Proof idea: the structure map is injective (fields) and
+surjective, hence a linear equivalence `A ≃ B`; finrank transfers, and `finrank A A = 1`. -/
 private theorem finrank_eq_one_of_surjective (hsurj : Function.Surjective (algebraMap A B)) :
     Module.finrank A B = 1 :=
   ((LinearEquiv.ofBijective
       ((IsScalarTower.toAlgHom A A B : A →ₐ[A] B).toLinearMap)
-      ⟨sf8_algebraMap_injective_of_field, hsurj⟩).symm.finrank_eq).trans (Module.finrank_self A)
+      ⟨algebraMap_injective_of_field, hsurj⟩).symm.finrank_eq).trans (Module.finrank_self A)
 
+/-- Auxiliary for FT `sf8` (i): if the structure map `A → B` is surjective, the
+`A`-algebra homomorphisms out of `B` are pairwise equal.  Proof is trivial: every `b` is
+`algebraMap A B a`, and two `A`-algebra homomorphisms agree on that image. -/
 private theorem subsingleton_algHom_of_surjective (hsurj : Function.Surjective (algebraMap A B)) :
     Subsingleton (B →ₐ[A] C) :=
   ⟨fun f g => AlgHom.ext fun b => by
     obtain ⟨a, rfl⟩ := hsurj b
     rw [f.commutes a, g.commutes a]⟩
 
+/-- Auxiliary for FT `sf8` (i): if `B` is finite-dimensional over `A`, it is finite-dimensional
+over an intermediate field `I`.  Proof idea: a finite `A`-spanning set of `B` also `I`-spans
+`B` (the `I`-span contains the `A`-span; `fg_top`, `Submodule.span_le`). -/
 private theorem finiteDimensional_of_tower (I : IntermediateField A B) [FiniteDimensional A B] :
     FiniteDimensional ↥I B := by
   obtain ⟨s, hs⟩ := (inferInstance : Module.Finite A B).fg_top
@@ -4121,8 +4121,16 @@ theorem count_of_fiber_bound (y : B) (hyint : IsIntegral A y)
 universe u v
 
 /-- **FT `sf8` (i), core**: the number of `A`-algebra homomorphisms from a finite-dimensional
-field extension `B / A` into any field `C` is at most `[B : A]`. -/
-theorem natCard_algHom_le_finrank : ∀ n : ℕ, ∀ (A B : Type u) (C : Type v) [Field A] [Field B]
+field extension `B / A` into any field `C` is at most `[B : A]`.
+
+Proof idea: strong induction on `[B : A]`.  If `algebraMap A B` is surjective, `B = A`
+(`finrank = 1`) and the homomorphisms are subsingleton; otherwise pick `y : B` outside the
+image of `A` and decompose the homomorphisms by their restriction to `A⟮y⟯` (fiber
+decomposition): there are at most `deg (minpoly A y)` many restrictions (the one-step bound
+of the FT `sf7` technique, via the power-basis root correspondence), each fiber has at most
+`[B : A⟮y⟯]` elements (induction hypothesis at the strictly smaller degree), and the tower
+formula multiplies the two bounds to `[B : A]`. -/
+theorem natCard_algHom_le_of_finrank_eq : ∀ n : ℕ, ∀ (A B : Type u) (C : Type v) [Field A] [Field B]
     [Field C] [Algebra A B] [Algebra A C] [FiniteDimensional A B], Module.finrank A B = n →
     Nat.card (B →ₐ[A] C) ≤ n := by
   classical
@@ -4201,7 +4209,7 @@ variable {F E L : Type*} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F 
 
 /-- **FT `sf8` (i)**: if `E` is finite over `F`, then the number of `F`-algebra homomorphisms
 `E → L` is at most `[E : F]`. -/
-theorem sf8_natCard_algHom_le [FiniteDimensional F E] :
+theorem natCard_algHom_le_finrank [FiniteDimensional F E] :
     Nat.card (E →ₐ[F] L) ≤ Module.finrank F E := by
   classical
   by_cases hsurj : Function.Surjective (algebraMap F E)
@@ -4218,13 +4226,13 @@ theorem sf8_natCard_algHom_le [FiniteDimensional F E] :
     refine count_of_fiber_bound y hyint hyout (C := L) ?_
     intro ψ₀ instAC instST
     haveI := finiteDimensional_of_tower (IntermediateField.adjoin F {y})
-    exact natCard_algHom_le_finrank (Module.finrank ↥(IntermediateField.adjoin F {y}) E)
+    exact natCard_algHom_le_of_finrank_eq (Module.finrank ↥(IntermediateField.adjoin F {y}) E)
       ↥(IntermediateField.adjoin F {y}) E L rfl
 
 set_option maxHeartbeats 1000000 in
 /-- Helper for FT `sf8` (ii): each `minpoly F x` splits over the splitting field over `L` of
 `f.map (algebraMap F L)`. -/
-theorem sf8_minpoly_splits (s : Finset E) (f : F[X]) (hfmon : f.Monic)
+theorem splits_minpoly_of_dvd_monic_prod (s : Finset E) (f : F[X]) (hfmon : f.Monic)
     (hfdvd : ∀ x ∈ s, minpoly F x ∣ f) (x : E) (hx : x ∈ s) :
     ((minpoly F x).map
       (algebraMap F (Polynomial.SplittingField (f.map (algebraMap F L))))).Splits := by
@@ -4248,7 +4256,7 @@ theorem sf8_minpoly_splits (s : Finset E) (f : F[X]) (hfmon : f.Monic)
 
 /-- Transport for FT `sf8` (ii): an `F`-algebra homomorphism out of `↥(Algebra.adjoin F ↑s)`
 extends to an `F`-algebra homomorphism out of `E` when `E = Algebra.adjoin F ↑s`. -/
-theorem sf8_hom_of_adjoin_eq_top (s : Finset E)
+theorem nonempty_algHom_of_adjoin_eq_top (s : Finset E)
     (htop : Algebra.adjoin F (s : Set E) = ⊤) (Ω : Type (max u_1 u_2 u_3)) [Field Ω]
     [Algebra F Ω]
     (h : Nonempty (↥(Algebra.adjoin F (s : Set E)) →ₐ[F] Ω)) : Nonempty (E →ₐ[F] Ω) := by
@@ -4272,9 +4280,9 @@ Proof idea (FT): `E = F[α₁, …, α_m]` with the `αᵢ` the images of a basi
 let `f = ∏ minpoly F αᵢ ∈ F[X]` and `Ω = SplittingField (f.map (algebraMap F L))`.  Then `Ω` is
 finite over `L` (a splitting field), each `minpoly F αᵢ` splits in `Ω` (it divides `f`), so
 `Polynomial.lift_of_splits` gives an `F`-homomorphism out of `F[α₁, …, α_m] = E` into `Ω`
-(transported out of the adjoin by `FT.sf8_hom_of_adjoin_eq_top`).  The instance fields are
+(transported out of the adjoin by `FT.nonempty_algHom_of_adjoin_eq_top`).  The instance fields are
 supplied by hand (concrete `Ω` first, so instance synthesis never runs on a metavariable). -/
-theorem sf8_ii {F E L : Type u} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F L]
+theorem exists_algHom_of_finiteDimensional {F E L : Type u} [Field F] [Field E] [Field L] [Algebra F E] [Algebra F L]
     [FiniteDimensional F E] :
     ∃ (Ω : Type u) (_ : Field Ω) (_ : Algebra L Ω) (_ : Algebra F Ω)
         (_ : IsScalarTower F L Ω), FiniteDimensional L Ω ∧ Nonempty (E →ₐ[F] Ω) := by
@@ -4295,12 +4303,12 @@ theorem sf8_ii {F E L : Type u} [Field F] [Field E] [Field L] [Algebra F E] [Alg
     inferInstance, inferInstance, ?_, ?_⟩
   · exact Polynomial.IsSplittingField.finiteDimensional
       (Polynomial.SplittingField (f.map (algebraMap F L))) (f.map (algebraMap F L))
-  · refine sf8_hom_of_adjoin_eq_top _ htop'
+  · refine nonempty_algHom_of_adjoin_eq_top _ htop'
       (Polynomial.SplittingField (f.map (algebraMap F L)))
       (Polynomial.lift_of_splits
         (Set.range (Module.Free.chooseBasis F E)).toFinset ?_)
     intro x hx
-    refine ⟨hint x, sf8_minpoly_splits
+    refine ⟨hint x, splits_minpoly_of_dvd_monic_prod
       (Set.range (Module.Free.chooseBasis F E)).toFinset f ?_
       (fun x hx => Finset.dvd_prod_of_mem _ hx) x hx⟩
     exact Polynomial.monic_prod_of_monic _ (fun x => minpoly F x)
