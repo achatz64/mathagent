@@ -79,6 +79,19 @@ kill or re-import the service. Every response also carries `repl` and
 `generation` — a change between consecutive responses makes a respawn
 detectable from the response alone.
 
+## Build/REPL memory discipline (added 2026-09-19 after 8 OOM crash-respawns)
+
+A loaded REPL holds ~7.4 GB RSS; `lake build Target` re-elaborates the full
+target file (multi-GB transient). Together they exceed a 9.9 GB host, and the
+kernel kills the REPL — destroying every live worker branch (see
+BUILDER_FEEDBACK_OOM_CRASHES.md). Main-agent rules:
+
+- Never run `lake build` while workers hold live branches. Check
+  `lean_repl_status`/worker states first; sequence builds between waves.
+- Batch integration appends; build once per wave, not per block.
+- During a wave, watch `restarts.crash` — if crashes cluster, reduce
+  concurrency (the crash family is memory pressure, not worker error).
+
 ## Monitoring
 
 `lean_repl_status` and each response's `health` field report queue age,
