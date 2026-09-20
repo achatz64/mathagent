@@ -3506,6 +3506,17 @@ private theorem derivative_eq_zero_of_eq_comp_X_pow (g : F[X])
   have hpF : (ringChar F : F) = 0 := (ringChar.spec F (ringChar F)).mpr dvd_rfl
   rw [hgc, derivative_comp, derivative_X_pow, hpF, C_0, zero_mul, zero_mul]
 
+/-!
+AUDIT-GAP (documentation/provenance-hook audit, delta audit of commit 022edf4):
+this docstring cites the source proposition as "Proposition
+`irreducible_multipleRoot_iff`", i.e. as this declaration's own Lean name, but
+the source identifier is Proposition `ft3` (FT.tex, `\begin{proposition}
+\label{ft3}`).  The remediation rename propagated into the source-hook slot of
+the docstring and thus misattributes the source reference that the provenance
+`source-hooks = ["labels"]` convention relies on; the stable TeX label should
+read here, e.g. "(source, Proposition ft3)".
+-/
+
 /-- **FT `ft3`** (source, Proposition irreducible_multipleRoot_iff).  For a nonconstant irreducible polynomial
 `f ∈ F[X]` the following are equivalent:
 (a) `f` has a multiple root (in the canonical splitting field `Polynomial.SplittingField f`);
