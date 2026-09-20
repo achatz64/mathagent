@@ -3517,7 +3517,7 @@ the docstring and thus misattributes the source reference that the provenance
 read here, e.g. "(source, Proposition ft3)".
 -/
 
-/-- **FT `ft3`** (source, Proposition irreducible_multipleRoot_iff).  For a nonconstant irreducible polynomial
+/-- **FT `ft3`** (source, Proposition `ft3`, FT.tex).  For a nonconstant irreducible polynomial
 `f ∈ F[X]` the following are equivalent:
 (a) `f` has a multiple root (in the canonical splitting field `Polynomial.SplittingField f`);
 (b) `gcd(f, f') ≠ 1`, i.e. `f` is not separable (Mathlib's `Polynomial.Separable`, defined
