@@ -116,6 +116,43 @@ function snapshot(worker: Worker) {
   };
 }
 
+// Validated timeout for the wait tools: undefined = block until completion
+// (historic behavior), otherwise 1..3600 s. On expiry the caller gets a
+// timeout marker; watched workers stay live and untouched, and completions
+// remain undelivered ("delivered exactly once" is preserved).
+function checkedTimeout(seconds: number | undefined): number | undefined {
+  if (seconds === undefined) return undefined;
+  if (!Number.isFinite(seconds) || seconds < 1 || seconds > 3600) {
+    throw new Error(`timeoutSeconds must be a number between 1 and 3600, got ${seconds}`);
+  }
+  return Math.round(seconds);
+}
+
+function timeoutDetails(
+  ctx: { cwd: string },
+  watched: Worker[],
+  elapsedSeconds: number,
+): Record<string, unknown> {
+  return {
+    type: "timeout",
+    watched: watched.map((worker) => worker.id),
+    elapsedSeconds,
+    workers: watched.map(snapshot),
+    leanRepl: getSharedReplStatus(`${ctx.cwd}/lean`),
+  };
+}
+
+function timeoutResult(details: Record<string, unknown>) {
+  const watched = (details.watched as string[]).join(", ");
+  return {
+    content: [{
+      type: "text" as const,
+      text: `timeout: no watched worker completed within ${details.elapsedSeconds}s (watched: ${watched}); workers stay live and untouched — re-issue the wait to continue watching`,
+    }],
+    details,
+  };
+}
+
 export default function (pi: ExtensionAPI) {
   const workers = new Map<string, Worker>();
   const pendingNotifications = new Map<string, ReturnType<typeof setTimeout>>();
@@ -281,16 +318,42 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "subagent_wait",
     label: "Wait for subagent",
-    description: "Wait for a helper to finish; progress is pushed through tool updates.",
-    parameters: Type.Object({ id: Type.String() }),
-    async execute(_id, params, signal, onUpdate) {
+    description: "Wait for a helper to finish; progress is pushed through tool updates. Optional timeoutSeconds (1-3600) returns a timeout marker with a health snapshot instead of blocking; the worker stays live and its completion stays undelivered.",
+    parameters: Type.Object({
+      id: Type.String(),
+      timeoutSeconds: Type.Optional(Type.Number({
+        description: "Return a timeout result instead of blocking longer than this many seconds (1-3600)",
+        minimum: 1,
+        maximum: 3600,
+      })),
+    }),
+    async execute(_id, params, signal, onUpdate, ctx) {
       const worker = workers.get(params.id);
       if (!worker) throw new Error(`Unknown worker ${params.id}`);
+      const timeoutSeconds = checkedTimeout(params.timeoutSeconds);
       const update = () => onUpdate?.({ content: [{ type: "text", text: JSON.stringify(snapshot(worker), null, 2) }], details: snapshot(worker) });
       worker.listeners.add(update);
       const abort = () => worker.session.abort();
       signal?.addEventListener("abort", abort, { once: true });
-      try { await worker.run; } finally {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        let outcome: "completed" | "timeout" = "completed";
+        if (timeoutSeconds !== undefined) {
+          outcome = await Promise.race([
+            worker.run.then(() => "completed" as const),
+            new Promise<"timeout">((resolve) => {
+              timer = setTimeout(() => resolve("timeout"), timeoutSeconds * 1000);
+            }),
+          ]);
+        } else {
+          await worker.run;
+        }
+        if (outcome === "timeout") {
+          // No worker mutation: the completion (if it lands later) stays fresh.
+          return timeoutResult(timeoutDetails(ctx, [worker], timeoutSeconds!));
+        }
+      } finally {
+        if (timer) clearTimeout(timer);
         worker.listeners.delete(update);
         signal?.removeEventListener("abort", abort);
       }
@@ -304,11 +367,16 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "subagent_wait_any",
     label: "Wait for any subagent",
-    description: "Wait until the first selected helper finishes, without an all-workers barrier.",
+    description: "Wait until the first selected helper finishes, without an all-workers barrier. Optional timeoutSeconds (1-3600) returns a timeout marker with a health snapshot instead of blocking; workers stay live and completions stay undelivered.",
     parameters: Type.Object({
       ids: Type.Optional(Type.Array(Type.String(), { description: "Workers to watch; defaults to all workers" })),
+      timeoutSeconds: Type.Optional(Type.Number({
+        description: "Return a timeout result instead of blocking longer than this many seconds (1-3600)",
+        minimum: 1,
+        maximum: 3600,
+      })),
     }),
-    async execute(_id, params, signal, onUpdate) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       const selected = params.ids
         ? params.ids.map((id) => {
             const worker = workers.get(id);
@@ -317,6 +385,7 @@ export default function (pi: ExtensionAPI) {
           })
         : [...workers.values()];
       if (selected.length === 0) throw new Error("No workers selected");
+      const timeoutSeconds = checkedTimeout(params.timeoutSeconds);
       const update = () => {
         const states = selected.map(snapshot);
         onUpdate?.({ content: [{ type: "text", text: JSON.stringify(states, null, 2) }], details: states });
@@ -329,6 +398,7 @@ export default function (pi: ExtensionAPI) {
       });
       const isTerminal = (worker: Worker) =>
         worker.state === "done" || worker.state === "failed" || worker.state === "aborted";
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         // Prefer a completion that has not been delivered yet over a live
         // worker; never replay an already-delivered completion.
@@ -344,10 +414,20 @@ export default function (pi: ExtensionAPI) {
               details: selected.map(snapshot),
             };
           }
-          worker = await Promise.race([
-            ...live.map((candidate) => candidate.run.then(() => candidate)),
-            aborted,
-          ]);
+          const races: Promise<Worker | undefined>[] = live.map((candidate) => candidate.run.then(() => candidate));
+          if (timeoutSeconds !== undefined) {
+            // Resolves to undefined on expiry; a worker completion always
+            // resolves to a Worker, so undefined unambiguously means timeout.
+            races.push(new Promise<undefined>((resolve) => {
+              timer = setTimeout(() => resolve(undefined), timeoutSeconds * 1000);
+            }));
+          }
+          const raced = await Promise.race([...races, aborted]);
+          if (raced === undefined) {
+            // No worker mutation: completions stay fresh for the next wait.
+            return timeoutResult(timeoutDetails(ctx, selected, timeoutSeconds!));
+          }
+          worker = raced;
         }
         worker.delivered = true;
         if (worker.state === "failed") throw new Error(`${worker.id} (${worker.label}): ${worker.error ?? "Subagent failed"}`);
@@ -357,6 +437,7 @@ export default function (pi: ExtensionAPI) {
           details: snapshot(worker),
         };
       } finally {
+        if (timer) clearTimeout(timer);
         for (const worker of selected) worker.listeners.delete(update);
         if (abortListener) signal?.removeEventListener("abort", abortListener);
       }

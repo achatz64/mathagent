@@ -91,6 +91,12 @@ BUILDER_FEEDBACK_OOM_CRASHES.md). Main-agent rules:
 - Batch integration appends; build once per wave, not per block.
 - During a wave, watch `restarts.crash` — if crashes cluster, reduce
   concurrency (the crash family is memory pressure, not worker error).
+- `lean_repl_status` now detects concurrent heavy builds itself: a
+  `heavyBuildProcesses` field lists `lake`/`lean` processes working in `lean/`
+  outside the REPL's process group (heaviest first, with pid, RSS, cmdline),
+  and a warning appears once their combined RSS exceeds ~1 GB. The REPL's own
+  `lake env` wrapper and REPL binary are excluded (same process group). Use
+  this as the build/REPL coexistence check before deciding to build.
 
 ## Monitoring
 

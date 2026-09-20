@@ -105,11 +105,13 @@ just to occupy a slot.
 - **Checkpoint cadence.** Check worker states and shared-REPL restart counters
   every ~15 minutes; ping any worker that has not emitted verified text in ~10
   minutes to emit what it has. Every new REPL crash is analyzed immediately
-  (service evidence + worker testimony) before continuing. NOTE: the wait tools
-  have no timeout parameter yet (BUILDER_FEEDBACK_SUBAGENT_WAIT_TIMEOUT.md);
-  until delivered, checkpoints fall to user-turn boundaries — treat every return
-  of control as a mandatory checkpoint, and prefer waiting on the earliest-likely
-  worker so completions trigger the wake-up.
+  (service evidence + worker testimony) before continuing. Timed checkpoints
+  are available: `subagent_wait` and `subagent_wait_any` accept an optional
+  `timeoutSeconds` (1–3600). On expiry they return a `type: "timeout"` result
+  (with worker snapshots and shared-REPL health) without erroring; workers
+  stay live and their completions stay undelivered — re-issue the wait to
+  keep watching. This makes the 15-minute checkpoint, 10-minute ping, and
+  30-minute-rule loops executable without user intervention.
 - **Mid-flight steering.** Workers regress to bad habits (consolidated
   mega-calls, hoarding) after several turns. Read every progress-stream update
   for strategy drift and steer in the same turn it is observed; reminders are not
@@ -158,9 +160,13 @@ REPL warning before adding work or starting a build.
   as soon as one worker completes, allowing immediate review and follow-up;
   every completion is delivered exactly once — an already-delivered result is
   never replayed, and if every watched worker's result was already delivered,
-  it waits on the live ones or reports "no uncollected completions". The
+  it waits on the live ones or reports "no uncollected completions". With
+  `timeoutSeconds`, expiry returns a `type: "timeout"` result (watched ids,
+  elapsed seconds, worker snapshots, shared-REPL health) instead of blocking;
+  nothing is consumed, so re-issue the wait afterwards. The
   result text begins with the worker id and task label.
-- Use `subagent_wait` when watching one worker. Never wrap several waits in
+- Use `subagent_wait` when watching one worker (also supports
+  `timeoutSeconds`, same semantics as for `subagent_wait_any`). Never wrap several waits in
   `multi_tool_use.parallel`: that creates an all-workers barrier and delays
   handling a worker that completed early. Never poll through Bash.
   After every `subagent_send`, register another wait before ending the turn;

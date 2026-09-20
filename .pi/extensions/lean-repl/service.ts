@@ -258,6 +258,8 @@ export type SharedReplStatus = {
   processGroupRssKiB: number;
   projectReplProcesses: number;
   unexpectedProcessGroups: number[];
+  /** lake/lean build processes in the project, heaviest first (OOM-risk signal). */
+  heavyBuildProcesses: HeavyBuildProcess[];
   warnings: string[];
   initialized: boolean;
   /** True only after the root environment passed its readiness probes. */
@@ -315,6 +317,48 @@ function isProjectReplProcess(cwd: string, cmdline: string, projectDir: string):
   // pins the process to this project.
   return cmdline.includes(".lake/packages/repl/.lake/build/bin/repl");
 }
+
+type HeavyBuildProcess = { pid: number; rssKiB: number; cmdline: string };
+
+/**
+ * Heavy build processes (lake/lean) running in the project directory and
+ * outside the REPL's process group. Each `lake build` re-elaborates the
+ * target against Mathlib — a transient multi-GB allocation — while a loaded
+ * REPL generation holds several GB resident; on a memory-constrained host the
+ * kernel OOM killer then targets the largest process, which is the REPL
+ * (observed as SIGKILL crash clusters during integration builds).
+ */
+function projectHeavyBuildProcesses(projectDir: string, ownGroup: number | undefined): HeavyBuildProcess[] {
+  if (process.platform !== "linux") return [];
+  const builds: HeavyBuildProcess[] = [];
+  try {
+    for (const name of readdirSync("/proc")) {
+      if (!/^\d+$/.test(name)) continue;
+      try {
+        const cmdline = readFileSync(`/proc/${name}/cmdline`, "utf8").replace(/\0+$/, "");
+        const argv = cmdline.split("\0").filter(Boolean);
+        if (argv.length === 0) continue;
+        const base = argv[0].split("/").pop() ?? "";
+        if (base !== "lake" && base !== "lean") continue;
+        if (readlinkSync(`/proc/${name}/cwd`) !== projectDir) continue;
+        const stat = readFileSync(`/proc/${name}/stat`, "utf8");
+        const tail = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/);
+        if (ownGroup !== undefined && Number(tail[2]) === ownGroup) continue;
+        const status = readFileSync(`/proc/${name}/status`, "utf8");
+        const rss = status.match(/^VmRSS:\s+(\d+)\s+kB$/m);
+        const joined = argv.join(" ");
+        builds.push({
+          pid: Number(name),
+          rssKiB: rss ? Number(rss[1]) : 0,
+          cmdline: joined.length > 120 ? `${joined.slice(0, 117)}…` : joined,
+        });
+      } catch { /* process exited while /proc was being read */ }
+    }
+  } catch { /* /proc unavailable */ }
+  return builds.sort((a, b) => b.rssKiB - a.rssKiB);
+}
+
+export { projectHeavyBuildProcesses };
 
 type ForeignGroup = { group: number; pids: number[]; rssKiB: number };
 
@@ -443,6 +487,15 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     );
   }
   if (entry.restartCount > 0) warnings.push(`${entry.restartCount} automatic REPL restart(s)`);
+  const builds = projectHeavyBuildProcesses(entry.projectDir, entry.repl?.pid);
+  const buildRssKiB = builds.reduce((sum, b) => sum + b.rssKiB, 0);
+  if (buildRssKiB >= 1024 * 1024) {
+    const detail = builds.slice(0, 3).map((b) => `pid ${b.pid} (~${Math.round(b.rssKiB / 1024)} MB: ${b.cmdline})`).join(", ");
+    warnings.push(
+      `heavy build process(es) in this project (~${Math.round(buildRssKiB / 1024)} MB RSS): ${detail}` +
+      " — concurrent builds can OOM-kill the REPL; sequence builds between worker waves",
+    );
+  }
   const down = downWarning(entry);
   if (down) {
     if (entry.downSince === undefined && !entry.repl) entry.downSince = Date.now();
@@ -464,6 +517,7 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     processGroupRssKiB: usage.rssKiB,
     projectReplProcesses: usage.projectReplProcesses,
     unexpectedProcessGroups: usage.unexpectedProcessGroups,
+    heavyBuildProcesses: builds,
     warnings,
     initialized: !!(entry.repl && entry.repl.alive),
     loaded: !!(entry.repl && entry.repl.alive && entry.loaded),
