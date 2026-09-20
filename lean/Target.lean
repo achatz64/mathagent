@@ -3506,9 +3506,6 @@ private theorem derivative_eq_zero_of_eq_comp_X_pow (g : F[X])
   have hpF : (ringChar F : F) = 0 := (ringChar.spec F (ringChar F)).mpr dvd_rfl
   rw [hgc, derivative_comp, derivative_X_pow, hpF, C_0, zero_mul, zero_mul]
 
-marker block (both paragraphs are removable only together by the remediator;
-the second paragraph is this marker).
--/
 
 /-- **FT `ft3`** (source, Proposition `ft3`, FT.tex).  For a nonconstant irreducible polynomial
 `f ∈ F[X]` the following are equivalent:
