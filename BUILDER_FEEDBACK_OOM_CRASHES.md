@@ -6,9 +6,9 @@
 > combined RSS; builder record: BUILDER_NOTES_SUBAGENT_WAIT_TIMEOUT.md (same commit
 > as the wait-timeout feature). Main-side sequencing discipline (no builds during
 > live waves, batched per-wave builds) has held since adoption — no OOM crash since
-> 2026-09-19. Remaining: remedy 1 (system-level OOM preference) needs user
-> privileges — left to the user; remedy 3 (build-side memory cap) not built and
-> currently considered unnecessary given 2 + discipline.
+> 2026-09-19. Remaining: remedy 1 (system-level OOM preference) — REJECTED by
+> user decision (see below), not merely deferred; remedy 3 (build-side memory
+> cap) not built and currently considered unnecessary given 2 + discipline.
 
 Reported by: main formalization agent (FT session, 2026-09-19)
 
@@ -33,6 +33,17 @@ Worker conclusions:
 - Not fixable via oom_score_adj (protected lowering needs CAP_SYS_RESOURCE;
   verified), no user systemd bus (systemd-run --user fails; verified), no
   cgroup memory limit present.
+
+## Decision (user, 2026-09-25): no system-wide fixes
+
+The agent ensemble (main + sub-agents + auditor + builder with their tools,
+extensions, and config) must be reproducible from a git clone plus the agents'
+work afterwards. A host-level OOM preference (earlyoom/oomd, privileged
+wrappers, oom_score_adj) is invisible to that reproduction path — a fresh
+clone on a new host would not have it — and is therefore REJECTED, not merely
+deferred. Consequence for this file: remedy 3 (build-side memory cap,
+in-repo builder work) is the only remaining hard-protection candidate;
+remedy 2 + main-side sequencing discipline are the operative mitigations.
 
 ## Goal
 
