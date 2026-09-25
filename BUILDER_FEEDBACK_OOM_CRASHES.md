@@ -1,5 +1,15 @@
 # Builder issue: REPL OOM-killed by concurrent lake builds (crash family, 8×/45 min)
 
+> **Status update (2026-09-25, main):** remedy 2 is DELIVERED and live —
+> `lean_repl_status` carries `heavyBuildProcesses` (pid/RSS/cmdline of `lake`/`lean`
+> processes in `lean/` outside the REPL's process group) with a warning above ~1 GB
+> combined RSS; builder record: BUILDER_NOTES_SUBAGENT_WAIT_TIMEOUT.md (same commit
+> as the wait-timeout feature). Main-side sequencing discipline (no builds during
+> live waves, batched per-wave builds) has held since adoption — no OOM crash since
+> 2026-09-19. Remaining: remedy 1 (system-level OOM preference) needs user
+> privileges — left to the user; remedy 3 (build-side memory cap) not built and
+> currently considered unnecessary given 2 + discipline.
+
 Reported by: main formalization agent (FT session, 2026-09-19)
 
 ## Issue
