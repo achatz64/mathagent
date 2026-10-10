@@ -6825,9 +6825,12 @@ theorem zeta7_t_cubic_eq_zero {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitive
 /-- FT `ft19` (the `√-7` subfield claim): for `β := ζ + ζ² + ζ⁴` and `β' := ζ³ + ζ⁵ + ζ⁶`
 (the image of `β` under `σ : ζ ↦ ζ³`), `(β - β')² = -7`, i.e. `(β - β')² + 7 = 0`.
 
-Proof idea (source): `β + β' = -1` (the sum of the nontrivial 7th roots splits in two) and
-`ββ' = 2` (each of `ζ, ζ², ζ⁴` times each of `ζ³, ζ⁵, ζ⁶` reduces modulo `ζ⁷ = 1`, giving
-the full sum plus `3`); then `(β - β')² = (β + β')² - 4ββ' = 1 - 8 = -7`. -/
+The source asserts the identity `(β - β')² = -7` without proof ("Then
+`(β-β')² = -7`. Hence ..."); the derivation is supplied by the formalization, in
+the style of the source's adjacent `α₁α₂α₃ = 1` computation: `β + β' = -1` (the sum
+of the nontrivial 7th roots splits in two; the identity is the source's) and
+`ββ' = 2` (each of `ζ, ζ², ζ⁴` times each of `ζ³, ζ⁵, ζ⁶` reduces modulo `ζ⁷ = 1`,
+giving the full sum plus `3`); then `(β - β')² = (β + β')² - 4ββ' = 1 - 8 = -7`. -/
 theorem zeta7_sqrt_neg_seven {E : Type u} [Field E] {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
     (ζ + ζ ^ 2 + ζ ^ 4 - (ζ ^ 3 + ζ ^ 5 + ζ ^ 6)) ^ 2 + 7 = 0 := by
   have h1 : ζ ^ 7 = 1 := hζ.pow_eq_one
