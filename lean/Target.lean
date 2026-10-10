@@ -12237,6 +12237,257 @@ theorem minpoly_permRoot (σ : Equiv.Perm (Fin m)) (α : Fin m → B) (τ : B �
 end DedekindTheta
 
 
+/-! ## FT chapter IV §8: integrality of the θ-element over F(T) and the linear
+independence of the indeterminates (van der Waerden cg25 chain, item (ii)). -/
+
+section CgDedekindInt
+
+/-- FT IV §8 (van der Waerden θ-trick, linear independence of the indeterminates):
+the elements `X i` of `MvPolynomial (Fin m) R` are linearly independent over `R`:
+if `∑ i, X i * C (c i) = 0` then every coefficient `c i` vanishes.
+Proof idea: evaluate at the indicator point `j ↦ if j = i then 1 else 0`; the
+evaluation of the sum is `c i`, while the evaluation of `0` is `0`. -/
+theorem sum_X_mul_C_eq_zero {R : Type*} [CommRing R] {m : ℕ} {c : Fin m → R}
+    (h : ∑ i, (MvPolynomial.X i : MvPolynomial (Fin m) R) * MvPolynomial.C (c i) = 0) :
+    ∀ i, c i = 0 := by
+  intro i
+  have he : MvPolynomial.eval (fun j => if j = i then (1 : R) else 0)
+      (∑ j, (MvPolynomial.X j : MvPolynomial (Fin m) R) * MvPolynomial.C (c j)) = 0 := by
+    rw [h]; rfl
+  rw [map_sum (MvPolynomial.eval (fun j => if j = i then (1 : R) else 0))] at he
+  simp only [MvPolynomial.eval_mul, MvPolynomial.eval_X, MvPolynomial.eval_C] at he
+  have h2 : ∀ j : Fin m, (fun j => if j = i then (1 : R) else 0) j * c j
+      = if j = i then c j else 0 := by
+    intro j; by_cases hj : j = i <;> simp [hj]
+  rw [Finset.sum_congr rfl (fun j _ => h2 j)] at he
+  rw [Finset.sum_ite_eq' Finset.univ i c] at he
+  simpa using he
+
+/-- FT IV §8 (van der Waerden θ-trick): equality of the weighted sums determines the
+weights: if `∑ i, X i * C (c i) = ∑ i, X i * C (d i)` in `MvPolynomial (Fin m) R`
+then `c = d`. Proof idea: evaluate the equality at the indicator point
+`j ↦ if j = i then 1 else 0`; both sides reduce to `c i` and `d i`. -/
+theorem sum_X_mul_C_inj {R : Type*} [CommRing R] {m : ℕ} {c d : Fin m → R}
+    (h : ∑ i, (MvPolynomial.X i : MvPolynomial (Fin m) R) * MvPolynomial.C (c i)
+        = ∑ i, (MvPolynomial.X i : MvPolynomial (Fin m) R) * MvPolynomial.C (d i)) :
+    c = d := by
+  funext i
+  have he : MvPolynomial.eval (fun j => if j = i then (1 : R) else 0)
+      (∑ j, (MvPolynomial.X j : MvPolynomial (Fin m) R) * MvPolynomial.C (c j)) =
+      MvPolynomial.eval (fun j => if j = i then (1 : R) else 0)
+        (∑ j, (MvPolynomial.X j : MvPolynomial (Fin m) R) * MvPolynomial.C (d j)) := by rw [h]
+  rw [map_sum (MvPolynomial.eval (fun j => if j = i then (1 : R) else 0)),
+    map_sum (MvPolynomial.eval (fun j => if j = i then (1 : R) else 0))] at he
+  simp only [MvPolynomial.eval_mul, MvPolynomial.eval_X, MvPolynomial.eval_C] at he
+  have h2 : ∀ j : Fin m, ∀ w : Fin m → R, (fun j => if j = i then (1 : R) else 0) j * w j
+      = if j = i then w j else 0 := by
+    intro j _; by_cases hj : j = i <;> simp [hj]
+  rw [Finset.sum_congr rfl (fun j _ => h2 j c), Finset.sum_congr rfl (fun j _ => h2 j d)] at he
+  rw [Finset.sum_ite_eq' Finset.univ i c, Finset.sum_ite_eq' Finset.univ i d] at he
+  simpa using he
+
+namespace CGD
+open MvPolynomial
+variable {F E : Type*} [Field F] [Field E] [Algebra F E] {m : ℕ}
+
+/-- The `F(T₁,…,T_m)`-algebra structure on `E(T₁,…,T_m)` induced by the coefficient
+embedding `F ↪ E` (the same structure as `FT.fracAlg`). -/
+noncomputable instance fracAlgCGD : Algebra (FractionRing (MvPolynomial (Fin m) F))
+    (FractionRing (MvPolynomial (Fin m) E)) := FT.fracAlg
+
+/-- The constants embedding of `a ∈ E` into `E(T₁,…,T_m)`. -/
+noncomputable def constFrac (m : ℕ) (a : E) : FractionRing (MvPolynomial (Fin m) E) :=
+  algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) (MvPolynomial.C a)
+
+/-- The constants embedding `E →+* E(T₁,…,T_m)`. -/
+noncomputable def constFracHom (m : ℕ) : E →+* FractionRing (MvPolynomial (Fin m) E) :=
+  (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))).comp
+    (algebraMap E (MvPolynomial (Fin m) E))
+
+theorem constFracHom_apply (m : ℕ) (a : E) : constFracHom m a = constFrac m a := rfl
+
+/-- The `F`-scalars of `F(T₁,…,T_m)` land in the constants of `E(T₁,…,T_m)`. -/
+theorem algebraMap_F_constFrac (c : F) :
+    algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
+        (algebraMap F (FractionRing (MvPolynomial (Fin m) F)) c)
+      = constFrac m (algebraMap F E c) := by
+  have h1 : algebraMap F (FractionRing (MvPolynomial (Fin m) F)) c
+      = algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+          (MvPolynomial.C c) := IsScalarTower.algebraMap_apply F (MvPolynomial (Fin m) F) _ c
+  rw [h1, FT.algebraMap_fracAlg]
+  show fracHom (A := F) (B := E)
+      (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+        (MvPolynomial.C c)) = constFrac m (algebraMap F E c)
+  rw [FT.fracHom_algebraMap, MvPolynomial.map_C]
+  rfl
+
+theorem constFracHom_comp_algebraMap (m : ℕ) :
+    RingHom.comp (algebraMap (FractionRing (MvPolynomial (Fin m) F))
+        (FractionRing (MvPolynomial (Fin m) E)))
+      (algebraMap F (FractionRing (MvPolynomial (Fin m) F))) =
+    RingHom.comp (constFracHom m) (algebraMap F E) :=
+  RingHom.ext algebraMap_F_constFrac
+
+/-- Elements of the base ring are integral over it. -/
+theorem isIntegral_algebraMap {R S : Type*} [CommRing R] [CommRing S] [Algebra R S] (z : R) :
+    IsIntegral R (algebraMap R S z) :=
+  ⟨Polynomial.X - Polynomial.C z, Polynomial.monic_X_sub_C z, by simp⟩
+
+/-- Constants `a` of `E` integral over `F` are integral in `E(T)` over `F(T)`. -/
+theorem isIntegral_constFrac (m : ℕ) (a : E) (ha : IsIntegral F a) :
+    IsIntegral (FractionRing (MvPolynomial (Fin m) F)) (constFrac m a) := by
+  refine ⟨(minpoly F a).map (algebraMap F (FractionRing (MvPolynomial (Fin m) F))),
+    (minpoly.monic ha).map _, ?_⟩
+  rw [Polynomial.eval₂_map, constFracHom_comp_algebraMap, ← constFracHom_apply m,
+    ← Polynomial.hom_eval₂ (minpoly F a) (algebraMap F E) (constFracHom m) a]
+  have h0 : Polynomial.eval₂ (algebraMap F E) a (minpoly F a) = 0 := by
+    rw [← Polynomial.aeval_def]; exact minpoly.aeval F a
+  rw [h0, map_zero]
+
+/-- The indeterminate `X i` of `E(T)` is the image of the indeterminate of `F(T)`. -/
+theorem algebraMap_X_eq (i : Fin m) :
+    algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) (MvPolynomial.X i)
+      = algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
+          (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+            (MvPolynomial.X i)) := by
+  rw [FT.algebraMap_fracAlg]
+  show (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)))
+      (MvPolynomial.X i) = (fracHom (A := F) (B := E)) (algebraMap (MvPolynomial (Fin m) F)
+        (FractionRing (MvPolynomial (Fin m) F)) (MvPolynomial.X i))
+  rw [FT.fracHom_algebraMap, MvPolynomial.map_X]
+
+theorem term_eq (α : Fin m → E) (i : Fin m) :
+    algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
+        (MvPolynomial.X i * MvPolynomial.C (α i))
+      = algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
+          (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+            (MvPolynomial.X i)) * constFrac m (α i) := by
+  rw [map_mul, algebraMap_X_eq (F := F) (E := E) (m := m) i, constFrac]
+
+theorem dedekindThetaFrac_eq_sum (m : ℕ) (α : Fin m → E) :
+    FT.dedekindThetaFrac (m := m) α
+      = ∑ i, (algebraMap (FractionRing (MvPolynomial (Fin m) F))
+            (FractionRing (MvPolynomial (Fin m) E))
+            (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+              (MvPolynomial.X i)))
+          * constFrac m (α i) := by
+  have h1 : FT.dedekindThetaFrac (m := m) α
+      = algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
+          (∑ i, MvPolynomial.X i * MvPolynomial.C (α i)) := rfl
+  rw [h1, map_sum (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)))]
+  exact Finset.sum_congr rfl fun i _ => term_eq α i
+
+theorem sum_mem_integralClosure (m : ℕ) (α : Fin m → E) (hα : ∀ i, IsAlgebraic F (α i)) :
+    (∑ i, (algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
+        (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
+          (MvPolynomial.X i))) * constFrac m (α i))
+      ∈ integralClosure (FractionRing (MvPolynomial (Fin m) F))
+        (FractionRing (MvPolynomial (Fin m) E)) := by
+  apply Subalgebra.sum_mem
+  intro i _
+  apply Subalgebra.mul_mem
+  · exact isIntegral_algebraMap
+      (R := FractionRing (MvPolynomial (Fin m) F))
+      (S := FractionRing (MvPolynomial (Fin m) E)) _
+  · exact isIntegral_constFrac m (α i) (IsAlgebraic.isIntegral (hα i))
+
+/-- **FT IV §8, item (ii): θ = T₁α₁ + ⋯ + T_mα_m is integral over `F(T₁,…,T_m)`.**
+It suffices that every root `αᵢ` is algebraic over `F` (e.g. the αᵢ are the roots of a
+polynomial in `F[X]`).
+Proof idea: each summand `Tᵢ·ι(αᵢ)` is a product of integral elements over `F(T)` (the
+indeterminate image `Tᵢ` is integral as an element of the base field; `ι(αᵢ)` satisfies
+the image of `minpoly F (αᵢ)`), and the integral elements form a subalgebra
+(`integralClosure`), to which the finite sum belongs. -/
+theorem isIntegral_dedekindThetaFrac (m : ℕ) (α : Fin m → E) (hα : ∀ i, IsAlgebraic F (α i)) :
+    IsIntegral (FractionRing (MvPolynomial (Fin m) F)) (FT.dedekindThetaFrac (m := m) α) := by
+  have h := sum_mem_integralClosure m α hα
+  rw [← dedekindThetaFrac_eq_sum m α] at h
+  exact h
+
+/-- Every polynomial over `E`, viewed as an element of `E(T₁,…,T_m)`, is integral over
+`F(T₁,…,T_m)`, provided every element of `E` is integral over `F`.
+Proof idea: induction on the polynomial; a monomial `T^n·ι(a)` is a product of the
+integral element `algebraMap (T^n·1)` (it is the image of a polynomial over `F`) and
+the constant `ι(a)`. -/
+theorem isIntegral_algebraMap_polyE (hint : ∀ a : E, IsIntegral F a) (m : ℕ)
+    (p : MvPolynomial (Fin m) E) :
+    IsIntegral (FractionRing (MvPolynomial (Fin m) F))
+      (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) p) := by
+  refine MvPolynomial.induction_on' p ?_ ?_
+  · intro n a
+    have hsplit : MvPolynomial.monomial n a = MvPolynomial.C a * MvPolynomial.monomial n 1 := by
+      rw [MvPolynomial.C_mul_monomial, mul_one]
+    rw [hsplit, map_mul]
+    refine IsIntegral.mul ?_ ?_
+    · exact isIntegral_constFrac m a (hint a)
+    · have h1 : MvPolynomial.monomial n (1 : E)
+          = MvPolynomial.map (algebraMap F E) (MvPolynomial.monomial n (1 : F)) := by
+        rw [MvPolynomial.map_monomial]; simp
+      have hmap : ∀ z : MvPolynomial (Fin m) F,
+          algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
+            (MvPolynomial.map (algebraMap F E) z)
+          = algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
+            (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F)) z) := by
+        intro z
+        rw [FT.algebraMap_fracAlg]
+        show algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
+          (MvPolynomial.map (algebraMap F E) z)
+          = (fracHom (A := F) (B := E)) (algebraMap (MvPolynomial (Fin m) F)
+              (FractionRing (MvPolynomial (Fin m) F)) z)
+        rw [FT.fracHom_algebraMap]
+      rw [h1, hmap]
+      exact isIntegral_algebraMap
+        (R := FractionRing (MvPolynomial (Fin m) F))
+        (S := FractionRing (MvPolynomial (Fin m) E)) _
+  · intro p q hp hq
+    rw [map_add]
+    exact IsIntegral.add hp hq
+
+/-- If `E` is algebraic over `F`, then every element of `E(T₁,…,T_m)` is algebraic over
+`F(T₁,…,T_m)`. Proof idea: an element is a quotient `p/q` of images of polynomials over
+`E`; these are integral over `F(T)` (induction on the polynomial), and the inverse of the
+integral `q` is integral again (`IsAlgebraic.inv_iff`), so the quotient is integral. -/
+theorem isAlgebraic_frac_of_algebraic {E : Type*} [Field E] {m : ℕ} (F : Type*) [Field F]
+    [Algebra F E] [hAE : Algebra.IsAlgebraic F E] :
+    Algebra.IsAlgebraic (FractionRing (MvPolynomial (Fin m) F))
+      (FractionRing (MvPolynomial (Fin m) E)) := by
+  refine ⟨fun x => ?_⟩
+  obtain ⟨p, q, -, hx⟩ := IsFractionRing.div_surjective (MvPolynomial (Fin m) E) x
+  have hp := isIntegral_algebraMap_polyE
+    (fun a => isAlgebraic_iff_isIntegral.mp (hAE.isAlgebraic a)) m p
+  have hq := isIntegral_algebraMap_polyE
+    (fun a => isAlgebraic_iff_isIntegral.mp (hAE.isAlgebraic a)) m q
+  have hqi : IsIntegral (FractionRing (MvPolynomial (Fin m) F))
+      ((algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) q)⁻¹) :=
+    isAlgebraic_iff_isIntegral.mp
+      (IsAlgebraic.inv_iff.mpr (isAlgebraic_iff_isIntegral.mpr hq))
+  have hx' : x = algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) p
+      * (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) q)⁻¹ := by
+    rw [← hx, div_eq_mul_inv]
+  have hint : IsIntegral (FractionRing (MvPolynomial (Fin m) F))
+      (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) p
+        * (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)) q)⁻¹) :=
+    IsIntegral.mul hp hqi
+  rw [hx']
+  exact isAlgebraic_iff_isIntegral.mpr hint
+
+/-- Integrality is preserved under enlarging the base field to an intermediate field. -/
+theorem isIntegral_of_le {E : Type*} [Field E] {m : ℕ} (F : Type*) [Field F] [Algebra F E]
+    (L : IntermediateField (FractionRing (MvPolynomial (Fin m) F))
+      (FractionRing (MvPolynomial (Fin m) E))) {x : FractionRing (MvPolynomial (Fin m) E)}
+    (h : IsIntegral (FractionRing (MvPolynomial (Fin m) F)) x) : IsIntegral L x := by
+  obtain ⟨p, hp1, hp2⟩ := h
+  refine ⟨p.map (algebraMap (FractionRing (MvPolynomial (Fin m) F)) L), hp1.map _, ?_⟩
+  rw [Polynomial.eval₂_map,
+    ← IsScalarTower.algebraMap_eq (FractionRing (MvPolynomial (Fin m) F)) L
+      (FractionRing (MvPolynomial (Fin m) E))]
+  exact hp2
+
+end CGD
+
+end CgDedekindInt
+
+
 /-! ## FT chapter IV §6: finite fields (FT cg15-cg18n) -/
 
 section FiniteFields
