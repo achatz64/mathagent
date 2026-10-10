@@ -71,18 +71,29 @@ counting, own algebraic identity, or strategic case analysis. Mixed declarations
 (transport plus authorial step) are content, not bridges; definitions are notation
 (main's design), outside this audit.
 
-Checks:
+Checks (in a full audit, checks 1 and 4 are performed by targeted search; the
+file is never read end-to-end for this audit):
 
-1. A substantial-code declaration that is vacuous and forced but untagged →
-   `AUDIT-GAP` (missing `BRIDGE` tag).
+1. **Untagged bridges.** A declaration is a bridge candidate if its proof is
+   dictated by the types involved — every step drawn from generic machinery
+   (extensionality, congruence, coercion and instance lemmas, definitional
+   equalities, transport between the presentations named in the statement), with
+   no mathematical step of its own. Locate candidates by searching for such
+   proofs, then judge each candidate only for: mathematically vacuous statement,
+   forced proof, substantial code. A vacuous, forced, substantial candidate
+   without a `BRIDGE` tag → `AUDIT-GAP` (missing `BRIDGE` tag). Rejections are
+   per-declaration with a stated reason; a support lemma of a source-stated
+   theorem is judged independently — it is never rejected by virtue of the
+   chapter or theorem it supports.
 2. A tagged declaration whose proof is not forced → `AUDIT-GAP` (impure bridge);
    remedy: split or untag as content.
 3. Two `BRIDGE` tags covering the same shape mismatch → `AUDIT-GAP` (unpaid reuse).
-4. **Full audit — pattern scan.** For each `BRIDGE`, extract its characteristic
-   constructions (witness terms with explicit membership proofs, `algebraMap` terms
-   carrying hand-built instances, coercion-identification chains) and search the
-   file for their inline re-performance; hits outside the bridge's own consumers →
-   `AUDIT-GAP` (unpaid reuse). Generic tactic names alone are not fingerprints.
+4. **Pattern scan.** For each tagged bridge and each check-1 candidate, extract
+   the terms in its statement and proof that name the two presentations it
+   connects, and search the file for their inline re-performance; hits outside
+   the declaration's own consumers → `AUDIT-GAP` (unpaid reuse). Names of generic
+   tactics are not fingerprints; a verbatim proof fragment recurring across
+   declarations is always one.
 5. **Delta audit.** With the delta small and the existing bridges and strategies
    known from prior audits, identify minimality violations on read: new code that
    re-performs a transport an existing bridge provides, instead of calling it, is
