@@ -73,6 +73,29 @@ keeping every source clause visible in the resulting declaration types.
 Flag an `AUDIT-GAP` only for an essential defect such as a false statement,
 missing hypothesis, circular argument, or semantics that cannot be recovered.
 
+## Bridging (shape-mismatch transport)
+
+Bridging is proof work whose content is exhausted by type shapes — transport
+between presentations of what mathematics treats as one object. Mismatches are
+surfaced by workers and paid once: the worker reports the two presentations and
+the exact transported statement; main decides the general statement, its shape,
+and its home, and sends the signature back to the worker's session. Workers
+never declare bridge lemmas or self-approve tags.
+
+- A bridge is tagged only by main, and only when its statement is mathematically
+  vacuous and its proof forced. Distinct transported pairs are distinct
+  mismatches; the same transport asked twice — including a generalized
+  re-statement of it — is not. When a literal-derivation demand is rejected,
+  record the rebuttal beside the audit marker.
+- Prefer hypotheses over instance synthesis: state the needed equation as an
+  explicit hypothesis; instance paths that resolve only for particular type
+  terms do not generalize.
+- Home a bridge where its consumers can reach it by file scope; re-home when a
+  consumer site predates the bridge.
+- The per-consumer call-site cost of a bridge (named arguments, hypothesis
+  arguments, coercion shims, instance shells) is ledger design debt, not an
+  audit gap; reduce it by bridge design when it dominates the per-chapter cost.
+
 An external theorem not proved in the source may instead be a named dependency
 axiom when its exact assumptions and conclusion are recoverable from the text,
 an unambiguous well-known formulation, or an identifiable reference. Document

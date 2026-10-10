@@ -15,7 +15,9 @@ A proof-worker prompt must be self-contained. Include:
 
 1. the complete source statement, including every hypothesis and conclusion;
 2. the complete source proof or argument, not only a citation or label;
-3. relevant existing declarations and the intended insertion namespace;
+3. relevant existing declarations — including bridge lemmas (tag keyword
+   `BRIDGE`) the brief expects the worker to consume — and the intended
+   insertion namespace;
 4. semantic requirements for the final theorem type;
 5. instructions to prefer reusable general APIs, avoid axioms, check every final
    declaration in `lean_repl`, and return paste-ready code;
@@ -29,6 +31,16 @@ implementation plan, not optional background. The worker translates it
 independently within interfaces chosen by the main agent. Failure to find an
 exact library theorem is not a blocker: routine and representation-independent
 helper lemmas remain proof work.
+
+Bridging: before writing transport glue, search the target file for the tag
+keyword `BRIDGE` (`rg -n 'BRIDGE' <target file>`) and consume an existing bridge
+whose statement terms match, up to binder renaming. Substantial glue with no
+existing bridge — more than a rfl, a subtype extensionality, or a single
+congruence step — is a boundary: return a MISMATCH REPORT (the two
+presentations, the exact transported statement, a candidate general statement,
+glue checked in the REPL) instead of pasting per-site glue. Recurring per-site
+plumbing across sibling declarations is consumer harness cost: report it as a
+ledger quality note.
 
 When translation reaches a genuine architectural representation choice not
 fixed by the prompt, interface design returns to the main agent. The worker must
