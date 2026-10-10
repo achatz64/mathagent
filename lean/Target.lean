@@ -7648,6 +7648,12 @@ private theorem sigma0_pow_ne_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
 `|Gal(ℚ(ζ)/ℚ)| = 6` (used in `zeta7_gal_zpowers_sigma0`). Proof: `σ₀ ^ 6 = 1` gives
 `orderOf σ₀ ∣ 6` (`orderOf_dvd_of_pow_eq_one`); no smaller positive exponent is trivial
 (`sigma0_pow_ne_one`). -/
+-- AUDIT-GAP (documentation audit, delta audit of remediation commit fa69c88): this docstring
+-- mentions its consumer `zeta7_gal_zpowers_sigma0` ("used in `zeta7_gal_zpowers_sigma0`") —
+-- a documentation of a theorem A may list its dependencies and where they enter, but may not
+-- mention a later declaration B that uses A; only B's documentation may mention A (see the
+-- doc-audit criterion in AUDIT.md). Remedy: drop the parenthetical consumer reference here;
+-- the context note can live in `zeta7_gal_zpowers_sigma0`'s documentation instead.
 theorem orderOf_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : orderOf (sigma0 hζ) = 6 := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
