@@ -7644,16 +7644,9 @@ private theorem sigma0_pow_ne_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
   · rw [show (3 ^ 5 : ℕ) = 5 + 7 * 34 by norm_num, zeta7_pow_add_mul_seven hζ] at hz
     exact absurd (zeta7_pow_eq_zeta hζ (by norm_num) hz) (by norm_num)
 
-/-- FT `ft19` ingredient: the order of `σ₀` is `6`, so `σ₀` generates the group of order
-`|Gal(ℚ(ζ)/ℚ)| = 6` (used in `zeta7_gal_zpowers_sigma0`). Proof: `σ₀ ^ 6 = 1` gives
+/-- FT `ft19` ingredient: the order of `σ₀` is `6`. Proof: `σ₀ ^ 6 = 1` gives
 `orderOf σ₀ ∣ 6` (`orderOf_dvd_of_pow_eq_one`); no smaller positive exponent is trivial
 (`sigma0_pow_ne_one`). -/
--- AUDIT-GAP (documentation audit, delta audit of remediation commit fa69c88): this docstring
--- mentions its consumer `zeta7_gal_zpowers_sigma0` ("used in `zeta7_gal_zpowers_sigma0`") —
--- a documentation of a theorem A may list its dependencies and where they enter, but may not
--- mention a later declaration B that uses A; only B's documentation may mention A (see the
--- doc-audit criterion in AUDIT.md). Remedy: drop the parenthetical consumer reference here;
--- the context note can live in `zeta7_gal_zpowers_sigma0`'s documentation instead.
 theorem orderOf_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : orderOf (sigma0 hζ) = 6 := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
@@ -7708,7 +7701,8 @@ theorem orderOf_sigma0_sq {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
   norm_num
 
 /-- FT `ft19` clause 2: `σ₀` (with `σ₀ ζ = ζ³`; `3` generates `(ℤ/7ℤ)ˣ`) generates
-`Gal(ℚ(ζ)/ℚ)`. -/
+`Gal(ℚ(ζ)/ℚ)`: the order of `σ₀` is `6` (`orderOf_sigma0`) and
+`|Gal(ℚ(ζ)/ℚ)| = [ℚ(ζ) : ℚ] = 6`, so `⟨σ₀⟩` already has full cardinality. -/
 theorem zeta7_gal_zpowers_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : Subgroup.zpowers (sigma0 hζ) = ⊤ := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
