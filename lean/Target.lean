@@ -5387,6 +5387,20 @@ noncomputable def fiberProductRestrictK2 (σ : ↥E2 ≃ₐ[F] ↥E2) : ↥(E1 �
   letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 := IsScalarTower.of_algebraMap_eq fun _ => rfl
   exact (AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2))
 
+-- AUDIT-GAP (bridging audit, check 1, missing BRIDGE tags; audit of e330d99 rules): the four
+-- coherence lemmas below — `FT.fiberProductRestrict1_apply`, `FT.fiberProductRestrict2_apply`,
+-- `FT.fiberProductRestrictK1_apply`, `FT.fiberProductRestrictK2_apply` — are untagged bridge
+-- candidates. Each statement (the restriction of `σ` acts on an `Ω`-element as `σ` itself, for
+-- one of the four restriction definitions) is mathematically vacuous: a paper would not state
+-- it; it only identifies the constructed restriction with the ambient pointwise action across
+-- the type-level distinction ↥E_i / ↥(E1 ⊔ E2) / ↥(E1 ⊓ E2). Each proof is forced API plumbing
+-- (`AlgHom.restrictNormal_commutes`, coercion `rfl`s, `Subtype.ext`): no construction,
+-- estimate, counting, own algebraic identity, or case analysis. Code is borderline substantial
+-- (~10 lines each), and the transport recurs verbatim across the four (the `letI`/`haveI`
+-- instance-plumbing block; fingerprint `Subtype.ext (hcoe x)`).
+-- Note for main: the four encode ONE shape mismatch (restriction-action coherence) — if
+-- tagged, pay once and derive the other three (checks 3/4), or rebut.
+
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- The restriction to `E1` of an automorphism of the compositum acts on `Ω`-elements as the
 automorphism itself. -/
@@ -5531,6 +5545,20 @@ omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 @[simp]
 theorem fiberProductSubgroup_mem (p : (↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2)) :
     p ∈ fiberProductSubgroup E1 E2 ↔ fiberProductAgree E1 E2 p.1 p.2 := Iff.rfl
+
+-- AUDIT-GAP (bridging audit, check 1, missing BRIDGE tags; audit of e330d99 rules): the four
+-- coherence lemmas below — `FT.fiberProductRestrict1_one`, `FT.fiberProductRestrict2_one`,
+-- `FT.fiberProductRestrict1_mul`, `FT.fiberProductRestrict2_mul` — are untagged bridge
+-- candidates. Their statements (restriction preserves the identity / the multiplication of the
+-- compositum's automorphism group) are mathematically vacuous: a paper would not state them;
+-- the group structure of the restriction is inherited by construction. The proofs are forced
+-- API plumbing (`AlgHom.restrictNormal_commutes`, `AlgHom.restrictNormal_comp`, `Subtype.ext`,
+-- verbatim-identical `letI`/`haveI` instance-plumbing blocks across the four): no
+-- construction, estimate, counting, own algebraic identity, or case analysis. The code is
+-- substantial (~14-17 lines each, verbatim twins).
+-- Note for main: same shape mismatch as the `_apply` quartet marked above (coherence of the
+-- `AlgHom.restrictNormal'` transfer with the ambient group structure) — pay once, derive the
+-- rest, or rebut (checks 3/4).
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- FT `ft18h` support: the restriction of the identity automorphism is the identity.
@@ -5981,6 +6009,13 @@ theorem adjoin_supBase_eq_top_map {p : F[X]} (hps : p.Separable) (hp : p.IsSplit
 
 Proof idea: splits because `p` splits in `E ⊔ L` via the tower; the adjoin of the roots is
 everything by `adjoin_supBase_eq_top_map`. -/
+-- AUDIT-GAP (bridging audit, check 4, unpaid reuse; audit of e330d99 rules): the `hmap` step
+-- below — `rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]` — is a verbatim
+-- re-performance of the transport inside the check-1 bridge candidate
+-- `FT.rootSet_map_supBase` (~line 5945), and this declaration does not consume that lemma (it
+-- only consumes `FT.adjoin_supBase_eq_top_map`). Fold into the remedy for the
+-- `rootSet_map_supBase` / `rootSet_map_compositumRestrictRight` twins: factor the base-map
+-- composition once (or tag and derive), or rebut.
 theorem compositum_isSplittingField_supBase {p : F[X]} (hps : p.Separable)
     (hp : p.IsSplittingField F E) :
     (p.map (algebraMap F ↥L)).IsSplittingField ↥L ↥(E ⊔ L) := by
@@ -6157,6 +6192,14 @@ private theorem autCongr_apply_omega (τF : ↥E ≃ₐ[F] ↥E) (x : ↥(compos
       ((τF ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm x : ↥E)) : Ω) :=
   rfl
 
+-- AUDIT-GAP (bridging audit, check 1, borderline substantiality; audit of e330d99 rules):
+-- `FT.autCongr_symm_apply_omega` below is an untagged bridge candidate: the statement (the
+-- Ω-coordinate form of the inverse of `AlgEquiv.autCongr restrict_algEquiv`) is mathematically
+-- vacuous, the proof is forced inverse bookkeeping (`apply_symm_apply`, `symm_apply_apply`,
+-- `congrArg`/`Subtype.ext` chains), and the code is substantial (~12 lines). Together with
+-- `FT.autCongr_apply_omega` above (rfl, below the substantiality bar) it encodes one shape
+-- mismatch — note for main: if tagged, pay once and derive the inverse form (checks 3/4), or
+-- rebut.
 /-- Ω-coordinate form of the inverse of `AlgEquiv.autCongr`.  Proof is elementary
 (inverse property). -/
 private theorem autCongr_symm_apply_omega
