@@ -6678,6 +6678,20 @@ theorem finrank_compositum_mul_inf [FiniteDimensional F E] [FiniteDimensional F 
     _ = Module.finrank F ↥L * Module.finrank F ↥E := by rw [t4]
     _ = Module.finrank F ↥E * Module.finrank F ↥L := Nat.mul_comm _ _
 
+-- AUDIT-GAP (bridging audit, check 4, delta of commit 5d1932d): unpaid reuse. This
+-- declaration re-performs, inline, the transport already paid by the main-approved
+-- BRIDGE `FT.fiberProductRestrictK2_apply` (same shape mismatch: the restriction of
+-- `σ : ↥E2 ≃ₐ[F] ↥E2` to `E1 ⊓ E2` as a self-automorphism of `↥(E1 ⊓ E2)` vs. the
+-- `Ω`-level action `σ ⟨x, _⟩`). The transported statement recurs here with identical
+-- terms — the RHS `σ ⟨(x : Ω), ((inf_le_right : E1 ⊓ E2 ≤ E2) x.2)⟩` is verbatim that
+-- of the tagged bridge, and the two restriction maps coincide definitionally
+-- (`AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2) σ = σ.restrictNormal ↥(E1 ⊓ E2) =
+-- `AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2)`, cf. Mathlib
+-- `Mathlib/FieldTheory/Normal/Defs.lean`: `AlgEquiv.restrictNormal` is defined as
+-- `AlgHom.restrictNormal' χ.toAlgHom E`), while the `haveI`/`hcoe`/`hmap`/`hdef`
+-- plumbing block is a verbatim recurrence of `fiberProductRestrictK2_apply`'s proof
+-- (only the `AlgHom`/`AlgEquiv` names of the commutes lemma differ). Remedy: consume
+-- the tagged bridge instead of re-paying the mismatch (or obtain main's disposition).
 /-- Coherence of the restriction hom `Gal(E2/F) →* Gal(E1⊓E2/F)` with the `Ω`-level action:
 the restriction of `σ` agrees with `σ` on `E1 ⊓ E2`, computed in `Ω`. -/
 theorem fiberCount_commutes {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
@@ -6693,6 +6707,13 @@ theorem fiberCount_commutes {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
   rw [hdef, ← hmap x, ← hcoe ((σ.restrictNormal ↥(E1 ⊓ E2)) x),
     AlgEquiv.restrictNormal_commutes σ ↥(E1 ⊓ E2) x]
 
+-- AUDIT-GAP (bridging audit, check 1, delta of commit 5d1932d): missing `BRIDGE` tag.
+-- Bridge candidate: the statement is mathematically vacuous (an encoding equivalence
+-- between the algebraic statement `(restrictNormalHom ↥(E1 ⊓ E2)) σ = τ` and the
+-- `Ω`-pointwise fiber condition — a paper would not state it), the proof is forced
+-- (both directions are coercion bookkeeping via `fiberCount_commutes` +
+-- `AlgEquiv.ext`/`Subtype.ext`, no mathematical choice), and the code is substantial
+-- (~14 lines). Needs main's `BRIDGE` disposition (approval or recorded rebuttal).
 /-- The fiber condition over `τ` (an `Ω`-level condition) is equivalent to the algebraic
 statement that `σ` restricts to `τ` along `AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2)`. -/
 theorem fiberCount_restrictIff {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
@@ -6722,6 +6743,14 @@ theorem fiberCount_restrict_surjective {F Ω : Type u} [Field F] [Field Ω] [Alg
       (τ.liftNormal ↥E2).restrictNormal ↥(E1 ⊓ E2) := rfl
   rw [hdef, AlgEquiv.restrict_liftNormal ↥E2 τ]
 
+-- AUDIT-GAP (bridging audit, check 1, delta of commit 5d1932d): missing `BRIDGE` tag.
+-- Bridge candidate: the statement is mathematically vacuous (a transport between two
+-- type-level presentations of one object — the kernel subtype
+-- `{ν // (restrictNormalHom ↥(E1 ⊓ E2)) ν = 1}` of `Gal(E2/F)` and
+-- `↥E2 ≃ₐ[↥(E1 ⊓ E2)] ↥E2` = `Gal(E2/(E1 ⊓ E2))` in this file's notation; Milne says
+-- only "the kernel is Gal(E2/(E1 ⊓ E2))"), the proof is forced by the subtype and
+-- over-algebra shapes (the `toFix`/`invCond` transport, the four `Equiv` components),
+-- and the code is substantial (~45 lines). Needs main's `BRIDGE` disposition.
 /-- The kernel of the restriction hom `Gal(E2/F) →* Gal(E1⊓E2/F)` is (in cardinality)
 `Gal(E2/(E1 ⊓ E2))`: an `F`-automorphism of `E2` restricts trivially iff it is
 `E1 ⊓ E2`-linear. -/
@@ -7470,6 +7499,16 @@ section Ft19Qualification
 
 variable {E : Type u} [Field E] [CharZero E]
 
+-- AUDIT-GAP (documentation audit, delta of commit 5d1932d): the following declarations
+-- of section `Ft19Qualification` carry no docstring, contrary to the documentation
+-- standard (every theorem/lemma must have a textbook-math documentation of statement
+-- and proof idea, with trivial ones declared trivial): `FT.minpoly_zeta7_eq_cyclotomic`,
+-- `FT.sigma0_apply`, `FT.sigma0_pow_zeta`, `FT.zeta7_pow_add_mul_seven`,
+-- `FT.sigma0_sq_zeta`, `FT.sigma0_cube_zeta`, `FT.sigma0_pow6_zeta`,
+-- `FT.sigma0_pow6_eq_one`, `FT.zeta7_pow_eq_zeta`, `FT.sigma0_pow_ne_one`,
+-- `FT.orderOf_sigma0`, `FT.orderOf_sigma0_cube`, `FT.orderOf_sigma0_sq`,
+-- `FT.gal_zeta7_to_units_apply`, `FT.gal_zeta7_to_units_bijective`,
+-- `FT.finrank_fixedField_mul_card`, `FT.zeta7_inv`, `FT.aeval_X_sq_add_seven`.
 private theorem minpoly_zeta7_eq_cyclotomic {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
     minpoly ℚ ζ = Polynomial.cyclotomic 7 ℚ :=
   (Polynomial.cyclotomic_eq_minpoly_rat hζ (by norm_num)).symm
@@ -9009,6 +9048,11 @@ section Ft19CosMinpoly
 
 variable {E : Type u} [Field E] [CharZero E]
 
+-- AUDIT-GAP (documentation audit, delta of commit 5d1932d): the following declarations
+-- of section `Ft19CosMinpoly` carry no docstring, contrary to the documentation
+-- standard (every theorem/lemma must have a textbook-math documentation of statement
+-- and proof idea, with trivial ones declared trivial): `FT.aeval_cubic_exp`,
+-- `FT.cos_poly_natDegree`, `FT.cos_poly_monic`.
 private theorem aeval_cubic_exp (t : E) :
     Polynomial.aeval t ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2
       - 2 * Polynomial.X - 1) = t ^ 3 + t ^ 2 - 2 * t - 1 := by
