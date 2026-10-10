@@ -9760,17 +9760,11 @@ noncomputable def conjQ : ℂ →ₐ[ℚ] ℂ :=
   { (starRingEnd ℂ : ℂ →+* ℂ) with
     commutes' := fun q => RingHom.map_rat_algebraMap (starRingEnd ℂ) q }
 
--- AUDIT-GAP (documentation audit, delta audit of the chapter IV delivery
--- 0c74549..HEAD): nine declarations in the delta lack docstrings (a scan of the
--- whole file shows all other declarations carry docstrings):
--- `conjQ_apply` (here), `FT.fracHom_algebraMap` (~12760),
--- `FT.sigmaTFrac_algebraMap` (~12767), `FT.sigmaCoefFrac_algebraMap` (~12964),
--- `FT.CGD.constFracHom_apply` (~13068), `FT.CGD.constFracHom_comp_algebraMap`
--- (~13085), `FT.CGD.term_eq` (~13120), `FT.CGD.dedekindThetaFrac_eq_sum`
--- (~13128), `FT.CGD.sum_mem_integralClosure` (~13136; this one has a nontrivial
--- proof — integral-closure membership of the ∑ Tᵢαᵢ sum). Remedy: add docstrings
--- stating the claim and the proof idea in textbook math terms; declarations
--- whose proof is pure unpacking/repacking must declare it trivial.
+-- Note (documentation audit, delta audit of the chapter IV delivery
+-- 0c74549..HEAD, remediated): the nine declarations listed here now carry
+-- docstrings stating the claim and the proof idea; the pure
+-- unpacking/repacking proofs declare their triviality explicitly (see also the
+-- remediation of the follow-up audit pass, commit 7082954's batch finding).
 /-- The underlying function of `conjQ` is complex conjugation: applying the
 ℚ-algebra homomorphism to `z` gives `star z` (definitional). -/
 @[simp]
@@ -10742,16 +10736,8 @@ abbrev vandermondeDelta (r : Fin n → E) : E := vandermondeProd r
 /-- FT cg1: `vandermondeDelta r` is the Vandermonde product of the enumeration. -/
 theorem vandermondeDelta_eq_vandermondeProd (r : Fin n → E) : vandermondeDelta r = vandermondeProd r := rfl
 
--- AUDIT-GAP (documentation audit, delta audit of the remediation commit
--- 9e26889, changes f281ae9..9e26889): stale cross-reference in the docstring of
--- `FT.inducedRootPerm` below — it says "characterized in `ftRootsEquiv_apply`",
--- but that declaration was renamed to `FT.inducedRootPerm_apply` in this very
--- remediation (the pre-rename file correctly referenced `inducedRootPerm_apply`;
--- the rename sweep moved this docstring reference back to the dead name),
--- contradicting the remediation note's claim "Docstring cross-references updated
--- accordingly". Remedy: change the reference to `FT.inducedRootPerm_apply`.
 /-- FT IV §1: the permutation `σ̂` of `Fin n` induced by `σ : E ≃ₐ[F] E` on roots enumerated by
-injective `r` (with `σ (r i)` again in the range of `r`); characterized in `ftRootsEquiv_apply`. -/
+injective `r` (with `σ (r i)` again in the range of `r`); characterized in `inducedRootPerm_apply`. -/
 noncomputable def inducedRootPerm (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
     (hσ : ∀ i, σ (r i) ∈ Set.range r) : Equiv.Perm (Fin n) :=
   Equiv.ofBijective (fun i => (Set.mem_range.mp (hσ i)).choose)
@@ -12850,24 +12836,16 @@ noncomputable def fracHom :
         (FaithfulSMul.algebraMap_injective A B)
         (by simpa [AlgHom.comp_apply, MvPolynomial.mapAlgHom_apply] using hab))
 
--- AUDIT-GAP (documentation audit, delta audit of the remediation commit
--- 9e26889, changes f281ae9..9e26889): the remediation docstrings added for the
--- nine previously undocumented declarations state the claim but — for the seven
--- listed here — omit the proof idea / triviality declaration that the
--- documentation audit and the standing remedy text at the batch marker (~9765)
--- require ("declarations whose proof is pure unpacking/repacking must declare it
--- trivial"): `FT.fracHom_algebraMap` (here), `FT.sigmaTFrac_algebraMap` (~12858),
--- `FT.sigmaCoefFrac_algebraMap` (~13069), `FT.CGD.constFracHom_apply` (~13175),
--- `FT.CGD.constFracHom_comp_algebraMap` (~13194), `FT.CGD.term_eq` (~13232),
--- `FT.CGD.dedekindThetaFrac_eq_sum` (~13242) — each of these proofs is pure
--- unpacking (`simp`/`rfl`/`rw` on the defining wrappers). (`FT.conjQ_apply`
--- declares "(definitional)" and `FT.CGD.sum_mem_integralClosure` states the proof
--- idea; both are satisfactory.) Remedy: append to each of the seven docstrings a
--- sentence declaring the proof trivial (pure unwrapping of the defining
--- wrappers/`simp` lemmas).
+-- Note (documentation audit, delta audit of the remediation commit
+-- 9e26889, remediated): the seven remediation docstrings listed here now
+-- append the explicit triviality declaration (pure unwrapping of the defining
+-- wrappers / `simp` lemmas); `FT.conjQ_apply` ("definitional") and
+-- `FT.CGD.sum_mem_integralClosure` (proof idea stated) were already
+-- satisfactory.
 /-- The embedding `fracHom` extends the coefficient embedding `A ↪ B`: applied to
 the image of a polynomial `p` over `A` it gives the image of `p.map (algebraMap A B)`
-over `B`. -/
+over `B`. The proof is pure unwrapping of the defining wrappers (`algebraMap_fracAlg`,
+`fracHom_algebraMap` is `rfl` after unfolding).  -/
 theorem fracHom_algebraMap (p : MvPolynomial (Fin m) A) :
     fracHom (algebraMap (MvPolynomial (Fin m) A)
       (FractionRing (MvPolynomial (Fin m) A)) p) =
@@ -12877,7 +12855,7 @@ theorem fracHom_algebraMap (p : MvPolynomial (Fin m) A) :
 
 /-- The `T`-permutation automorphism `sigmaTFrac σ` acts on fraction-field elements
 by permuting the indeterminates: applied to the image of `p` it gives the image of
-`MvPolynomial.renameEquiv B σ p`. -/
+`MvPolynomial.renameEquiv B σ p`. The proof is pure unwrapping (`simp [sigmaTFrac]` on the defining wrapper).  -/
 theorem sigmaTFrac_algebraMap (σ : Equiv.Perm (Fin m)) (p : MvPolynomial (Fin m) B) :
     sigmaTFrac σ (algebraMap (MvPolynomial (Fin m) B)
       (FractionRing (MvPolynomial (Fin m) B)) p) =
@@ -12950,21 +12928,13 @@ theorem linearFactor_stabilizer (p : Polynomial M) (hp1 : p.Monic) (hp : Irreduc
   have hcomm : ∀ q : Polynomial M, Polynomial.map (algebraMap M L) (Polynomial.map sM.toRingHom q)
       = Polynomial.map s (Polynomial.map (algebraMap M L) q) := by
     intro q
-    -- AUDIT-GAP (bridging audit, check 5 — unpaid reuse; delta audit of the
-    -- remediation commit 9e26889, changes f281ae9..9e26889): this rewire is only
-    -- a partial remediation of the check-4 finding recorded in f281ae9. It
-    -- consumes the main-approved BRIDGE `FT.map_map_comp` on the nested-map side,
-    -- but then undoes the composed form with the trailing `← Polynomial.map_map`,
-    -- re-performing inline the very nested-map ↔ composed-map transport that
-    -- `map_map_comp` provides (its equation with `hcomp := rfl` serves the
-    -- `(fB := algebraMap M L, g := (s : L →+* L))` instantiation exactly; the
-    -- file's own precedent, e.g. the remediation at ~4342, consumes the bridge in
-    -- the reverse direction the same way). Remedy: consume the bridge for this
-    -- step too, e.g. `rw [map_map_comp (fB := sM.toRingHom) (g := algebraMap M L)
-    -- hmap (p := q), map_map_comp (fB := algebraMap M L) (g := (s : L →+* L))
-    -- (hcomp := rfl)]`, so that no inline `Polynomial.map_map` remains.
+    -- Note (bridging audit, check-4/check-5 remediation): both nested-map sides
+    -- are rewritten through the main-approved BRIDGE `FT.map_map_comp` — the left
+    -- with the composition equation `hmap`, the right with `hcomp := rfl` — so no
+    -- inline `Polynomial.map_map` remains.
     rw [map_map_comp (fB := sM.toRingHom) (g := algebraMap M L) hmap (p := q),
-      ← Polynomial.map_map]
+      map_map_comp (fB := algebraMap M L) (g := (s : L →+* L))
+        (g' := RingHom.comp s (algebraMap M L)) rfl (p := q)]
   have hp' : Irreducible (Polynomial.map sM.toRingHom p) := by
     have h1 : Polynomial.map sM.toRingHom p = Polynomial.mapEquiv sM p := rfl
     rw [h1, MulEquiv.irreducible_iff]; exact hp
@@ -13101,7 +13071,7 @@ noncomputable def sigmaCoefFrac (τ : B ≃ₐ[A] B) :
     exact h
 
 /-- The extended coefficient automorphism `sigmaCoefFrac τ` acts on images of
-polynomials by applying `τ` to the coefficients (and fixing the indeterminates). -/
+polynomials by applying `τ` to the coefficients (and fixing the indeterminates). The proof is pure unwrapping (`simp [sigmaCoefFrac]` on the defining wrapper).  -/
 theorem sigmaCoefFrac_algebraMap (τ : B ≃ₐ[A] B) (p : MvPolynomial (Fin m) B) :
     sigmaCoefFrac τ (algebraMap (MvPolynomial (Fin m) B)
       (FractionRing (MvPolynomial (Fin m) B)) p) =
@@ -13207,7 +13177,7 @@ noncomputable def constFracHom (m : ℕ) : E →+* FractionRing (MvPolynomial (F
     (algebraMap E (MvPolynomial (Fin m) E))
 
 /-- The constants embedding sends a constant `a` of `E` to the image of `C a` in
-`E(T₁,…,T_m)`. -/
+`E(T₁,…,T_m)`. The proof is definitional (`rfl`).  -/
 theorem constFracHom_apply (m : ℕ) (a : E) : constFracHom m a = constFrac m a := rfl
 
 /-- The `F`-scalars of `F(T₁,…,T_m)` land in the constants of `E(T₁,…,T_m)`. -/
@@ -13226,7 +13196,8 @@ theorem algebraMap_F_constFrac (c : F) :
   rfl
 
 /-- The base-field embedding into `E(T₁,…,T_m)` factors through the constants
-embedding: `algebraMap (F(T)) ∘ algebraMap F = constFracHom m ∘ algebraMap F E`. -/
+embedding: `algebraMap (F(T)) ∘ algebraMap F = constFracHom m ∘ algebraMap F E`. The proof is pure unwrapping (`RingHom.ext` on the defining wrappers, one point
+check `algebraMap_F_constFrac`).  -/
 theorem constFracHom_comp_algebraMap (m : ℕ) :
     RingHom.comp (algebraMap (FractionRing (MvPolynomial (Fin m) F))
         (FractionRing (MvPolynomial (Fin m) E)))
@@ -13264,7 +13235,8 @@ theorem algebraMap_X_eq (i : Fin m) :
 
 /-- Each summand of `θ` splits through the two embeddings: the image of
 `Tᵢ · C (αᵢ)` in `E(T₁,…,T_m)` is the product of the image of the indeterminate `Tᵢ`
-(from `F(T₁,…,T_m)`) and the constants embedding of `αᵢ`. -/
+(from `F(T₁,…,T_m)`) and the constants embedding of `αᵢ`. The proof is pure unwrapping (`map_mul` and the two defining-wrapper lemmas
+`algebraMap_X_eq`, `constFrac`).  -/
 theorem term_eq (α : Fin m → E) (i : Fin m) :
     algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
         (MvPolynomial.X i * MvPolynomial.C (α i))
@@ -13274,7 +13246,8 @@ theorem term_eq (α : Fin m → E) (i : Fin m) :
   rw [map_mul, algebraMap_X_eq (F := F) (E := E) (m := m) i, constFrac]
 
 /-- `θ` in `E(T₁,…,T_m)` is the sum over `i` of the images of the indeterminates
-(from `F(T₁,…,T_m)`) times the constants embeddings of the roots `αᵢ`. -/
+(from `F(T₁,…,T_m)`) times the constants embeddings of the roots `αᵢ`. The proof is pure unwrapping (`map_sum` on the defining wrapper plus the
+summand computation `term_eq`).  -/
 theorem dedekindThetaFrac_eq_sum (m : ℕ) (α : Fin m → E) :
     FT.dedekindThetaFrac (m := m) α
       = ∑ i, (algebraMap (FractionRing (MvPolynomial (Fin m) F))
