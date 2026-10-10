@@ -135,6 +135,8 @@ Audits will flag violations with `AUDIT-GAP` in the lean target (easy to search 
 
 A main formalization agent may close an `AUDIT-GAP` or leave it with a blocker explanation in target, but must not reclassify it as `AUDIT-DEFERRED`; deferral is a separate scope decision.
 
+After closing or refuting a batch of `AUDIT-GAP` markers, run the next audit pass over the remediation delta; the audit loop terminates only when a pass reports no actionable findings (the auditor has the last word).
+
 # Commands to avoid context bloat
 
 1. Read only the relevant regions of the source. Again: NEVER READ THE ENTIRE FILES! THEY CAN BE HUGE.
