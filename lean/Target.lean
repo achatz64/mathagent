@@ -9896,6 +9896,1030 @@ theorem card_gal_of_two_nonreal_roots {f : ℚ[X]} (hirr : Irreducible f)
 
 end SpGroup
 
+
+/-! ## FT chapter IV §4: quartic resolvent (definitions, cg8; Galois section cg7) -/
+
+section QuarticResolvent
+
+open Polynomial
+
+/-- Auxiliary: the coefficient of `X - C a` is `-a` at degree `0`, `1` at degree `1`,
+and `0` elsewhere. -/
+theorem qcoeff_X_sub_C {K : Type*} [CommRing K] (a : K) (n : ℕ) :
+    (X - C a).coeff n = if n = 0 then -a else if n = 1 then 1 else 0 := by
+  simp only [Polynomial.coeff_sub, Polynomial.coeff_X, Polynomial.coeff_C]
+  rcases n with _ | _ | n
+  · simp
+  · simp
+  · simp
+
+/-- Auxiliary: multiplying by `X - C a` changes the constant coefficient to `-a` times
+the old one. -/
+theorem qcoeff_mul_X_sub_C_zero {K : Type*} [CommRing K] (p : K[X]) (a : K) :
+    (p * (X - C a)).coeff 0 = -(a * p.coeff 0) := by
+  rw [Polynomial.coeff_mul, Finset.Nat.antidiagonal_zero]
+  simp only [Finset.sum_singleton, qcoeff_X_sub_C, if_pos]
+  ring
+
+/-- Auxiliary: coefficients of `(X - C a1) * (X - C a2)`, i.e. the expansion
+`X² − (a1+a2)X + a1a2`. -/
+theorem qcoeff_prod2_X_sub_C {K : Type*} [CommRing K] (a1 a2 : K) (n : ℕ) :
+    ((X - C a1) * (X - C a2)).coeff n
+      = if n = 2 then 1 else if n = 1 then -(a1 + a2) else if n = 0 then a1 * a2 else 0 := by
+  rcases n with _ | _ | _ | n
+  · rw [qcoeff_mul_X_sub_C_zero, qcoeff_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_X_sub_C, qcoeff_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_X_sub_C, qcoeff_X_sub_C]
+    simp
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_X_sub_C, qcoeff_X_sub_C]
+    simp
+
+/-- Auxiliary: for degree ≥ 3 all coefficients of `(X - C a1) * (X - C a2)` vanish. -/
+theorem qcoeff_prod2_X_sub_C_zero {K : Type*} [CommRing K] (a1 a2 : K) (m : ℕ) (hm : 3 ≤ m) :
+    ((X - C a1) * (X - C a2)).coeff m = 0 := by
+  rw [qcoeff_prod2_X_sub_C]
+  split_ifs with h1 h2 h3
+  · exact absurd h1 (by omega)
+  · exact absurd h2 (by omega)
+  · exact absurd h3 (by omega)
+  · rfl
+
+/-- Auxiliary: coefficients of `(X - C a1) * (X - C a2) * (X - C a3)`, i.e. the expansion
+`X³ − (a1+a2+a3)X² + (a1a2+a1a3+a2a3)X − a1a2a3`. -/
+theorem qcoeff_prod3_X_sub_C {K : Type*} [CommRing K] (a1 a2 a3 : K) (n : ℕ) :
+    ((X - C a1) * (X - C a2) * (X - C a3)).coeff n
+      = if n = 3 then 1
+        else if n = 2 then -(a1 + a2 + a3)
+        else if n = 1 then a1 * a2 + a1 * a3 + a2 * a3
+        else if n = 0 then -(a1 * a2 * a3) else 0 := by
+  rcases n with _ | _ | _ | _ | n
+  · rw [qcoeff_mul_X_sub_C_zero, qcoeff_prod2_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod2_X_sub_C, qcoeff_prod2_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod2_X_sub_C, qcoeff_prod2_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod2_X_sub_C, qcoeff_prod2_X_sub_C]
+    simp
+  · rw [Polynomial.coeff_mul_X_sub_C]
+    have h3 : 3 ≤ n + 3 := by omega
+    have h4 : 3 ≤ n + 4 := by omega
+    rw [qcoeff_prod2_X_sub_C_zero _ _ _ h3, qcoeff_prod2_X_sub_C_zero _ _ _ h4]
+    simp [show ¬ (n + 3 + 1 = 3) by omega, show ¬ (n + 3 + 1 = 2) by omega]
+
+/-- Auxiliary: for degree ≥ 4 all coefficients of the cubic product vanish. -/
+theorem qcoeff_prod3_X_sub_C_zero {K : Type*} [CommRing K] (a1 a2 a3 : K) (m : ℕ)
+    (hm : 4 ≤ m) : ((X - C a1) * (X - C a2) * (X - C a3)).coeff m = 0 := by
+  rw [qcoeff_prod3_X_sub_C]
+  split_ifs with h1 h2 h3 h4
+  · exact absurd h1 (by omega)
+  · exact absurd h2 (by omega)
+  · exact absurd h3 (by omega)
+  · exact absurd h4 (by omega)
+  · rfl
+
+/-- Auxiliary: coefficients of `(X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)`, i.e. the
+expansion `X⁴ − (a1+a2+a3+a4)X³ + (pair sums)X² − (triple sums)X + a1a2a3a4`. -/
+theorem qcoeff_prod4_X_sub_C {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) (n : ℕ) :
+    ((X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)).coeff n
+      = if n = 4 then 1
+        else if n = 3 then -(a1 + a2 + a3 + a4)
+        else if n = 2 then a1 * a2 + a1 * a3 + a1 * a4 + a2 * a3 + a2 * a4 + a3 * a4
+        else if n = 1 then -(a1 * a2 * a3 + a1 * a2 * a4 + a1 * a3 * a4 + a2 * a3 * a4)
+        else if n = 0 then a1 * a2 * a3 * a4 else 0 := by
+  rcases n with _ | _ | _ | _ | _ | n
+  · rw [qcoeff_mul_X_sub_C_zero, qcoeff_prod3_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod3_X_sub_C, qcoeff_prod3_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod3_X_sub_C, qcoeff_prod3_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod3_X_sub_C, qcoeff_prod3_X_sub_C]
+    simp
+    ring
+  · rw [Polynomial.coeff_mul_X_sub_C, qcoeff_prod3_X_sub_C]
+    have h5 : 4 ≤ 3 + 1 := by omega
+    rw [qcoeff_prod3_X_sub_C_zero _ _ _ _ h5]
+    simp
+  · rw [Polynomial.coeff_mul_X_sub_C]
+    have h4 : 4 ≤ n + 4 := by omega
+    have h5 : 4 ≤ n + 4 + 1 := by omega
+    rw [qcoeff_prod3_X_sub_C_zero _ _ _ _ h4, qcoeff_prod3_X_sub_C_zero _ _ _ _ h5]
+    simp [show ¬ (n + 4 + 1 = 4) by omega, show ¬ (n + 4 + 1 = 3) by omega,
+      show ¬ (n + 4 + 1 = 2) by omega]
+
+-- FT cg8 (discussion): the partially symmetric elements.
+/-- FT IV §4: the partially symmetric element `α = a1a2 + a3a4`. -/
+def quarticAlpha {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) : K := a1 * a2 + a3 * a4
+
+/-- FT IV §4: the partially symmetric element `β = a1a3 + a2a4`. -/
+def quarticBeta {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) : K := a1 * a3 + a2 * a4
+
+/-- FT IV §4: the partially symmetric element `γ = a1a4 + a2a3`. -/
+def quarticGamma {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) : K := a1 * a4 + a2 * a3
+
+/-- FT IV §4: the set `{α, β, γ}` of partially symmetric elements of the quartic. -/
+def quarticResolventSet {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) : Set K :=
+  insert (quarticAlpha a1 a2 a3 a4) {quarticBeta a1 a2 a3 a4, quarticGamma a1 a2 a3 a4}
+
+-- FT cg8 (discussion): difference factorizations.
+/-- FT: `α − β = (a1 − a4)(a2 − a3)`. -/
+theorem quarticAlpha_sub_quarticBeta {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticAlpha a1 a2 a3 a4 - quarticBeta a1 a2 a3 a4 = (a1 - a4) * (a2 - a3) := by
+  simp only [quarticAlpha, quarticBeta]
+  ring
+
+/-- FT: `α − γ = (a1 − a3)(a2 − a4)`. -/
+theorem quarticAlpha_sub_quarticGamma {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticAlpha a1 a2 a3 a4 - quarticGamma a1 a2 a3 a4 = (a1 - a3) * (a2 - a4) := by
+  simp only [quarticAlpha, quarticGamma]
+  ring
+
+/-- FT: `β − γ = (a1 − a2)(a3 − a4)`. -/
+theorem quarticBeta_sub_quarticGamma {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticBeta a1 a2 a3 a4 - quarticGamma a1 a2 a3 a4 = (a1 - a2) * (a3 - a4) := by
+  simp only [quarticBeta, quarticGamma]
+  ring
+
+-- FT cg8 (discussion): distinctness corollaries.
+/-- FT: `α ≠ β` if `a1 ≠ a4` and `a2 ≠ a3`. -/
+theorem quarticAlpha_ne_quarticBeta {K : Type*} [CommRing K] [IsDomain K] {a1 a2 a3 a4 : K}
+    (h1 : a1 ≠ a4) (h2 : a2 ≠ a3) : quarticAlpha a1 a2 a3 a4 ≠ quarticBeta a1 a2 a3 a4 := by
+  intro heq
+  have h0 : quarticAlpha a1 a2 a3 a4 - quarticBeta a1 a2 a3 a4 = 0 := by
+    rw [heq]; exact sub_self _
+  have h : (a1 - a4) * (a2 - a3) = 0 := by
+    rw [← quarticAlpha_sub_quarticBeta]; exact h0
+  rcases mul_eq_zero.mp h with h' | h'
+  · exact h1 (sub_eq_zero.mp h')
+  · exact h2 (sub_eq_zero.mp h')
+
+/-- FT: `α ≠ γ` if `a1 ≠ a3` and `a2 ≠ a4`. -/
+theorem quarticAlpha_ne_quarticGamma {K : Type*} [CommRing K] [IsDomain K] {a1 a2 a3 a4 : K}
+    (h1 : a1 ≠ a3) (h2 : a2 ≠ a4) : quarticAlpha a1 a2 a3 a4 ≠ quarticGamma a1 a2 a3 a4 := by
+  intro heq
+  have h0 : quarticAlpha a1 a2 a3 a4 - quarticGamma a1 a2 a3 a4 = 0 := by
+    rw [heq]; exact sub_self _
+  have h : (a1 - a3) * (a2 - a4) = 0 := by
+    rw [← quarticAlpha_sub_quarticGamma]; exact h0
+  rcases mul_eq_zero.mp h with h' | h'
+  · exact h1 (sub_eq_zero.mp h')
+  · exact h2 (sub_eq_zero.mp h')
+
+/-- FT: `β ≠ γ` if `a1 ≠ a2` and `a3 ≠ a4`. -/
+theorem quarticBeta_ne_quarticGamma {K : Type*} [CommRing K] [IsDomain K] {a1 a2 a3 a4 : K}
+    (h1 : a1 ≠ a2) (h2 : a3 ≠ a4) : quarticBeta a1 a2 a3 a4 ≠ quarticGamma a1 a2 a3 a4 := by
+  intro heq
+  have h0 : quarticBeta a1 a2 a3 a4 - quarticGamma a1 a2 a3 a4 = 0 := by
+    rw [heq]; exact sub_self _
+  have h : (a1 - a2) * (a3 - a4) = 0 := by
+    rw [← quarticBeta_sub_quarticGamma]; exact h0
+  rcases mul_eq_zero.mp h with h' | h'
+  · exact h1 (sub_eq_zero.mp h')
+  · exact h2 (sub_eq_zero.mp h')
+
+/-- `α + β + γ` is the second elementary symmetric sum `s₂` of the roots. -/
+theorem quartic_psym_sum {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticAlpha a1 a2 a3 a4 + quarticBeta a1 a2 a3 a4 + quarticGamma a1 a2 a3 a4
+      = a1 * a2 + a1 * a3 + a1 * a4 + a2 * a3 + a2 * a4 + a3 * a4 := by
+  simp only [quarticAlpha, quarticBeta, quarticGamma]
+  ring
+
+/-- `αβ + αγ + βγ = s₁s₃ − 4s₄` where `s₁, s₃, s₄` are the elementary symmetric sums. -/
+theorem quartic_psym_pair {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticAlpha a1 a2 a3 a4 * quarticBeta a1 a2 a3 a4
+      + quarticAlpha a1 a2 a3 a4 * quarticGamma a1 a2 a3 a4
+      + quarticBeta a1 a2 a3 a4 * quarticGamma a1 a2 a3 a4
+      = (a1 + a2 + a3 + a4) * (a1 * a2 * a3 + a1 * a2 * a4 + a1 * a3 * a4 + a2 * a3 * a4)
+        - 4 * (a1 * a2 * a3 * a4) := by
+  simp only [quarticAlpha, quarticBeta, quarticGamma]
+  ring
+
+/-- `αβγ = s₄s₁² − 4s₂s₄ + s₃²` where the `sᵢ` are the elementary symmetric sums. -/
+theorem quartic_psym_prod {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) :
+    quarticAlpha a1 a2 a3 a4 * quarticBeta a1 a2 a3 a4 * quarticGamma a1 a2 a3 a4
+      = a1 * a2 * a3 * a4 * (a1 + a2 + a3 + a4) ^ 2
+        - 4 * (a1 * a2 + a1 * a3 + a1 * a4 + a2 * a3 + a2 * a4 + a3 * a4)
+            * (a1 * a2 * a3 * a4)
+        + (a1 * a2 * a3 + a1 * a2 * a4 + a1 * a3 * a4 + a2 * a3 * a4) ^ 2 := by
+  simp only [quarticAlpha, quarticBeta, quarticGamma]
+  ring
+
+/-- FT (proof of cg8): expanding `f = ∏(X − aᵢ)` and comparing with
+`X⁴ + bX³ + cX² + dX + e` yields the four Vieta identities: sum = −b, pair sums = c,
+triple sums = −d, product = e. -/
+theorem quartic_vieta {K : Type*} [CommRing K] (a1 a2 a3 a4 : K) (b c d e : K)
+    (hf : (X : K[X])^4 + C b * X^3 + C c * X^2 + C d * X + C e
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    a1 + a2 + a3 + a4 = -b
+      ∧ a1 * a2 + a1 * a3 + a1 * a4 + a2 * a3 + a2 * a4 + a3 * a4 = c
+      ∧ a1 * a2 * a3 + a1 * a2 * a4 + a1 * a3 * a4 + a2 * a3 * a4 = -d
+      ∧ a1 * a2 * a3 * a4 = e := by
+  have c3 : ((X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)).coeff 3
+      = (X^4 + C b * X^3 + C c * X^2 + C d * X + C e).coeff 3 := by rw [hf]
+  have c2 : ((X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)).coeff 2
+      = (X^4 + C b * X^3 + C c * X^2 + C d * X + C e).coeff 2 := by rw [hf]
+  have c1 : ((X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)).coeff 1
+      = (X^4 + C b * X^3 + C c * X^2 + C d * X + C e).coeff 1 := by rw [hf]
+  have c0 : ((X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)).coeff 0
+      = (X^4 + C b * X^3 + C c * X^2 + C d * X + C e).coeff 0 := by rw [hf]
+  rw [qcoeff_prod4_X_sub_C] at c3 c2 c1 c0
+  simp at c3 c2 c1 c0
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · have h := congrArg Neg.neg c3
+    simpa using h
+  · exact c2
+  · have h := congrArg Neg.neg c1
+    simpa using h
+  · exact c0
+
+/-- Auxiliary: coefficients of the target resolvent cubic
+`X³ − cX² + (bd − 4e)X − b²e + 4ce − d²`. -/
+theorem coeff_resolvent_cubic_target {K : Type*} [CommRing K] (b c d e : K) (n : ℕ) :
+    (X^3 - C c * X^2 + C (b * d - 4 * e) * X + C (-(b^2 * e) + 4 * c * e - d^2)).coeff n
+      = if n = 3 then 1 else if n = 2 then -c
+        else if n = 1 then b * d - 4 * e
+        else if n = 0 then -(b^2 * e) + 4 * c * e - d^2 else 0 := by
+  rcases n with _ | _ | _ | _ | n
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((0:ℕ) = 3) by decide), if_neg (show ¬((0:ℕ) = 2) by decide),
+      if_neg (show ¬((1:ℕ) = 0) by decide)]
+    simp
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((1:ℕ) = 3) by decide), if_neg (show ¬((1:ℕ) = 2) by decide),
+      if_neg (show ¬((1:ℕ) = 0) by decide)]
+    simp
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((2:ℕ) = 3) by decide),
+      if_neg (show ¬((1:ℕ) = 2) by decide), if_neg (show ¬((2:ℕ) = 0) by decide)]
+    simp
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((3:ℕ) = 2) by decide),
+      if_neg (show ¬((1:ℕ) = 3) by decide), if_neg (show ¬((3:ℕ) = 0) by decide)]
+    simp
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((n:ℕ) + 4 = 3) by omega), if_neg (show ¬((n:ℕ) + 4 = 2) by omega),
+      if_neg (show ¬((n:ℕ) + 4 = 1) by omega), if_neg (show ¬((n:ℕ) + 4 = 0) by omega)]
+    simp
+
+/-- FT cg8 (first clause): the resolvent cubic of `f = X⁴ + bX³ + cX² + dX + e` split over
+roots `a1, a2, a3, a4` is `g = (X − α)(X − β)(X − γ) = X³ − cX² + (bd − 4e)X − b²e + 4ce − d²`.
+Proof: coefficient comparison via the Vieta identities for `f` and the symmetric identities
+`α+β+γ = c`, `αβ+αγ+βγ = bd−4e`, `αβγ = b²e−4ce+d²`. -/
+theorem quartic_resolvent_cubic {K : Type*} [CommRing K] [IsDomain K]
+    (a1 a2 a3 a4 : K) (b c d e : K)
+    (hf : (X : K[X])^4 + C b * X^3 + C c * X^2 + C d * X + C e
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    (X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+      * (X - C (quarticGamma a1 a2 a3 a4))
+      = X^3 - C c * X^2 + C (b * d - 4 * e) * X + C (-(b^2 * e) + 4 * c * e - d^2) := by
+  obtain ⟨h1, h2, h3, h4⟩ := quartic_vieta a1 a2 a3 a4 b c d e hf
+  refine Polynomial.ext fun n => ?_
+  rw [qcoeff_prod3_X_sub_C, coeff_resolvent_cubic_target]
+  rcases n with _ | _ | _ | _ | n
+  · simp only [if_neg (show ¬((0:ℕ) = 3) by decide), if_neg (show ¬((0:ℕ) = 2) by decide),
+      if_neg (show ¬((0:ℕ) = 1) by decide)]
+    rw [quartic_psym_prod, h1, h2, h3, h4]
+    ring
+  · simp only [if_neg (show ¬((1:ℕ) = 3) by decide), if_neg (show ¬((1:ℕ) = 2) by decide),
+      ]
+    rw [quartic_psym_pair, h1, h3, h4]
+    simp
+  · simp only [if_neg (show ¬((2:ℕ) = 3) by decide)]
+    rw [quartic_psym_sum, h2]
+    simp
+  · simp
+  · simp only [if_neg (show ¬((n:ℕ) + 4 = 3) by omega), if_neg (show ¬((n:ℕ) + 4 = 2) by omega),
+      if_neg (show ¬((n:ℕ) + 4 = 1) by omega), if_neg (show ¬((n:ℕ) + 4 = 0) by omega)]
+
+/-- Auxiliary: the pairs `(i, j)` in `Fin 4 × Fin 4` with `i < j`, spelled out. -/
+theorem fin4_filter_pairs :
+    (Finset.univ.filter (fun p : Fin 4 × Fin 4 => p.1 < p.2))
+      = {(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)} := by
+  ext p
+  simp [Finset.mem_filter]
+  fin_cases p <;> simp
+
+/-- FT cg8 (∗): the product of the differences of the partially symmetric elements equals
+the Vandermonde product `∏_{i<j} (aᵢ − aⱼ)` of the roots. Proof: substitute the three
+difference factorizations and expand the filtered product over the six pairs. -/
+theorem quartic_resolvent_vandermonde {K : Type*} [CommRing K] (a : Fin 4 → K) :
+    (quarticAlpha (a 0) (a 1) (a 2) (a 3) - quarticBeta (a 0) (a 1) (a 2) (a 3))
+      * (quarticAlpha (a 0) (a 1) (a 2) (a 3) - quarticGamma (a 0) (a 1) (a 2) (a 3))
+      * (quarticBeta (a 0) (a 1) (a 2) (a 3) - quarticGamma (a 0) (a 1) (a 2) (a 3))
+      = ∏ p ∈ Finset.univ.filter (fun p : Fin 4 × Fin 4 => p.1 < p.2), (a p.1 - a p.2) := by
+  rw [quarticAlpha_sub_quarticBeta, quarticAlpha_sub_quarticGamma,
+    quarticBeta_sub_quarticGamma, fin4_filter_pairs]
+  simp [Finset.prod_insert, Finset.prod_singleton]
+  ring
+
+/-- FT cg8 (second clause): the discriminants of `f` and of its resolvent cubic `g` are
+equal: squaring the Vandermonde product gives the square of `(α−β)(α−γ)(β−γ)`. -/
+theorem quartic_resolvent_discriminant {K : Type*} [CommRing K] (a : Fin 4 → K) :
+    (∏ p ∈ Finset.univ.filter (fun p : Fin 4 × Fin 4 => p.1 < p.2), (a p.1 - a p.2)) ^ 2
+      = ((quarticAlpha (a 0) (a 1) (a 2) (a 3) - quarticBeta (a 0) (a 1) (a 2) (a 3))
+          * (quarticAlpha (a 0) (a 1) (a 2) (a 3) - quarticGamma (a 0) (a 1) (a 2) (a 3))
+          * (quarticBeta (a 0) (a 1) (a 2) (a 3)
+              - quarticGamma (a 0) (a 1) (a 2) (a 3))) ^ 2 := by
+  rw [quartic_resolvent_vandermonde a]
+
+/-- The Vieta identities for a quartic `X⁴ + bX³ + cX² + dX + e` over `F` split in `E`:
+sum = −b, pair sums = c, triple sums = −d, product = e (coefficients via `algebraMap`). -/
+theorem quartic_vieta_algebraMap {F E : Type u} [Field F] [Field E] [Algebra F E]
+    (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    a1 + a2 + a3 + a4 = -(algebraMap F E b)
+      ∧ a1 * a2 + a1 * a3 + a1 * a4 + a2 * a3 + a2 * a4 + a3 * a4 = algebraMap F E c
+      ∧ a1 * a2 * a3 + a1 * a2 * a4 + a1 * a3 * a4 + a2 * a3 * a4 = -(algebraMap F E d)
+      ∧ a1 * a2 * a3 * a4 = algebraMap F E e :=
+  quartic_vieta a1 a2 a3 a4 _ _ _ _ hf
+
+/-- Compatibility probe replicating the downstream use `rw [quartic_resolvent_cubic
+(K := E) a1 a2 a3 a4 (algebraMap F E b) ... hf]` on a coefficient goal. -/
+theorem quartic_resolvent_cubic_probe {F E : Type u} [Field F] [Field E] [Algebra F E]
+    (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 1
+      = algebraMap F E b * algebraMap F E d - 4 * algebraMap F E e := by
+  rw [quartic_resolvent_cubic (K := E) a1 a2 a3 a4 (algebraMap F E b) (algebraMap F E c)
+    (algebraMap F E d) (algebraMap F E e) hf]
+  simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+    Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+    if_neg (show ¬((1:ℕ) = 3) by decide), if_neg (show ¬((1:ℕ) = 2) by decide),
+    if_neg (show ¬((1:ℕ) = 0) by decide)]
+  simp only [if_pos (by trivial : (True : Prop))]
+  ring
+
+end QuarticResolvent
+
+/-! ## FT chapter IV §4: quartic resolvent — Galois section (FT cg7) -/
+
+section QuarticResolventGalois
+
+open Polynomial
+
+section QuarticResolventGalois
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E]
+
+/-- A point `y` is a root of the split cubic `(X − u)(X − v)(X − w)` iff it is one of
+`u, v, w`. -/
+theorem eval_prod3_eq_zero_iff (u v w y : E) :
+    ((X - C u) * (X - C v) * (X - C w)).eval y = 0 ↔ y = u ∨ y = v ∨ y = w := by
+  simp only [Polynomial.eval_mul, Polynomial.eval_sub, Polynomial.eval_X, Polynomial.eval_C,
+    mul_eq_zero, sub_eq_zero]
+  tauto
+
+/-- FT `cg8`.  Coefficients of the resolvent cubic: the coefficient of `X^n` in
+`(X − α)(X − β)(X − γ)` is `1`, `−c`, `bd − 4e`, `−b²e + 4ce − d²` for `n = 3, 2, 1, 0` and
+`0` otherwise, where `b, c, d, e` are the quartic's coefficients. -/
+theorem quartic_resolvent_coeff (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) (n : ℕ) :
+    ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff n
+      = if n = 3 then 1
+        else if n = 2 then -(algebraMap F E c)
+        else if n = 1 then algebraMap F E b * algebraMap F E d - 4 * algebraMap F E e
+        else if n = 0 then -(algebraMap F E b^2 * algebraMap F E e)
+            + 4 * algebraMap F E c * algebraMap F E e - algebraMap F E d^2
+        else 0 := by
+  rw [quartic_resolvent_cubic (K := E) a1 a2 a3 a4 (algebraMap F E b) (algebraMap F E c)
+    (algebraMap F E d) (algebraMap F E e) hf]
+  rcases n with _ | _ | _ | _ | n
+  · simp only [Polynomial.coeff_sub, Polynomial.coeff_add, Polynomial.coeff_C_mul_X_pow,
+      Polynomial.coeff_X_pow, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_sub, Polynomial.coeff_add, Polynomial.coeff_C_mul_X_pow,
+      Polynomial.coeff_X_pow, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_sub, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_C, Polynomial.coeff_C_mul, Polynomial.coeff_X]
+    norm_num
+  · simp only [Polynomial.coeff_sub, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_C, Polynomial.coeff_C_mul, Polynomial.coeff_X]
+    norm_num
+  · simp only [Polynomial.coeff_sub, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_C, Polynomial.coeff_C_mul, Polynomial.coeff_X]
+    have h3 : ¬ (n + 1 + 1 + 1 + 1 = 3) := by omega
+    have h2 : ¬ (n + 1 + 1 + 1 + 1 = 2) := by omega
+    have h1 : ¬ (1 = n + 1 + 1 + 1 + 1) := by omega
+    have h0 : ¬ (n + 1 + 1 + 1 + 1 = 0) := by omega
+    simp only [if_neg h3, if_neg h2, if_neg h1, if_neg h0]
+    norm_num
+
+/-- FT `cg8` (discussion).  Every element of `Gal(E/F)` fixes the coefficients of the
+resolvent cubic. -/
+theorem quartic_resolvent_gal_coeff (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4))
+    (σ : Gal(E/F)) (n : ℕ) :
+    σ (((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff n)
+      = ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff n := by
+  have c3 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 3 = 1 := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 3]; norm_num
+  have c2 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 2 = -(algebraMap F E c) := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 2]; norm_num
+  have c1 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 1
+        = algebraMap F E b * algebraMap F E d - 4 * algebraMap F E e := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 1]; norm_num
+  have c0 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 0
+        = -(algebraMap F E b^2 * algebraMap F E e) + 4 * algebraMap F E c * algebraMap F E e
+          - algebraMap F E d^2 := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 0]; norm_num
+  have cN : ∀ m, 4 ≤ m → ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff m = 0 := by
+    intro m hm
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf m]
+    split_ifs with h1 h2 h3 h4
+    · exact absurd h1 (by omega)
+    · exact absurd h2 (by omega)
+    · exact absurd h3 (by omega)
+    · exact absurd h4 (by omega)
+    · rfl
+  rcases n with _ | _ | _ | _ | m
+  · rw [c0]
+    simp only [map_neg, map_add, map_sub, map_mul, map_pow, map_ofNat, AlgEquiv.commutes]
+  · rw [c1]
+    simp only [map_sub, map_mul, map_ofNat, AlgEquiv.commutes]
+  · rw [c2]
+    simp only [map_neg, AlgEquiv.commutes]
+  · rw [c3]
+    simp
+  · rw [cN (m + 4) (by omega)]
+    simp
+
+/-- FT `cg7` (discussion).  Every element of `Gal(E/F)` permutes the set `{α, β, γ}` of
+partially symmetric elements. -/
+theorem quartic_resolvent_gal_permutes (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4))
+    (σ : Gal(E/F)) :
+    ∀ x ∈ quarticResolventSet a1 a2 a3 a4,
+      (↑σ : E →ₐ[F] E) x ∈ quarticResolventSet a1 a2 a3 a4 := by
+  have hcoef := quartic_resolvent_gal_coeff a1 a2 a3 a4 b c d e hf σ
+  have htrans : ∀ x : E, σ (((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval x)
+      = ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (σ x) := by
+    intro x
+    rw [Polynomial.eval_eq_sum_range, Polynomial.eval_eq_sum_range, map_sum σ]
+    refine Finset.sum_congr rfl fun i hi => ?_
+    rw [map_mul, map_pow, hcoef i]
+  intro x hx
+  simp only [quarticResolventSet, Set.mem_insert_iff, Set.mem_singleton_iff] at hx ⊢
+  have hrw : ∀ z : E, z = quarticAlpha a1 a2 a3 a4 ∨ z = quarticBeta a1 a2 a3 a4 ∨
+      z = quarticGamma a1 a2 a3 a4 →
+      ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval z = 0 := by
+    rintro z (rfl | rfl | rfl) <;>
+      simp [Polynomial.eval_mul, Polynomial.eval_sub, Polynomial.eval_X, Polynomial.eval_C]
+  have hroot : ∀ z : E, ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval z = 0 →
+      z = quarticAlpha a1 a2 a3 a4 ∨ z = quarticBeta a1 a2 a3 a4 ∨ z = quarticGamma a1 a2 a3 a4 :=
+    fun z hz => (eval_prod3_eq_zero_iff _ _ _ _).mp hz
+  rcases hx with rfl | rfl | rfl
+  · have h1 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (quarticAlpha a1 a2 a3 a4) = 0 :=
+      hrw _ (Or.inl rfl)
+    have h2 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (σ (quarticAlpha a1 a2 a3 a4)) = 0 := by
+      rw [← htrans (quarticAlpha a1 a2 a3 a4), h1, map_zero]
+    exact hroot _ h2
+  · have h1 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (quarticBeta a1 a2 a3 a4) = 0 :=
+      hrw _ (Or.inr (Or.inl rfl))
+    have h2 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (σ (quarticBeta a1 a2 a3 a4)) = 0 := by
+      rw [← htrans (quarticBeta a1 a2 a3 a4), h1, map_zero]
+    exact hroot _ h2
+  · have h1 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (quarticGamma a1 a2 a3 a4) = 0 :=
+      hrw _ (Or.inr (Or.inr rfl))
+    have h2 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).eval (σ (quarticGamma a1 a2 a3 a4)) = 0 := by
+      rw [← htrans (quarticGamma a1 a2 a3 a4), h1, map_zero]
+    exact hroot _ h2
+
+/-- FT `cg7` (discussion).  `Gal(E/F)` preserves the set `{α, β, γ}` setwise. -/
+theorem quartic_resolvent_gal_image (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4))
+    (σ : Gal(E/F)) :
+    (↑σ : E →ₐ[F] E) '' quarticResolventSet a1 a2 a3 a4 = quarticResolventSet a1 a2 a3 a4 := by
+  apply Set.eq_of_subset_of_subset
+  · rintro _ ⟨x, hx, rfl⟩
+    exact quartic_resolvent_gal_permutes a1 a2 a3 a4 b c d e hf σ x hx
+  · intro y hy
+    exact ⟨(↑(σ⁻¹ : Gal(E/F)) : E →ₐ[F] E) y,
+      quartic_resolvent_gal_permutes a1 a2 a3 a4 b c d e hf σ⁻¹ y hy,
+      AlgEquiv.apply_symm_apply σ y⟩
+
+variable [IsGalois F E] [FiniteDimensional F E]
+
+omit [IsGalois F E] [FiniteDimensional F E] in
+/-- FT `cg7` (discussion).  `Gal(E/F)` fixes the intermediate field `F[α, β, γ]` as a
+whole. -/
+theorem quartic_resolvent_gal_map_adjoin (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4))
+    (σ : Gal(E/F)) :
+    IntermediateField.map (↑σ : E →ₐ[F] E)
+        (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))
+      = IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4) := by
+  rw [IntermediateField.adjoin_map F _ (↑σ : E →ₐ[F] E),
+    quartic_resolvent_gal_image a1 a2 a3 a4 b c d e hf σ]
+
+omit [IsGalois F E] [FiniteDimensional F E] in
+/-- FT `cg7`.  The subgroup `W` of `G_f = Gal(E/F)` fixing `F[α, β, γ]` pointwise is normal
+in `Gal(E/F)`. -/
+theorem quartic_resolvent_fixingSubgroup_normal (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup.Normal := by
+  have hmap : ∀ σ : Gal(E/F), IntermediateField.map (↑σ : E →ₐ[F] E)
+      (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))
+      = IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4) := fun σ =>
+    quartic_resolvent_gal_map_adjoin a1 a2 a3 a4 b c d e hf σ
+  constructor
+  · intro x hx g
+    rw [IntermediateField.mem_fixingSubgroup_iff]
+    intro y hy
+    have hy' : y ∈ IntermediateField.map (↑g : E →ₐ[F] E)
+        (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)) := by
+      rw [hmap g]; exact hy
+    obtain ⟨y', hy'm, hy'eq⟩ :=
+      (IntermediateField.mem_map
+        (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))).mp hy'
+    have hgy : (g⁻¹ : Gal(E/F)) y = y' := by
+      rw [← hy'eq]
+      exact AlgEquiv.symm_apply_apply g y'
+    have hfix : (x : Gal(E/F)) y' = y' :=
+      ((IntermediateField.mem_fixingSubgroup_iff
+        (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))) x).mp hx y' hy'm
+    rw [AlgEquiv.mul_apply, AlgEquiv.mul_apply, hgy, hfix]
+    exact hy'eq
+
+/-- FT `cg7` (first clause).  The fixed field of the subgroup `W` fixing `F[α, β, γ]`
+pointwise is `F[α, β, γ]` itself. -/
+theorem quartic_resolvent_fixedField (a1 a2 a3 a4 : E) :
+    IntermediateField.fixedField
+        (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup
+      = IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4) :=
+  FT.galCorr_fixedField_fixingSubgroup _
+
+/-- FT `cg7` (second clause, Galois part).  `F[α, β, γ]` is Galois over `F`. -/
+theorem quartic_resolvent_isGalois (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
+    IsGalois F ↥(IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)) := by
+  haveI : (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup.Normal :=
+    quartic_resolvent_fixingSubgroup_normal a1 a2 a3 a4 b c d e hf
+  have h := FT.galCorr_isGalois_fixedField_of_normal
+    (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup
+  rw [FT.galCorr_fixedField_fixingSubgroup
+    (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))] at h
+  exact h
+
+/-- FT `cg7` (second clause, quotient part).  `Gal(F[α, β, γ]/F) ≅ G_f/W`. -/
+noncomputable def quartic_resolvent_quotientEquiv (a1 a2 a3 a4 : E) (b c d e : F)
+    (_hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4))
+    [hN : (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup.Normal] :
+    Gal(↥(IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))/F)
+      ≃* Gal(E/F) ⧸ (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup := by
+  have h := FT.galCorrQuotientEquiv
+    (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4)).fixingSubgroup
+  rw [FT.galCorr_fixedField_fixingSubgroup
+    (IntermediateField.adjoin F (quarticResolventSet a1 a2 a3 a4))] at h
+  exact h
+
+omit [IsGalois F E] [FiniteDimensional F E] in
+/-- FT `cg8`/discussion.  The resolvent cubic has coefficients in `F`. -/
+theorem quartic_resolvent_coeff_mem (a1 a2 a3 a4 : E) (b c d e : F)
+    (hf : (X : E[X])^4 + C (algebraMap F E b) * X^3 + C (algebraMap F E c) * X^2
+        + C (algebraMap F E d) * X + C (algebraMap F E e)
+      = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) (n : ℕ) :
+    ∃ z : F, ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff n = algebraMap F E z := by
+  have hc0 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 0
+      = -(algebraMap F E b^2 * algebraMap F E e) + 4 * algebraMap F E c * algebraMap F E e
+        - algebraMap F E d^2 := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 0]; norm_num
+  have hc1 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 1
+      = algebraMap F E b * algebraMap F E d - 4 * algebraMap F E e := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 1]; norm_num
+  have hc2 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 2 = -(algebraMap F E c) := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 2]; norm_num
+  have hc3 : ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff 3 = 1 := by
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf 3]; norm_num
+  have hcN : ∀ m, 4 ≤ m → ((X - C (quarticAlpha a1 a2 a3 a4)) * (X - C (quarticBeta a1 a2 a3 a4))
+        * (X - C (quarticGamma a1 a2 a3 a4))).coeff m = 0 := by
+    intro m hm
+    rw [quartic_resolvent_coeff a1 a2 a3 a4 b c d e hf m]
+    split_ifs with h1 h2 h3 h4
+    · exact absurd h1 (by omega)
+    · exact absurd h2 (by omega)
+    · exact absurd h3 (by omega)
+    · exact absurd h4 (by omega)
+    · rfl
+  have hz0 : algebraMap F E (-(b^2 * e) + 4 * c * e - d^2)
+      = -(algebraMap F E b^2 * algebraMap F E e) + 4 * algebraMap F E c * algebraMap F E e
+        - algebraMap F E d^2 := by
+    simp only [map_neg, map_add, map_sub, map_mul, map_pow, map_ofNat]
+  have hz1 : algebraMap F E (b * d - 4 * e)
+      = algebraMap F E b * algebraMap F E d - 4 * algebraMap F E e := by
+    simp only [map_mul, map_sub, map_ofNat]
+  rcases n with _ | _ | _ | _ | m
+  · exact ⟨-(b^2 * e) + 4 * c * e - d^2, by rw [hc0, hz0]⟩
+  · exact ⟨b * d - 4 * e, by rw [hc1, hz1]⟩
+  · exact ⟨-c, by rw [hc2, map_neg (algebraMap F E)]⟩
+  · exact ⟨1, by rw [hc3, map_one]⟩
+  · exact ⟨0, by rw [hcN (m + 1 + 1 + 1 + 1) (by omega), map_zero]⟩
+
+end QuarticResolventGalois
+
+end QuarticResolventGalois
+
+/-! ## FT chapter IV §1: discriminant and the sign of the Galois group (FT cg1, cg2) -/
+
+section Vandermonde
+
+variable {R : Type*} [CommRing R] {n : ℕ}
+
+/-- FT ch. IV §1 (`cg1`): the Vandermonde product `∏_{i<j} (r i - r j)`, indexed `∏ j, ∏ i ∈ Iio j`. -/
+def vandermondeProd (r : Fin n → R) : R :=
+  ∏ j : Fin n, ∏ i ∈ Finset.Iio j, (r i - r j)
+
+/-- FT cg1 (a): `vandermondeProd (r ∘ σ) = sign σ · vandermondeProd r` (each inversion of `σ`
+flips one factor), via Mathlib's inversion-parity lemma `Equiv.Perm.prod_Iio_comp_eq_sign_mul_prod`. -/
+theorem vandermondeProd_perm (r : Fin n → R) (σ : Equiv.Perm (Fin n)) :
+    vandermondeProd (r ∘ σ) = ↑↑(Equiv.Perm.sign σ) * vandermondeProd r :=
+  @Equiv.Perm.prod_Iio_comp_eq_sign_mul_prod n R _ σ (fun i j => r i - r j)
+    (fun _ _ => (neg_sub _ _).symm)
+
+/-- FT cg1 (b): `Δ²` is unchanged by any relabeling (`sign σ = ±1` squares to `1`). -/
+theorem vandermondeProd_sq_perm (r : Fin n → R) (σ : Equiv.Perm (Fin n)) :
+    vandermondeProd (r ∘ σ) ^ 2 = vandermondeProd r ^ 2 := by
+  rw [vandermondeProd_perm, mul_pow]
+  rcases Int.units_eq_one_or (Equiv.Perm.sign σ) with h | h <;> simp [h]
+
+end Vandermonde
+
+section Transport
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] {n : ℕ}
+
+/-- FT ch. IV §1: `Δ(f)` for a root enumeration `r : Fin n → E`; `ftDelta r ^ 2 = D(f)`. -/
+abbrev ftDelta (r : Fin n → E) : E := vandermondeProd r
+
+/-- FT cg1: `ftDelta r` is the Vandermonde product of the enumeration. -/
+theorem ftDelta_eq_vandermondeProd (r : Fin n → E) : ftDelta r = vandermondeProd r := rfl
+
+/-- FT IV §1: the permutation `σ̂` of `Fin n` induced by `σ : E ≃ₐ[F] E` on roots enumerated by
+injective `r` (with `σ (r i)` again in the range of `r`); characterized in `ftRootsEquiv_apply`. -/
+noncomputable def ftRootsEquiv (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+    (hσ : ∀ i, σ (r i) ∈ Set.range r) : Equiv.Perm (Fin n) :=
+  Equiv.ofBijective (fun i => (Set.mem_range.mp (hσ i)).choose)
+    ⟨fun i i' hij => by
+      have h1 := congrArg r hij
+      rw [Exists.choose_spec (Set.mem_range.mp (hσ i)),
+        Exists.choose_spec (Set.mem_range.mp (hσ i'))] at h1
+      exact hri (Equiv.injective σ.toEquiv h1),
+      fun j => by
+        have hinj : Function.Injective (fun i => (Set.mem_range.mp (hσ i)).choose) :=
+          fun i i' hij => by
+            have h1 := congrArg r hij
+            rw [Exists.choose_spec (Set.mem_range.mp (hσ i)),
+              Exists.choose_spec (Set.mem_range.mp (hσ i'))] at h1
+            exact hri (Equiv.injective σ.toEquiv h1)
+        exact (Finite.injective_iff_surjective (f := fun i => (Set.mem_range.mp (hσ i)).choose)).mp
+          hinj j⟩
+
+/-- FT IV §1: defining property of `σ̂`: `r (σ̂ i) = σ (r i)`. -/
+theorem ftRootsEquiv_apply (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+    (hσ : ∀ i, σ (r i) ∈ Set.range r) (i : Fin n) :
+    r (ftRootsEquiv r hri σ hσ i) = σ (r i) :=
+  Exists.choose_spec (Set.mem_range.mp (hσ i))
+
+/-- Helper: `(±1 : ℤˣ)` squared, embedded in a commutative ring, is `1`. -/
+private theorem priv_sign_sq {R : Type*} [CommRing R] {n : ℕ} (σ : Equiv.Perm (Fin n)) :
+    (↑↑(Equiv.Perm.sign σ) : R) ^ 2 = 1 := by
+  rcases Int.units_eq_one_or (Equiv.Perm.sign σ) with h | h <;> simp [h]
+
+/-- FT cg1 (a): `σ • Δ = sign(σ̂) · Δ` (`σ` moves into the product and replaces `r i` by
+`r (σ̂ i)`, then `vandermondeProd_perm`). -/
+theorem ftDelta_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+    (hσ : ∀ i, σ (r i) ∈ Set.range r) :
+    σ • ftDelta r = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ hσ)) * ftDelta r := by
+  have h1 : σ.toAlgHom (vandermondeProd r) = vandermondeProd (r ∘ (ftRootsEquiv r hri σ hσ)) := by
+    simp only [vandermondeProd, map_prod σ.toAlgHom, map_sub, ftRootsEquiv_apply r hri σ hσ,
+      Function.comp_apply]
+    rfl
+  show σ.toAlgHom (ftDelta r) = _
+  rw [h1, vandermondeProd_perm]
+
+/-- FT cg1 (b): `σ • Δ² = Δ²` (`σ • Δ² = (σ • Δ)²` and `sign(σ̂)² = 1`). -/
+theorem ftDelta_sq_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+    (hσ : ∀ i, σ (r i) ∈ Set.range r) :
+    σ • ftDelta r ^ 2 = ftDelta r ^ 2 := by
+  have hsmul : ∀ y : E, σ • y = σ.toAlgHom y := fun y => rfl
+  have hsm : σ.toAlgHom (ftDelta r) = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ hσ)) * ftDelta r :=
+    ftDelta_gal_smul' r hri σ hσ
+  rw [hsmul, map_pow σ.toAlgHom (ftDelta r) 2, hsm, mul_pow, priv_sign_sq, one_mul]
+
+/-- FT IV §1: the sign of `σ̂` is independent of the enumeration (relabeling by `π` conjugates
+`σ̂` to `π σ̂ π⁻¹`, same signature). -/
+theorem ftRootsEquiv_sign_congr (r : Fin n → E) (hri : Function.Injective r)
+    (π : Equiv.Perm (Fin n)) (σ : E ≃ₐ[F] E) (hσ : ∀ i, σ (r i) ∈ Set.range r)
+    (hσ' : ∀ i, σ (r (π i)) ∈ Set.range (r ∘ π)) :
+    Equiv.Perm.sign (ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ') =
+      Equiv.Perm.sign (ftRootsEquiv r hri σ hσ) := by
+  have hpt : ∀ i, π ((ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ') i)
+      = (ftRootsEquiv r hri σ hσ) (π i) := by
+    intro i
+    have h1 := ftRootsEquiv_apply (r ∘ π) (hri.comp π.injective) σ hσ' i
+    have h2 := ftRootsEquiv_apply r hri σ hσ (π i)
+    rw [Function.comp_apply, Function.comp_apply] at h1
+    rw [← h1] at h2
+    exact hri h2.symm
+  have hcong : ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ'
+      = (π.trans (ftRootsEquiv r hri σ hσ)).trans π.symm :=
+    Equiv.ext fun i => by
+      simp only [Equiv.trans_apply]
+      rw [← hpt i, Equiv.symm_apply_apply]
+  rw [hcong, Equiv.Perm.sign_trans_trans_symm]
+
+end Transport
+
+section Splitting
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] {n : ℕ} {r : Fin n → E}
+
+/-- Helper: `σ : E →ₐ[F] E` commutes with evaluation of `f ∈ F[X]`:
+`eval (σ x) (f.map (algebraMap F E)) = σ (eval x (f.map (algebraMap F E)))` — via
+`eval_map`, `aeval_def` and `aeval_algHom_apply`. -/
+private theorem priv_eval_gal (f : Polynomial F) (σ : E →ₐ[F] E) (x : E) :
+    (f.map (algebraMap F E)).eval (σ x) = σ ((f.map (algebraMap F E)).eval x) := by
+  rw [Polynomial.eval_map (algebraMap F E) (σ x), Polynomial.eval_map (algebraMap F E) x,
+    ← Polynomial.aeval_def, ← Polynomial.aeval_def, Polynomial.aeval_algHom_apply,
+    Polynomial.aeval_def, ← Polynomial.eval_map]
+
+/-- FT IV §1: if `r : Fin n → E` enumerates the roots of `f` (injectively, with range the root
+set of `f.map (algebraMap F E)` in `E`), then every `σ : Gal(E/F)` permutes the enumerated
+roots.  Proof: `σ` commutes with evaluation (`priv_eval_gal`), hence maps roots to roots. -/
+theorem gal_apply_mem_range (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E)
+    (σ : Gal(E/F)) (i : Fin n) : σ (r i) ∈ Set.range r := by
+  have hp0 : (f.map (algebraMap F E)) ≠ 0 :=
+    (Polynomial.map_ne_zero_iff (RingHom.injective (algebraMap F E))).mpr hf
+  have hmem : r i ∈ (f.map (algebraMap F E)).rootSet E := by
+    rw [← hr]; exact ⟨i, rfl⟩
+  obtain ⟨-, h0⟩ := Polynomial.mem_rootSet.mp hmem
+  have h0' : (f.map (algebraMap F E)).eval (r i) = 0 := h0
+  have h1 : (f.map (algebraMap F E)).eval (σ.toAlgHom (r i)) = 0 := by
+    rw [priv_eval_gal f σ.toAlgHom (r i), h0']
+    exact map_zero σ.toAlgHom
+  have hroot' : σ (r i) ∈ (f.map (algebraMap F E)).rootSet E :=
+    Polynomial.mem_rootSet.mpr ⟨hp0, h1⟩
+  rw [hr]
+  exact hroot'
+
+/-- FT cg2 (a): `D(f) = Δ²` lies in the fixed field of the full Galois group: every
+`σ : Gal(E/F)` permutes the enumerated roots, and `ftDelta_sq_gal_smul'` shows `σ` fixes `Δ²`. -/
+theorem ftDiscr_mem_fixedField_top (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E)
+    (hri : Function.Injective r) :
+    ftDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
+  rw [IntermediateField.mem_fixedField_iff]
+  intro σ _
+  exact ftDelta_sq_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+
+/-- FT cg2 (a): the discriminant `D(f) = Δ(f)²` is an element of the base field `F` (encoded
+as `∃ a : F, algebraMap F E a = D(f)`; equivalently `D(f) ∈ (algebraMap F E).fieldRange`):
+it lies in `fixedField ⊤ = ⊥` (`IsGalois.fixedField_top`, `IntermediateField.mem_bot`). -/
+theorem ftDiscr_mem_algebraMap (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E)
+    (hri : Function.Injective r) [IsGalois F E] [FiniteDimensional F E] :
+    ∃ a : F, algebraMap F E a = ftDelta r ^ 2 := by
+  have h1 : ftDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) :=
+    ftDiscr_mem_fixedField_top f hf hr hri
+  rw [IsGalois.fixedField_top, IntermediateField.mem_bot] at h1
+  exact h1
+
+/-- Characteristic `≠ 2` of `F` gives `(2 : E) ≠ 0`: `2 = 1 + 1` maps along `algebraMap F E`,
+which is injective (`RingHom.injective`, `F` a field). -/
+theorem two_ne_zero_algebraMap (h2 : (2 : F) ≠ 0) : (2 : E) ≠ 0 := by
+  have h' : algebraMap F E (2 : F) = (2 : E) := by
+    rw [← one_add_one_eq_two, map_add, map_one, one_add_one_eq_two]
+  intro h
+  apply h2
+  have h0 : algebraMap F E (2 : F) = 0 := by rw [h', h]
+  exact (RingHom.injective (algebraMap F E)) (h0.trans (map_zero _).symm)
+
+/-- Helper for FT cg2 (b): if `σ : Gal(E/F)` fixes `Δ = ftDelta r`, `char F ≠ 2` and
+`Δ ≠ 0`, then the induced permutation `σ̂` is even (`sign σ̂ = 1`).  Proof:
+`ftDelta_gal_smul'` gives `σ • Δ = sign(σ̂) · Δ`; if `sign(σ̂) = -1` then `Δ + Δ = 0`, so
+`(1 + 1) · Δ = 0` in the field `E`, contradicting `2 ≠ 0` and `Δ ≠ 0`. -/
+theorem sign_eq_one_of_gal_fix (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
+    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) (σ : Gal(E/F))
+    (hfix : σ.toAlgHom (ftDelta r) = ftDelta r) :
+    Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
+  have hsm : σ.toAlgHom (ftDelta r) = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ
+      (fun i => gal_apply_mem_range f hf hr σ i))) * ftDelta r :=
+    ftDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+  have hsm2 : ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ
+      (fun i => gal_apply_mem_range f hf hr σ i))) * ftDelta r = ftDelta r :=
+    hsm.symm.trans hfix
+  rcases Int.units_eq_one_or (Equiv.Perm.sign (ftRootsEquiv r hri σ
+      (fun i => gal_apply_mem_range f hf hr σ i))) with hu | hu
+  · exact hu
+  · exfalso
+    rw [hu, Units.coe_neg_one, Int.cast_neg, Int.cast_one, neg_one_mul,
+      neg_eq_iff_add_eq_zero] at hsm2
+    have h2Δ : (2 : E) * ftDelta r = 0 := by rw [two_mul]; exact hsm2
+    rcases mul_eq_zero.mp h2Δ with h' | h'
+    · exact h2 h'
+    · exact hΔ h'
+
+/-- FT cg2 (b): for `char F ≠ 2` and `Δ = ftDelta r ≠ 0`, an element `σ` of `Gal(E/F)` fixes
+`F[Δ] = IntermediateField.adjoin F {Δ}` pointwise iff the induced permutation `σ̂` is even
+(`sign σ̂ = 1`); i.e. the fixing subgroup of `F[Δ]` is exactly the "even part" of the Galois
+group.  Proof (⇐): `sign σ̂ = 1` gives `σ • Δ = Δ`; the fixed-point set of `σ` is the
+intermediate field `fixedField (stabilizer σ Δ) ∋ Δ`, containing `F[Δ]` (`adjoin_le_iff`),
+and `fixingSubgroup` is antitone with `fixingSubgroup (fixedField (stabilizer …)) ∋ σ`.
+Proof (⇒): `σ` fixes `Δ ∈ F[Δ]`, and `sign(σ̂) · Δ = σ • Δ = Δ` forces `sign σ̂ = 1` unless
+`char = 2` or `Δ = 0` (`sign_eq_one_of_gal_fix`). -/
+theorem gal_mem_fixingSubgroup_adjoin_singleton (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
+    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [FiniteDimensional F E] (σ : Gal(E/F)) :
+    σ ∈ (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup ↔
+      Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
+  constructor
+  · intro hmem
+    exact sign_eq_one_of_gal_fix f hf hr hri hΔ h2 σ
+      ((IntermediateField.mem_fixingSubgroup_iff _ σ).mp hmem (ftDelta r)
+        (IntermediateField.subset_adjoin F _ (Set.mem_singleton _)))
+  · intro hsign
+    have hsm := ftDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+    rw [hsign] at hsm
+    simp only [Units.val_one, Int.cast_one, one_mul] at hsm
+    have hΔfix : σ.toAlgHom (ftDelta r) = ftDelta r := hsm
+    have hmemΔ : ftDelta r ∈
+        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (ftDelta r)) := by
+      rw [IntermediateField.mem_fixedField_iff]
+      intro τ hτ
+      exact MulAction.mem_stabilizer_iff.mp hτ
+    have hsub : IntermediateField.adjoin F ({ftDelta r} : Set E) ≤
+        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (ftDelta r)) :=
+      IntermediateField.adjoin_le_iff.mpr (Set.singleton_subset_iff.mpr hmemΔ)
+    have hstab : MulAction.stabilizer Gal(E/F) (ftDelta r) ≤
+        (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup := by
+      have h1 : (IntermediateField.fixedField
+            (MulAction.stabilizer Gal(E/F) (ftDelta r))).fixingSubgroup
+          = MulAction.stabilizer Gal(E/F) (ftDelta r) :=
+        IntermediateField.fixingSubgroup_fixedField _
+      have h2 : (IntermediateField.fixedField
+            (MulAction.stabilizer Gal(E/F) (ftDelta r))).fixingSubgroup ≤
+          (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup :=
+        IntermediateField.fixingSubgroup_antitone hsub
+      rw [h1] at h2
+      exact h2
+    exact hstab (MulAction.mem_stabilizer_iff.mpr hΔfix)
+
+/-- FT cg2 (b): under `char F ≠ 2` and `Δ = ftDelta r ≠ 0`, the whole Galois group acts
+through even permutations iff `Δ ∈ F`.
+Proof (⇒): every `σ` fixes `Δ` (since `σ • Δ = sign(σ̂) · Δ = Δ`), so `Δ ∈ fixedField ⊤ = ⊥`
+(`IsGalois.fixedField_top`, `IntermediateField.mem_bot`).  (⇐): `Δ = algebraMap F E a` is
+fixed by every `σ ∈ Gal(E/F)` (which fixes `F` pointwise), so `sign σ̂ = 1` by
+`sign_eq_one_of_gal_fix`. -/
+theorem gal_even_iff_delta_mem (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
+    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
+    (∀ σ : Gal(E/F),
+        Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1) ↔
+      ∃ a : F, algebraMap F E a = ftDelta r := by
+  constructor
+  · intro hall
+    have hfix : ftDelta r ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
+      rw [IntermediateField.mem_fixedField_iff]
+      intro τ _
+      have hsm := ftDelta_gal_smul' r hri τ (fun i => gal_apply_mem_range f hf hr τ i)
+      rw [hall τ] at hsm
+      simp only [Units.val_one, Int.cast_one, one_mul] at hsm
+      exact hsm
+    rw [IsGalois.fixedField_top, IntermediateField.mem_bot] at hfix
+    exact hfix
+  · rintro ⟨a, ha⟩ σ
+    exact sign_eq_one_of_gal_fix f hf hr hri hΔ h2 σ (by rw [← ha, AlgHom.map_algebraMap])
+
+/-- FT cg2 (b): `Δ ∈ F` iff the discriminant `Δ²` is a square in `F` (i.e. `Δ² = t²` for some
+`t ∈ F`) — both directions hold in a field without any hypothesis on the characteristic:
+if `Δ² = t²` then `(Δ - t)(Δ + t) = Δ² - t² = 0` in the field `E`, so `Δ = t` or `Δ = -t`. -/
+theorem delta_mem_iff_square {Δ : E} :
+    (∃ a : F, algebraMap F E a = Δ) ↔ ∃ t : F, algebraMap F E t ^ 2 = Δ ^ 2 := by
+  constructor
+  · rintro ⟨a, ha⟩
+    exact ⟨a, by rw [← ha]⟩
+  · rintro ⟨t, ht⟩
+    have h1 : (Δ - algebraMap F E t) * (Δ + algebraMap F E t) = 0 := by
+      have hsq : (Δ - algebraMap F E t) * (Δ + algebraMap F E t) = Δ ^ 2 - (algebraMap F E t) ^ 2 := by
+        ring
+      rw [hsq, ← ht, sub_self]
+    rcases mul_eq_zero.mp h1 with h' | h'
+    · exact ⟨t, (sub_eq_zero.mp h').symm⟩
+    · refine ⟨-t, ?_⟩
+      rw [map_neg, neg_eq_iff_add_eq_zero, add_comm]
+      exact h'
+
+/-- FT cg2 (b): `G_f ⊆ A_n` — encoded as every `σ : Gal(E/F)` fixing `F[Δ]` pointwise —
+iff `Δ ∈ F` (under `char F ≠ 2`, `Δ ≠ 0`); combines `gal_mem_fixingSubgroup_adjoin_singleton`
+pointwise with `gal_even_iff_delta_mem`. -/
+theorem gal_top_le_fixingSubgroup_iff_delta_mem (f : Polynomial F) (hf : f ≠ 0)
+    (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
+    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
+    (∀ σ : Gal(E/F), σ ∈ (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup) ↔
+      ∃ a : F, algebraMap F E a = ftDelta r := by
+  constructor
+  · intro hall
+    exact (gal_even_iff_delta_mem f hf hr hri hΔ h2).mp (fun σ =>
+      (gal_mem_fixingSubgroup_adjoin_singleton f hf hr hri hΔ h2 σ).mp (hall σ))
+  · rintro ⟨a, ha⟩ σ
+    exact (gal_mem_fixingSubgroup_adjoin_singleton f hf hr hri hΔ h2 σ).mpr
+      ((gal_even_iff_delta_mem f hf hr hri hΔ h2).mpr ⟨a, ha⟩ σ)
+
+/-- FT IV §1 packaging: a separable polynomial `f` of degree `n` whose image splits in `E`
+admits an injective enumeration `r : Fin n → E` of its roots in `E` (range of `r` = root set
+of `f.map (algebraMap F E)`), to which the discriminant results apply.
+Proof: the root finset `(f.map (algebraMap F E)).roots.toFinset` has `n` elements
+(`Multiset.toFinset_card_of_nodup` with `nodup_roots` from separability, and
+`Splits.natDegree_eq_card_roots` with `natDegree_map`), and `Fintype.equivFinOfCardEq`
+transports the indexing; the root finset is the root set since `rootSet p E` is by definition
+the finset of `p.aroots E = (p.map (algebraMap E E)).roots = p.roots`. -/
+theorem exists_rootEnumeration (f : Polynomial F) (hf : f.Separable)
+    (hspl : (f.map (algebraMap F E)).Splits) (hdeg : f.natDegree = n) :
+    ∃ r : Fin n → E, Function.Injective r ∧
+      Set.range r = (f.map (algebraMap F E)).rootSet E := by
+  classical
+  have hp0' : (f.map (algebraMap F E)) ≠ 0 :=
+    (Polynomial.map_ne_zero_iff (RingHom.injective (algebraMap F E))).mpr hf.ne_zero
+  have hsep' : (f.map (algebraMap F E)).Separable :=
+    (Polynomial.separable_map (algebraMap F E)).mpr hf
+  have hnd : (f.map (algebraMap F E)).roots.Nodup := Polynomial.nodup_roots hsep'
+  have hcard : (f.map (algebraMap F E)).roots.toFinset.card = n := by
+    rw [Multiset.toFinset_card_of_nodup hnd, ← hspl.natDegree_eq_card_roots,
+      Polynomial.natDegree_map (algebraMap F E), hdeg]
+  have hcard' : Fintype.card ↥((f.map (algebraMap F E)).roots.toFinset) = n := by
+    rw [Fintype.card_coe]; exact hcard
+  have hbridge : ((f.map (algebraMap F E)).roots.toFinset : Set E) =
+      (f.map (algebraMap F E)).rootSet E := by
+    rw [Polynomial.rootSet, Polynomial.aroots_def, Algebra.algebraMap_self, Polynomial.map_id]
+  refine ⟨Subtype.val ∘ ⇑(Fintype.equivFinOfCardEq hcard').symm, ?_, ?_⟩
+  · exact Subtype.coe_injective.comp (Fintype.equivFinOfCardEq hcard').symm.injective
+  · rw [← hbridge, Set.range_comp, Set.range_eq_univ.mpr
+      (Fintype.equivFinOfCardEq hcard').symm.surjective, Set.image_univ, Subtype.range_coe]
+
+end Splitting
+
 /-!
 Note (chapter-3 delta audit 149d60a, remediated): the five audit gaps are resolved
 as follows.  (1) FT `ft13` (a) (conjugates = roots of the minimal polynomial) is
