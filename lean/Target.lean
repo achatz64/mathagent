@@ -87,9 +87,22 @@ ggp section); pending:
 the ledger items above and
 the scope/ledger items `ft7`, `ft11`, `ft16`, `ft25` (proved at `ag23`),
 `ft26`, `ft23r` — see the chapter III ledger note at the end of the file.
-Chapters 4-7 (computing Galois groups, applications, algebraic closures,
+Chapter 4 (FT.tex:3579-4582, the `cg` cluster): substantially delivered —
+the discriminant/sign block `cg1`/`cg2` (`FT.vandermondeProd*`,
+`FT.vandermondeDelta`, `FT.inducedRootPerm`, the even-permutation fixed-field
+correspondence, `Δ ∈ F ↔ Δ² ∈ F²`), `cg4` (`FT.gal_transitive_iff_irreducible`),
+`cg5`/`cg6` (the degree-2/3 dichotomies incl. `FT.cubic_galCard_three_iff_discriminant_square`
+and the A₃-generation corollary), `cg7`/`cg8` (the quartic resolvent block), the
+quartic examples `cg8a`-`cg11`, `cg12`/`cg23`/`cg13` (the S_p core),
+`cg15`-`cg18n` (finite fields), `cg19`/`cg19m` (orbit factorization; the `cg19F`
+finite-field prose) and the `cg25` θ-trick core (van der Waerden
+preliminaries, θ-integrality over F(T), the linear independence of the
+indeterminates).  Remaining in scope (see the chapter IV ledger): `cg3`, the
+cg5/cg6 inseparable clauses, `cg14`, the Dedekind chain `cg20`/`cg21`/`cg22`/
+`cg24`, the S₄ classification table and the example type dichotomies, and the
+asides `cg11a`/`cg11b`.  Chapters 5-7 (applications, algebraic closures,
 infinite Galois extensions, etale algebras, transcendental extensions; the
-`cg`/`ag`/`ig`/`ca` label clusters) are pending although in scope per the provenance
+`ag`/`ig`/`ca` label clusters) are pending although in scope per the provenance
 `scope` field (which omits only exercises, solutions, and expositional
 material).  To be recorded in the final ledger as pending or as
 AUDIT-DEFERRED.
@@ -101,25 +114,14 @@ unlabeled aside following `ft6` (FT.tex:2484) await the scope citations the
 chapter-1 "Scope notes for omitted material" list establishes (or an
 AUDIT-DEFERRED classification in the final ledger).
 
-AUDIT-GAP (coverage audit, delta audit of the chapter IV delivery
-0c74549..HEAD): the chapter inventory in this note is stale — it still states
-"Chapters 4-7 … are pending although in scope", although chapter IV
-(FT.tex 3579-4582) is now substantially delivered (tools/ft_coverage.py: 67 of
-144 theorem-like labels mentioned, up from 50; delivered clusters cg1/cg2,
-cg4-cg8, cg8a-cg11, cg12/cg23/cg13, cg15-cg18n, cg19/cg19m, the cg19F prose and
-the cg25 θ-trick core; see the chapter IV ledger). Remedy: update the note to
-record the chapter-IV delivery status and the remaining pending cg-labels
-(cg3; the cg5/cg6 inseparable clauses; cg14; cg20/cg21/cg22/cg24; the
-transitive-subgroup classification table; cg11a/cg11b) in accordance with the
-chapter IV ledger. Two further coverage defects: (1) cg25 — whose
-Dedekind-θ core is formalized (FT IV §8, sections DedekindTheta/CGD) — is
-nowhere mentioned in backticks, so `tools/ft_coverage.py` counts it as
-unmentioned although partially delivered; mention it in backticks in the
-ledger. (2) the chapter IV ledger's pending list omits the concrete cubic
-instances of cg6 (X³−3X+1 irreducible with Galois group A₃ via discriminant
-81 = 9², and X³+3X+1 with Galois group S₃ via discriminant −135; FT.tex
-≈3783-3790, irreducibility via ef5/ef4) — record them as pending or defer them
-with a scope citation.
+Note (coverage, delta audit of the chapter IV delivery 0c74549..f281ae9,
+remediated): the chapter inventory above now records the chapter-IV delivery
+status and the remaining pending cg-labels; `cg25` is mentioned in backticks in
+the chapter IV ledger (its θ-trick core is formalized, sections
+DedekindTheta/CGD/CgDedekindInt); the concrete cubic instances of cg6 (X³−3X+1
+irreducible with Galois group A₃ via discriminant 81 = 9², and X³+3X+1 with
+Galois group S₃ via discriminant −135; FT.tex ≈3783-3790, irreducibility via
+`ef5`/`ef4`) are recorded as pending in the chapter IV ledger.
 -/
 
 namespace FT
@@ -9271,13 +9273,16 @@ end Ft19CosMinpoly
 ## Chapter IV: Computing Galois Groups (FT.tex 3579-4582)
 
 Work in progress.  Delivered: the discriminant/sign block `cg1`/`cg2` (sections
-Vandermonde/Transport/Splitting: `vandermondeProd*`, `ftDelta`, `ftRootsEquiv`, the
-even-permutation fixed-field correspondence and `Δ ∈ F ↔ Δ² ∈ F²` chain); the
-transitivity/low-degree core `cg4` (`gal_transitive_iff_irreducible`), `cg5` (with the
-necessary `(2 : F) ≠ 0` hypothesis - Milne's statement is false in characteristic 2),
-`cg6` (`cg6_count`, `cg6_transitive`, faithfulness, Vieta and depressed-cubic
-discriminant formulas, the dichotomy `cg6_dichotomy` (|G| = 3 iff D square; char ≠ 2)
-and the A_3-generation corollary `cg6_a3_cycle`); the quartic resolvent block:
+Vandermonde/Transport/Splitting: `FT.vandermondeProd*`, `FT.vandermondeDelta`,
+`FT.inducedRootPerm`, the even-permutation fixed-field correspondence and
+`Δ ∈ F ↔ Δ² ∈ F²` chain); the
+transitivity/low-degree core `cg4` (`FT.gal_transitive_iff_irreducible`), `cg5`
+(`FT.quadGal_dichotomy`, with the necessary `(2 : F) ≠ 0` hypothesis - Milne's
+statement is false in characteristic 2),
+`cg6` (`FT.cubic_galCard_count`, `FT.cubic_gal_transitive`, faithfulness, Vieta and
+depressed-cubic discriminant formulas, the dichotomy
+`FT.cubic_galCard_three_iff_discriminant_square` (|G| = 3 iff D square; char ≠ 2)
+and the A_3-generation corollary `FT.a3_eq_closure_cycle`); the quartic resolvent block:
 partially symmetric elements, `cg8` (resolvent cubic coefficients + discriminant
 equality) and `cg7` (fixing-subgroup normality, fixed field, Galois/quotient clauses);
 the quartic examples `cg8a`-`cg11` (resolvent cubics, factorizations
@@ -9285,18 +9290,34 @@ the quartic examples `cg8a`-`cg11` (resolvent cubics, factorizations
 cg9/cg11, full degree-case elimination + Gauss for cg10); the S_p core
 `cg12`/`cg23`/`cg13` (S_p generated by transposition + p-cycle;
 Gal(ℚ-splitting-field-of-2-nonreal-roots irreducible f)/ℚ ≅ S_p); the orbit
-factorization `cg19`/`cg19m` + finite-field prose (`cg19F_*`); finite fields `cg15`
-(existence/splitting/uniqueness/Frobenius clauses), `cg16` (unique subfield per
-divisor), `cg17` (simplicity), `cg18` (factors of X^(p^n)−X), `cg18m` (∃! subfield,
-F_p^m ⊆ F_p^n ↔ m ∣ n), `cg18n` (algebraic closure); the van der Waerden θ-trick
-preliminaries to Dedekind's theorem (`dedekindTheta*`, eq12, `sigmaT_minpoly_iff`,
-`minpoly_permRoot`), the linear independence of the indeterminates
-(`sum_X_mul_C_inj`) and the integrality of θ over F(T)
-(`CGD.isIntegral_dedekindThetaFrac`, `CGD.isAlgebraic_frac_of_algebraic`).
+factorization `cg19`/`cg19m` (`FT.orbitFactorization`, `FT.map_eq_prod_orbitFactors`,
+support `FT.rootsFinset`, `FT.rootFinset_filter_eq_orbitFinset`,
+`FT.minpoly_map_eq_prod_filter`) + finite-field prose (`cg19F`:
+`FT.gal_eq_zpowers_frobenius`, `FT.orbit_eq_frobenius_powers`,
+`FT.frobeniusCycleLength_eq_natDegree`); finite fields `cg15`
+(existence/splitting/uniqueness/Frobenius clauses: `FT.exists_finiteField`,
+`FT.card_splittingField_galoisPoly`, `FT.isSplittingField_of_card_eq_pow`,
+`FT.algEquiv_of_fintype_card_eq`, `FT.gal_eq_zpowers_frobenius_of_card`), `cg16`
+(`FT.existsUnique_subfield_of_dvd`), `cg17` (`FT.exists_primitive_element_of_finite`),
+`cg18` (factors of X^(p^n)−X: `FT.dvd_X_pow_pow_natDegree_sub_X`,
+`FT.dvd_X_pow_pow_sub_X_of_dvd`, `FT.squarefree_X_pow_pow_sub_X`,
+`FT.emultiplicity_X_pow_pow_sub_X_eq_one`,
+`FT.finrank_splittingField_eq_natDegree`), `cg18m` (∃! subfield,
+F_p^m ⊆ F_p^n ↔ m ∣ n: `FT.existsUnique_subfield_algClosure`,
+`FT.rootsSubfield_le_iff_dvd`), `cg18n` (`FT.algClosure_zmod`); the van der Waerden
+θ-trick preliminaries to Dedekind's theorem `cg25` (`dedekindTheta*`, eq12,
+`sigmaT_minpoly_iff`, `minpoly_permRoot`), the linear independence of the
+indeterminates (`FT.sum_X_mul_C_inj`) and the integrality of θ over F(T)
+(`FT.CGD.isIntegral_dedekindThetaFrac`, `FT.CGD.isAlgebraic_frac_of_algebraic`).
 
 Pending (chapter IV ledger):
 - `cg3` (remark: sign of D(f) = (−1)^s for 2s nonreal roots; conjugation argument).
 - `cg5`/`cg6` inseparable clauses (f = X² − a in char 2 / X³ − a in char 3, a ∉ F²).
+- Concrete cubic instances of `cg6` (FT.tex ≈3783-3790): X³−3X+1 irreducible over ℚ
+  (via `ef5`) with Galois group A₃ via discriminant 81 = 9², and X³+3X+1 irreducible
+  (via `ef4`) with Galois group S₃ via discriminant −135 — pending (each needs the
+  concrete discriminant computation plus the dichotomy
+  `FT.cubic_galCard_three_iff_discriminant_square`).
 - `cg14` (Eisenstein + nonreal-roots example for S_p), `cg14a` (unproven computational
   assertion in the source; scope).
 - Dedekind's theorem `cg20`/`cg21` and examples `cg22`/`cg24`: the θ-trick toolkit plus
@@ -9310,23 +9331,39 @@ Pending (chapter IV ledger):
   dichotomies of the examples cg8a-cg11.
 - `cg11a`/`cg11b` (asides; scope).
 
-AUDIT-GAP (coding conventions audit, delta audit of the chapter IV delivery
-0c74549..HEAD): the delta reintroduces source-label-based declaration names,
-against the ratified content-based Mathlib-style naming (chapter-2 remediation
-note at ~2842: `ft3` → `FT.irreducible_multipleRoot_iff`,
-`sf8_natCard_algHom_le` → `FT.natCard_algHom_le_finrank`, TeX labels retained
-in docstrings). Affected label-only names (no mathematical content): `cg19Roots`
-and the `cg19_*` orbit-factorization family, `cg19m`, `cg19`, the `cg19F_*`
-prose family, `cg5`, the `cg6_*` family (12 names incl. `cg6_dichotomy`,
-`cg6_a3_cycle`), `cg8a_/cg9_/cg10_/cg11_resolvent_cubic`,
-`cg9_/cg10_resolvent_factorization`, `cg8a_/cg9_/cg11_irreducible`, the `cg15_*`
-family, `cg16`, `cg17`, the `cg18_*` family, `cg18m_exists_unique`,
-`cg18m_subset_iff`, `cg18n`, the label-tied support lemmas `cg10_coeff4` and
-`eval_f10`, and the label-prefixed `ftDelta`, `ftRootsEquiv`,
-`ftDiscr_mem_fixedField_top`, `ftDiscr_mem_algebraMap`. Remedy: rename to
-content-based Mathlib-style names (e.g. `cg19` → an orbit-factorization name,
-`cg6_dichotomy` → a `…_iff_discriminant_square` name), keeping the `FT cg…`
-labels in the docstrings. (Assessed manually; `tools/naming_audit.py` is not
+Note (coding conventions, delta audit of the chapter IV delivery 0c74549..f281ae9,
+remediated): the delta's source-label-based declaration names are renamed to
+content-based Mathlib-style names per the ratified chapter-2 remediation
+precedent (~2842), with the `FT cg…` labels retained in the docstrings. The
+mapping (72 declarations): the orbit-factorization family `cg19Roots`/`cg19_*`/
+`cg19m`/`cg19` → `FT.rootsFinset`/`…`/`FT.map_eq_prod_orbitFactors`/
+`FT.orbitFactorization` (e.g. `cg19_rootFinset_filter_eq_orbitFinset` →
+`FT.rootFinset_filter_eq_orbitFinset`, `cg19_minpoly_map_eq_prod_filter` →
+`FT.minpoly_map_eq_prod_filter`), `cg19F_*` →
+`FT.gal_eq_zpowers_frobenius`/`FT.orbit_eq_frobenius_powers`/
+`FT.frobeniusCycleLength_eq_natDegree`, the discriminant block
+`ftDelta`/`ftRootsEquiv`/`ftDiscr_*` → `FT.vandermondeDelta`/`FT.inducedRootPerm`/
+`FT.discriminant_mem_fixedField_top`/`FT.discriminant_mem_baseField`, `cg5` →
+`FT.quadGal_dichotomy`, the `cg6_*` family → `FT.smul_mem_rootSet_of_ne`/
+`FT.triple_perm_cases`/`FT.cubic_roots_extract`/`FT.mem_triple_of_card_three`/
+`FT.gal_perm_triple`/`FT.gal_fix_vandermonde_of_card_three`/
+`FT.galCard_three_of_fixed_vandermonde`/
+`FT.cubic_galCard_three_iff_discriminant_square`/`FT.a3_eq_closure_cycle`/
+`FT.cubic_rootSet_card`/`FT.cubic_galCard_count`/`FT.cubic_gal_transitive`, the
+example family `cg8a_/cg9_/cg10_/cg11_*` → polynomial-content names
+(`FT.resolventCubic_X4_sub_4X_add_2`, `FT.irreducible_X4_sub_10X2_add_4`,
+`FT.quadFactor_elim_X4_sub_10X2_add_4`, `FT.eval_X4_sub_10X2_add_4`, …), the
+finite-field family `cg15_*`/`cg16`/`cg17`/`cg18_*`/`cg18m_*`/`cg18n` →
+`FT.exists_finiteField`/`FT.card_splittingField_galoisPoly`/
+`FT.isSplittingField_of_card_eq_pow`/`FT.algEquiv_of_fintype_card_eq`/
+`FT.gal_eq_zpowers_frobenius_of_card`/`FT.existsUnique_subfield_of_dvd`/
+`FT.exists_primitive_element_of_finite`/`FT.dvd_X_pow_pow_natDegree_sub_X`/
+`FT.dvd_X_pow_pow_sub_X_of_dvd`/`FT.squarefree_X_pow_pow_sub_X`/
+`FT.emultiplicity_X_pow_pow_sub_X_eq_one`/
+`FT.finrank_splittingField_eq_natDegree`/
+`FT.existsUnique_subfield_algClosure`/`FT.rootsSubfield_le_iff_dvd`/
+`FT.algClosure_zmod`. Docstring cross-references updated accordingly; the FT
+tex labels remain in the docstrings. (Assessed manually; `tools/naming_audit.py` is not
 trustable per `tools/naming_audit_handoff.md` — its camelCase hits on
 `galActionHom`/`starAlgEquiv`/`orbitFinset`-style names mirror Mathlib's own API
 names and are rejected.)
@@ -9344,20 +9381,20 @@ open scoped Classical
 variable {F E : Type u} [Field F] [Field E] [Algebra F E] [Fintype Gal(E/F)]
 
 /-- The finset of the distinct roots of `f` in `E` (Milne's `α₁, …, αₘ ∈ F_f`). -/
-noncomputable def cg19Roots (f : F[X]) (E : Type*) [CommRing E] [IsDomain E] [Algebra F E]
+noncomputable def rootsFinset (f : F[X]) (E : Type*) [CommRing E] [IsDomain E] [Algebra F E]
     [DecidableEq E] : Finset E :=
   (f.map (algebraMap F E)).roots.toFinset
 
 omit [Fintype Gal(E/F)] in
-/-- Membership in `FT.cg19Roots` is membership in the root set `f.rootSet E`. -/
-theorem cg19_mem_cg19Roots_iff (f : F[X]) (β : E) :
-    β ∈ cg19Roots f E ↔ β ∈ f.rootSet E := by
-  simp only [cg19Roots, Polynomial.rootSet_def, Polynomial.aroots_def, Finset.mem_coe,
+/-- Membership in `FT.rootsFinset` is membership in the root set `f.rootSet E`. -/
+theorem mem_rootsFinset_iff (f : F[X]) (β : E) :
+    β ∈ rootsFinset f E ↔ β ∈ f.rootSet E := by
+  simp only [rootsFinset, Polynomial.rootSet_def, Polynomial.aroots_def, Finset.mem_coe,
     Multiset.mem_toFinset]
 
 omit [Fintype Gal(E/F)] in
 /-- FT `cg19` (proof step). The Galois group `Gal(E/F)` permutes the roots of `f` in `E`. -/
-theorem cg19_smul_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) (σ : Gal(E/F)) :
+theorem smul_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) (σ : Gal(E/F)) :
     σ α ∈ f.rootSet E := by
   obtain ⟨hf, h0⟩ := Polynomial.mem_rootSet.mp hα
   refine (Polynomial.mem_rootSet_of_ne hf).mpr ?_
@@ -9365,14 +9402,14 @@ theorem cg19_smul_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) (σ : Gal(E/
 
 /-- FT `cg19` (proof step). The orbit finset of a root `α` of `f` is contained in the root
 set of `f` in `E`. -/
-theorem cg19_orbitFinset_subset_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
+theorem orbitFinset_subset_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
     ((Finset.univ.image fun σ : Gal(E/F) => σ α) : Set E) ⊆ f.rootSet E := by
   rw [Finset.coe_image, Set.image_subset_iff]
-  exact fun σ _ => cg19_smul_mem_rootSet f hα σ
+  exact fun σ _ => smul_mem_rootSet f hα σ
 
 omit [Fintype Gal(E/F)] in
 /-- FT `cg19` (proof step). A root `α` of the monic polynomial `f` is integral over `F`. -/
-theorem cg19_isIntegral_of_mem_rootSet (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
+theorem isIntegral_of_mem_rootSet (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
     IsIntegral F α := by
   obtain ⟨_, h0⟩ := Polynomial.mem_rootSet.mp hα
   exact ⟨f, hm, by rwa [← Polynomial.aeval_def]⟩
@@ -9380,14 +9417,14 @@ theorem cg19_isIntegral_of_mem_rootSet (f : F[X]) (hm : f.Monic) (hα : α ∈ f
 omit [Fintype Gal(E/F)] in
 /-- FT `cg19` (proof step). For a root `α` of `f`, the minimal polynomial `minpoly F α`
 divides `f` in `F[X]`. -/
-theorem cg19_minpoly_dvd_of_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
+theorem minpoly_dvd_of_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
     minpoly F α ∣ f := by
   obtain ⟨_, h0⟩ := Polynomial.mem_rootSet.mp hα
   exact minpoly.dvd F α h0
 
 /-- FT `cg19` (proof step). The orbit product over the orbit finset of `α` is fixed by every
 `σ ∈ Gal(E/F)`. -/
-theorem cg19_orbitFinset_prod_map_eq_self (α : E) (σ : Gal(E/F)) :
+theorem orbitFinset_prod_map_eq_self (α : E) (σ : Gal(E/F)) :
     ((Finset.univ.image fun τ : Gal(E/F) => τ α).prod fun β => X - C β).map (σ : E →+* E)
       = (Finset.univ.image fun τ : Gal(E/F) => τ α).prod fun β => X - C β := by
   rw [Polynomial.map_prod]
@@ -9407,7 +9444,7 @@ theorem cg19_orbitFinset_prod_map_eq_self (α : E) (σ : Gal(E/F)) :
   · intro β _; rfl
 
 /-- FT `cg19` (proof step). The orbit of `α` under `G = Gal(E/F)` is the image finset. -/
-theorem cg19_orbitSet_eq_orbitFinset (α : E) :
+theorem orbitSet_eq_orbitFinset (α : E) :
     MulAction.orbit Gal(E/F) α
       = ((Finset.univ.image fun τ : Gal(E/F) => τ α : Finset E) : Set E) := by
   rw [show MulAction.orbit Gal(E/F) α = Set.range (fun τ : Gal(E/F) => τ • α) from rfl,
@@ -9418,11 +9455,11 @@ variable {F E : Type u} [Field F] [Field E] [Algebra F E] [Fintype Gal(E/F)] [Is
 
 /-- FT `cg19` (proof step). The elements of the root finset having the same minimal
 polynomial as `α` form exactly the orbit finset of `α` under `Gal(E/F)`. -/
-theorem cg19_rootFinset_filter_eq_orbitFinset (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
-    (cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)
+theorem rootFinset_filter_eq_orbitFinset (f : F[X]) (hm : f.Monic) (hα : α ∈ rootsFinset f E) :
+    (rootsFinset f E).filter (fun β => minpoly F β = minpoly F α)
       = (Finset.univ.image fun σ : Gal(E/F) => σ α) := by
-  have hintα : IsIntegral F α := cg19_isIntegral_of_mem_rootSet f hm
-    ((cg19_mem_cg19Roots_iff f α).mp hα)
+  have hintα : IsIntegral F α := isIntegral_of_mem_rootSet f hm
+    ((mem_rootsFinset_iff f α).mp hα)
   ext β
   simp only [Finset.mem_filter, Finset.mem_image, Finset.mem_univ, true_and]
   constructor
@@ -9435,34 +9472,34 @@ theorem cg19_rootFinset_filter_eq_orbitFinset (f : F[X]) (hm : f.Monic) (hα : �
       (Set.mem_image _ _ _).mp ((FT.orbit_eq_rootSet_minpoly α hintα).symm.subset hb)
     exact ⟨σ, hσ⟩
   · rintro ⟨σ, rfl⟩
-    exact ⟨cg19_smul_mem_rootSet f ((cg19_mem_cg19Roots_iff f α).mp hα) σ,
+    exact ⟨smul_mem_rootSet f ((mem_rootsFinset_iff f α).mp hα) σ,
       minpoly.algEquiv_eq σ α⟩
 
 /-- FT `cg19` (proof step). The minimal polynomial of a root `α` of `f`, mapped into `E[X]`,
 is the product of `X − β` over the fiber of the minimal-polynomial map on the root finset. -/
-theorem cg19_minpoly_map_eq_prod_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
+theorem minpoly_map_eq_prod_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ rootsFinset f E) :
     (minpoly F α).map (algebraMap F E)
-      = ((cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)).prod fun β => X - C β := by
-  rw [cg19_rootFinset_filter_eq_orbitFinset f hm hα]
+      = ((rootsFinset f E).filter (fun β => minpoly F β = minpoly F α)).prod fun β => X - C β := by
+  rw [rootFinset_filter_eq_orbitFinset f hm hα]
   exact FT.minpoly_eq_prod_orbit α
-    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα))
+    (isIntegral_of_mem_rootSet f hm ((mem_rootsFinset_iff f α).mp hα))
 
 omit [Fintype Gal(E/F)] [IsGalois F E] in
 /-- **FT `cg19m`** (orbit factorization, explicit product in `E[X]`). -/
-theorem cg19m (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+theorem map_eq_prod_orbitFactors (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
     (hspl : (f.map (algebraMap F E)).Splits) :
     f.map (algebraMap F E)
-      = ((cg19Roots f E).image (fun α => minpoly F α)).prod fun g =>
-          ((cg19Roots f E).filter (fun β => minpoly F β = g)).prod fun β => X - C β := by
+      = ((rootsFinset f E).image (fun α => minpoly F α)).prod fun g =>
+          ((rootsFinset f E).filter (fun β => minpoly F β = g)).prod fun β => X - C β := by
   have hnodup : (f.map (algebraMap F E)).roots.Nodup :=
     Polynomial.nodup_roots ((Polynomial.separable_map (algebraMap F E)).mpr hsep)
-  have h1 : f.map (algebraMap F E) = (cg19Roots f E).prod fun β => X - C β := by
+  have h1 : f.map (algebraMap F E) = (rootsFinset f E).prod fun β => X - C β := by
     rw [hspl.eq_prod_roots_of_monic (Polynomial.Monic.map (algebraMap F E) hm)]
-    rw [Finset.prod_eq_multiset_prod, cg19Roots, Multiset.toFinset_val,
+    rw [Finset.prod_eq_multiset_prod, rootsFinset, Multiset.toFinset_val,
       Multiset.dedup_eq_self.mpr hnodup]
-  have hbU : cg19Roots f E =
-      ((cg19Roots f E).image (fun α => minpoly F α)).biUnion
-        (fun g => (cg19Roots f E).filter (fun β => minpoly F β = g)) := by
+  have hbU : rootsFinset f E =
+      ((rootsFinset f E).image (fun α => minpoly F α)).biUnion
+        (fun g => (rootsFinset f E).filter (fun β => minpoly F β = g)) := by
     ext β
     simp only [Finset.mem_biUnion, Finset.mem_image, Finset.mem_filter]
     constructor
@@ -9471,8 +9508,8 @@ theorem cg19m (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
     · rintro ⟨g, -, ⟨h, rfl⟩⟩
       exact h
   have hdisj : Set.PairwiseDisjoint
-      (↑((cg19Roots f E).image (fun α => minpoly F α)))
-      (fun g : F[X] => (cg19Roots f E).filter (fun β => minpoly F β = g)) := by
+      (↑((rootsFinset f E).image (fun α => minpoly F α)))
+      (fun g : F[X] => (rootsFinset f E).filter (fun β => minpoly F β = g)) := by
     rintro g - g' - h
     exact Finset.disjoint_left.mpr fun β h1 h2 => h
       (by rw [← (Finset.mem_filter.mp h1).2, (Finset.mem_filter.mp h2).2])
@@ -9481,7 +9518,7 @@ theorem cg19m (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
   rw [Finset.prod_biUnion hdisj]
 
 /-- FT `cg19` (degrees). Degree of `minpoly F α` = cardinality of the orbit finset. -/
-theorem cg19_natDegree_eq_card_orbitFinset (α : E) (hint : IsIntegral F α) :
+theorem natDegree_minpoly_eq_card_orbitFinset (α : E) (hint : IsIntegral F α) :
     (minpoly F α).natDegree = (Finset.univ.image fun σ : Gal(E/F) => σ α).card := by
   rw [← Polynomial.natDegree_map_eq_of_injective
       (FaithfulSMul.algebraMap_injective F E) (minpoly F α),
@@ -9492,49 +9529,49 @@ theorem cg19_natDegree_eq_card_orbitFinset (α : E) (hint : IsIntegral F α) :
 
 /-- FT `cg19` (degrees). The degree of the irreducible factor `minpoly F α` of `f` equals
 the cardinality of its fiber in the root finset. -/
-theorem cg19_factor_natDegree_eq_card_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
+theorem natDegree_minpoly_eq_card_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ rootsFinset f E) :
     (minpoly F α).natDegree =
-      ((cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)).card := by
-  rw [cg19_rootFinset_filter_eq_orbitFinset f hm hα]
-  exact cg19_natDegree_eq_card_orbitFinset α
-    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα))
+      ((rootsFinset f E).filter (fun β => minpoly F β = minpoly F α)).card := by
+  rw [rootFinset_filter_eq_orbitFinset f hm hα]
+  exact natDegree_minpoly_eq_card_orbitFinset α
+    (isIntegral_of_mem_rootSet f hm ((mem_rootsFinset_iff f α).mp hα))
 
 /-- **FT `cg19`** (factorization into irreducible factors, in `F[X]`). -/
-theorem cg19_factorization (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+theorem eq_prod_minpolyFactors (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
     (hspl : (f.map (algebraMap F E)).Splits) :
-    f = ((cg19Roots f E).image (fun α => minpoly F α)).prod (fun g => g) := by
-  have hE := cg19m f hm hsep hspl
-  have hkey : ∀ g ∈ (cg19Roots f E).image (fun α => minpoly F α),
-      ((cg19Roots f E).filter (fun β => minpoly F β = g)).prod (fun β => X - C β)
+    f = ((rootsFinset f E).image (fun α => minpoly F α)).prod (fun g => g) := by
+  have hE := map_eq_prod_orbitFactors f hm hsep hspl
+  have hkey : ∀ g ∈ (rootsFinset f E).image (fun α => minpoly F α),
+      ((rootsFinset f E).filter (fun β => minpoly F β = g)).prod (fun β => X - C β)
         = g.map (algebraMap F E) := by
     rintro g hg
     obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
-    rw [cg19_minpoly_map_eq_prod_filter f hm hα]
+    rw [minpoly_map_eq_prod_filter f hm hα]
   rw [Finset.prod_congr rfl hkey, ← Polynomial.map_prod] at hE
   exact Polynomial.map_injective (algebraMap F E) (FaithfulSMul.algebraMap_injective F E) hE
 
 /-- FT `cg19` (degrees of the distinct irreducible factors): `deg f = m₁ + ⋯ + m_r`. -/
-theorem cg19_natDegree_eq_sum_degrees (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+theorem natDegree_eq_sum_factorDegrees (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
     (hspl : (f.map (algebraMap F E)).Splits) :
-    f.natDegree = ∑ g ∈ (cg19Roots f E).image (fun α => minpoly F α), g.natDegree := by
-  conv_lhs => rw [cg19_factorization f hm hsep hspl]
+    f.natDegree = ∑ g ∈ (rootsFinset f E).image (fun α => minpoly F α), g.natDegree := by
+  conv_lhs => rw [eq_prod_minpolyFactors f hm hsep hspl]
   exact Polynomial.natDegree_prod _ (fun g => g) (fun g hg => by
     obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
     exact minpoly.ne_zero
-      (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα)))
+      (isIntegral_of_mem_rootSet f hm ((mem_rootsFinset_iff f α).mp hα)))
 
 /-- **FT `cg19`**: orbit factorization with irreducibility and degree = fiber size. -/
-theorem cg19 (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+theorem orbitFactorization (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
     (hspl : (f.map (algebraMap F E)).Splits) :
-    f = ((cg19Roots f E).image (fun α => minpoly F α)).prod (fun g => g)
-      ∧ ∀ g ∈ (cg19Roots f E).image (fun α => minpoly F α),
+    f = ((rootsFinset f E).image (fun α => minpoly F α)).prod (fun g => g)
+      ∧ ∀ g ∈ (rootsFinset f E).image (fun α => minpoly F α),
           Irreducible g ∧ g.natDegree =
-            ((cg19Roots f E).filter (fun β => minpoly F β = g)).card := by
-  refine ⟨cg19_factorization f hm hsep hspl, fun g hg => ?_⟩
+            ((rootsFinset f E).filter (fun β => minpoly F β = g)).card := by
+  refine ⟨eq_prod_minpolyFactors f hm hsep hspl, fun g hg => ?_⟩
   obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
   exact ⟨minpoly.irreducible
-    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα)),
-    cg19_factor_natDegree_eq_card_filter f hm hα⟩
+    (isIntegral_of_mem_rootSet f hm ((mem_rootsFinset_iff f α).mp hα)),
+    natDegree_minpoly_eq_card_filter f hm hα⟩
 
 end Cg19
 
@@ -9550,7 +9587,7 @@ variable {F E : Type u} [Field F] [Fintype F] [Field E] [Algebra F E] [FiniteDim
 
 /-- **FT §7 prose (finite fields).** `G_f = Gal(E/F)` is cyclic, generated by the Frobenius
 automorphism. -/
-theorem cg19F_gal_eq_zpowers_frobenius :
+theorem gal_eq_zpowers_frobenius :
     (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic F E) : Subgroup Gal(E/F)) = ⊤ := by
   haveI : Finite E := Module.finite_of_finite F
   have hcard : Nat.card Gal(E/F) = Module.finrank F E := IsGalois.card_aut_eq_finrank F E
@@ -9561,7 +9598,7 @@ theorem cg19F_gal_eq_zpowers_frobenius :
 
 /-- **FT §7 prose (finite fields).** The orbit of `α` under `G_f = ⟨σ⟩` is the set of
 Frobenius powers. -/
-theorem cg19F_orbit_eq_range_pow (α : E) :
+theorem orbit_eq_frobenius_powers (α : E) :
     MulAction.orbit Gal(E/F) α
       = Set.range fun k : ℕ => (FiniteField.frobeniusAlgEquivOfAlgebraic F E ^ k) α := by
   haveI : Finite E := Module.finite_of_finite F
@@ -9577,14 +9614,14 @@ theorem cg19F_orbit_eq_range_pow (α : E) :
 
 /-- **FT §7 prose (finite fields).** The length of the Frobenius cycle through a root `α` of
 `f` is the degree of the irreducible factor `minpoly F α` of `f`. -/
-theorem cg19F_card_cycle_eq_natDegree (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
+theorem frobeniusCycleLength_eq_natDegree (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
     (Set.range fun k : ℕ => (FiniteField.frobeniusAlgEquivOfAlgebraic F E ^ k) α).ncard
       = (minpoly F α).natDegree := by
   haveI : Finite E := Module.finite_of_finite F
-  have hint : IsIntegral F α := cg19_isIntegral_of_mem_rootSet f hm hα
-  rw [← cg19F_orbit_eq_range_pow α,
-    congrArg Set.ncard (cg19_orbitSet_eq_orbitFinset α), Set.ncard_coe_finset,
-    ← cg19_natDegree_eq_card_orbitFinset α hint]
+  have hint : IsIntegral F α := isIntegral_of_mem_rootSet f hm hα
+  rw [← orbit_eq_frobenius_powers α,
+    congrArg Set.ncard (orbitSet_eq_orbitFinset α), Set.ncard_coe_finset,
+    ← natDegree_minpoly_eq_card_orbitFinset α hint]
 
 end Cg19F
 
@@ -9734,6 +9771,8 @@ noncomputable def conjQ : ℂ →ₐ[ℚ] ℂ :=
 -- proof — integral-closure membership of the ∑ Tᵢαᵢ sum). Remedy: add docstrings
 -- stating the claim and the proof idea in textbook math terms; declarations
 -- whose proof is pure unpacking/repacking must declare it trivial.
+/-- The underlying function of `conjQ` is complex conjugation: applying the
+ℚ-algebra homomorphism to `z` gives `star z` (definitional). -/
 @[simp]
 theorem conjQ_apply (z : ℂ) : conjQ z = star z := rfl
 
@@ -10697,15 +10736,15 @@ section Transport
 
 variable {F E : Type u} [Field F] [Field E] [Algebra F E] {n : ℕ}
 
-/-- FT ch. IV §1: `Δ(f)` for a root enumeration `r : Fin n → E`; `ftDelta r ^ 2 = D(f)`. -/
-abbrev ftDelta (r : Fin n → E) : E := vandermondeProd r
+/-- FT ch. IV §1: `Δ(f)` for a root enumeration `r : Fin n → E`; `vandermondeDelta r ^ 2 = D(f)`. -/
+abbrev vandermondeDelta (r : Fin n → E) : E := vandermondeProd r
 
-/-- FT cg1: `ftDelta r` is the Vandermonde product of the enumeration. -/
-theorem ftDelta_eq_vandermondeProd (r : Fin n → E) : ftDelta r = vandermondeProd r := rfl
+/-- FT cg1: `vandermondeDelta r` is the Vandermonde product of the enumeration. -/
+theorem vandermondeDelta_eq_vandermondeProd (r : Fin n → E) : vandermondeDelta r = vandermondeProd r := rfl
 
 /-- FT IV §1: the permutation `σ̂` of `Fin n` induced by `σ : E ≃ₐ[F] E` on roots enumerated by
 injective `r` (with `σ (r i)` again in the range of `r`); characterized in `ftRootsEquiv_apply`. -/
-noncomputable def ftRootsEquiv (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+noncomputable def inducedRootPerm (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
     (hσ : ∀ i, σ (r i) ∈ Set.range r) : Equiv.Perm (Fin n) :=
   Equiv.ofBijective (fun i => (Set.mem_range.mp (hσ i)).choose)
     ⟨fun i i' hij => by
@@ -10724,9 +10763,9 @@ noncomputable def ftRootsEquiv (r : Fin n → E) (hri : Function.Injective r) (�
           hinj j⟩
 
 /-- FT IV §1: defining property of `σ̂`: `r (σ̂ i) = σ (r i)`. -/
-theorem ftRootsEquiv_apply (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+theorem inducedRootPerm_apply (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
     (hσ : ∀ i, σ (r i) ∈ Set.range r) (i : Fin n) :
-    r (ftRootsEquiv r hri σ hσ i) = σ (r i) :=
+    r (inducedRootPerm r hri σ hσ i) = σ (r i) :=
   Exists.choose_spec (Set.mem_range.mp (hσ i))
 
 /-- Helper: `(±1 : ℤˣ)` squared, embedded in a commutative ring, is `1`. -/
@@ -10736,42 +10775,42 @@ private theorem priv_sign_sq {R : Type*} [CommRing R] {n : ℕ} (σ : Equiv.Perm
 
 /-- FT cg1 (a): `σ • Δ = sign(σ̂) · Δ` (`σ` moves into the product and replaces `r i` by
 `r (σ̂ i)`, then `vandermondeProd_perm`). -/
-theorem ftDelta_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+theorem vandermondeDelta_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
     (hσ : ∀ i, σ (r i) ∈ Set.range r) :
-    σ • ftDelta r = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ hσ)) * ftDelta r := by
-  have h1 : σ.toAlgHom (vandermondeProd r) = vandermondeProd (r ∘ (ftRootsEquiv r hri σ hσ)) := by
-    simp only [vandermondeProd, map_prod σ.toAlgHom, map_sub, ftRootsEquiv_apply r hri σ hσ,
+    σ • vandermondeDelta r = ↑↑(Equiv.Perm.sign (inducedRootPerm r hri σ hσ)) * vandermondeDelta r := by
+  have h1 : σ.toAlgHom (vandermondeProd r) = vandermondeProd (r ∘ (inducedRootPerm r hri σ hσ)) := by
+    simp only [vandermondeProd, map_prod σ.toAlgHom, map_sub, inducedRootPerm_apply r hri σ hσ,
       Function.comp_apply]
     rfl
-  show σ.toAlgHom (ftDelta r) = _
+  show σ.toAlgHom (vandermondeDelta r) = _
   rw [h1, vandermondeProd_perm]
 
 /-- FT cg1 (b): `σ • Δ² = Δ²` (`σ • Δ² = (σ • Δ)²` and `sign(σ̂)² = 1`). -/
-theorem ftDelta_sq_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
+theorem vandermondeDelta_sq_gal_smul' (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
     (hσ : ∀ i, σ (r i) ∈ Set.range r) :
-    σ • ftDelta r ^ 2 = ftDelta r ^ 2 := by
+    σ • vandermondeDelta r ^ 2 = vandermondeDelta r ^ 2 := by
   have hsmul : ∀ y : E, σ • y = σ.toAlgHom y := fun y => rfl
-  have hsm : σ.toAlgHom (ftDelta r) = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ hσ)) * ftDelta r :=
-    ftDelta_gal_smul' r hri σ hσ
-  rw [hsmul, map_pow σ.toAlgHom (ftDelta r) 2, hsm, mul_pow, priv_sign_sq, one_mul]
+  have hsm : σ.toAlgHom (vandermondeDelta r) = ↑↑(Equiv.Perm.sign (inducedRootPerm r hri σ hσ)) * vandermondeDelta r :=
+    vandermondeDelta_gal_smul' r hri σ hσ
+  rw [hsmul, map_pow σ.toAlgHom (vandermondeDelta r) 2, hsm, mul_pow, priv_sign_sq, one_mul]
 
 /-- FT IV §1: the sign of `σ̂` is independent of the enumeration (relabeling by `π` conjugates
 `σ̂` to `π σ̂ π⁻¹`, same signature). -/
-theorem ftRootsEquiv_sign_congr (r : Fin n → E) (hri : Function.Injective r)
+theorem inducedRootPerm_sign_congr (r : Fin n → E) (hri : Function.Injective r)
     (π : Equiv.Perm (Fin n)) (σ : E ≃ₐ[F] E) (hσ : ∀ i, σ (r i) ∈ Set.range r)
     (hσ' : ∀ i, σ (r (π i)) ∈ Set.range (r ∘ π)) :
-    Equiv.Perm.sign (ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ') =
-      Equiv.Perm.sign (ftRootsEquiv r hri σ hσ) := by
-  have hpt : ∀ i, π ((ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ') i)
-      = (ftRootsEquiv r hri σ hσ) (π i) := by
+    Equiv.Perm.sign (inducedRootPerm (r ∘ π) (hri.comp π.injective) σ hσ') =
+      Equiv.Perm.sign (inducedRootPerm r hri σ hσ) := by
+  have hpt : ∀ i, π ((inducedRootPerm (r ∘ π) (hri.comp π.injective) σ hσ') i)
+      = (inducedRootPerm r hri σ hσ) (π i) := by
     intro i
-    have h1 := ftRootsEquiv_apply (r ∘ π) (hri.comp π.injective) σ hσ' i
-    have h2 := ftRootsEquiv_apply r hri σ hσ (π i)
+    have h1 := inducedRootPerm_apply (r ∘ π) (hri.comp π.injective) σ hσ' i
+    have h2 := inducedRootPerm_apply r hri σ hσ (π i)
     rw [Function.comp_apply, Function.comp_apply] at h1
     rw [← h1] at h2
     exact hri h2.symm
-  have hcong : ftRootsEquiv (r ∘ π) (hri.comp π.injective) σ hσ'
-      = (π.trans (ftRootsEquiv r hri σ hσ)).trans π.symm :=
+  have hcong : inducedRootPerm (r ∘ π) (hri.comp π.injective) σ hσ'
+      = (π.trans (inducedRootPerm r hri σ hσ)).trans π.symm :=
     Equiv.ext fun i => by
       simp only [Equiv.trans_apply]
       rw [← hpt i, Equiv.symm_apply_apply]
@@ -10813,24 +10852,24 @@ theorem gal_apply_mem_range (f : Polynomial F) (hf : f ≠ 0)
   exact hroot'
 
 /-- FT cg2 (a): `D(f) = Δ²` lies in the fixed field of the full Galois group: every
-`σ : Gal(E/F)` permutes the enumerated roots, and `ftDelta_sq_gal_smul'` shows `σ` fixes `Δ²`. -/
-theorem ftDiscr_mem_fixedField_top (f : Polynomial F) (hf : f ≠ 0)
+`σ : Gal(E/F)` permutes the enumerated roots, and `vandermondeDelta_sq_gal_smul'` shows `σ` fixes `Δ²`. -/
+theorem discriminant_mem_fixedField_top (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E)
     (hri : Function.Injective r) :
-    ftDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
+    vandermondeDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
   rw [IntermediateField.mem_fixedField_iff]
   intro σ _
-  exact ftDelta_sq_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+  exact vandermondeDelta_sq_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
 
 /-- FT cg2 (a): the discriminant `D(f) = Δ(f)²` is an element of the base field `F` (encoded
 as `∃ a : F, algebraMap F E a = D(f)`; equivalently `D(f) ∈ (algebraMap F E).fieldRange`):
 it lies in `fixedField ⊤ = ⊥` (`IsGalois.fixedField_top`, `IntermediateField.mem_bot`). -/
-theorem ftDiscr_mem_algebraMap (f : Polynomial F) (hf : f ≠ 0)
+theorem discriminant_mem_baseField (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E)
     (hri : Function.Injective r) [IsGalois F E] [FiniteDimensional F E] :
-    ∃ a : F, algebraMap F E a = ftDelta r ^ 2 := by
-  have h1 : ftDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) :=
-    ftDiscr_mem_fixedField_top f hf hr hri
+    ∃ a : F, algebraMap F E a = vandermondeDelta r ^ 2 := by
+  have h1 : vandermondeDelta r ^ 2 ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) :=
+    discriminant_mem_fixedField_top f hf hr hri
   rw [IsGalois.fixedField_top, IntermediateField.mem_bot] at h1
   exact h1
 
@@ -10844,33 +10883,33 @@ theorem two_ne_zero_algebraMap (h2 : (2 : F) ≠ 0) : (2 : E) ≠ 0 := by
   have h0 : algebraMap F E (2 : F) = 0 := by rw [h', h]
   exact (RingHom.injective (algebraMap F E)) (h0.trans (map_zero _).symm)
 
-/-- Helper for FT cg2 (b): if `σ : Gal(E/F)` fixes `Δ = ftDelta r`, `char F ≠ 2` and
+/-- Helper for FT cg2 (b): if `σ : Gal(E/F)` fixes `Δ = vandermondeDelta r`, `char F ≠ 2` and
 `Δ ≠ 0`, then the induced permutation `σ̂` is even (`sign σ̂ = 1`).  Proof:
-`ftDelta_gal_smul'` gives `σ • Δ = sign(σ̂) · Δ`; if `sign(σ̂) = -1` then `Δ + Δ = 0`, so
+`vandermondeDelta_gal_smul'` gives `σ • Δ = sign(σ̂) · Δ`; if `sign(σ̂) = -1` then `Δ + Δ = 0`, so
 `(1 + 1) · Δ = 0` in the field `E`, contradicting `2 ≠ 0` and `Δ ≠ 0`. -/
 theorem sign_eq_one_of_gal_fix (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
-    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) (σ : Gal(E/F))
-    (hfix : σ.toAlgHom (ftDelta r) = ftDelta r) :
-    Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
-  have hsm : σ.toAlgHom (ftDelta r) = ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ
-      (fun i => gal_apply_mem_range f hf hr σ i))) * ftDelta r :=
-    ftDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
-  have hsm2 : ↑↑(Equiv.Perm.sign (ftRootsEquiv r hri σ
-      (fun i => gal_apply_mem_range f hf hr σ i))) * ftDelta r = ftDelta r :=
+    (hΔ : vandermondeDelta r ≠ 0) (h2 : (2 : E) ≠ 0) (σ : Gal(E/F))
+    (hfix : σ.toAlgHom (vandermondeDelta r) = vandermondeDelta r) :
+    Equiv.Perm.sign (inducedRootPerm r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
+  have hsm : σ.toAlgHom (vandermondeDelta r) = ↑↑(Equiv.Perm.sign (inducedRootPerm r hri σ
+      (fun i => gal_apply_mem_range f hf hr σ i))) * vandermondeDelta r :=
+    vandermondeDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+  have hsm2 : ↑↑(Equiv.Perm.sign (inducedRootPerm r hri σ
+      (fun i => gal_apply_mem_range f hf hr σ i))) * vandermondeDelta r = vandermondeDelta r :=
     hsm.symm.trans hfix
-  rcases Int.units_eq_one_or (Equiv.Perm.sign (ftRootsEquiv r hri σ
+  rcases Int.units_eq_one_or (Equiv.Perm.sign (inducedRootPerm r hri σ
       (fun i => gal_apply_mem_range f hf hr σ i))) with hu | hu
   · exact hu
   · exfalso
     rw [hu, Units.coe_neg_one, Int.cast_neg, Int.cast_one, neg_one_mul,
       neg_eq_iff_add_eq_zero] at hsm2
-    have h2Δ : (2 : E) * ftDelta r = 0 := by rw [two_mul]; exact hsm2
+    have h2Δ : (2 : E) * vandermondeDelta r = 0 := by rw [two_mul]; exact hsm2
     rcases mul_eq_zero.mp h2Δ with h' | h'
     · exact h2 h'
     · exact hΔ h'
 
-/-- FT cg2 (b): for `char F ≠ 2` and `Δ = ftDelta r ≠ 0`, an element `σ` of `Gal(E/F)` fixes
+/-- FT cg2 (b): for `char F ≠ 2` and `Δ = vandermondeDelta r ≠ 0`, an element `σ` of `Gal(E/F)` fixes
 `F[Δ] = IntermediateField.adjoin F {Δ}` pointwise iff the induced permutation `σ̂` is even
 (`sign σ̂ = 1`); i.e. the fixing subgroup of `F[Δ]` is exactly the "even part" of the Galois
 group.  Proof (⇐): `sign σ̂ = 1` gives `σ • Δ = Δ`; the fixed-point set of `σ` is the
@@ -10880,42 +10919,42 @@ Proof (⇒): `σ` fixes `Δ ∈ F[Δ]`, and `sign(σ̂) · Δ = σ • Δ = Δ` 
 `char = 2` or `Δ = 0` (`sign_eq_one_of_gal_fix`). -/
 theorem gal_mem_fixingSubgroup_adjoin_singleton (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
-    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [FiniteDimensional F E] (σ : Gal(E/F)) :
-    σ ∈ (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup ↔
-      Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
+    (hΔ : vandermondeDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [FiniteDimensional F E] (σ : Gal(E/F)) :
+    σ ∈ (IntermediateField.adjoin F ({vandermondeDelta r} : Set E)).fixingSubgroup ↔
+      Equiv.Perm.sign (inducedRootPerm r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1 := by
   constructor
   · intro hmem
     exact sign_eq_one_of_gal_fix f hf hr hri hΔ h2 σ
-      ((IntermediateField.mem_fixingSubgroup_iff _ σ).mp hmem (ftDelta r)
+      ((IntermediateField.mem_fixingSubgroup_iff _ σ).mp hmem (vandermondeDelta r)
         (IntermediateField.subset_adjoin F _ (Set.mem_singleton _)))
   · intro hsign
-    have hsm := ftDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
+    have hsm := vandermondeDelta_gal_smul' r hri σ (fun i => gal_apply_mem_range f hf hr σ i)
     rw [hsign] at hsm
     simp only [Units.val_one, Int.cast_one, one_mul] at hsm
-    have hΔfix : σ.toAlgHom (ftDelta r) = ftDelta r := hsm
-    have hmemΔ : ftDelta r ∈
-        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (ftDelta r)) := by
+    have hΔfix : σ.toAlgHom (vandermondeDelta r) = vandermondeDelta r := hsm
+    have hmemΔ : vandermondeDelta r ∈
+        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (vandermondeDelta r)) := by
       rw [IntermediateField.mem_fixedField_iff]
       intro τ hτ
       exact MulAction.mem_stabilizer_iff.mp hτ
-    have hsub : IntermediateField.adjoin F ({ftDelta r} : Set E) ≤
-        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (ftDelta r)) :=
+    have hsub : IntermediateField.adjoin F ({vandermondeDelta r} : Set E) ≤
+        IntermediateField.fixedField (MulAction.stabilizer Gal(E/F) (vandermondeDelta r)) :=
       IntermediateField.adjoin_le_iff.mpr (Set.singleton_subset_iff.mpr hmemΔ)
-    have hstab : MulAction.stabilizer Gal(E/F) (ftDelta r) ≤
-        (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup := by
+    have hstab : MulAction.stabilizer Gal(E/F) (vandermondeDelta r) ≤
+        (IntermediateField.adjoin F ({vandermondeDelta r} : Set E)).fixingSubgroup := by
       have h1 : (IntermediateField.fixedField
-            (MulAction.stabilizer Gal(E/F) (ftDelta r))).fixingSubgroup
-          = MulAction.stabilizer Gal(E/F) (ftDelta r) :=
+            (MulAction.stabilizer Gal(E/F) (vandermondeDelta r))).fixingSubgroup
+          = MulAction.stabilizer Gal(E/F) (vandermondeDelta r) :=
         IntermediateField.fixingSubgroup_fixedField _
       have h2 : (IntermediateField.fixedField
-            (MulAction.stabilizer Gal(E/F) (ftDelta r))).fixingSubgroup ≤
-          (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup :=
+            (MulAction.stabilizer Gal(E/F) (vandermondeDelta r))).fixingSubgroup ≤
+          (IntermediateField.adjoin F ({vandermondeDelta r} : Set E)).fixingSubgroup :=
         IntermediateField.fixingSubgroup_antitone hsub
       rw [h1] at h2
       exact h2
     exact hstab (MulAction.mem_stabilizer_iff.mpr hΔfix)
 
-/-- FT cg2 (b): under `char F ≠ 2` and `Δ = ftDelta r ≠ 0`, the whole Galois group acts
+/-- FT cg2 (b): under `char F ≠ 2` and `Δ = vandermondeDelta r ≠ 0`, the whole Galois group acts
 through even permutations iff `Δ ∈ F`.
 Proof (⇒): every `σ` fixes `Δ` (since `σ • Δ = sign(σ̂) · Δ = Δ`), so `Δ ∈ fixedField ⊤ = ⊥`
 (`IsGalois.fixedField_top`, `IntermediateField.mem_bot`).  (⇐): `Δ = algebraMap F E a` is
@@ -10923,16 +10962,16 @@ fixed by every `σ ∈ Gal(E/F)` (which fixes `F` pointwise), so `sign σ̂ = 1`
 `sign_eq_one_of_gal_fix`. -/
 theorem gal_even_iff_delta_mem (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
-    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
+    (hΔ : vandermondeDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
     (∀ σ : Gal(E/F),
-        Equiv.Perm.sign (ftRootsEquiv r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1) ↔
-      ∃ a : F, algebraMap F E a = ftDelta r := by
+        Equiv.Perm.sign (inducedRootPerm r hri σ (fun i => gal_apply_mem_range f hf hr σ i)) = 1) ↔
+      ∃ a : F, algebraMap F E a = vandermondeDelta r := by
   constructor
   · intro hall
-    have hfix : ftDelta r ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
+    have hfix : vandermondeDelta r ∈ IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
       rw [IntermediateField.mem_fixedField_iff]
       intro τ _
-      have hsm := ftDelta_gal_smul' r hri τ (fun i => gal_apply_mem_range f hf hr τ i)
+      have hsm := vandermondeDelta_gal_smul' r hri τ (fun i => gal_apply_mem_range f hf hr τ i)
       rw [hall τ] at hsm
       simp only [Units.val_one, Int.cast_one, one_mul] at hsm
       exact hsm
@@ -10965,9 +11004,9 @@ iff `Δ ∈ F` (under `char F ≠ 2`, `Δ ≠ 0`); combines `gal_mem_fixingSubgr
 pointwise with `gal_even_iff_delta_mem`. -/
 theorem gal_top_le_fixingSubgroup_iff_delta_mem (f : Polynomial F) (hf : f ≠ 0)
     (hr : Set.range r = (f.map (algebraMap F E)).rootSet E) (hri : Function.Injective r)
-    (hΔ : ftDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
-    (∀ σ : Gal(E/F), σ ∈ (IntermediateField.adjoin F ({ftDelta r} : Set E)).fixingSubgroup) ↔
-      ∃ a : F, algebraMap F E a = ftDelta r := by
+    (hΔ : vandermondeDelta r ≠ 0) (h2 : (2 : E) ≠ 0) [IsGalois F E] [FiniteDimensional F E] :
+    (∀ σ : Gal(E/F), σ ∈ (IntermediateField.adjoin F ({vandermondeDelta r} : Set E)).fixingSubgroup) ↔
+      ∃ a : F, algebraMap F E a = vandermondeDelta r := by
   constructor
   · intro hall
     exact (gal_even_iff_delta_mem f hf hr hri hΔ h2).mp (fun σ =>
@@ -11201,7 +11240,7 @@ one root is in `F` iff both are. If `D = t^2` with `t ∈ F` then `t = ±(u - v)
 `Nat.card Gal(E/F) = [E : F] = deg minpoly F u` (`IsGalois.card_aut_eq_finrank`,
 `IntermediateField.adjoin.finrank`), which is `1` iff `u ∈ F` and `2` otherwise
 (`deg minpoly F u ∣ deg f = 2`). -/
-theorem cg5 {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem quadGal_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] (hchar : (2 : F) ≠ 0) {f : F[X]} {b c : F} {u v : E}
     (hb : f = X ^ 2 + C b * X + C c)
     (hfac : (f.map (algebraMap F E)) = (X - C u) * (X - C v))
@@ -11413,7 +11452,7 @@ of degree `3` splitting over `E` there is a root `u ∈ E` of `f`, and the root 
 Proof idea: `(f.map (algebraMap F E)).roots` is a nodup multiset of card `= natDegree f = 3`
 (`Polynomial.splits_iff_card_roots`, nodup from separability), and the root set is its
 underlying finset. -/
-theorem cg6_root_card {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem cubic_rootSet_card {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     {f : F[X]} (hf : f.Monic) (hsep : f.Separable)
     (hsplit : (f.map (algebraMap F E)).Splits) (h3 : f.natDegree = 3) :
     ∃ u : E, (Polynomial.aeval u) f = 0 ∧ Nat.card ↥(f.rootSet E) = 3 := by
@@ -11446,7 +11485,7 @@ Proof idea: the orbit of a root `u` equals `f.rootSet E` (FT cg4, since
 Faithfulness (`FT.gal_eq_one_of_fixes_rootSet`) makes the action homomorphism into
 `Equiv.Perm ↥(f.rootSet E)` injective, and `|S_3| = 3! = 6`. The disjunction is the
 cardinality computation `3k ≤ 6`, `k ≥ 1`. -/
-theorem cg6_count {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem cubic_galCard_count {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] {f : F[X]} (hf : f.Monic) (hsep : f.Separable)
     (hirr : Irreducible f) (h3 : f.natDegree = 3)
     (hsplit : (f.map (algebraMap F E)).Splits)
@@ -11454,7 +11493,7 @@ theorem cg6_count {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E
     3 ∣ Nat.card Gal(E/F) ∧ Nat.card Gal(E/F) ≤ 6 ∧
       (Nat.card Gal(E/F) = 3 ∨ Nat.card Gal(E/F) = 6) := by
   classical
-  obtain ⟨u, hu, hcard3⟩ := cg6_root_card hf hsep hsplit h3
+  obtain ⟨u, hu, hcard3⟩ := cubic_rootSet_card hf hsep hsplit h3
   have hintu : IsIntegral F u := IsGalois.integral F u
   set m := minpoly F u with hm
   have key : f = m := minpoly.eq_of_irreducible_of_monic hirr hu hf
@@ -11490,7 +11529,7 @@ theorem cg6_count {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E
 /-- **FT cg6 (transitivity).** For an irreducible separable cubic `f` splitting over the
 Galois extension `E/F`, the group `Gal(E/F)` acts transitively on the root set
 `f.rootSet E` (instance of FT `cg4`, using `0 < f.natDegree` since `f` is a cubic). -/
-theorem cg6_transitive {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem cubic_gal_transitive {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] {f : F[X]} (hf : f.Monic) (hsep : f.Separable)
     (hirr : Irreducible f) (h3 : f.natDegree = 3)
     (hsplit : (f.map (algebraMap F E)).Splits) :
@@ -11510,7 +11549,7 @@ open Polynomial
 
 -- FT cg6 (action on roots)
 /-- A root of `f` is sent to a root of `f` by any `F`-algebra automorphism of `E`. -/
-theorem cg6_gal_smul_root {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
+theorem smul_mem_rootSet_of_ne {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
     (hf : f ≠ 0) (σ : Gal(E/F)) {x : E} (hx : x ∈ f.rootSet E) : σ x ∈ f.rootSet E := by
   rw [Polynomial.mem_rootSet] at hx ⊢
   refine ⟨hf, ?_⟩
@@ -11520,7 +11559,7 @@ theorem cg6_gal_smul_root {F E : Type u} [Field F] [Field E] [Algebra F E] {f : 
 -- FT cg6 (pure permutation bookkeeping)
 /-- Three pairwise distinct elements, each equal to one of `u, v, w`, realize one of the six
 permutations of `(u, v, w)`. -/
-theorem cg6_perm_cases {E : Type*} {u v w a b c : E}
+theorem triple_perm_cases {E : Type*} {u v w a b c : E}
     (ha : a = u ∨ a = v ∨ a = w) (hb : b = u ∨ b = v ∨ b = w) (hc : c = u ∨ c = v ∨ c = w)
     (hab : a ≠ b) (hac : a ≠ c) (hbc : b ≠ c) :
     (a = u ∧ b = v ∧ c = w) ∨ (a = v ∧ b = u ∧ c = w) ∨ (a = w ∧ b = v ∧ c = u) ∨
@@ -11542,7 +11581,7 @@ theorem cg6_perm_cases {E : Type*} {u v w a b c : E}
 -- FT cg6 (the three roots)
 /-- A monic separable cubic that splits in `E` has exactly three roots `u, v, w` of multiplicity
 one, and its root set is exactly `{u, v, w}`. -/
-theorem cg6_roots_extract {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
+theorem cubic_roots_extract {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
     (hf : f.Monic) (hsep : f.Separable) (hsplit : (f.map (algebraMap F E)).Splits)
     (h3 : f.natDegree = 3) :
     ∃ u v w : E, (f.map (algebraMap F E)).roots = u ::ₘ v ::ₘ w ::ₘ 0 ∧
@@ -11588,7 +11627,7 @@ theorem cg6_roots_extract {F E : Type u} [Field F] [Field E] [Algebra F E] {f : 
 -- FT cg6 (three points determine the root set)
 /-- If `{u, v, w} ⊆ s` are pairwise distinct and `s` has three elements, then every element of
 `s` is one of `u, v, w`. -/
-theorem cg6_finset_char {E : Type*} [DecidableEq E] {s : Finset E} {u v w : E}
+theorem mem_triple_of_card_three {E : Type*} [DecidableEq E] {s : Finset E} {u v w : E}
     (hu : u ∈ s) (hv : v ∈ s) (hw : w ∈ s) (huv : u ≠ v) (huw : u ≠ w) (hvw : v ≠ w)
     (hcard : s.card = 3) : ∀ x ∈ s, x = u ∨ x = v ∨ x = w := by
   have hcard3 : ({u, v, w} : Finset E).card = 3 := by
@@ -11612,22 +11651,22 @@ theorem cg6_finset_char {E : Type*} [DecidableEq E] {s : Finset E} {u v w : E}
 -- FT cg6 (the Galois group permutes the three roots)
 /-- For three pairwise distinct roots `u, v, w` of `f`, any `F`-automorphism of `E` permutes
 them in one of the six possible ways. -/
-theorem cg6_perm_triple {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
+theorem gal_perm_triple {F E : Type u} [Field F] [Field E] [Algebra F E] {f : F[X]}
     (hf : f ≠ 0) {u v w : E} (hmem : ∀ x ∈ f.rootSet E, x = u ∨ x = v ∨ x = w)
     (huv : u ≠ v) (huw : u ≠ w) (hvw : v ≠ w)
     (hu : u ∈ f.rootSet E) (hv : v ∈ f.rootSet E) (hw : w ∈ f.rootSet E) (σ : Gal(E/F)) :
     (σ u = u ∧ σ v = v ∧ σ w = w) ∨ (σ u = v ∧ σ v = u ∧ σ w = w) ∨
       (σ u = w ∧ σ v = v ∧ σ w = u) ∨ (σ u = u ∧ σ v = w ∧ σ w = v) ∨
       (σ u = v ∧ σ v = w ∧ σ w = u) ∨ (σ u = w ∧ σ v = u ∧ σ w = v) :=
-  cg6_perm_cases (hmem (σ u) (cg6_gal_smul_root hf σ hu))
-    (hmem (σ v) (cg6_gal_smul_root hf σ hv)) (hmem (σ w) (cg6_gal_smul_root hf σ hw))
+  triple_perm_cases (hmem (σ u) (smul_mem_rootSet_of_ne hf σ hu))
+    (hmem (σ v) (smul_mem_rootSet_of_ne hf σ hv)) (hmem (σ w) (smul_mem_rootSet_of_ne hf σ hw))
     (fun h => huv (EquivLike.injective σ h)) (fun h => huw (EquivLike.injective σ h))
     (fun h => hvw (EquivLike.injective σ h))
 
 -- FT cg6 (order-3 case: the Vandermonde product is G-fixed)
 /-- If the Galois group has order 3, it fixes the Vandermonde product
 `(u - v) * (u - w) * (v - w)` of three distinct roots. -/
-theorem cg6_delta_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem gal_fix_vandermonde_of_card_three {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] {f : F[X]} (hf0 : f ≠ 0)
     (hgen : IntermediateField.adjoin F (f.rootSet E) = ⊤)
     (hcard3 : Nat.card (Gal(E/F)) = 3) {u v w : E}
@@ -11643,7 +11682,7 @@ theorem cg6_delta_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalo
   · rw [orderOf_eq_one_iff.mp h1]
     rfl
   · have hσ3 : σ ^ 3 = 1 := by rw [← h1, pow_orderOf_eq_one]
-    rcases cg6_perm_triple hf0 hmem huv huw hvw hu hv hw σ with hc | hc | hc | hc | hc | hc
+    rcases gal_perm_triple hf0 hmem huv huw hvw hu hv hw σ with hc | hc | hc | hc | hc | hc
     · show σ.toAlgHom ((u - v) * (u - w) * (v - w)) = (u - v) * (u - w) * (v - w)
       have e1 : σ.toAlgHom u = u := hc.1
       have e2 : σ.toAlgHom v = v := hc.2.1
@@ -11704,7 +11743,7 @@ theorem cg6_delta_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalo
 -- FT cg6 (order-3 case, converse: a fixed Vandermonde product forces order 3)
 /-- If the Vandermonde product `(u' - v') * (u' - w') * (v' - w')` of the three distinct roots is
 fixed by the Galois group (and `2 ≠ 0` in `F`), then the Galois group has order 3. -/
-theorem cg6_card3_of_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem galCard_three_of_fixed_vandermonde {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] {f : F[X]} (hf : f.Monic) (hsep : f.Separable) (hirr : Irreducible f)
     (h3 : f.natDegree = 3) (hsplit : (f.map (algebraMap F E)).Splits)
     (hgen : IntermediateField.adjoin F (f.rootSet E) = ⊤) (h2 : (2 : F) ≠ 0)
@@ -11719,7 +11758,7 @@ theorem cg6_card3_of_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsG
   have hδ0 : δ' ≠ 0 :=
     mul_ne_zero (mul_ne_zero (sub_ne_zero.mpr hu'v') (sub_ne_zero.mpr hu'w'))
       (sub_ne_zero.mpr hv'w')
-  rcases (cg6_count hf hsep hirr h3 hsplit hgen).2.2 with h3c | h6c
+  rcases (cubic_galCard_count hf hsep hirr h3 hsplit hgen).2.2 with h3c | h6c
   · exact h3c
   · obtain ⟨σ, hσo⟩ := exists_prime_orderOf_dvd_card' 2 (by rw [h6c]; norm_num)
     have hσ2 : σ ^ 2 = 1 := by rw [← hσo]; exact pow_orderOf_eq_one σ
@@ -11732,7 +11771,7 @@ theorem cg6_card3_of_fixed {F E : Type u} [Field F] [Field E] [Algebra F E] [IsG
       show (σ ^ 2) x = x
       rw [hσ2]
       rfl
-    rcases cg6_perm_triple hf.ne_zero hmem' hu'v' hu'w' hv'w' hu'mem hv'mem hw'mem σ
+    rcases gal_perm_triple hf.ne_zero hmem' hu'v' hu'w' hv'w' hu'mem hv'mem hw'mem σ
       with hc | hc | hc | hc | hc | hc
     · refine absurd (gal_eq_one_of_fixes_rootSet hgen σ ?_) hσne
       intro x hx
@@ -11789,7 +11828,7 @@ splitting field `E`, a square root of the Vandermonde product
 `(u - v) * (u - w) * (v - w)` of the three distinct roots lies in `F` if and only if the Galois
 group `Gal(E/F)` has order 3 (i.e. the discriminant is a square exactly when the Galois group is
 cyclic of order 3). -/
-theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+theorem cubic_galCard_three_iff_discriminant_square {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
     [FiniteDimensional F E] {f : F[X]} (hf : f.Monic) (hsep : f.Separable) (hirr : Irreducible f)
     (h3 : f.natDegree = 3) (hsplit : (f.map (algebraMap F E)).Splits)
     (hgen : IntermediateField.adjoin F (f.rootSet E) = ⊤) (h2 : (2 : F) ≠ 0) :
@@ -11799,7 +11838,7 @@ theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois
   classical
   haveI : DecidableEq E := fun a b => Classical.propDecidable (a = b)
   have hf0 : f ≠ 0 := hf.ne_zero
-  obtain ⟨u, v, w, hR, huv, huw, hvw, hchar⟩ := cg6_roots_extract hf hsep hsplit h3
+  obtain ⟨u, v, w, hR, huv, huw, hvw, hchar⟩ := cubic_roots_extract hf hsep hsplit h3
   have hu : u ∈ f.rootSet E := (hchar u).mpr (Or.inl rfl)
   have hv : v ∈ f.rootSet E := (hchar v).mpr (Or.inr (Or.inl rfl))
   have hw : w ∈ f.rootSet E := (hchar w).mpr (Or.inr (Or.inr rfl))
@@ -11817,7 +11856,7 @@ theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois
   have hv's : v ∈ s := (hrootroot v).mp hv
   have hw's : w ∈ s := (hrootroot w).mp hw
   have hmem' : ∀ x ∈ s, x = u ∨ x = v ∨ x = w :=
-    cg6_finset_char hu's hv's hw's huv huw hvw hscard
+    mem_triple_of_card_three hu's hv's hw's huv huw hvw hscard
   constructor
   · rintro ⟨u', v', w', hu'', hv'', hw'', hu'v', hu'w', hv'w', t, ht⟩
     have hu'mem : u' ∈ f.rootSet E := Polynomial.mem_rootSet.mpr ⟨hf0, hu''⟩
@@ -11825,7 +11864,7 @@ theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois
     have hw'mem : w' ∈ f.rootSet E := Polynomial.mem_rootSet.mpr ⟨hf0, hw''⟩
     have hmem'' : ∀ x ∈ f.rootSet E, x = u' ∨ x = v' ∨ x = w' :=
       fun x hx =>
-        cg6_finset_char ((hrootroot u').mp hu'mem) ((hrootroot v').mp hv'mem)
+        mem_triple_of_card_three ((hrootroot u').mp hu'mem) ((hrootroot v').mp hv'mem)
           ((hrootroot w').mp hw'mem) hu'v' hu'w' hv'w' hscard x ((hrootroot x).mp hx)
     set δ' : E := (u' - v') * (u' - w') * (v' - w') with hδ'def
     have hz : (algebraMap F E t - δ') * (algebraMap F E t + δ') = 0 := by
@@ -11833,7 +11872,7 @@ theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois
       linear_combination ht
     rcases mul_eq_zero.mp hz with hz' | hz'
     · have heq : δ' = algebraMap F E t := (sub_eq_zero.mp hz').symm
-      refine cg6_card3_of_fixed hf hsep hirr h3 hsplit hgen h2 hu'v' hu'w' hv'w' hmem''
+      refine galCard_three_of_fixed_vandermonde hf hsep hirr h3 hsplit hgen h2 hu'v' hu'w' hv'w' hmem''
         hu'mem hv'mem hw'mem ?_
       intro σ
       show σ.toAlgHom δ' = δ'
@@ -11841,13 +11880,13 @@ theorem cg6_dichotomy {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois
       exact σ.toAlgHom.commutes t
     · have heq : δ' = -algebraMap F E t :=
         eq_neg_iff_add_eq_zero.mpr (by rw [add_comm]; exact hz')
-      refine cg6_card3_of_fixed hf hsep hirr h3 hsplit hgen h2 hu'v' hu'w' hv'w' hmem''
+      refine galCard_three_of_fixed_vandermonde hf hsep hirr h3 hsplit hgen h2 hu'v' hu'w' hv'w' hmem''
         hu'mem hv'mem hw'mem ?_
       intro σ
       show σ.toAlgHom δ' = δ'
       rw [heq, map_neg, σ.toAlgHom.commutes t]
   · rintro hcard3
-    have hfixδ := cg6_delta_fixed hf0 hgen hcard3 huv huw hvw
+    have hfixδ := gal_fix_vandermonde_of_card_three hf0 hgen hcard3 huv huw hvw
       (fun x hx => (hchar x).mp hx) hu hv hw
     have hfixmem : (u - v) * (u - w) * (v - w) ∈
         IntermediateField.fixedField (⊤ : Subgroup Gal(E/F)) := by
@@ -11868,7 +11907,7 @@ Proof idea: the closure `{c}` contains `1`, `c`, `c²`; conversely an element of
 sign `+1`, and among the six permutations of `S₃` exactly `1`, `c`, `c²` have sign `+1` while
 the three transpositions have sign `-1`; injectivity of permutations plus the possible images of
 `0, 1, 2` finish the case analysis. -/
-theorem cg6_a3_cycle :
+theorem a3_eq_closure_cycle :
     Subgroup.closure {Equiv.swap 0 1 * Equiv.swap 1 2}
       = (Equiv.Perm.sign : Equiv.Perm (Fin 3) →* ℤˣ).ker := by
   classical
@@ -12136,13 +12175,13 @@ theorem not_sq_21 (u : ℤ) (h : u ^ 2 = 21) : False := by
   all_goals norm_num at h2
 
 /-- FT cg10 (auxiliary).  Evaluation of `X⁴ − 10X² + 4` at an integer. -/
-theorem eval_f10 (r : ℤ) :
+theorem eval_X4_sub_10X2_add_4 (r : ℤ) :
     eval r (X^4 - C 10 * X^2 + C 4 : ℤ[X]) = r ^ 4 - 10 * r ^ 2 + 4 := by
   simp only [Polynomial.eval_add, Polynomial.eval_sub, Polynomial.eval_C_mul,
     Polynomial.eval_C, Polynomial.eval_X_pow]
 
 /-- FT cg10 (auxiliary).  The leading coefficient of `X⁴ − 10X² + 4` is 1. -/
-theorem cg10_coeff4 : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).coeff 4 = 1 := by
+theorem leadingCoeff_X4_sub_10X2_add_4 : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).coeff 4 = 1 := by
   simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
     Polynomial.coeff_X_pow, Polynomial.coeff_C]
   norm_num
@@ -12211,7 +12250,7 @@ theorem rep_le_three {K : Type*} [CommRing K] {p : K[X]} (hp : p.natDegree ≤ 3
     norm_num
 
 /-- FT cg10 (auxiliary).  No integer dividing 4 is a root of `X⁴ − 10X² + 4`. -/
-theorem cg10_no_root_4 (n : ℤ) (hd : n ∣ 4) : n ^ 4 - 10 * n ^ 2 + 4 ≠ 0 := by
+theorem no_root_div_4_X4_sub_10X2_add_4 (n : ℤ) (hd : n ∣ 4) : n ^ 4 - 10 * n ^ 2 + 4 ≠ 0 := by
   obtain ⟨m, hm⟩ := hd
   have hmul : n.natAbs * m.natAbs = (4 : ℕ) := by rw [← Int.natAbs_mul, ← hm]; norm_num
   have hle : n.natAbs ≤ 4 := Nat.le_of_dvd (by norm_num) (Dvd.intro m.natAbs hmul)
@@ -12227,7 +12266,7 @@ theorem cg10_no_root_4 (n : ℤ) (hd : n ∣ 4) : n ^ 4 - 10 * n ^ 2 + 4 ≠ 0 :
     all_goals norm_num
 
 /-- FT cg10 (auxiliary).  `X⁴ − 10X² + 4` has degree 4 over ℤ. -/
-theorem cg10_natDegree_4 :
+theorem natDegree_X4_sub_10X2_add_4 :
     (X^4 - C 10 * X^2 + C 4 : ℤ[X]).natDegree = 4 := by
   have hX4 : ((X : ℤ[X])^4).natDegree = 4 := by rw [Polynomial.natDegree_X_pow]
   have hCX : (C 10 * X ^ 2 : ℤ[X]).natDegree ≤ 2 := by
@@ -12252,7 +12291,7 @@ theorem cg10_natDegree_4 :
 with integer coefficients, we get a contradiction: `a = a' = ±1`, then either `b = 0` forces
 `c' + c = ±10` with `cc' = 4`, impossible by a divisor check, or `c' = c` forces `c² = 4` and
 then `b² = 2ac + 10 ∈ {6, 14}`, not a square. -/
-theorem cg10_quad_elim (a b c a' b' c' : ℤ)
+theorem quadFactor_elim_X4_sub_10X2_add_4 (a b c a' b' c' : ℤ)
     (h1 : a * a' = 1) (h2 : a * b' + b * a' = 0) (h3 : a * c' + b * b' + c * a' = -10)
     (h4 : b * c' + c * b' = 0) (h5 : c * c' = 4) : False := by
   have hn1 : a.natAbs * a'.natAbs = 1 := by rw [← Int.natAbs_mul, h1]; norm_num
@@ -12335,7 +12374,7 @@ theorem cg10_quad_elim (a b c a' b' c' : ℤ)
 
 /-- FT cg10 (auxiliary).  Multiplying out `(s₂X² + s₁X + s₀)(t₂X² + t₁X + t₀)` and comparing
 with `X⁴ − 10X² + 4` coefficient by coefficient gives the five relations fed to
-`cg10_quad_elim`. -/
+`quadFactor_elim_X4_sub_10X2_add_4`. -/
 theorem coeff_quad_prod (s2 s1 s0 t2 t1 t0 : ℤ)
     (hst : (C s2 * X^2 + C s1 * X + C s0 : ℤ[X]) * (C t2 * X^2 + C t1 * X + C t0)
       = X^4 - C 10 * X^2 + C 4) :
@@ -12384,11 +12423,11 @@ theorem coeff_quad_prod (s2 s1 s0 t2 t1 t0 : ℤ)
 non-units and `deg s ≤ 2`, we get a contradiction.  Degree 0: comparing leading coefficients
 gives `s₀ · t₄ = 1`, so `s₀ = ±1` and `s` is a unit.  Degree 1: comparing leading coefficients
 gives `s₁ t₃ = 1`, so `s₁ = ±1` and `s = ±X + s₀` has the integer root `∓s₀`, forcing
-`X⁴ − 10X² + 4` to vanish at an integer dividing 4, contradicting `cg10_no_root_4`.
-Degree 2: comparing all five coefficients and applying `cg10_quad_elim`. -/
-theorem cg10_small_elim (s t : ℤ[X]) (hs0 : s ≠ 0) (ht0 : t ≠ 0) (hsu : ¬IsUnit s)
+`X⁴ − 10X² + 4` to vanish at an integer dividing 4, contradicting `no_root_div_4_X4_sub_10X2_add_4`.
+Degree 2: comparing all five coefficients and applying `quadFactor_elim_X4_sub_10X2_add_4`. -/
+theorem smallFactor_elim_X4_sub_10X2_add_4 (s t : ℤ[X]) (hs0 : s ≠ 0) (ht0 : t ≠ 0) (hsu : ¬IsUnit s)
     (_htu : ¬IsUnit t) (hst : s * t = X^4 - C 10 * X^2 + C 4) (hsd : s.natDegree ≤ 2) : False := by
-  have hfnd : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).natDegree = 4 := cg10_natDegree_4
+  have hfnd : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).natDegree = 4 := natDegree_X4_sub_10X2_add_4
   have hdeg : (s * t).natDegree = s.natDegree + t.natDegree :=
     Polynomial.natDegree_mul hs0 ht0
   rw [hst, hfnd] at hdeg
@@ -12456,10 +12495,10 @@ theorem cg10_small_elim (s t : ℤ[X]) (hs0 : s ≠ 0) (ht0 : t ≠ 0) (hsu : ¬
         have hfval : eval (-s.coeff 0) (X^4 - C 10 * X^2 + C 4 : ℤ[X]) = 0 := by
           rw [← hst, Polynomial.eval_mul, hsval, zero_mul]
         have hcon : (-s.coeff 0) ^ 4 - 10 * (-s.coeff 0) ^ 2 + 4 = 0 :=
-          (eval_f10 _).symm.trans hfval
+          (eval_X4_sub_10X2_add_4 _).symm.trans hfval
         have hcon' : s.coeff 0 ^ 4 - 10 * s.coeff 0 ^ 2 + 4 = 0 := by
           rw [← hcon]; ring
-        exact cg10_no_root_4 (s.coeff 0) (Dvd.intro (t.coeff 0) e0) hcon'
+        exact no_root_div_4_X4_sub_10X2_add_4 (s.coeff 0) (Dvd.intro (t.coeff 0) e0) hcon'
       · rw [hna] at he1
         have hsval : eval (s.coeff 0) (C (s.coeff 1) * X + C (s.coeff 0) : ℤ[X]) = 0 := by
           rw [he1]
@@ -12469,8 +12508,8 @@ theorem cg10_small_elim (s t : ℤ[X]) (hs0 : s ≠ 0) (ht0 : t ≠ 0) (hsu : ¬
         have hfval : eval (s.coeff 0) (X^4 - C 10 * X^2 + C 4 : ℤ[X]) = 0 := by
           rw [← hst, Polynomial.eval_mul, hsval, zero_mul]
         have hcon : s.coeff 0 ^ 4 - 10 * s.coeff 0 ^ 2 + 4 = 0 :=
-          (eval_f10 _).symm.trans hfval
-        exact cg10_no_root_4 (s.coeff 0) (Dvd.intro (t.coeff 0) e0) hcon
+          (eval_X4_sub_10X2_add_4 _).symm.trans hfval
+        exact no_root_div_4_X4_sub_10X2_add_4 (s.coeff 0) (Dvd.intro (t.coeff 0) e0) hcon
     · have hsdeq : s.natDegree = 2 := by omega
       have htdeq : t.natDegree = 2 := by omega
       have hrep : s = C (s.coeff 2) * X ^ 2 + C (s.coeff 1) * X + C (s.coeff 0) :=
@@ -12479,16 +12518,16 @@ theorem cg10_small_elim (s t : ℤ[X]) (hs0 : s ≠ 0) (ht0 : t ≠ 0) (hsu : ¬
         rep_le_two (by omega)
       rw [hrep, htrep] at hst
       obtain ⟨e4, e3, e2, e1, e0⟩ := coeff_quad_prod _ _ _ _ _ _ hst
-      exact cg10_quad_elim _ _ _ _ _ _ e4 e3 e2 e1 e0
+      exact quadFactor_elim_X4_sub_10X2_add_4 _ _ _ _ _ _ e4 e3 e2 e1 e0
 
 /-- FT cg10 (third clause).  `X⁴ − 10X² + 4` is irreducible in ℤ[X]: any factorization splits
 its degree 4 into factors of degrees summing to 4, and the factor of degree ≤ 2 leads to a
-contradiction via `cg10_small_elim`. -/
-theorem cg10_irreducible_int : Irreducible (X^4 - C 10 * X^2 + C 4 : ℤ[X]) := by
-  have hfnd : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).natDegree = 4 := cg10_natDegree_4
+contradiction via `smallFactor_elim_X4_sub_10X2_add_4`. -/
+theorem irreducible_X4_sub_10X2_add_4_int : Irreducible (X^4 - C 10 * X^2 + C 4 : ℤ[X]) := by
+  have hfnd : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).natDegree = 4 := natDegree_X4_sub_10X2_add_4
   have hf0 : (X^4 - C 10 * X^2 + C 4 : ℤ[X]) ≠ 0 := by
     intro h
-    have hc4 := cg10_coeff4
+    have hc4 := leadingCoeff_X4_sub_10X2_add_4
     rw [h] at hc4
     simp only [Polynomial.coeff_zero] at hc4
     norm_num at hc4
@@ -12497,7 +12536,7 @@ theorem cg10_irreducible_int : Irreducible (X^4 - C 10 * X^2 + C 4 : ℤ[X]) := 
     obtain ⟨u, hu1, hu2⟩ := Polynomial.isUnit_iff.mp hu
     have hcu : (C u : ℤ[X]).coeff 4 = 1 := by
       rw [hu2]
-      exact cg10_coeff4
+      exact leadingCoeff_X4_sub_10X2_add_4
     simp only [Polynomial.coeff_C] at hcu
     norm_num at hcu
   · intro g h hgh
@@ -12511,20 +12550,20 @@ theorem cg10_irreducible_int : Irreducible (X^4 - C 10 * X^2 + C 4 : ℤ[X]) := 
       rw [hgh', hfnd] at h1
       exact h1
     rcases le_total g.natDegree h.natDegree with hgl | hgl
-    · exact cg10_small_elim g h hg0 hh0 hgu hhu hgh' (by omega)
-    · exact cg10_small_elim h g hh0 hg0 hhu hgu (by rw [mul_comm h g]; exact hgh')
+    · exact smallFactor_elim_X4_sub_10X2_add_4 g h hg0 hh0 hgu hhu hgh' (by omega)
+    · exact smallFactor_elim_X4_sub_10X2_add_4 h g hh0 hg0 hhu hgu (by rw [mul_comm h g]; exact hgh')
         (by omega)
 
 /-- FT cg10 (fourth clause).  `X⁴ − 10X² + 4` is irreducible over ℚ: the polynomial is
 primitive and irreducible in ℤ[X], so Gauss's lemma
 (`Polynomial.IsPrimitive.Int.irreducible_iff_irreducible_map_cast`) transfers irreducibility
 along the map `Int.castRingHom ℚ`, which fixes the coefficients of `X⁴ − 10X² + 4`. -/
-theorem cg10_irreducible : Irreducible (X^4 - C 10 * X^2 + C 4 : ℚ[X]) := by
+theorem irreducible_X4_sub_10X2_add_4 : Irreducible (X^4 - C 10 * X^2 + C 4 : ℚ[X]) := by
   have hprim : (X^4 - C 10 * X^2 + C 4 : ℤ[X]).IsPrimitive :=
-    Irreducible.isPrimitive cg10_irreducible_int (by
-      rw [cg10_natDegree_4]; norm_num)
+    Irreducible.isPrimitive irreducible_X4_sub_10X2_add_4_int (by
+      rw [natDegree_X4_sub_10X2_add_4]; norm_num)
   have hres := (Polynomial.IsPrimitive.Int.irreducible_iff_irreducible_map_cast hprim).mp
-    cg10_irreducible_int
+    irreducible_X4_sub_10X2_add_4_int
   have heq : Polynomial.map (Int.castRingHom ℚ) (X^4 - C 10 * X^2 + C 4 : ℤ[X])
       = (X^4 - C 10 * X^2 + C 4 : ℚ[X]) := by
     simp only [Polynomial.map_add, Polynomial.map_sub, Polynomial.map_mul, Polynomial.map_C,
@@ -12535,7 +12574,7 @@ theorem cg10_irreducible : Irreducible (X^4 - C 10 * X^2 + C 4 : ℚ[X]) := by
 
 /-- FT cg8a (first clause).  For `f = X⁴ − 4X + 2` with roots `a1, a2, a3, a4` the resolvent
 cubic is `X³ − 8X − 16`. -/
-theorem cg8a_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
+theorem resolventCubic_X4_sub_4X_add_2 {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
     (hf : (X : E[X])^4 + C (algebraMap ℚ E 0) * X^3 + C (algebraMap ℚ E 0) * X^2
         + C (algebraMap ℚ E (-4)) * X + C (algebraMap ℚ E 2)
       = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
@@ -12549,8 +12588,8 @@ theorem cg8a_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4
 
 /-- FT cg9 (first clause).  For `f = X⁴ + 4X² + 2` with roots `a1, a2, a3, a4` the resolvent
 cubic is `X³ − 4X² − 8X + 32`, which factors as `(X − 4)(X² − 8)` (see
-`cg9_resolvent_factorization`). -/
-theorem cg9_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
+`resolventCubic_X4_add_4X2_add_2_factorization`). -/
+theorem resolventCubic_X4_add_4X2_add_2 {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
     (hf : (X : E[X])^4 + C (algebraMap ℚ E 0) * X^3 + C (algebraMap ℚ E 4) * X^2
         + C (algebraMap ℚ E 0) * X + C (algebraMap ℚ E 2)
       = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
@@ -12565,7 +12604,7 @@ theorem cg9_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 
 
 /-- FT cg9 (second clause).  The resolvent cubic `X³ − 4X² − 8X + 32` factors over ℚ as
 `(X − 4)(X² − 8)`: expanding and regrouping the constant term `32 = 4 · 8`. -/
-theorem cg9_resolvent_factorization {E : Type u} [Field E] [Algebra ℚ E] :
+theorem resolventCubic_X4_add_4X2_add_2_factorization {E : Type u} [Field E] [Algebra ℚ E] :
     (X - C (algebraMap ℚ E 4)) * (X^2 - C (algebraMap ℚ E 8))
       = X^3 - C (algebraMap ℚ E 4) * X^2 - C (algebraMap ℚ E 8) * X
         + C (algebraMap ℚ E 32) := by
@@ -12575,8 +12614,8 @@ theorem cg9_resolvent_factorization {E : Type u} [Field E] [Algebra ℚ E] :
 
 /-- FT cg10 (first clause).  For `f = X⁴ − 10X² + 4` with roots `a1, a2, a3, a4` the resolvent
 cubic is `X³ + 10X² − 16X − 160`, which factors as `(X + 10)(X + 4)(X − 4)` (see
-`cg10_resolvent_factorization`). -/
-theorem cg10_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
+`resolventCubic_X4_sub_10X2_add_4_factorization`). -/
+theorem resolventCubic_X4_sub_10X2_add_4 {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
     (hf : (X : E[X])^4 + C (algebraMap ℚ E 0) * X^3 + C (algebraMap ℚ E (-10)) * X^2
         + C (algebraMap ℚ E 0) * X + C (algebraMap ℚ E 4)
       = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
@@ -12591,7 +12630,7 @@ theorem cg10_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4
 
 /-- FT cg10 (second clause).  The resolvent cubic `X³ + 10X² − 16X − 160` factors over ℚ as
 `(X + 10)(X + 4)(X − 4)`: expanding and regrouping `16 = 4 · 4`, `160 = 10 · 4 · 4`. -/
-theorem cg10_resolvent_factorization {E : Type u} [Field E] [Algebra ℚ E] :
+theorem resolventCubic_X4_sub_10X2_add_4_factorization {E : Type u} [Field E] [Algebra ℚ E] :
     (X + C (algebraMap ℚ E 10)) * (X + C (algebraMap ℚ E 4)) * (X - C (algebraMap ℚ E 4))
       = X^3 + C (algebraMap ℚ E 10) * X^2 - C (algebraMap ℚ E 16) * X
         - C (algebraMap ℚ E 160) := by
@@ -12603,7 +12642,7 @@ theorem cg10_resolvent_factorization {E : Type u} [Field E] [Algebra ℚ E] :
 
 /-- FT cg11 (first clause).  For `f = X⁴ − 2` with roots `a1, a2, a3, a4` the resolvent cubic
 is `X³ + 8X`. -/
-theorem cg11_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
+theorem resolventCubic_X4_sub_2 {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4 : E)
     (hf : (X : E[X])^4 + C (algebraMap ℚ E 0) * X^3 + C (algebraMap ℚ E 0) * X^2
         + C (algebraMap ℚ E 0) * X + C (algebraMap ℚ E (-2))
       = (X - C a1) * (X - C a2) * (X - C a3) * (X - C a4)) :
@@ -12616,7 +12655,7 @@ theorem cg11_resolvent_cubic {E : Type u} [Field E] [Algebra ℚ E] (a1 a2 a3 a4
 
 /-- FT cg8a (second clause).  `X⁴ − 4X + 2` is irreducible over ℚ by Eisenstein's criterion at
 the prime 2. -/
-theorem cg8a_irreducible : Irreducible (X^4 - C 4 * X + C 2 : ℚ[X]) := by
+theorem irreducible_X4_sub_4X_add_2 : Irreducible (X^4 - C 4 * X + C 2 : ℚ[X]) := by
   have heq : Polynomial.map (algebraMap ℤ ℚ) (X^4 - C (4:ℤ) * X + C (2:ℤ))
       = (X^4 - C 4 * X + C 2 : ℚ[X]) := by
     simp only [Polynomial.map_add, Polynomial.map_sub, Polynomial.map_mul, Polynomial.map_C,
@@ -12657,7 +12696,7 @@ theorem cg8a_irreducible : Irreducible (X^4 - C 4 * X + C 2 : ℚ[X]) := by
 
 /-- FT cg9 (second clause).  `X⁴ + 4X² + 2` is irreducible over ℚ by Eisenstein's criterion at
 the prime 2. -/
-theorem cg9_irreducible : Irreducible (X^4 + C 4 * X^2 + C 2 : ℚ[X]) := by
+theorem irreducible_X4_add_4X2_add_2 : Irreducible (X^4 + C 4 * X^2 + C 2 : ℚ[X]) := by
   have heq : Polynomial.map (algebraMap ℤ ℚ) (X^4 + C (4:ℤ) * X^2 + C (2:ℤ))
       = (X^4 + C 4 * X^2 + C 2 : ℚ[X]) := by
     simp only [Polynomial.map_add, Polynomial.map_mul, Polynomial.map_C, Polynomial.map_pow,
@@ -12699,7 +12738,7 @@ theorem cg9_irreducible : Irreducible (X^4 + C 4 * X^2 + C 2 : ℚ[X]) := by
 
 /-- FT cg11 (second clause).  `X⁴ − 2` is irreducible over ℚ by Eisenstein's criterion at the
 prime 2. -/
-theorem cg11_irreducible : Irreducible (X^4 - C 2 : ℚ[X]) := by
+theorem irreducible_X4_sub_2 : Irreducible (X^4 - C 2 : ℚ[X]) := by
   have heq : Polynomial.map (algebraMap ℤ ℚ) (X^4 + C (-(2:ℤ)))
       = (X^4 - C 2 : ℚ[X]) := by
     simp only [Polynomial.map_add, Polynomial.map_C, Polynomial.map_pow,
@@ -12803,6 +12842,9 @@ noncomputable def fracHom :
         (FaithfulSMul.algebraMap_injective A B)
         (by simpa [AlgHom.comp_apply, MvPolynomial.mapAlgHom_apply] using hab))
 
+/-- The embedding `fracHom` extends the coefficient embedding `A ↪ B`: applied to
+the image of a polynomial `p` over `A` it gives the image of `p.map (algebraMap A B)`
+over `B`. -/
 theorem fracHom_algebraMap (p : MvPolynomial (Fin m) A) :
     fracHom (algebraMap (MvPolynomial (Fin m) A)
       (FractionRing (MvPolynomial (Fin m) A)) p) =
@@ -12810,6 +12852,9 @@ theorem fracHom_algebraMap (p : MvPolynomial (Fin m) A) :
         (MvPolynomial.map (algebraMap A B) p) := by
   simp [fracHom, AlgHom.comp_apply, MvPolynomial.mapAlgHom_apply]
 
+/-- The `T`-permutation automorphism `sigmaTFrac σ` acts on fraction-field elements
+by permuting the indeterminates: applied to the image of `p` it gives the image of
+`MvPolynomial.renameEquiv B σ p`. -/
 theorem sigmaTFrac_algebraMap (σ : Equiv.Perm (Fin m)) (p : MvPolynomial (Fin m) B) :
     sigmaTFrac σ (algebraMap (MvPolynomial (Fin m) B)
       (FractionRing (MvPolynomial (Fin m) B)) p) =
@@ -12851,19 +12896,16 @@ theorem eval₂_equiv_apply (s : L ≃+* L) (q : Polynomial L) (x : L) :
   | add p q ihp ihq => simp [ihp, ihq]
   | monomial n a => simp [Polynomial.eval₂_monomial, Polynomial.eval_monomial]
 
--- AUDIT-GAP (bridging audit, check 4 — unpaid reuse; delta audit of the chapter
--- IV delivery 0c74549..HEAD): the `have hcomm` step of `linearFactor_stabilizer`
--- below — `intro q; rw [Polynomial.map_map, Polynomial.map_map, hmap]` —
--- re-performs inline the base-map composition transport (map after map = map of
--- the composition, via the composition equation) that is paid once by the
--- main-approved BRIDGE `FT.map_map_comp` (FactoringPolynomials, ~463); this is
--- the same fingerprint as the four sites rewired in remediation 033c21d.
--- Remedy: consume `map_map_comp` here (`fB := sM.toRingHom`,
--- `g := algebraMap M L`, `g' := RingHom.comp s (algebraMap M L)`, `hcomp := hmap`).
--- Check 5 note (new shape mismatch, surfaced to main, not judged): the delta also
--- uses the multivariate analogue `MvPolynomial.map_map` inline once
--- (`sigmaCoefFrac_ringHom_comm`, ~12940) — an MvPolynomial base-map composition
--- transport with no paying bridge, currently a single occurrence.
+-- Note (bridging audit, check 4 remediation): the `have hcomm` step of
+-- `linearFactor_stabilizer` consumes the main-approved BRIDGE `FT.map_map_comp`
+-- (FactoringPolynomials) instead of re-performing the base-map composition
+-- transport inline (the same rewire as remediation 033c21d).
+-- Note (bridging audit, check 5, disposition): the delta's single inline
+-- `MvPolynomial.map_map` occurrence (`sigmaCoefFrac_ringHom_comm`) — an
+-- MvPolynomial base-map composition transport with no paying bridge — is
+-- deferred: a single occurrence without a second consumer does not meet the
+-- payment bar (same disposition as the chapter-III check-4 transport sites); it
+-- becomes a BRIDGE candidate if a second consumer appears.
 /-- FT IV §8, proof of Lemma cg25 (invariance criterion; FT 4423). Let `p : M[X]`
 be monic and irreducible, let `θ : L` be a root of `p`, and let `s : L ≃+* L` be a
 ring automorphism extending a ring automorphism `sM : M ≃+* M` (compatibility
@@ -12884,7 +12926,9 @@ theorem linearFactor_stabilizer (p : Polynomial M) (hp1 : p.Monic) (hp : Irreduc
     ext z; simpa using (hcomp z).symm
   have hcomm : ∀ q : Polynomial M, Polynomial.map (algebraMap M L) (Polynomial.map sM.toRingHom q)
       = Polynomial.map s (Polynomial.map (algebraMap M L) q) := by
-    intro q; rw [Polynomial.map_map, Polynomial.map_map, hmap]
+    intro q
+    rw [map_map_comp (fB := sM.toRingHom) (g := algebraMap M L) hmap (p := q),
+      ← Polynomial.map_map]
   have hp' : Irreducible (Polynomial.map sM.toRingHom p) := by
     have h1 : Polynomial.map sM.toRingHom p = Polynomial.mapEquiv sM p := rfl
     rw [h1, MulEquiv.irreducible_iff]; exact hp
@@ -13020,6 +13064,8 @@ noncomputable def sigmaCoefFrac (τ : B ≃ₐ[A] B) :
       DFunLike.congr_fun (sigmaCoefFrac_ringHom_comm τ) z
     exact h
 
+/-- The extended coefficient automorphism `sigmaCoefFrac τ` acts on images of
+polynomials by applying `τ` to the coefficients (and fixing the indeterminates). -/
 theorem sigmaCoefFrac_algebraMap (τ : B ≃ₐ[A] B) (p : MvPolynomial (Fin m) B) :
     sigmaCoefFrac τ (algebraMap (MvPolynomial (Fin m) B)
       (FractionRing (MvPolynomial (Fin m) B)) p) =
@@ -13124,6 +13170,8 @@ noncomputable def constFracHom (m : ℕ) : E →+* FractionRing (MvPolynomial (F
   (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))).comp
     (algebraMap E (MvPolynomial (Fin m) E))
 
+/-- The constants embedding sends a constant `a` of `E` to the image of `C a` in
+`E(T₁,…,T_m)`. -/
 theorem constFracHom_apply (m : ℕ) (a : E) : constFracHom m a = constFrac m a := rfl
 
 /-- The `F`-scalars of `F(T₁,…,T_m)` land in the constants of `E(T₁,…,T_m)`. -/
@@ -13141,6 +13189,8 @@ theorem algebraMap_F_constFrac (c : F) :
   rw [FT.fracHom_algebraMap, MvPolynomial.map_C]
   rfl
 
+/-- The base-field embedding into `E(T₁,…,T_m)` factors through the constants
+embedding: `algebraMap (F(T)) ∘ algebraMap F = constFracHom m ∘ algebraMap F E`. -/
 theorem constFracHom_comp_algebraMap (m : ℕ) :
     RingHom.comp (algebraMap (FractionRing (MvPolynomial (Fin m) F))
         (FractionRing (MvPolynomial (Fin m) E)))
@@ -13176,6 +13226,9 @@ theorem algebraMap_X_eq (i : Fin m) :
         (FractionRing (MvPolynomial (Fin m) F)) (MvPolynomial.X i))
   rw [FT.fracHom_algebraMap, MvPolynomial.map_X]
 
+/-- Each summand of `θ` splits through the two embeddings: the image of
+`Tᵢ · C (αᵢ)` in `E(T₁,…,T_m)` is the product of the image of the indeterminate `Tᵢ`
+(from `F(T₁,…,T_m)`) and the constants embedding of `αᵢ`. -/
 theorem term_eq (α : Fin m → E) (i : Fin m) :
     algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E))
         (MvPolynomial.X i * MvPolynomial.C (α i))
@@ -13184,6 +13237,8 @@ theorem term_eq (α : Fin m → E) (i : Fin m) :
             (MvPolynomial.X i)) * constFrac m (α i) := by
   rw [map_mul, algebraMap_X_eq (F := F) (E := E) (m := m) i, constFrac]
 
+/-- `θ` in `E(T₁,…,T_m)` is the sum over `i` of the images of the indeterminates
+(from `F(T₁,…,T_m)`) times the constants embeddings of the roots `αᵢ`. -/
 theorem dedekindThetaFrac_eq_sum (m : ℕ) (α : Fin m → E) :
     FT.dedekindThetaFrac (m := m) α
       = ∑ i, (algebraMap (FractionRing (MvPolynomial (Fin m) F))
@@ -13197,6 +13252,11 @@ theorem dedekindThetaFrac_eq_sum (m : ℕ) (α : Fin m → E) :
   rw [h1, map_sum (algebraMap (MvPolynomial (Fin m) E) (FractionRing (MvPolynomial (Fin m) E)))]
   exact Finset.sum_congr rfl fun i _ => term_eq α i
 
+/-- If every `αᵢ` is algebraic over `F`, the sum `∑ Tᵢ·ι(αᵢ)` is integral over
+`F(T₁,…,T_m)`: each summand is a product of two integral elements — the image of the
+indeterminate `Tᵢ` (integral as an element of the base ring) and `ι(αᵢ)` (satisfying
+the image of `minpoly F (αᵢ)` in `F(T₁,…,T_m)`) — and `integralClosure` is a
+subalgebra closed under finite sums. -/
 theorem sum_mem_integralClosure (m : ℕ) (α : Fin m → E) (hα : ∀ i, IsAlgebraic F (α i)) :
     (∑ i, (algebraMap (FractionRing (MvPolynomial (Fin m) F)) (FractionRing (MvPolynomial (Fin m) E))
         (algebraMap (MvPolynomial (Fin m) F) (FractionRing (MvPolynomial (Fin m) F))
@@ -13470,7 +13530,7 @@ theorem eq_rootsSubfield_of_card_eq [CharP K p] (hp : p.Prime) {n : ℕ} (hn : n
 
 /-- FT `cg16`: a field with `p ^ n` elements contains, for each divisor `m` of `n`, exactly one
 subfield with `p ^ m` elements, namely the subfield of roots of `X ^ (p ^ m) - X`. -/
-theorem cg16 (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E] [Algebra (ZMod p) E]
+theorem existsUnique_subfield_of_dvd (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E] [Algebra (ZMod p) E]
     {n m : ℕ} (hcard : Fintype.card E = p ^ n) (hm : m ∣ n) (hm0 : m ≠ 0) :
     ∃! S : Subfield E, Nat.card ↥S = p ^ m := by
   have hp : p.Prime := Fact.out
@@ -13498,26 +13558,26 @@ end RootsSubfield
 /-- FT `cg15` (existence clause): for every prime `p` and every `n ≥ 1` there exists a field
 with `p ^ n` elements, namely the splitting field `GaloisField p n` of `X ^ (p ^ n) - X` over
 `𝔽_p`. -/
-theorem cg15_exists (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
+theorem exists_finiteField (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
     ∃ K : Type, Nonempty (Field K) ∧ Nat.card K = p ^ n :=
   ⟨GaloisField p n, ⟨inferInstance⟩, GaloisField.card p n hn⟩
 
 /-- FT `cg15` (splitting-field clause): the splitting field of `X ^ (p ^ n) - X` over `𝔽_p`
 has exactly `p ^ n` elements. -/
-theorem cg15_card_splittingField (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
+theorem card_splittingField_galoisPoly (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
     Nat.card (SplittingField (X ^ p ^ n - X : (ZMod p)[X])) = p ^ n :=
   GaloisField.card p n hn
 
 /-- FT `cg15` (splitting-field clause): every field with `p ^ n` elements is a splitting field
 for `X ^ (p ^ n) - X` over `𝔽_p`. -/
-theorem cg15_isSplittingField (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E]
+theorem isSplittingField_of_card_eq_pow (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E]
     [Algebra (ZMod p) E] {n : ℕ} (hcard : Fintype.card E = p ^ n) :
     IsSplittingField (ZMod p) E (X ^ p ^ n - X) :=
   FiniteField.isSplittingField_of_card_eq p n hcard
 
 /-- FT `cg15` (uniqueness clause): any two fields with the same number of elements are
 isomorphic as `𝔽_p`-algebras. -/
-theorem cg15_algEquivOfCardEq (p : ℕ) [Fact p.Prime] {E E' : Type*} [Field E] [Field E']
+theorem algEquiv_of_fintype_card_eq (p : ℕ) [Fact p.Prime] {E E' : Type*} [Field E] [Field E']
     [Fintype E] [Fintype E'] [Algebra (ZMod p) E] [Algebra (ZMod p) E']
     (h : Fintype.card E = Fintype.card E') : Nonempty (E ≃ₐ[ZMod p] E') :=
   ⟨FiniteField.algEquivOfCardEq p h⟩
@@ -13525,7 +13585,7 @@ theorem cg15_algEquivOfCardEq (p : ℕ) [Fact p.Prime] {E E' : Type*} [Field E] 
 /-- FT `cg15` (Galois clause): for a field `E` with `p ^ n` elements the Galois group
 `Gal(E / 𝔽_p)` is generated by the Frobenius automorphism `x ↦ x ^ p`; in particular
 `Gal(E / 𝔽_p)` is cyclic. -/
-theorem cg15_gal_eq_zpowers_frobenius (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E]
+theorem gal_eq_zpowers_frobenius_of_card (p : ℕ) [Fact p.Prime] {E : Type*} [Field E] [Fintype E]
     [Algebra (ZMod p) E] :
     Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E) = ⊤ := by
   refine eq_top_iff.mpr fun g _ => ?_
@@ -13579,7 +13639,7 @@ theorem frobeniusFixedField_eq_bot (p : ℕ) [Fact p.Prime] {E : Type*} [Field E
 
 /-- FT `cg17`: every extension `E / F` with `E` finite is simple, i.e. `E = F[ζ]` for some
 `ζ ∈ E` (indeed `Eˣ` is cyclic and a generator of `Eˣ` generates `E` over `F`). -/
-theorem cg17 (K E : Type*) [Field K] [Field E] [Algebra K E] [Finite E] :
+theorem exists_primitive_element_of_finite (K E : Type*) [Field K] [Field E] [Algebra K E] [Finite E] :
     ∃ α : E, IntermediateField.adjoin K {α} = ⊤ :=
   Field.exists_primitive_element_of_finite_top K E
 
@@ -13642,7 +13702,7 @@ open Polynomial in
 /-- FT `cg18`: each monic irreducible `f` over `𝔽_p` divides `X ^ (p ^ deg f) - X`:
 in `AdjoinRoot f` (a field with `p ^ deg f` elements) the class of `X` is a root of
 `X ^ (p ^ deg f) - X`, hence `f` is its minimal polynomial and divides it. -/
-theorem cg18_dvd_self (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
+theorem dvd_X_pow_pow_natDegree_sub_X (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
     (hirr : Irreducible f) : f ∣ (X ^ p ^ f.natDegree - X : (ZMod p)[X]) := by
   have hf0 : f ≠ 0 := hf.ne_zero
   have hp : p.Prime := Fact.out
@@ -13675,20 +13735,20 @@ theorem cg18_dvd_self (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
 
 /-- FT `cg18`: each monic irreducible `f` of degree `d ∣ n` in `𝔽_p[X]` divides
 `X ^ (p ^ n) - X`. -/
-theorem cg18_dvd (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
+theorem dvd_X_pow_pow_sub_X_of_dvd (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
     (hirr : Irreducible f) {n : ℕ} (hm : f.natDegree ∣ n) :
     f ∣ (X ^ p ^ n - X : (ZMod p)[X]) :=
-  (cg18_dvd_self p hf hirr).trans (dvd_pow_pow_sub_self_of_dvd hm)
+  (dvd_X_pow_pow_natDegree_sub_X p hf hirr).trans (dvd_pow_pow_sub_self_of_dvd hm)
 
 /-- FT `cg18`: `X ^ (p ^ n) - X` is squarefree (its factors are distinct), since it is
 separable: `galois_poly_separable`. -/
-theorem cg18_squarefree (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
+theorem squarefree_X_pow_pow_sub_X (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
     Squarefree (X ^ p ^ n - X : (ZMod p)[X]) :=
   (galois_poly_separable p (p ^ n) (dvd_pow_self p hn)).squarefree
 
 /-- FT `cg18`: each monic irreducible `f` of degree `d ∣ n` occurs exactly once as a factor
 of `X ^ (p ^ n) - X`, i.e. its multiplicity is `1`. -/
-theorem cg18_emultiplicity_eq_one (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
+theorem emultiplicity_X_pow_pow_sub_X_eq_one (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
     (hirr : Irreducible f) {n : ℕ} (hm : f.natDegree ∣ n) (hn : n ≠ 0) :
     emultiplicity f (X ^ p ^ n - X : (ZMod p)[X]) = 1 := by
   have hsep : Separable (X ^ p ^ n - X : (ZMod p)[X]) :=
@@ -13697,14 +13757,14 @@ theorem cg18_emultiplicity_eq_one (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf
     Polynomial.emultiplicity_le_one_of_separable hirr.not_isUnit hsep
   have h1 : 1 ≤ emultiplicity f (X ^ p ^ n - X) := by
     have hd : f ^ 1 ∣ (X ^ p ^ n - X : (ZMod p)[X]) := by
-      simpa using cg18_dvd p hf hirr hm
+      simpa using dvd_X_pow_pow_sub_X_of_dvd p hf hirr hm
     exact pow_dvd_iff_le_emultiplicity.mp hd
   exact le_antisymm h2 h1
 
 /-- FT `cg18`: the degree of the splitting field of a monic irreducible `f` over `𝔽_p` is
 exactly `deg f` (so in particular `≤ deg f`): `f` splits in `𝔽_p[X]/(f)`, a field with
 `p ^ deg f` elements in which every element is a root of `X ^ (p ^ deg f) - X`. -/
-theorem cg18_finrank_splittingField (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
+theorem finrank_splittingField_eq_natDegree (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (hf : f.Monic)
     (hirr : Irreducible f) : Module.finrank (ZMod p) (SplittingField f) = f.natDegree := by
   have hf0 : f ≠ 0 := hf.ne_zero
   have hp : p.Prime := Fact.out
@@ -13712,7 +13772,7 @@ theorem cg18_finrank_splittingField (p : ℕ) [Fact p.Prime] {f : (ZMod p)[X]} (
   haveI : Module.Finite (ZMod p) (AdjoinRoot f) := Monic.finite_adjoinRoot hf
   haveI : Finite (AdjoinRoot f) := Module.finite_of_finite (ZMod p)
   haveI : Fintype (AdjoinRoot f) := Fintype.ofFinite (AdjoinRoot f)
-  have hdvd : f ∣ (X ^ p ^ f.natDegree - X : (ZMod p)[X]) := cg18_dvd_self p hf hirr
+  have hdvd : f ∣ (X ^ p ^ f.natDegree - X : (ZMod p)[X]) := dvd_X_pow_pow_natDegree_sub_X p hf hirr
   have hfr : Module.finrank (ZMod p) (AdjoinRoot f) = f.natDegree :=
     (AdjoinRoot.powerBasis hf0).finrank
   have hcardN : Nat.card (AdjoinRoot f) = p ^ f.natDegree := by
@@ -13765,7 +13825,7 @@ end Cg18
 /-- FT `cg18m` (existence and uniqueness): an algebraic closure `Ω` of `𝔽_p` contains exactly
 one subfield with `p ^ n` elements, namely the subfield of roots of `X ^ (p ^ n) - X`
 (FT's `𝔽_{p^n}` "consists of the roots of `X ^ (p ^ n) - X`"). -/
-theorem cg18m_exists_unique (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
+theorem existsUnique_subfield_algClosure (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
     ∃! S : Subfield (AlgebraicClosure (ZMod p)), Nat.card ↥S = p ^ n := by
   have hp : p.Prime := Fact.out
   haveI : ExpChar (AlgebraicClosure (ZMod p)) p := ExpChar.prime hp
@@ -13779,7 +13839,7 @@ theorem cg18m_exists_unique (p : ℕ) [Fact p.Prime] {n : ℕ} (hn : n ≠ 0) :
 `𝔽_{p^m} ⊆ 𝔽_{p^n} ↔ m ∣ n`, where `𝔽_{p^k}` is the subfield of roots of `X ^ (p ^ k) - X`.
 (→) uses that the unit group of `𝔽_{p^m}` embeds in that of `𝔽_{p^n}`, so `p^m - 1 ∣ p^n - 1`;
 (←) is the elementwise Frobenius iteration. -/
-theorem cg18m_subset_iff (p : ℕ) [Fact p.Prime] (hp : p.Prime) (m n : ℕ) :
+theorem rootsSubfield_le_iff_dvd (p : ℕ) [Fact p.Prime] (hp : p.Prime) (m n : ℕ) :
     (FT.rootsSubfield (K := AlgebraicClosure (ZMod p)) hp m ≤
       FT.rootsSubfield (K := AlgebraicClosure (ZMod p)) hp n) ↔ m ∣ n := by
   haveI : ExpChar (AlgebraicClosure (ZMod p)) p := ExpChar.prime hp
@@ -13851,7 +13911,7 @@ theorem cg18m_subset_iff (p : ℕ) [Fact p.Prime] (hp : p.Prime) (m n : ℕ) :
 
 /-- FT `cg18n`: the field `𝔽_p` has an algebraic closure, namely Mathlib's
 `AlgebraicClosure (ZMod p)` (which carries the `IsAlgClosure (ZMod p)` instance). -/
-theorem cg18n (p : ℕ) [Fact p.Prime] :
+theorem algClosure_zmod (p : ℕ) [Fact p.Prime] :
     IsAlgClosure (ZMod p) (AlgebraicClosure (ZMod p)) := inferInstance
 
 end FiniteFields
