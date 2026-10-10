@@ -127,6 +127,15 @@ just to occupy a slot.
   stay live and their completions stay undelivered — re-issue the wait to
   keep watching. This makes the 15-minute checkpoint, 10-minute ping, and
   30-minute-rule loops executable without user intervention.
+- **Persist on receipt (main owns persistence).** Workers cannot write files;
+  their transcripts live only in memory and are lost on dispose and on main-agent
+  compaction. The moment a verified Lean block is received (via wait or stream),
+  the main agent writes it verbatim to a staging file (`staging/…`, committed)
+  or directly into the target before doing anything else. A collected-and-disposed
+  worker whose earlier streamed messages are not yet on disk means that content
+  is permanently gone (chapter-IV incident, 2026-10-10: five verified blocks
+  lost to compaction and re-derived). Deliver the final report only *after* the
+  code text of the batch is staged.
 - **Mid-flight steering.** Workers regress to bad habits (consolidated
   mega-calls, hoarding) after several turns. Read every progress-stream update
   for strategy drift and steer in the same turn it is observed; reminders are not
