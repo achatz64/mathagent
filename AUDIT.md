@@ -55,6 +55,39 @@ Following criteria must be satisfied:
 - The documentation of a construction or a proof must not contain contend relating to other defs or proofs with the only exception of listing dependencies and where they enter. For example, it a thm A will be used by another thm B in the future, then the documentation of B may mention A, but A may not mention B. 
 - State the nature of the construction, statement or proof in the surrounding contex. For examples: `technical lemma`, `main theorem of this section`, `auxiliary construction`, `key lemma`, `key construction`, etc. [TODO: enum to be specified]. 
 
+# Bridging audit
+
+Bridging is proof work whose content is exhausted by the shapes of the things it
+connects — work arising wherever Lean's type discipline distinguishes what
+mathematics treats as one thing (e.g. two type-level presentations of one object,
+a statement and the API signature it must fit, two ambient fields, an instance
+mismatch). Bridging cost must be paid once per shape mismatch and reused; the main
+agent owns the bridging strategy and approves every `BRIDGE` tag.
+
+A declaration may be tagged `BRIDGE` only if its statement is mathematically
+vacuous (a paper would not state it) and its proof is forced — given the endpoints
+and the ambient API, it admits no mathematical choice: no construction, estimate,
+counting, own algebraic identity, or strategic case analysis. Mixed declarations
+(transport plus authorial step) are content, not bridges; definitions are notation
+(main's design), outside this audit.
+
+Checks:
+
+1. A substantial-code declaration that is vacuous and forced but untagged →
+   `AUDIT-GAP` (missing `BRIDGE` tag).
+2. A tagged declaration whose proof is not forced → `AUDIT-GAP` (impure bridge);
+   remedy: split or untag as content.
+3. Two `BRIDGE` tags covering the same shape mismatch → `AUDIT-GAP` (unpaid reuse).
+4. **Full audit — pattern scan.** For each `BRIDGE`, extract its characteristic
+   constructions (witness terms with explicit membership proofs, `algebraMap` terms
+   carrying hand-built instances, coercion-identification chains) and search the
+   file for their inline re-performance; hits outside the bridge's own consumers →
+   `AUDIT-GAP` (unpaid reuse). Generic tactic names alone are not fingerprints.
+5. **Delta audit.** With the delta small and the existing bridges and strategies
+   known from prior audits, identify minimality violations on read: new code that
+   re-performs a transport an existing bridge provides, instead of calling it, is
+   flagged; new shape mismatches are surfaced to the main agent rather than judged.
+
 # Obligation to external library audit
 
 In the lean target there are comment sections on 
