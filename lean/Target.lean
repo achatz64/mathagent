@@ -5230,6 +5230,17 @@ theorem compositumRestrict_sup_eq_top (E L : IntermediateField F Ω) :
     IntermediateField.lift_sup, IntermediateField.lift_restrict (le_sup_left : E ≤ E ⊔ L),
     IntermediateField.lift_restrict (le_sup_right : L ≤ E ⊔ L)]
 
+/-- BRIDGE: mapping a polynomial's coefficients through `fB` and then through `g` is mapping
+them through the composition `g ∘ fB` — vacuous statement (a paper would not state it),
+forced proof (`Polynomial.map_map` plus the composition equation). This is the base-map
+composition mismatch of the `rootSet_map_*` family and the `compositum_isSplittingField*`
+splitting clauses, paid once at the general polynomial level (the instances are supplied at
+the call sites, where Mathlib's and the project's `Algebra`/`IsScalarTower` paths differ). -/
+private theorem map_map_comp {R S T : Type*} [CommSemiring R] [CommSemiring S] [CommSemiring T]
+    {fB : R →+* S} {g : S →+* T} {g' : R →+* T} (hcomp : g.comp fB = g') {p : Polynomial R} :
+    (p.map fB).map g = p.map g' := by
+  rw [Polynomial.map_map, hcomp]
+
 /-- FT `ft18f` support: the roots of the `L`-copy polynomial `p.map (algebraMap F ↥L)` in
 `E ⊔ L` coincide with the roots of `p`.  Proof idea: both detected by `p.aeval` via
 the tower map. -/
@@ -5237,8 +5248,11 @@ theorem rootSet_map_compositumRestrictRight {p : F[X]} :
     (p.map (algebraMap F ↥(compositumRestrictRight E L))).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L) := by
   refine Set.ext fun x => ?_
   have hmap : Polynomial.map (algebraMap ↥(compositumRestrictRight E L) ↥(E ⊔ L))
-      (p.map (algebraMap F ↥(compositumRestrictRight E L))) = p.map (algebraMap F ↥(E ⊔ L)) := by
-    rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥(compositumRestrictRight E L) ↥(E ⊔ L)]
+      (p.map (algebraMap F ↥(compositumRestrictRight E L))) = p.map (algebraMap F ↥(E ⊔ L)) :=
+    map_map_comp (fB := algebraMap F ↥(compositumRestrictRight E L))
+      (g := algebraMap ↥(compositumRestrictRight E L) ↥(E ⊔ L))
+      (g' := algebraMap F ↥(E ⊔ L)) (IsScalarTower.algebraMap_eq F ↥(compositumRestrictRight E L)
+        ↥(E ⊔ L)).symm
   simp only [mem_rootSet', hmap, Polynomial.aeval_map_algebraMap]
 
 /-- `E ⊔ L` is the splitting field over `L` of the `L`-polynomial attached to `f`
@@ -5387,23 +5401,19 @@ noncomputable def fiberProductRestrictK2 (σ : ↥E2 ≃ₐ[F] ↥E2) : ↥(E1 �
   letI : IsScalarTower F ↥(E1 ⊓ E2) ↥E2 := IsScalarTower.of_algebraMap_eq fun _ => rfl
   exact (AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2))
 
--- AUDIT-GAP (bridging audit, check 1, missing BRIDGE tags; audit of e330d99 rules): the four
--- coherence lemmas below — `FT.fiberProductRestrict1_apply`, `FT.fiberProductRestrict2_apply`,
--- `FT.fiberProductRestrictK1_apply`, `FT.fiberProductRestrictK2_apply` — are untagged bridge
--- candidates. Each statement (the restriction of `σ` acts on an `Ω`-element as `σ` itself, for
--- one of the four restriction definitions) is mathematically vacuous: a paper would not state
--- it; it only identifies the constructed restriction with the ambient pointwise action across
--- the type-level distinction ↥E_i / ↥(E1 ⊔ E2) / ↥(E1 ⊓ E2). Each proof is forced API plumbing
--- (`AlgHom.restrictNormal_commutes`, coercion `rfl`s, `Subtype.ext`): no construction,
--- estimate, counting, own algebraic identity, or case analysis. Code is borderline substantial
--- (~10 lines each), and the transport recurs verbatim across the four (the `letI`/`haveI`
--- instance-plumbing block; fingerprint `Subtype.ext (hcoe x)`).
--- Note for main: the four encode ONE shape mismatch (restriction-action coherence) — if
--- tagged, pay once and derive the other three (checks 3/4), or rebut.
+-- Note (bridging remediation; closes the check-1 marker of audit e330d99 rules): the four
+-- coherence lemmas below now carry main-approved `BRIDGE` tags. Disposition on "pay once and
+-- derive the other three": literal derivation REBUTTED — the four concern four distinct
+-- restriction maps (compositum→E1, compositum→E2, E1→E1⊓E2, E2→E1⊓E2), i.e. four
+-- instantiations of the restriction-coherence mismatch over four distinct pairs of
+-- presentations, so no one of them implies another; the shared `letI`/`hcoe` plumbing is
+-- tracked by main as the recurring cost of this mismatch.
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- The restriction to `E1` of an automorphism of the compositum acts on `Ω`-elements as the
-automorphism itself. -/
+automorphism itself.
+BRIDGE: restriction-action coherence for `fiberProductRestrict1` — vacuous statement, forced
+proof; one of four instantiations of this mismatch (see remediation note above). -/
 theorem fiberProductRestrict1_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (x : ↥E1) :
     (↑(fiberProductRestrict1 E1 E2 σ x) : Ω) = (σ ⟨(x : Ω), ((le_sup_left : E1 ≤ E1 ⊔ E2) x.2)⟩ : Ω) := by
   letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
@@ -5422,7 +5432,9 @@ theorem fiberProductRestrict1_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2
 
 omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- The restriction to `E2` of an automorphism of the compositum acts on `Ω`-elements as the
-automorphism itself. -/
+automorphism itself.
+BRIDGE: restriction-action coherence for `fiberProductRestrict2` — vacuous statement, forced
+proof; one of four instantiations of this mismatch (see remediation note above). -/
 theorem fiberProductRestrict2_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) (x : ↥E2) :
     (↑(fiberProductRestrict2 E1 E2 σ x) : Ω) = (σ ⟨(x : Ω), ((le_sup_right : E2 ≤ E1 ⊔ E2) x.2)⟩ : Ω) := by
   letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
@@ -5441,7 +5453,9 @@ theorem fiberProductRestrict2_apply (σ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2
 
 omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- The restriction to `E1 ⊓ E2` of an automorphism of `E1` acts on `Ω`-elements as the
-automorphism itself. -/
+automorphism itself.
+BRIDGE: restriction-action coherence for `fiberProductRestrictK1` — vacuous statement, forced
+proof; one of four instantiations of this mismatch (see remediation note above). -/
 theorem fiberProductRestrictK1_apply (σ : ↥E1 ≃ₐ[F] ↥E1) (x : ↥(E1 ⊓ E2)) :
     (↑(fiberProductRestrictK1 E1 E2 σ x) : Ω) =
       (σ ⟨(x : Ω), ((inf_le_left : E1 ⊓ E2 ≤ E1) x.2)⟩ : Ω) := by
@@ -5459,7 +5473,9 @@ theorem fiberProductRestrictK1_apply (σ : ↥E1 ≃ₐ[F] ↥E1) (x : ↥(E1 �
 
 omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- The restriction to `E1 ⊓ E2` of an automorphism of `E2` acts on `Ω`-elements as the
-automorphism itself. -/
+automorphism itself.
+BRIDGE: restriction-action coherence for `fiberProductRestrictK2` — vacuous statement, forced
+proof; one of four instantiations of this mismatch (see remediation note above). -/
 theorem fiberProductRestrictK2_apply (σ : ↥E2 ≃ₐ[F] ↥E2) (x : ↥(E1 ⊓ E2)) :
     (↑(fiberProductRestrictK2 E1 E2 σ x) : Ω) =
       (σ ⟨(x : Ω), ((inf_le_right : E1 ⊓ E2 ≤ E2) x.2)⟩ : Ω) := by
@@ -5546,23 +5562,18 @@ omit [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 theorem fiberProductSubgroup_mem (p : (↥E1 ≃ₐ[F] ↥E1) × (↥E2 ≃ₐ[F] ↥E2)) :
     p ∈ fiberProductSubgroup E1 E2 ↔ fiberProductAgree E1 E2 p.1 p.2 := Iff.rfl
 
--- AUDIT-GAP (bridging audit, check 1, missing BRIDGE tags; audit of e330d99 rules): the four
--- coherence lemmas below — `FT.fiberProductRestrict1_one`, `FT.fiberProductRestrict2_one`,
--- `FT.fiberProductRestrict1_mul`, `FT.fiberProductRestrict2_mul` — are untagged bridge
--- candidates. Their statements (restriction preserves the identity / the multiplication of the
--- compositum's automorphism group) are mathematically vacuous: a paper would not state them;
--- the group structure of the restriction is inherited by construction. The proofs are forced
--- API plumbing (`AlgHom.restrictNormal_commutes`, `AlgHom.restrictNormal_comp`, `Subtype.ext`,
--- verbatim-identical `letI`/`haveI` instance-plumbing blocks across the four): no
--- construction, estimate, counting, own algebraic identity, or case analysis. The code is
--- substantial (~14-17 lines each, verbatim twins).
--- Note for main: same shape mismatch as the `_apply` quartet marked above (coherence of the
--- `AlgHom.restrictNormal'` transfer with the ambient group structure) — pay once, derive the
--- rest, or rebut (checks 3/4).
+-- Note (bridging remediation; closes the check-1 marker of audit e330d99 rules): the four
+-- coherence lemmas below now carry main-approved `BRIDGE` tags. Same disposition as the
+-- `_apply` quartet: literal derivation REBUTTED (four distinct restriction maps, four
+-- distinct pairs of presentations); the verbatim-identical `letI`/`hcoe`/`hinj` plumbing is
+-- tracked by main as the recurring cost of this mismatch.
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- FT `ft18h` support: the restriction of the identity automorphism is the identity.
-Proof is elementary (`restrictNormal` commutation + injectivity of the inclusion). -/
+Proof is elementary (`restrictNormal` commutation + injectivity of the inclusion).
+BRIDGE: coherence of the `AlgHom.restrictNormal'` transfer with the ambient group structure
+(identity) — vacuous statement, forced proof; one of four instantiations of this mismatch
+(see remediation note above). -/
 theorem fiberProductRestrict1_one : fiberProductRestrict1 E1 E2 1 = 1 := by
   letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
     (IntermediateField.inclusion (le_sup_left : E1 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
@@ -5586,7 +5597,10 @@ theorem fiberProductRestrict1_one : fiberProductRestrict1 E1 E2 1 = 1 := by
 
 omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- FT `ft18h` support: the restriction of the identity to `E2` is the identity.
-Proof is elementary (as for `FT.fiberProductRestrict1_one`). -/
+Proof is elementary (as for `FT.fiberProductRestrict1_one`).
+BRIDGE: coherence of the `AlgHom.restrictNormal'` transfer with the ambient group structure
+(identity, `E2` copy) — vacuous statement, forced proof; one of four instantiations of this
+mismatch (see remediation note above). -/
 theorem fiberProductRestrict2_one : fiberProductRestrict2 E1 E2 1 = 1 := by
   letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
     (IntermediateField.inclusion (le_sup_right : E2 ≤ E1 ⊔ E2)).toRingHom.toAlgebra
@@ -5610,7 +5624,10 @@ theorem fiberProductRestrict2_one : fiberProductRestrict2 E1 E2 1 = 1 := by
 
 omit [IsGalois F ↥E2] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- FT `ft18h` support: restriction to `E1` is multiplicative.  Proof is elementary
-(`AlgHom.restrictNormal_comp`). -/
+(`AlgHom.restrictNormal_comp`).
+BRIDGE: coherence of the `AlgHom.restrictNormal'` transfer with the ambient group structure
+(multiplication, `E1` copy) — vacuous statement, forced proof; one of four instantiations of
+this mismatch (see remediation note above). -/
 theorem fiberProductRestrict1_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
     fiberProductRestrict1 E1 E2 (σ * τ) = fiberProductRestrict1 E1 E2 σ * fiberProductRestrict1 E1 E2 τ := by
   letI : Algebra ↥E1 ↥(E1 ⊔ E2) :=
@@ -5628,7 +5645,10 @@ theorem fiberProductRestrict1_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E
 
 omit [IsGalois F ↥E1] [FiniteDimensional F ↥E1] [FiniteDimensional F ↥E2] in
 /-- FT `ft18h` support: restriction to `E2` is multiplicative.  Proof is elementary
-(as for `FT.fiberProductRestrict1_mul`). -/
+(as for `FT.fiberProductRestrict1_mul`).
+BRIDGE: coherence of the `AlgHom.restrictNormal'` transfer with the ambient group structure
+(multiplication, `E2` copy) — vacuous statement, forced proof; one of four instantiations of
+this mismatch (see remediation note above). -/
 theorem fiberProductRestrict2_mul (σ τ : ↥(E1 ⊔ E2) ≃ₐ[F] ↥(E1 ⊔ E2)) :
     fiberProductRestrict2 E1 E2 (σ * τ) = fiberProductRestrict2 E1 E2 σ * fiberProductRestrict2 E1 E2 τ := by
   letI : Algebra ↥E2 ↥(E1 ⊔ E2) :=
@@ -5934,17 +5954,14 @@ open Polynomial IntermediateField
 
 variable {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω] (E L : IntermediateField F Ω)
 
--- AUDIT-GAP (bridging audit, check 1, borderline substantiality; audit of dd9c631):
--- `FT.rootSet_map_supBase` below, together with its twin `FT.rootSet_map_compositumRestrictRight`
--- (~line 5236, the same shape mismatch for the `compositumRestrictRight` base), is a transport
--- candidate: the statement — `(p.map (algebraMap F ↥L)).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L)`,
--- i.e. roots are insensitive to the `F[X]`/`↥L[X]` presentation of the polynomial over the
--- compositum — is mathematically vacuous (a paper would never state it), and the proof is
--- forced API plumbing (`Set.ext`, `Polynomial.map_map`, `IsScalarTower.algebraMap_eq`,
--- `Polynomial.aeval_map_algebraMap`); substantiality is borderline (~7 lines each).
--- Note for main: the two declarations encode the same shape mismatch — if tagged, pay once
--- and reuse (checks 3/4 of the bridging audit). Remedy: tag `BRIDGE` on one and derive the
--- other from it, or rebut.
+-- Note (bridging remediation; closes the check-1 marker of audit dd9c631): the shape
+-- mismatch of `FT.rootSet_map_supBase` and its twin `FT.rootSet_map_compositumRestrictRight`
+-- (roots insensitive to the `F[X]`/base-copy presentation over the compositum) is now paid
+-- once in `FT.map_map_comp` (BRIDGE, at the general polynomial level); both declarations
+-- are thin consumers of it
+-- (their inline `map_map`/`algebraMap_eq` chases replaced), and the two `have hmap` blocks
+-- in the `compositum_isSplittingField*` splitting clauses that reuse the same composition
+-- consume it as well (see the remediation note beside `compositum_isSplittingField_supBase`).
 /-- FT `ft18f` support: the roots of the `↥L`-polynomial `p.map (algebraMap F ↥L)` in `E ⊔ L`
 are exactly the roots of `p`.
 
@@ -5954,8 +5971,9 @@ theorem rootSet_map_supBase {p : F[X]} :
     (p.map (algebraMap F ↥L)).rootSet ↥(E ⊔ L) = p.rootSet ↥(E ⊔ L) := by
   refine Set.ext fun x => ?_
   have hmap : (p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L)) =
-      p.map (algebraMap F ↥(E ⊔ L)) := by
-    rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]
+      p.map (algebraMap F ↥(E ⊔ L)) :=
+    map_map_comp (fB := algebraMap F ↥L) (g := algebraMap ↥L ↥(E ⊔ L))
+      (g' := algebraMap F ↥(E ⊔ L)) (IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)).symm
   simp only [mem_rootSet', hmap, Polynomial.aeval_map_algebraMap]
 
 /-- FT `ft18f` support: the base field `↥L` maps into the `↥L`-adjoin of any set in `E ⊔ L`. -/
@@ -6009,20 +6027,18 @@ theorem adjoin_supBase_eq_top_map {p : F[X]} (hps : p.Separable) (hp : p.IsSplit
 
 Proof idea: splits because `p` splits in `E ⊔ L` via the tower; the adjoin of the roots is
 everything by `adjoin_supBase_eq_top_map`. -/
--- AUDIT-GAP (bridging audit, check 4, unpaid reuse; audit of e330d99 rules): the `hmap` step
--- below — `rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]` — is a verbatim
--- re-performance of the transport inside the check-1 bridge candidate
--- `FT.rootSet_map_supBase` (~line 5945), and this declaration does not consume that lemma (it
--- only consumes `FT.adjoin_supBase_eq_top_map`). Fold into the remedy for the
--- `rootSet_map_supBase` / `rootSet_map_compositumRestrictRight` twins: factor the base-map
--- composition once (or tag and derive), or rebut.
+-- Note (bridging remediation; closes the check-4 marker of audit e330d99 rules): the `hmap`
+-- step below now consumes `FT.map_map_comp` (BRIDGE), the once-factored base-map
+-- composition (stated at the general polynomial level; instances supplied at the call sites) — same remedy as the `rootSet_map_supBase` / `rootSet_map_compositumRestrictRight`
+-- twins.
 theorem compositum_isSplittingField_supBase {p : F[X]} (hps : p.Separable)
     (hp : p.IsSplittingField F E) :
     (p.map (algebraMap F ↥L)).IsSplittingField ↥L ↥(E ⊔ L) := by
   have hsplit : ((p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L))).Splits := by
     have hmap : (p.map (algebraMap F ↥L)).map (algebraMap ↥L ↥(E ⊔ L)) =
-        p.map (algebraMap F ↥(E ⊔ L)) := by
-      rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)]
+        p.map (algebraMap F ↥(E ⊔ L)) :=
+      map_map_comp (fB := algebraMap F ↥L) (g := algebraMap ↥L ↥(E ⊔ L))
+        (g' := algebraMap F ↥(E ⊔ L)) (IsScalarTower.algebraMap_eq F ↥L ↥(E ⊔ L)).symm
     rw [hmap]
     exact (IsSplittingField.splits E p).of_algHom
       (IntermediateField.inclusion (le_sup_left : E ≤ E ⊔ L))
@@ -6192,16 +6208,14 @@ private theorem autCongr_apply_omega (τF : ↥E ≃ₐ[F] ↥E) (x : ↥(compos
       ((τF ((IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L)).symm x : ↥E)) : Ω) :=
   rfl
 
--- AUDIT-GAP (bridging audit, check 1, borderline substantiality; audit of e330d99 rules):
--- `FT.autCongr_symm_apply_omega` below is an untagged bridge candidate: the statement (the
--- Ω-coordinate form of the inverse of `AlgEquiv.autCongr restrict_algEquiv`) is mathematically
--- vacuous, the proof is forced inverse bookkeeping (`apply_symm_apply`, `symm_apply_apply`,
--- `congrArg`/`Subtype.ext` chains), and the code is substantial (~12 lines). Together with
--- `FT.autCongr_apply_omega` above (rfl, below the substantiality bar) it encodes one shape
--- mismatch — note for main: if tagged, pay once and derive the inverse form (checks 3/4), or
--- rebut.
+-- Note (bridging remediation; closes the check-1 marker of audit e330d99 rules):
+-- `FT.autCongr_symm_apply_omega` below carries a main-approved `BRIDGE` tag; its rfl twin
+-- `FT.autCongr_apply_omega` stays below the substantiality bar and untagged.
 /-- Ω-coordinate form of the inverse of `AlgEquiv.autCongr`.  Proof is elementary
-(inverse property). -/
+(inverse property).
+BRIDGE: identifies the `autCongr`-transported automorphism with its Ω-pointwise action —
+vacuous statement, forced inverse bookkeeping; the rfl twin `autCongr_apply_omega` is below
+the substantiality bar. -/
 private theorem autCongr_symm_apply_omega
     (ρ : ↥(compositumRestrictLeft E L) ≃ₐ[F] ↥(compositumRestrictLeft E L)) (y : ↥E) :
     (((AlgEquiv.autCongr (IntermediateField.restrict_algEquiv (le_sup_left : E ≤ E ⊔ L))).symm
@@ -7160,22 +7174,16 @@ theorem im_exp_two_pi_div_ne_zero (p : ℕ) (hp : 3 ≤ p) :
   rw [hI, Complex.exp_ofReal_mul_I_im]
   exact (Real.sin_pos_of_pos_of_lt_pi hθ0 hθπ).ne'
 
--- AUDIT-GAP (bridging audit, check 1; audit of dd9c631): `FT.map_coe_adjoin_real` below is
--- an untagged bridge candidate. Its statement — the ℝ→ℂ base change along
--- `IsScalarTower.toAlgHom ℚ ℝ ℂ` maps `IntermediateField.adjoin ℚ {t}` (inside ℝ) onto
--- `IntermediateField.adjoin ℚ {(t : ℂ)}` (inside ℂ) — is mathematically vacuous: it identifies
--- two type-level presentations of the one field `ℚ(t)`, which no paper would state. Its proof
--- is forced by the ambient Mathlib API (`IntermediateField.map_le_iff_le_comap`,
--- `IntermediateField.adjoin_le_iff`, `Subalgebra.mem_comap`,
--- `IntermediateField.mem_adjoin_simple_self`, `IntermediateField.mem_map`): no construction,
--- estimate, counting, own algebraic identity, or case analysis. The code is substantial
--- (~16 lines), and the transport is reused at `FT.finrank_adjoin_cos_two_div`,
--- `FT.constructible_cos_two_div`, `FT.finrank_adjoin_cos_two_div_of_odd`, and
--- `FT.finrank_adjoin_cos_rat` (the pay-once/reuse shape of the bridging strategy).
--- Remedy: main to tag `BRIDGE` (main owns the bridging strategy and approves every tag) or
--- rebut.
+-- Note (bridging remediation; closes the check-1 marker of audit dd9c631):
+-- `FT.map_coe_adjoin_real` below carries a main-approved `BRIDGE` tag — the ℝ/ℂ base-change
+-- mismatch is paid here once and reused by the four cos-degree consumers listed in the
+-- marker.
 /-- FT `ft24`, ℝ↔ℂ transfer: adjoining the real number `t` inside `ℝ` maps along
-`ℝ → ℂ` onto the intermediate field generated by `t`'s image in `ℂ`. -/
+`ℝ → ℂ` onto the intermediate field generated by `t`'s image in `ℂ`.
+BRIDGE: identifies the ℚ-adjoin of `t` in ℝ with the ℚ-adjoin of its image in ℂ — two
+type-level presentations of one field; vacuous statement, forced proof; reused by the four
+cos-degree lemmas (`finrank_adjoin_cos_two_div`, `constructible_cos_two_div`,
+`finrank_adjoin_cos_two_div_of_odd`, `finrank_adjoin_cos_rat`). -/
 theorem map_coe_adjoin_real (t : ℝ) :
     IntermediateField.map (IsScalarTower.toAlgHom ℚ ℝ ℂ) (IntermediateField.adjoin ℚ {t})
       = IntermediateField.adjoin ℚ {(t : ℂ)} := by
