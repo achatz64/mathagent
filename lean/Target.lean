@@ -100,6 +100,26 @@ in-scope pending; the expositional aside `sf5`, the remark `sf9` and the
 unlabeled aside following `ft6` (FT.tex:2484) await the scope citations the
 chapter-1 "Scope notes for omitted material" list establishes (or an
 AUDIT-DEFERRED classification in the final ledger).
+
+AUDIT-GAP (coverage audit, delta audit of the chapter IV delivery
+0c74549..HEAD): the chapter inventory in this note is stale — it still states
+"Chapters 4-7 … are pending although in scope", although chapter IV
+(FT.tex 3579-4582) is now substantially delivered (tools/ft_coverage.py: 67 of
+144 theorem-like labels mentioned, up from 50; delivered clusters cg1/cg2,
+cg4-cg8, cg8a-cg11, cg12/cg23/cg13, cg15-cg18n, cg19/cg19m, the cg19F prose and
+the cg25 θ-trick core; see the chapter IV ledger). Remedy: update the note to
+record the chapter-IV delivery status and the remaining pending cg-labels
+(cg3; the cg5/cg6 inseparable clauses; cg14; cg20/cg21/cg22/cg24; the
+transitive-subgroup classification table; cg11a/cg11b) in accordance with the
+chapter IV ledger. Two further coverage defects: (1) cg25 — whose
+Dedekind-θ core is formalized (FT IV §8, sections DedekindTheta/CGD) — is
+nowhere mentioned in backticks, so `tools/ft_coverage.py` counts it as
+unmentioned although partially delivered; mention it in backticks in the
+ledger. (2) the chapter IV ledger's pending list omits the concrete cubic
+instances of cg6 (X³−3X+1 irreducible with Galois group A₃ via discriminant
+81 = 9², and X³+3X+1 with Galois group S₃ via discriminant −135; FT.tex
+≈3783-3790, irreducibility via ef5/ef4) — record them as pending or defer them
+with a scope citation.
 -/
 
 namespace FT
@@ -9289,6 +9309,27 @@ Pending (chapter IV ledger):
   (G∩V:1), (G:G∩V)) used by `cg8a`-`cg11` and `ft23r`; the downstream type
   dichotomies of the examples cg8a-cg11.
 - `cg11a`/`cg11b` (asides; scope).
+
+AUDIT-GAP (coding conventions audit, delta audit of the chapter IV delivery
+0c74549..HEAD): the delta reintroduces source-label-based declaration names,
+against the ratified content-based Mathlib-style naming (chapter-2 remediation
+note at ~2842: `ft3` → `FT.irreducible_multipleRoot_iff`,
+`sf8_natCard_algHom_le` → `FT.natCard_algHom_le_finrank`, TeX labels retained
+in docstrings). Affected label-only names (no mathematical content): `cg19Roots`
+and the `cg19_*` orbit-factorization family, `cg19m`, `cg19`, the `cg19F_*`
+prose family, `cg5`, the `cg6_*` family (12 names incl. `cg6_dichotomy`,
+`cg6_a3_cycle`), `cg8a_/cg9_/cg10_/cg11_resolvent_cubic`,
+`cg9_/cg10_resolvent_factorization`, `cg8a_/cg9_/cg11_irreducible`, the `cg15_*`
+family, `cg16`, `cg17`, the `cg18_*` family, `cg18m_exists_unique`,
+`cg18m_subset_iff`, `cg18n`, the label-tied support lemmas `cg10_coeff4` and
+`eval_f10`, and the label-prefixed `ftDelta`, `ftRootsEquiv`,
+`ftDiscr_mem_fixedField_top`, `ftDiscr_mem_algebraMap`. Remedy: rename to
+content-based Mathlib-style names (e.g. `cg19` → an orbit-factorization name,
+`cg6_dichotomy` → a `…_iff_discriminant_square` name), keeping the `FT cg…`
+labels in the docstrings. (Assessed manually; `tools/naming_audit.py` is not
+trustable per `tools/naming_audit_handoff.md` — its camelCase hits on
+`galActionHom`/`starAlgEquiv`/`orbitFinset`-style names mirror Mathlib's own API
+names and are rejected.)
 -/
 
 
@@ -9682,6 +9723,17 @@ noncomputable def conjQ : ℂ →ₐ[ℚ] ℂ :=
   { (starRingEnd ℂ : ℂ →+* ℂ) with
     commutes' := fun q => RingHom.map_rat_algebraMap (starRingEnd ℂ) q }
 
+-- AUDIT-GAP (documentation audit, delta audit of the chapter IV delivery
+-- 0c74549..HEAD): nine declarations in the delta lack docstrings (a scan of the
+-- whole file shows all other declarations carry docstrings):
+-- `conjQ_apply` (here), `FT.fracHom_algebraMap` (~12760),
+-- `FT.sigmaTFrac_algebraMap` (~12767), `FT.sigmaCoefFrac_algebraMap` (~12964),
+-- `FT.CGD.constFracHom_apply` (~13068), `FT.CGD.constFracHom_comp_algebraMap`
+-- (~13085), `FT.CGD.term_eq` (~13120), `FT.CGD.dedekindThetaFrac_eq_sum`
+-- (~13128), `FT.CGD.sum_mem_integralClosure` (~13136; this one has a nontrivial
+-- proof — integral-closure membership of the ∑ Tᵢαᵢ sum). Remedy: add docstrings
+-- stating the claim and the proof idea in textbook math terms; declarations
+-- whose proof is pure unpacking/repacking must declare it trivial.
 @[simp]
 theorem conjQ_apply (z : ℂ) : conjQ z = star z := rfl
 
@@ -12799,6 +12851,19 @@ theorem eval₂_equiv_apply (s : L ≃+* L) (q : Polynomial L) (x : L) :
   | add p q ihp ihq => simp [ihp, ihq]
   | monomial n a => simp [Polynomial.eval₂_monomial, Polynomial.eval_monomial]
 
+-- AUDIT-GAP (bridging audit, check 4 — unpaid reuse; delta audit of the chapter
+-- IV delivery 0c74549..HEAD): the `have hcomm` step of `linearFactor_stabilizer`
+-- below — `intro q; rw [Polynomial.map_map, Polynomial.map_map, hmap]` —
+-- re-performs inline the base-map composition transport (map after map = map of
+-- the composition, via the composition equation) that is paid once by the
+-- main-approved BRIDGE `FT.map_map_comp` (FactoringPolynomials, ~463); this is
+-- the same fingerprint as the four sites rewired in remediation 033c21d.
+-- Remedy: consume `map_map_comp` here (`fB := sM.toRingHom`,
+-- `g := algebraMap M L`, `g' := RingHom.comp s (algebraMap M L)`, `hcomp := hmap`).
+-- Check 5 note (new shape mismatch, surfaced to main, not judged): the delta also
+-- uses the multivariate analogue `MvPolynomial.map_map` inline once
+-- (`sigmaCoefFrac_ringHom_comm`, ~12940) — an MvPolynomial base-map composition
+-- transport with no paying bridge, currently a single occurrence.
 /-- FT IV §8, proof of Lemma cg25 (invariance criterion; FT 4423). Let `p : M[X]`
 be monic and irreducible, let `θ : L` be a root of `p`, and let `s : L ≃+* L` be a
 ring automorphism extending a ring automorphism `sM : M ≃+* M` (compatibility
