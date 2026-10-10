@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, readlinkSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 type ReplRequest = { cmd: string; env?: number };
@@ -35,6 +35,44 @@ function formatMessages(messages: ReplMessage[]): string {
     .map((m) => m.data ?? JSON.stringify(m))
     .join("; ")
     .slice(0, 2000);
+}
+
+/**
+ * Probe that emits one info line per import-block module: `Module=/abs/path/Module.olean`.
+ * Uses Lean.findOLean, i.e. the environment's own search path (LEAN_PATH), so no
+ * filesystem layout guessing: a module's .olean is located exactly where the
+ * loaded root found it (project build dir, .lake package, or toolchain).
+ */
+function buildOLeanProbe(modules: string[]): string {
+  const names = modules.map((m) => "`" + m).join(",");
+  return [
+    "#eval show Lean.Elab.Command.CommandElabM Unit from do",
+    "  let ms := #[" + names + "]",
+    "  let ps <- ms.mapM fun m => do",
+    "    let p : Option System.FilePath <- Lean.Elab.Command.liftCoreM (Lean.findOLean m)",
+    "    pure (m.toString ++ \"=\" ++ (p.map toString).getD \"MISSING\")",
+    "  Lean.logInfo (String.intercalate \"\\n\" ps.toList)",
+  ].join("\n");
+}
+
+/** Parse `Module=path` info lines from an olean probe response (undefined if none). */
+function parseOLeanProbe(messages: unknown): Map<string, string> | undefined {
+  if (!Array.isArray(messages)) return undefined;
+  const out = new Map<string, string>();
+  for (const m of messages) {
+    if (!m || typeof m !== "object" || Array.isArray(m)) continue;
+    const severity = (m as ReplMessage).severity;
+    const data = (m as ReplMessage).data;
+    if (severity !== "info" || typeof data !== "string") continue;
+    for (const line of data.split("\n")) {
+      const i = line.indexOf("=");
+      if (i <= 0) continue;
+      const path = line.slice(i + 1);
+      if (!path.endsWith(".olean")) continue;
+      out.set(line.slice(0, i), path);
+    }
+  }
+  return out.size === 0 ? undefined : out;
 }
 
 /** Module names from an import block: `import Mathlib\nimport Target` → ["Mathlib", "Target"]. */
@@ -242,6 +280,8 @@ class SharedRepl {
   }
 }
 
+export type ImportedOLean = { module: string; path: string };
+
 export type SharedReplStatus = {
   id: string;
   pid: number | undefined;
@@ -268,6 +308,16 @@ export type SharedReplStatus = {
   downSince: string | undefined;
   consecutiveInitFailures: number;
   lastInitError: string | undefined;
+  /** ISO time when the live root environment finished loading (undefined = not loaded/unknown). */
+  /** ISO time when the live generation was spawned (undefined = not loaded/unknown).
+   *  On-disk olean changes after this moment are not reflected in the loaded root. */
+  rootSpawnedSince: string | undefined;
+  /**
+   * Imported modules whose .olean mtime postdates the live generation's spawn.
+   * Empty also when undeterminable (olean paths unresolved); a warning
+   * accompanies non-empty values.
+   */
+  staleRootModules: string[];
 };
 
 type RestartReason = "crash" | "timeout" | "import";
@@ -285,6 +335,17 @@ type RegistryEntry = {
   everSpawned: boolean;
   /** pid -> closed-at ms of our own generations, excused from the conflict guard. */
   closedPids: Map<number, number>;
+  /** Date.now() when the live generation was spawned. The repl reads oleans once,
+   * at import start, so on-disk olean changes after this moment are NOT reflected
+   * in the loaded root even though the probes (module presence) pass.
+   * undefined = not spawned/loaded. */
+  rootSpawnedAt: number | undefined;
+  /**
+   * .olean paths of the import-block modules as located by the loaded root
+   * (via Lean.findOLean). undefined = resolution failed; staleness detection
+   * is then silently unavailable. Checked by mtime against rootSpawnedAt.
+   */
+  importOLeanPaths: ImportedOLean[] | undefined;
   references: number;
   serial: Promise<void>;
   pendingRequests: number;
@@ -304,7 +365,7 @@ export type SharedReplLease = {
   readonly generation: number | undefined;
   readonly pid: number | undefined;
   request(cmd: string, env?: number, replId?: string): Promise<ReplResponse>;
-  initImports(imports: string): Promise<"initialized" | "already-running">;
+  initImports(imports: string): Promise<"initialized" | "already-running" | "initialized-stale-reload">;
   status(): SharedReplStatus;
   release(): Promise<void>;
 };
@@ -359,6 +420,34 @@ function projectHeavyBuildProcesses(projectDir: string, ownGroup: number | undef
 }
 
 export { projectHeavyBuildProcesses };
+
+/**
+ * Imported modules whose .olean was rebuilt after the live root was loaded —
+ * i.e. the root holds stale declarations even though the probes passed (they
+ * check module presence, not currency). This is the undetectable stale-root
+ * window from BUILDER_FEEDBACK_STALE_OLEAN_RESPAWN.md: a worker request during
+ * a `lake build` auto-respawns with the pre-rebuild olean, and a later
+ * lean_repl_import with an unchanged block would hit the already-running
+ * no-op, silently keeping the stale root. Sync + cheap: stat of recorded paths.
+ */
+function staleImportModules(entry: RegistryEntry): string[] {
+  const paths = entry.importOLeanPaths;
+  if (!entry.repl?.alive || !entry.loaded || entry.rootSpawnedAt === undefined || paths === undefined) {
+    return [];
+  }
+  const stale: string[] = [];
+  for (const { module, path } of paths) {
+    try {
+      if (statSync(path).mtimeMs > entry.rootSpawnedAt) stale.push(module);
+    } catch {
+      // olean absent (clean/rebuild in progress) — not a staleness signal;
+      // a missing olean fails the readiness probes loudly on the next spawn.
+    }
+  }
+  return stale;
+}
+
+export { staleImportModules };
 
 type ForeignGroup = { group: number; pids: number[]; rssKiB: number };
 
@@ -501,6 +590,14 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     if (entry.downSince === undefined && !entry.repl) entry.downSince = Date.now();
     warnings.push(down);
   }
+  const staleModules = staleImportModules(entry);
+  if (staleModules.length > 0) {
+    warnings.push(
+      `stale root: rebuilt .olean(s) of ${staleModules.join(", ")} postdate the loaded root — ` +
+      "declarations from before that build are still live; call lean_repl_import with the same " +
+      "import block to re-elaborate (the stale-root no-op is detected and respawns)",
+    );
+  }
   return {
     id: entry.repl?.id ?? "uninitialized",
     pid: entry.repl?.pid,
@@ -525,6 +622,8 @@ function entryStatus(entry: RegistryEntry): SharedReplStatus {
     downSince: entry.downSince === undefined ? undefined : new Date(entry.downSince).toISOString(),
     consecutiveInitFailures: entry.spawnFailures,
     lastInitError: entry.lastInitError,
+    rootSpawnedSince: entry.rootSpawnedAt === undefined ? undefined : new Date(entry.rootSpawnedAt).toISOString(),
+    staleRootModules: staleModules,
   };
 }
 
@@ -548,6 +647,8 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
       restartLog: [],
       everSpawned: false,
       closedPids: new Map(),
+      rootSpawnedAt: undefined,
+      importOLeanPaths: undefined,
       references: 0,
       serial: Promise.resolve(),
       pendingRequests: 0,
@@ -575,6 +676,8 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     entry.restartLog ??= [];
     entry.everSpawned ??= false;
     entry.closedPids ??= new Map();
+    entry.rootSpawnedAt ??= undefined;
+    entry.importOLeanPaths ??= undefined;
   }
   entry.references++;
   const acquired = entry;
@@ -635,6 +738,12 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     }
     const previous = acquired.repl;
     markClosed(previous?.pid);
+    acquired.rootSpawnedAt = undefined;
+    acquired.importOLeanPaths = undefined;
+    // Spawn time is the staleness base: the repl reads oleans once, at import
+    // start, so a rebuild finishing after this moment is not in the loaded root
+    // (even when the load — and hence the probes — completes later).
+    const spawnedAt = Date.now();
     const repl = new SharedRepl(key, acquired.imports!, ++registry.generation);
     acquired.repl = repl;
     acquired.loaded = false;
@@ -643,17 +752,28 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     if (acquired.everSpawned) recordRestart(reason, previous, repl);
     acquired.everSpawned = true;
     try {
-      await repl.rootEnvironment();
+      const root = await repl.rootEnvironment();
       acquired.loaded = true;
       acquired.spawnFailures = 0;
       acquired.lastInitError = undefined;
       acquired.downSince = undefined;
+      // Record the spawn time and the import-block olean paths (via
+      // Lean.findOLean in the live root) so staleness can be checked later
+      // without further REPL requests. Resolution failure only degrades
+      // staleness detection — never the init itself (the readiness probes
+      // already passed). rootSpawnedAt is the spawn moment (see above), not
+      // load completion.
+      acquired.rootSpawnedAt = spawnedAt;
+      acquired.importOLeanPaths = await resolveImportOLeanPaths(acquired, repl, root);
+      acquired.importOLeanPaths = await resolveImportOLeanPaths(acquired, repl, root);
       return repl;
     } catch (error) {
       markClosed(repl.pid);
       await repl.close();
       if (acquired.repl === repl) acquired.repl = undefined;
       acquired.loaded = false;
+      acquired.rootSpawnedAt = undefined;
+      acquired.importOLeanPaths = undefined;
       acquired.downSince ??= Date.now();
       acquired.spawnFailures++;
       const message = error instanceof Error ? error.message : String(error);
@@ -663,7 +783,37 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
     }
   }
 
-  async function initImports(imports: string): Promise<"initialized" | "already-running"> {
+  /**
+   * Ask the freshly loaded root (via Lean.findOLean) where each import-block
+   * module's .olean lives. Returns undefined on any failure: staleness
+   * detection degrades silently, and the unchanged-block import then behaves
+   * as before this hardening (already-running no-op).
+   */
+  async function resolveImportOLeanPaths(
+    entry: RegistryEntry,
+    repl: SharedRepl,
+    root: number,
+  ): Promise<ImportedOLean[] | undefined> {
+    const modules = parseImportModules(entry.imports ?? "");
+    if (modules.length === 0) return [];
+    try {
+      const response = await repl.request(buildOLeanProbe(modules), root);
+      if (errorMessages(response).length > 0) return undefined;
+      const map = parseOLeanProbe(response.messages);
+      if (!map) return undefined;
+      const paths: ImportedOLean[] = [];
+      for (const m of modules) {
+        const path = map.get(m);
+        if (path === undefined) return undefined;
+        paths.push({ module: m, path });
+      }
+      return paths;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async function initImports(imports: string): Promise<"initialized" | "already-running" | "initialized-stale-reload"> {
     const previous = acquired.serial;
     let release!: () => void;
     acquired.serial = new Promise<void>((resolveSerial) => { release = resolveSerial; });
@@ -674,7 +824,16 @@ export function acquireSharedRepl(cwd: string): SharedReplLease {
         // Idempotent re-import: an automatic restart on request may already
         // have brought up a REPL with exactly this import block.
         if (acquired.imports !== undefined && imports.trim() === acquired.imports.trim()) {
-          return "already-running";
+          // Currency check (BUILDER_FEEDBACK_STALE_OLEAN_RESPAWN.md): the no-op
+          // is only valid when no imported module's .olean was rebuilt after
+          // this root was loaded. Otherwise the root is silently stale and the
+          // no-op would hide it — respawn with the same block instead.
+          if (staleImportModules(acquired).length === 0) {
+            return "already-running";
+          }
+          await acquired.repl.close();
+          await spawnAndInit("import", true);
+          return "initialized-stale-reload";
         }
         throw new Error("REPL already initialized with a different import block — use bash to kill the process first (kill -TERM -<pid> from lean_repl_status), then call lean_repl_import again");
       }

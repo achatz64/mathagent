@@ -8,7 +8,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lean_repl_import",
     label: "Lean REPL Import",
-    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Main agent only: workers cannot call this. The root environment is verified by readiness probes; init fails loudly if any imported module lacks a built .olean (run 'cd lean && lake build'). Idempotent: if the live REPL already runs with exactly this import block, it succeeds as a no-op with status \"already-running\". To change imports on a live REPL, kill the process via bash (kill -TERM -<pid>) first.",
+    description: "Initialize the shared Lean REPL with an import block. Must be called before lean_repl. Main agent only: workers cannot call this. The root environment is verified by readiness probes; init fails loudly if any imported module lacks a built .olean (run 'cd lean && lake build'). Idempotent: if the live REPL already runs with exactly this import block AND no imported module's .olean was rebuilt after the root was loaded, it succeeds as a no-op with status \"already-running\". If any imported .olean is newer than the live root (stale-root window after kill+build), the no-op is refused and the REPL respawns with the same block (status \"initialized-stale-reload\" — retry from the fresh root). To change imports on a live REPL, kill the process via bash (kill -TERM -<pid>) first.",
     parameters: Type.Object({
       imports: Type.String({ description: "Lean import block, e.g. 'import Mathlib\\nimport Extlib.GroupTheory.Mil21'" }),
     }),

@@ -78,8 +78,11 @@ blocker; only the main agent can fix it (rebuild missing modules, then call
 `lean_repl_import`). A main agent that just killed the REPL to change imports
 may therefore see the new root appear before its own `lean_repl_import` call
 arrives; with an unchanged import block the call is an idempotent no-op
-(`status: "already-running"`), with a changed block it refuses. Check the
-`imports` field of the response rather than assuming the call order.
+(`status: "already-running"`) unless the root is stale relative to rebuilt
+`.olean` files, in which case the no-op reloads the fresh root
+(`status: "initialized-stale-reload"`); with a changed block it refuses. Check
+the `imports` and `status` fields of the response rather than assuming the
+call order.
 
 After 3 consecutive failed initializations the service pauses automatic
 recovery and fails fast with `REPL-DOWN` until the main agent calls

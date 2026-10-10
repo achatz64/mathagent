@@ -15,10 +15,17 @@ has been killed, or the live REPL already runs exactly this import block. It
 refuses only on a live REPL whose import block differs (killing requires
 `bash`, which only the main agent has). It is idempotent: re-sending
 exactly the live REPL's current import block succeeds as a no-op and reports
-`status: "already-running"`. This matters after a build-restart cycle: an
-automatic restart on request reuses the last configured import block, so the
-new root may already be live when the main agent's own `lean_repl_import`
-arrives — with the same block this succeeds, with a different block it refuses.
+`status: "already-running"` — **only when the root is current**: if any
+imported module's `.olean` was rebuilt after the live generation spawned, the
+no-op is refused and the REPL respawns with the same block, reporting
+`status: "initialized-stale-reload"` (the stale-root no-op hole: an automatic
+restart on request during a build window loads the pre-rebuild olean, which
+passes the presence-based readiness probes; the identical block would
+otherwise silently keep that stale root). This matters after a build-restart
+cycle: an automatic restart on request reuses the last configured import
+block, so the new root may already be live when the main agent's own
+`lean_repl_import` arrives — with the same block this succeeds (or reloads,
+if stale), with a different block it refuses.
 
 The default import block should include:
 
@@ -53,7 +60,29 @@ Only the main agent can do this: killing requires `bash`, and
 If a queued worker request auto-restarted the REPL between steps 2 and 3,
 the restart reuses the last configured block; step 3 with the new block is
 then a genuine (refused-then-retry) import change, while re-sending the old
-block is the idempotent no-op.
+block is the idempotent no-op (or the stale-root reload, see above). After
+the reload, retry worker requests from the fresh root without stale
+env/repl values.
+
+## Stale-root detection (build-vs-REPL race)
+
+The repl reads each imported module's `.olean` once, at import start. A
+build that writes an `.olean` after a generation spawned therefore leaves
+that generation's root stale even though every probe passed (probes check
+module presence, not currency). Detection is automatic:
+
+- `lean_repl_status` reports `rootSpawnedSince` (spawn moment of the live
+  generation) and `staleRootModules` (imported modules whose `.olean` mtime
+  postdates that spawn), with a `stale root: …` warning when non-empty.
+- Any `lean_repl_import` with the unchanged block then respawns and
+  re-elaborates (`status: "initialized-stale-reload"`).
+
+Operational rule (unchanged in force): after `kill → lake build`, spot-check
+`#check` of a declaration that exists only in the *new* target version before
+deciding the root is current; the staleness field is a safety net, not a
+substitute for that discipline. Undeterminable cases (olean paths could not
+be resolved) report empty `staleRootModules` — degradation is silent by
+design and never blocks init.
 
 ## One generation per project (conflict guard)
 
