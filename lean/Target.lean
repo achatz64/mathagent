@@ -10742,6 +10742,14 @@ abbrev vandermondeDelta (r : Fin n → E) : E := vandermondeProd r
 /-- FT cg1: `vandermondeDelta r` is the Vandermonde product of the enumeration. -/
 theorem vandermondeDelta_eq_vandermondeProd (r : Fin n → E) : vandermondeDelta r = vandermondeProd r := rfl
 
+-- AUDIT-GAP (documentation audit, delta audit of the remediation commit
+-- 9e26889, changes f281ae9..9e26889): stale cross-reference in the docstring of
+-- `FT.inducedRootPerm` below — it says "characterized in `ftRootsEquiv_apply`",
+-- but that declaration was renamed to `FT.inducedRootPerm_apply` in this very
+-- remediation (the pre-rename file correctly referenced `inducedRootPerm_apply`;
+-- the rename sweep moved this docstring reference back to the dead name),
+-- contradicting the remediation note's claim "Docstring cross-references updated
+-- accordingly". Remedy: change the reference to `FT.inducedRootPerm_apply`.
 /-- FT IV §1: the permutation `σ̂` of `Fin n` induced by `σ : E ≃ₐ[F] E` on roots enumerated by
 injective `r` (with `σ (r i)` again in the range of `r`); characterized in `ftRootsEquiv_apply`. -/
 noncomputable def inducedRootPerm (r : Fin n → E) (hri : Function.Injective r) (σ : E ≃ₐ[F] E)
@@ -12842,6 +12850,21 @@ noncomputable def fracHom :
         (FaithfulSMul.algebraMap_injective A B)
         (by simpa [AlgHom.comp_apply, MvPolynomial.mapAlgHom_apply] using hab))
 
+-- AUDIT-GAP (documentation audit, delta audit of the remediation commit
+-- 9e26889, changes f281ae9..9e26889): the remediation docstrings added for the
+-- nine previously undocumented declarations state the claim but — for the seven
+-- listed here — omit the proof idea / triviality declaration that the
+-- documentation audit and the standing remedy text at the batch marker (~9765)
+-- require ("declarations whose proof is pure unpacking/repacking must declare it
+-- trivial"): `FT.fracHom_algebraMap` (here), `FT.sigmaTFrac_algebraMap` (~12858),
+-- `FT.sigmaCoefFrac_algebraMap` (~13069), `FT.CGD.constFracHom_apply` (~13175),
+-- `FT.CGD.constFracHom_comp_algebraMap` (~13194), `FT.CGD.term_eq` (~13232),
+-- `FT.CGD.dedekindThetaFrac_eq_sum` (~13242) — each of these proofs is pure
+-- unpacking (`simp`/`rfl`/`rw` on the defining wrappers). (`FT.conjQ_apply`
+-- declares "(definitional)" and `FT.CGD.sum_mem_integralClosure` states the proof
+-- idea; both are satisfactory.) Remedy: append to each of the seven docstrings a
+-- sentence declaring the proof trivial (pure unwrapping of the defining
+-- wrappers/`simp` lemmas).
 /-- The embedding `fracHom` extends the coefficient embedding `A ↪ B`: applied to
 the image of a polynomial `p` over `A` it gives the image of `p.map (algebraMap A B)`
 over `B`. -/
@@ -12927,6 +12950,19 @@ theorem linearFactor_stabilizer (p : Polynomial M) (hp1 : p.Monic) (hp : Irreduc
   have hcomm : ∀ q : Polynomial M, Polynomial.map (algebraMap M L) (Polynomial.map sM.toRingHom q)
       = Polynomial.map s (Polynomial.map (algebraMap M L) q) := by
     intro q
+    -- AUDIT-GAP (bridging audit, check 5 — unpaid reuse; delta audit of the
+    -- remediation commit 9e26889, changes f281ae9..9e26889): this rewire is only
+    -- a partial remediation of the check-4 finding recorded in f281ae9. It
+    -- consumes the main-approved BRIDGE `FT.map_map_comp` on the nested-map side,
+    -- but then undoes the composed form with the trailing `← Polynomial.map_map`,
+    -- re-performing inline the very nested-map ↔ composed-map transport that
+    -- `map_map_comp` provides (its equation with `hcomp := rfl` serves the
+    -- `(fB := algebraMap M L, g := (s : L →+* L))` instantiation exactly; the
+    -- file's own precedent, e.g. the remediation at ~4342, consumes the bridge in
+    -- the reverse direction the same way). Remedy: consume the bridge for this
+    -- step too, e.g. `rw [map_map_comp (fB := sM.toRingHom) (g := algebraMap M L)
+    -- hmap (p := q), map_map_comp (fB := algebraMap M L) (g := (s : L →+* L))
+    -- (hcomp := rfl)]`, so that no inline `Polynomial.map_map` remains.
     rw [map_map_comp (fB := sM.toRingHom) (g := algebraMap M L) hmap (p := q),
       ← Polynomial.map_map]
   have hp' : Irreducible (Polynomial.map sM.toRingHom p) := by
