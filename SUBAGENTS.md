@@ -15,7 +15,9 @@ A proof-worker prompt must be self-contained. Include:
 
 1. the complete source statement, including every hypothesis and conclusion;
 2. the complete source proof or argument, not only a citation or label;
-3. relevant existing declarations and the intended insertion namespace;
+3. relevant existing declarations — including any `BRIDGE` lemmas whose
+   transports the brief expects the worker to consume — and the intended
+   insertion namespace;
 4. semantic requirements for the final theorem type;
 5. instructions to prefer reusable general APIs, avoid axioms, check every final
    declaration in `lean_repl`, and return paste-ready code;
@@ -29,6 +31,30 @@ implementation plan, not optional background. The worker translates it
 independently within interfaces chosen by the main agent. Failure to find an
 exact library theorem is not a blocker: routine and representation-independent
 helper lemmas remain proof work.
+
+Bridging discipline (ratified 2026-10 after the Chapter III / FiberProduct
+remediation cycles; audit-side definition and checks: AUDIT.md, "Bridging
+audit"). Proof work whose content is exhausted by type shapes is bridging, and
+main owns its amortization:
+
+- Before writing transport glue between two presentations (extensionality,
+  congruence, coercion, instance plumbing), search
+  `rg -n "BRIDGE" lean/Target.lean` and the surrounding section for an existing
+  bridge with the same statement terms; consume it when the transport matches,
+  up to binder renaming.
+- Substantial glue with no existing bridge — more than a `rfl`, a `Subtype.ext`,
+  or a single congruence step — is a boundary: return a `MISMATCH REPORT`
+  instead of pasting per-site glue into the deliverable. It contains the two
+  presentations, the exact transported statement, a candidate general statement,
+  and the glue already REPL-checked. Do not declare a `BRIDGE` lemma yourself
+  and never self-approve a `BRIDGE` tag; main pays the mismatch once, decides
+  statement shape and home, and sends the exact signature back to your session.
+- Recurring per-site plumbing across sibling declarations (e.g. repeated
+  coercion shims `have hcoe … := Subtype.ext rfl`, letI instance shells) is
+  consumer harness cost: report it in the delivery as a quality note for the
+  ledger. It is not a bridge, not a blocker, and not yours to refactor.
+- Never add `AUDIT-GAP` markers, remediation notes, or tags; audits and main
+  own those.
 
 When translation reaches a genuine architectural representation choice not
 fixed by the prompt, interface design returns to the main agent. The worker must

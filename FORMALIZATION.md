@@ -73,6 +73,66 @@ keeping every source clause visible in the resulting declaration types.
 Flag an `AUDIT-GAP` only for an essential defect such as a false statement,
 missing hypothesis, circular argument, or semantics that cannot be recovered.
 
+## Bridging (shape-mismatch transport)
+
+Bridging is proof work whose content is exhausted by the shapes of the things it
+connects — work arising wherever Lean's type discipline distinguishes what
+mathematics treats as one thing (two type-level presentations of one object, a
+statement and the API signature it must fit, two ambient fields, an instance
+mismatch). The audit-side definition and checks live in AUDIT.md ("Bridging
+audit"); this section records the main agent's protocol, ratified 2026-10 after
+the Chapter III / FiberProduct remediation cycles.
+
+- **Mismatches are surfaced by workers, paid once by main.** A worker that must
+  re-perform a transport an existing bridge already provides reports the shape
+  mismatch instead of improvising glue; main decides the general statement, its
+  shape, and its home, and sends the exact signature back to the worker. Workers
+  never declare `BRIDGE` lemmas or self-approve tags (see SUBAGENTS.md).
+- **Tag approval.** Every `BRIDGE` tag is main's decision. Tag a declaration
+  only if its statement is mathematically vacuous and its proof forced. When
+  rejecting a literal-derivation marker, record the rebuttal in a remediation
+  note: four distinct restriction maps are four distinct pairs of presentations
+  (a rebuttal); one transport asked twice is not.
+- **One statement = one mismatch.** Do not cover two distinct mismatches with
+  one statement, and do not pay one mismatch with two tags (audit check 3). A
+  generalization paid by hypothesis instead of instance synthesis is still one
+  mismatch.
+- **Generalize away instance paths, not to abstraction for its own sake.**
+  Lesson: a bridge stated for concrete target-local types failed to generalize
+  to abstract siblings because target-local instance declarations do not
+  synthesize for fresh variables (FT.map_map_sup failed with
+  `Algebra ↥B ↥(E ⊔ L)` for the abstract `B`, which the concrete instantiation
+  `B := L` only satisfied via target-local paths). Re-stating the bridge for
+  arbitrary commutative rings with the needed equation as an explicit hypothesis
+  (FT.map_map_comp: `rw [Polynomial.map_map, hcomp]`) removed the
+  instance-synthesis dependency at call sites entirely. Prefer hypothesis-shaped
+  statements whenever a bridge's proof relies on instance synthesis that only
+  works for particular type terms.
+- **Consumers precede use.** Home a bridge where its consumers can import it by
+  file scope. The audit re-homes bridges when a consumer site predates the
+  bridge (lesson: map_map_comp was born in the FiberProduct section while its
+  consumers lived in earlier sections; audit re-home 033c21d moved it to
+  FactoringPolynomials).
+- **Consumer harness cost is a separate budget.** The bridging audit amortizes
+  the transport cost: one mismatch, one declaration, one tag. The per-consumer
+  call-site cost — named arguments, hypothesis arguments, coercion shims such as
+  repeated `have hcoe … := Subtype.ext rfl`, letI instance shells — is design
+  debt, tracked in the ledger as refactor candidates, not an audit gap and not a
+  bridging decision. Do not flag consumer verbosity; reduce it by bridge design
+  (hypothesis-shaped statements) when it becomes the dominant per-chapter cost.
+- **Remediation discipline.** Close `AUDIT-GAP` markers in a flagged-only pass:
+  exactly the flagged items, each disposition documented in a remediation note
+  beside the marker (BRIDGE tag / rewire to consume an existing bridge /
+  documented rebuttal), then build and commit. Do not remediate unflagged sites
+  proactively. Flag-first keeps audit deltas small and lets the audit surface
+  independent misses on its own: a deliberately untouched unflagged twin was
+  caught by the audit's pattern scan while remediation paid only flagged work.
+- **Audit interface.** Commit messages for the auditor carry rules and mode
+  only — never findings, regions, line numbers, or expected results. Every
+  remediation note names the FT label(s) touched; a new bridge names its
+  consumer family in the docstring so the pattern scan can exempt declared
+  consumers.
+
 An external theorem not proved in the source may instead be a named dependency
 axiom when its exact assumptions and conclusion are recoverable from the text,
 an unambiguous well-known formulation, or an identifiable reference. Document
