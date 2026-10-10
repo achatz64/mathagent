@@ -119,7 +119,10 @@ just to occupy a slot.
   minutes to emit what it has. Every new REPL crash is analyzed immediately
   (service evidence + worker testimony) before continuing. Timed checkpoints
   are available: `subagent_wait` and `subagent_wait_any` accept an optional
-  `timeoutSeconds` (1–3600). On expiry they return a `type: "timeout"` result
+  `timeoutSeconds` (use at most 900, i.e. one 15-minute checkpoint per call;
+  never use larger values — the checkpoint cadence is the point of the
+  parameter, and the tool's 3600 hard cap is not a permission). On expiry they
+  return a `type: "timeout"` result
   (with worker snapshots and shared-REPL health) without erroring; workers
   stay live and their completions stay undelivered — re-issue the wait to
   keep watching. This makes the 15-minute checkpoint, 10-minute ping, and
