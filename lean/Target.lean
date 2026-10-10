@@ -6678,22 +6678,23 @@ theorem finrank_compositum_mul_inf [FiniteDimensional F E] [FiniteDimensional F 
     _ = Module.finrank F ↥L * Module.finrank F ↥E := by rw [t4]
     _ = Module.finrank F ↥E * Module.finrank F ↥L := Nat.mul_comm _ _
 
--- AUDIT-GAP (bridging audit, check 4, delta of commit 5d1932d): unpaid reuse. This
--- declaration re-performs, inline, the transport already paid by the main-approved
--- BRIDGE `FT.fiberProductRestrictK2_apply` (same shape mismatch: the restriction of
--- `σ : ↥E2 ≃ₐ[F] ↥E2` to `E1 ⊓ E2` as a self-automorphism of `↥(E1 ⊓ E2)` vs. the
--- `Ω`-level action `σ ⟨x, _⟩`). The transported statement recurs here with identical
--- terms — the RHS `σ ⟨(x : Ω), ((inf_le_right : E1 ⊓ E2 ≤ E2) x.2)⟩` is verbatim that
--- of the tagged bridge, and the two restriction maps coincide definitionally
--- (`AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2) σ = σ.restrictNormal ↥(E1 ⊓ E2) =
--- `AlgHom.restrictNormal' σ.toAlgHom ↥(E1 ⊓ E2)`, cf. Mathlib
--- `Mathlib/FieldTheory/Normal/Defs.lean`: `AlgEquiv.restrictNormal` is defined as
--- `AlgHom.restrictNormal' χ.toAlgHom E`), while the `haveI`/`hcoe`/`hmap`/`hdef`
--- plumbing block is a verbatim recurrence of `fiberProductRestrictK2_apply`'s proof
--- (only the `AlgHom`/`AlgEquiv` names of the commutes lemma differ). Remedy: consume
--- the tagged bridge instead of re-paying the mismatch (or obtain main's disposition).
+-- Main disposition (bridging audit, check 4, delta of commit 5d1932d, deliverable b65e1d5):
+-- the literal remedy "consume `FT.fiberProductRestrictK2_apply`" is REBUTTED — that tagged
+-- bridge quantifies over `[IsGalois F ↥E1] [IsGalois F ↥E2]` (forced by
+-- `fiberProductRestrictK2`'s signature), while this coherence holds, and is needed by its
+-- consumers, under `[Normal F E1] [Normal F E2]` only. Per the bridging protocol a
+-- generalized re-statement of the same transport is not a distinct mismatch, so the payment
+-- is one lemma at the general shape: `FT.fiberCount_commutes` is hereby main-approved as the
+-- BRIDGE for the (E2 → E1 ⊓ E2) restriction-coherence mismatch at Normal strength; the
+-- IsGalois-strength `fiberProductRestrictK2_apply` remains the specialized instantiation for
+-- the FiberProduct section. The recurring `algebraMap ↥(E1 ⊓ E2) ↥E2 y = ⟨y, _⟩` plumbing
+-- (`Subtype.ext rfl`) is tracked as the per-consumer cost of the mismatch (ledger design
+-- debt, not an audit gap).
 /-- Coherence of the restriction hom `Gal(E2/F) →* Gal(E1⊓E2/F)` with the `Ω`-level action:
-the restriction of `σ` agrees with `σ` on `E1 ⊓ E2`, computed in `Ω`. -/
+the restriction of `σ` agrees with `σ` on `E1 ⊓ E2`, computed in `Ω`.
+BRIDGE: restriction-action coherence for the restriction hom at Normal strength — vacuous
+statement, forced proof; the general-shape payment of the mismatch instantiated (at
+IsGalois strength) by `fiberProductRestrictK2_apply` (see main disposition above). -/
 theorem fiberCount_commutes {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
     (E1 E2 : IntermediateField F Ω) [Normal F E1] [Normal F E2]
     (σ : ↥E2 ≃ₐ[F] ↥E2) (x : ↥(E1 ⊓ E2)) :
@@ -6707,15 +6708,16 @@ theorem fiberCount_commutes {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
   rw [hdef, ← hmap x, ← hcoe ((σ.restrictNormal ↥(E1 ⊓ E2)) x),
     AlgEquiv.restrictNormal_commutes σ ↥(E1 ⊓ E2) x]
 
--- AUDIT-GAP (bridging audit, check 1, delta of commit 5d1932d): missing `BRIDGE` tag.
--- Bridge candidate: the statement is mathematically vacuous (an encoding equivalence
--- between the algebraic statement `(restrictNormalHom ↥(E1 ⊓ E2)) σ = τ` and the
--- `Ω`-pointwise fiber condition — a paper would not state it), the proof is forced
--- (both directions are coercion bookkeeping via `fiberCount_commutes` +
--- `AlgEquiv.ext`/`Subtype.ext`, no mathematical choice), and the code is substantial
--- (~14 lines). Needs main's `BRIDGE` disposition (approval or recorded rebuttal).
+-- Main disposition (bridging audit, check 1, delta of commit 5d1932d, deliverable b65e1d5):
+-- APPROVED as main-approved BRIDGE — the statement is mathematically vacuous (an encoding
+-- equivalence between the algebraic restriction equation and the Ω-pointwise fiber
+-- condition; a paper would not state it), the proof is forced (coercion bookkeeping via
+-- `fiberCount_commutes`, `AlgEquiv.ext`, `Subtype.ext`; no mathematical choice), and the
+-- code is substantial (~14 lines).
 /-- The fiber condition over `τ` (an `Ω`-level condition) is equivalent to the algebraic
-statement that `σ` restricts to `τ` along `AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2)`. -/
+statement that `σ` restricts to `τ` along `AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2)`.
+BRIDGE: fiber-condition encoding equivalence for the restriction hom — vacuous statement,
+forced proof (main-approved; see disposition above). -/
 theorem fiberCount_restrictIff {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
     (E1 E2 : IntermediateField F Ω) [Normal F E1] [Normal F E2]
     (τ : ↥(E1 ⊓ E2) ≃ₐ[F] ↥(E1 ⊓ E2)) (σ : ↥E2 ≃ₐ[F] ↥E2) :
@@ -6743,17 +6745,20 @@ theorem fiberCount_restrict_surjective {F Ω : Type u} [Field F] [Field Ω] [Alg
       (τ.liftNormal ↥E2).restrictNormal ↥(E1 ⊓ E2) := rfl
   rw [hdef, AlgEquiv.restrict_liftNormal ↥E2 τ]
 
--- AUDIT-GAP (bridging audit, check 1, delta of commit 5d1932d): missing `BRIDGE` tag.
--- Bridge candidate: the statement is mathematically vacuous (a transport between two
--- type-level presentations of one object — the kernel subtype
--- `{ν // (restrictNormalHom ↥(E1 ⊓ E2)) ν = 1}` of `Gal(E2/F)` and
--- `↥E2 ≃ₐ[↥(E1 ⊓ E2)] ↥E2` = `Gal(E2/(E1 ⊓ E2))` in this file's notation; Milne says
--- only "the kernel is Gal(E2/(E1 ⊓ E2))"), the proof is forced by the subtype and
--- over-algebra shapes (the `toFix`/`invCond` transport, the four `Equiv` components),
--- and the code is substantial (~45 lines). Needs main's `BRIDGE` disposition.
+-- Main disposition (bridging audit, check 1, delta of commit 5d1932d, deliverable b65e1d5):
+-- APPROVED as main-approved BRIDGE — transport between two type-level presentations of one
+-- object (the kernel subtype `{ν // (restrictNormalHom ↥(E1 ⊓ E2)) ν = 1}` of `Gal(E2/F)`
+-- and `↥E2 ≃ₐ[↥(E1 ⊓ E2)] ↥E2` = `Gal(E2/(E1 ⊓ E2))` in this file's notation; Milne says
+-- only "the kernel is Gal(E2/(E1 ⊓ E2))"); the statement is vacuous, the proof is forced
+-- by the subtype and over-algebra shapes (the `toFix`/`invCond` transport, the four
+-- `Equiv` components), and the code is substantial (~45 lines). The `Equiv` (not
+-- `MulEquiv`) presentation suffices: the only consumer, `fiberCount_of_restrict`, needs
+-- the cardinality transport via `Nat.card_congr`.
 /-- The kernel of the restriction hom `Gal(E2/F) →* Gal(E1⊓E2/F)` is (in cardinality)
 `Gal(E2/(E1 ⊓ E2))`: an `F`-automorphism of `E2` restricts trivially iff it is
-`E1 ⊓ E2`-linear. -/
+`E1 ⊓ E2`-linear.
+BRIDGE: kernel presentation equivalence (kernel subtype vs `Gal(E2/(E1 ⊓ E2))`) — vacuous
+statement, forced proof (main-approved; see disposition above). -/
 noncomputable def fiberCount_kerEquiv {F Ω : Type u} [Field F] [Field Ω] [Algebra F Ω]
     (E1 E2 : IntermediateField F Ω) [Normal F E1] [Normal F E2] :
     {ν : ↥E2 ≃ₐ[F] ↥E2 // (AlgEquiv.restrictNormalHom ↥(E1 ⊓ E2)) ν = 1} ≃
@@ -7499,16 +7504,12 @@ section Ft19Qualification
 
 variable {E : Type u} [Field E] [CharZero E]
 
--- AUDIT-GAP (documentation audit, delta of commit 5d1932d): the following declarations
--- of section `Ft19Qualification` carry no docstring, contrary to the documentation
--- standard (every theorem/lemma must have a textbook-math documentation of statement
--- and proof idea, with trivial ones declared trivial): `FT.minpoly_zeta7_eq_cyclotomic`,
--- `FT.sigma0_apply`, `FT.sigma0_pow_zeta`, `FT.zeta7_pow_add_mul_seven`,
--- `FT.sigma0_sq_zeta`, `FT.sigma0_cube_zeta`, `FT.sigma0_pow6_zeta`,
--- `FT.sigma0_pow6_eq_one`, `FT.zeta7_pow_eq_zeta`, `FT.sigma0_pow_ne_one`,
--- `FT.orderOf_sigma0`, `FT.orderOf_sigma0_cube`, `FT.orderOf_sigma0_sq`,
--- `FT.gal_zeta7_to_units_apply`, `FT.gal_zeta7_to_units_bijective`,
--- `FT.finrank_fixedField_mul_card`, `FT.zeta7_inv`, `FT.aeval_X_sq_add_seven`.
+-- Documentation remediation (closes the documentation-audit marker of the delta-audit
+-- deliverable b65e1d5, delta of commit 5d1932d): docstrings added below for the flagged
+-- declarations.
+/-- The minimal polynomial over `ℚ` of a primitive 7th root of unity is the 7th cyclotomic
+polynomial (whose roots are exactly the primitive 7th roots `ζ ^ k` with `gcd(k, 7) = 1`).
+Trivial (Mathlib's `Polynomial.cyclotomic_eq_minpoly_rat`). -/
 private theorem minpoly_zeta7_eq_cyclotomic {ζ : E} (hζ : IsPrimitiveRoot ζ 7) :
     minpoly ℚ ζ = Polynomial.cyclotomic 7 ℚ :=
   (Polynomial.cyclotomic_eq_minpoly_rat hζ (by norm_num)).symm
@@ -7546,6 +7547,10 @@ noncomputable def sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
         minpoly_zeta7_eq_cyclotomic hζ,
         minpoly_zeta7_eq_cyclotomic (hζ.pow_of_coprime 3 (by decide))])
 
+/-- FT `ft19` ingredient: `σ₀ ζ = ζ³` — the defining action of `σ₀` (Milne: "the generator
+`σ₀` with `σ₀ ζ = ζ³`"). Proof: `ζ` and `ζ³` are both primitive 7th roots and have the
+same minimal polynomial (the 7th cyclotomic polynomial), so `PowerBasis.equivOfMinpoly`
+maps `ζ ↦ ζ³`. -/
 theorem sigma0_apply {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : sigma0 hζ ζ = ζ ^ 3 := by
   have h3 : IsPrimitiveRoot (ζ ^ 3) 7 := hζ.pow_of_coprime 3 (by decide)
@@ -7555,6 +7560,8 @@ theorem sigma0_apply {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
   rw [IsPrimitiveRoot.powerBasis_gen ℚ hζ, IsPrimitiveRoot.powerBasis_gen ℚ h3] at hg
   exact hg
 
+/-- FT `ft19` ingredient: `(σ₀ ^ k) ζ = ζ ^ (3 ^ k)` — the iterated action of `σ₀ ζ = ζ³`.
+Proof: induction on `k` (`pow_succ`, `map_pow`). -/
 theorem sigma0_pow_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] (k : ℕ) : (sigma0 hζ ^ k) ζ = ζ ^ (3 ^ k) := by
   induction k with
@@ -7565,6 +7572,8 @@ theorem sigma0_pow_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     rw [h1, sigma0_apply, map_pow, ih, ← pow_mul, mul_comm, ← pow_succ']
 
 omit [CharZero E] in
+/-- Exponent reduction modulo 7: `ζ ^ (r + 7·n) = ζ ^ r`, since `ζ ^ 7 = 1`. Trivial
+(induction on `n`). -/
 private theorem zeta7_pow_add_mul_seven {ζ : E} (hζ : IsPrimitiveRoot ζ 7) (r n : ℕ) :
     ζ ^ (r + 7 * n) = ζ ^ r := by
   induction n with
@@ -7574,21 +7583,29 @@ private theorem zeta7_pow_add_mul_seven {ζ : E} (hζ : IsPrimitiveRoot ζ 7) (r
       mul_one]
     exact ih
 
+/-- `(σ₀ ^ 2) ζ = ζ ^ 2` (exponent `3² = 9 ≡ 2 (mod 7)`). Trivial (`sigma0_pow_zeta` +
+reduction). -/
 theorem sigma0_sq_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7) [IsCyclotomicExtension {7} ℚ E] :
     (sigma0 hζ ^ 2) ζ = ζ ^ 2 := by
   rw [sigma0_pow_zeta hζ, show (3 ^ 2 : ℕ) = 2 + 7 * 1 by norm_num,
     zeta7_pow_add_mul_seven hζ]
 
+/-- `(σ₀ ^ 3) ζ = ζ ^ 6` (exponent `3³ = 27 ≡ 6 (mod 7)`); note `ζ ^ 6 = ζ⁻¹`. Trivial
+(`sigma0_pow_zeta` + reduction). -/
 theorem sigma0_cube_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7) [IsCyclotomicExtension {7} ℚ E] :
     (sigma0 hζ ^ 3) ζ = ζ ^ 6 := by
   rw [sigma0_pow_zeta hζ, show (3 ^ 3 : ℕ) = 6 + 7 * 3 by norm_num,
     zeta7_pow_add_mul_seven hζ]
 
+/-- `(σ₀ ^ 6) ζ = ζ` (exponent `3⁶ = 729 = 1 + 7·104 ≡ 1 (mod 7)`). Trivial
+(`sigma0_pow_zeta` + reduction). -/
 theorem sigma0_pow6_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7) [IsCyclotomicExtension {7} ℚ E] :
     (sigma0 hζ ^ 6) ζ = ζ := by
   rw [sigma0_pow_zeta hζ, show (3 ^ 6 : ℕ) = 1 + 7 * 104 by norm_num,
     zeta7_pow_add_mul_seven hζ, pow_one]
 
+/-- `σ₀ ^ 6 = 1`: the order of `σ₀` divides `6`. Proof: both automorphisms agree on the
+generator `ζ` (`AlgEquiv.coe_algHom_injective`, `PowerBasis.algHom_ext`). -/
 theorem sigma0_pow6_eq_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : sigma0 hζ ^ 6 = 1 := by
   refine AlgEquiv.coe_algHom_injective ?_
@@ -7599,10 +7616,15 @@ theorem sigma0_pow6_eq_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     _ = ((1 : Gal(E/ℚ)).toAlgHom) ζ := rfl
 
 omit [CharZero E] in
+/-- If `r < 7` and `ζ ^ r = ζ` for the primitive 7th root `ζ`, then `r = 1` (the exponents
+`0, …, 6` are distinct modulo 7). Trivial (`IsPrimitiveRoot.pow_inj`). -/
 private theorem zeta7_pow_eq_zeta {ζ : E} (hζ : IsPrimitiveRoot ζ 7) {r : ℕ}
     (hr : r < 7) (hz : ζ ^ r = ζ) : r = 1 :=
   IsPrimitiveRoot.pow_inj hζ hr (show (1 : ℕ) < 7 by norm_num) (by rw [pow_one]; exact hz)
 
+/-- No positive power of `σ₀` below `6` is trivial. Proof: for `1 ≤ k ≤ 5`,
+`(σ₀ ^ k) ζ = ζ ^ (3 ^ k)` with `3 ^ k ≢ 1 (mod 7)`, so `σ₀ ^ k` moves the generator `ζ`
+(case analysis `k ∈ {1, …, 5}`, each case reduced via `zeta7_pow_eq_zeta`). -/
 private theorem sigma0_pow_ne_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] {k : ℕ} (hk : 0 < k) (hk6 : k < 6) :
     sigma0 hζ ^ k ≠ 1 := by
@@ -7622,6 +7644,10 @@ private theorem sigma0_pow_ne_one {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
   · rw [show (3 ^ 5 : ℕ) = 5 + 7 * 34 by norm_num, zeta7_pow_add_mul_seven hζ] at hz
     exact absurd (zeta7_pow_eq_zeta hζ (by norm_num) hz) (by norm_num)
 
+/-- FT `ft19` ingredient: the order of `σ₀` is `6`, so `σ₀` generates the group of order
+`|Gal(ℚ(ζ)/ℚ)| = 6` (used in `zeta7_gal_zpowers_sigma0`). Proof: `σ₀ ^ 6 = 1` gives
+`orderOf σ₀ ∣ 6` (`orderOf_dvd_of_pow_eq_one`); no smaller positive exponent is trivial
+(`sigma0_pow_ne_one`). -/
 theorem orderOf_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : orderOf (sigma0 hζ) = 6 := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
@@ -7651,6 +7677,9 @@ theorem orderOf_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
       · exact (hkey _ (by omega : d = 2) (by omega) (by norm_num)).elim
       · exact (hkey _ (by omega : d = 3) (by omega) (by norm_num)).elim
 
+/-- The order of `σ₀ ^ 3` is `2` (from `orderOf σ₀ = 6` via `orderOf_pow`); so `⟨σ₀³⟩` is
+the subgroup of order `2` whose fixed field is `ℚ(ζ + ζ⁻¹)` (FT `ft19` clause 3). Trivial
+computation. -/
 theorem orderOf_sigma0_cube {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : orderOf (sigma0 hζ ^ 3) = 2 := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
@@ -7660,6 +7689,9 @@ theorem orderOf_sigma0_cube {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
   rw [orderOf_pow, orderOf_sigma0]
   norm_num
 
+/-- The order of `σ₀ ^ 2` is `3` (from `orderOf σ₀ = 6` via `orderOf_pow`); so `⟨σ₀²⟩` is
+the subgroup of order `3` whose fixed field is `ℚ(√-7)` (FT `ft19` clause 4). Trivial
+computation. -/
 theorem orderOf_sigma0_sq {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : orderOf (sigma0 hζ ^ 2) = 3 := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
@@ -7687,10 +7719,17 @@ theorem zeta7_gal_zpowers_sigma0 {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
 noncomputable def gal_zeta7_to_units {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : Gal(E/ℚ) →* (ZMod 7)ˣ := hζ.autToPow ℚ
 
+/-- FT `ft19` clause 1, spec of the map `σ ↦ i`: the unit
+`(gal_zeta7_to_units hζ σ : ZMod 7)` is the exponent of `σ`, i.e. `σ ζ = ζ ^ i`. Trivial
+(Mathlib's `IsPrimitiveRoot.autToPow_spec`). -/
 theorem gal_zeta7_to_units_apply {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] (σ : Gal(E/ℚ)) :
     ζ ^ ((gal_zeta7_to_units hζ σ : ZMod 7).val) = σ ζ := hζ.autToPow_spec ℚ σ
 
+/-- FT `ft19` clause 1: `σ ↦ i` is bijective. Proof: injective by
+`IsPrimitiveRoot.autToPow_injective` (an automorphism is determined by its value on the
+generator `ζ`); the groups have equal cardinality `|(ℤ/7ℤ)ˣ| = 6 = [ℚ(ζ) : ℚ] = |Gal|`
+(`ZMod.card_units`, `IsGalois.card_aut_eq_finrank`, `finrank_zeta7_field`). -/
 theorem gal_zeta7_to_units_bijective {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : Function.Bijective ⇑(gal_zeta7_to_units hζ) := by
   haveI hfd := IsCyclotomicExtension.finiteDimensional {7} ℚ E
@@ -7705,6 +7744,9 @@ noncomputable def gal_zeta7_equiv_units {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] : Gal(E/ℚ) ≃* (ZMod 7)ˣ :=
   MulEquiv.ofBijective (gal_zeta7_to_units hζ) (gal_zeta7_to_units_bijective hζ)
 
+/-- FT `ft13b` instantiated at `ℚ(ζ)`: `[ℚ(ζ)^H : ℚ] · |H| = [ℚ(ζ) : ℚ] = 6` for every
+subgroup `H ⊆ Gal(ℚ(ζ)/ℚ)`. Trivial (tower formula,
+`IntermediateField.finrank_fixedField_eq_card`, `IsGalois.card_aut_eq_finrank`). -/
 private theorem finrank_fixedField_mul_card {ζ : E} (hζ : IsPrimitiveRoot ζ 7)
     [IsCyclotomicExtension {7} ℚ E] (H : Subgroup Gal(E/ℚ)) :
     Module.finrank ℚ ↥(IntermediateField.fixedField H) * Nat.card ↥H = 6 := by
@@ -7717,6 +7759,7 @@ private theorem finrank_fixedField_mul_card {ζ : E} (hζ : IsPrimitiveRoot ζ 7
   exact h1
 
 omit [CharZero E] in
+/-- `ζ⁻¹ = ζ ^ 6` for the primitive 7th root `ζ` (since `ζ · ζ ^ 6 = ζ ^ 7 = 1`). Trivial. -/
 private theorem zeta7_inv {ζ : E} (hζ : IsPrimitiveRoot ζ 7) : ζ⁻¹ = ζ ^ 6 := by
   have h : ζ * ζ ^ 6 = 1 := by rw [← pow_succ']; exact hζ.pow_eq_one
   exact (eq_inv_of_mul_eq_one_right h).symm
@@ -7837,6 +7880,7 @@ private theorem beta_sub_beta'_not_mem_range {ζ : E} (hζ : IsPrimitiveRoot ζ 
     Polynomial.natDegree_le_of_dvd hdvd hp0
   omega
 
+/-- Evaluation of `X² + 7` at `x` is `x² + 7`. Trivial (`Polynomial.aeval` computation). -/
 private theorem aeval_X_sq_add_seven (x : E) :
     Polynomial.aeval x ((Polynomial.X ^ 2 + 7 : Polynomial ℚ)) = x ^ 2 + 7 := by
   rw [Polynomial.aeval_add (R := ℚ) x, map_pow (Polynomial.aeval (R := ℚ) x),
@@ -9048,16 +9092,20 @@ section Ft19CosMinpoly
 
 variable {E : Type u} [Field E] [CharZero E]
 
--- AUDIT-GAP (documentation audit, delta of commit 5d1932d): the following declarations
--- of section `Ft19CosMinpoly` carry no docstring, contrary to the documentation
--- standard (every theorem/lemma must have a textbook-math documentation of statement
--- and proof idea, with trivial ones declared trivial): `FT.aeval_cubic_exp`,
--- `FT.cos_poly_natDegree`, `FT.cos_poly_monic`.
+-- Documentation remediation (closes the documentation-audit marker of the delta-audit
+-- deliverable b65e1d5, delta of commit 5d1932d): docstrings added below for the flagged
+-- declarations.
+/-- Evaluation of `X³ + X² − 2X − 1` at `t` is `t³ + t² − 2t − 1` (the polynomial of
+FT `ft19` clause 5, minimal polynomial of `ζ + ζ⁻¹ = 2·cos(2π/7)`). Trivial
+(`Polynomial.aeval` computation). -/
 private theorem aeval_cubic_exp (t : E) :
     Polynomial.aeval t ((Polynomial.X : Polynomial ℚ) ^ 3 + Polynomial.X ^ 2
       - 2 * Polynomial.X - 1) = t ^ 3 + t ^ 2 - 2 * t - 1 := by
   simp [show ((2 : Polynomial ℚ)) = Polynomial.C 2 by rfl]
 
+/-- The polynomial `X³ + ½X² − ½X − ⅛` (the minimal polynomial of `cos(2π/7)` over `ℚ`,
+FT `ft19` clause 5) has degree `3`. Trivial (degree bookkeeping: the degree-`3` term `X³`
+dominates). -/
 private theorem cos_poly_natDegree :
     ((Polynomial.X ^ 3 + Polynomial.C (1/2) * Polynomial.X ^ 2
       - Polynomial.C (1/2) * Polynomial.X - Polynomial.C (1/8) : Polynomial ℚ)).natDegree = 3 := by
@@ -9083,6 +9131,9 @@ private theorem cos_poly_natDegree :
   refine (Polynomial.natDegree_add_eq_left_of_natDegree_lt hlt).trans ?_
   simp
 
+/-- The polynomial `X³ + ½X² − ½X − ⅛` (the minimal polynomial of `cos(2π/7)` over `ℚ`,
+FT `ft19` clause 5) is monic. Trivial (leading coefficient `1`; the degree-`3` term
+dominates). -/
 private theorem cos_poly_monic :
     ((Polynomial.X ^ 3 + Polynomial.C (1/2) * Polynomial.X ^ 2
       - Polynomial.C (1/2) * Polynomial.X - Polynomial.C (1/8) : Polynomial ℚ)).Monic := by
