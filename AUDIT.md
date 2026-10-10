@@ -93,7 +93,12 @@ file is never read end-to-end for this audit):
    connects, and search the file for their inline re-performance; hits outside
    the declaration's own consumers → `AUDIT-GAP` (unpaid reuse). Names of generic
    tactics are not fingerprints; a verbatim proof fragment recurring across
-   declarations is always one.
+   declarations is always one. Matching is up to binder renaming: a fragment
+   (witness terms, transported statements, local `have` bodies) that recurs in
+   another declaration with only bound-variable and local-hypothesis names changed
+   is a fingerprint hit — verbatim text identity is not required. In particular,
+   an untagged declaration that inlines the transport of a tagged bridge's
+   statement terms under different binder names is unpaid reuse.
 5. **Delta audit.** With the delta small and the existing bridges and strategies
    known from prior audits, identify minimality violations on read: new code that
    re-performs a transport an existing bridge provides, instead of calling it, is
