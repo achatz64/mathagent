@@ -864,6 +864,13 @@ theorem coe_intermediateFieldIsAlgebraic {F Ω : Type*} [Field F] [Field Ω] [Al
   simp only [SetLike.mem_coe, Set.mem_setOf_eq]
   exact mem_intermediateFieldIsAlgebraic
 
+-- AUDIT-GAP (bridging audit, check 4, unpaid reuse; delta audit of ef2746d): the two
+-- inline chases below — `rw [Polynomial.map_map, ← IsScalarTower.algebraMap_eq]` and the
+-- `have hcomp` block — re-perform the base-map composition transport that is now paid once
+-- in `FT.map_map_comp` (BRIDGE, added by ef2746d): `(p.map fB).map g = p.map g'` for
+-- `g.comp fB = g'`, here with the `IsScalarTower.algebraMap_eq F E Ω` composition. This
+-- declaration is not one of that bridge's declared consumers. Remedy: consume
+-- `FT.map_map_comp` here (or main to extend the bridge's consumer scope / rebut).
 /-- FT `ac3`. Let `Ω` be an algebraically closed field and `F` a subfield. The algebraic
 closure `E` of `F` in `Ω` — realized as the intermediate field
 `FT.intermediateFieldIsAlgebraic F Ω` of elements of `Ω` algebraic over `F` (FT `sf11`) —
@@ -2933,6 +2940,12 @@ private lemma aeval_adjoin_coe_eq_zero {F : IntermediateField K E} {α : E} {f :
   rw [show (algebraMap ↥F E) (⟨α, hαm⟩ : ↥F) = α from rfl, h0] at h1
   exact algebraMap_injective_of_field (h1.trans (map_zero _).symm)
 
+-- AUDIT-GAP (bridging audit, check 4, unpaid reuse; delta audit of ef2746d): the `hchain`
+-- step inside this proof — `rw [hmul, map_map, IsScalarTower.algebraMap_eq K
+-- ↥(IntermediateField.adjoin K {α}) E]` — re-performs the base-map composition transport
+-- paid once in `FT.map_map_comp` (BRIDGE, added by ef2746d). This declaration is not one of
+-- that bridge's declared consumers. Remedy: consume `FT.map_map_comp` here (or main to
+-- extend the bridge's consumer scope / rebut).
 /-- Auxiliary for FT `sf4` (the stem-field induction core): for a splitting field `E` of a
 nonzero `f ∈ K[X]` with `deg f = n`, `[E : K] ≤ (deg f)!`.  Proof idea (FT): take a root `α` of
 `f` in `E`; then `E` is a splitting field over `K⟮α⟯` of `f /ₘ (X - α)` of degree `n - 1`, and
@@ -4263,6 +4276,12 @@ theorem natCard_algHom_le_finrank [FiniteDimensional F E] :
       ↥(IntermediateField.adjoin F {y}) E L rfl
 
 set_option maxHeartbeats 1000000 in
+-- AUDIT-GAP (bridging audit, check 4, unpaid reuse; delta audit of ef2746d): the
+-- `rw [IsScalarTower.algebraMap_eq F L (Polynomial.SplittingField ...), ← map_map]` step
+-- below re-performs the base-map composition transport paid once in `FT.map_map_comp`
+-- (BRIDGE, added by ef2746d). This declaration is not one of that bridge's declared
+-- consumers. Remedy: consume `FT.map_map_comp` here (or main to extend the bridge's
+-- consumer scope / rebut).
 /-- Helper for FT `sf8` (ii): each `minpoly F x` splits over the splitting field over `L` of
 `f.map (algebraMap F L)`. -/
 theorem splits_minpoly_of_dvd_monic_prod (s : Finset E) (f : F[X]) (hfmon : f.Monic)
@@ -5255,6 +5274,15 @@ theorem rootSet_map_compositumRestrictRight {p : F[X]} :
         ↥(E ⊔ L)).symm
   simp only [mem_rootSet', hmap, Polynomial.aeval_map_algebraMap]
 
+-- AUDIT-GAP (bridging audit, check 4, unpaid reuse; delta audit of ef2746d): the `have hmap`
+-- step inside this proof — `rw [Polynomial.map_map, IsScalarTower.algebraMap_eq F
+-- ↥(compositumRestrictRight E L) ↥(E ⊔ L)]` — is a verbatim re-performance of the base-map
+-- composition transport paid once in `FT.map_map_comp` (BRIDGE), instead of consuming it
+-- (the same step in its twin `compositum_isSplittingField_supBase` was rewired by ef2746d).
+-- Note: the remediation note above `FT.rootSet_map_supBase` (closing the dd9c631 check-1
+-- marker) claims that both `have hmap` blocks in the `compositum_isSplittingField*`
+-- splitting clauses consume `FT.map_map_comp` — that claim is inaccurate for this
+-- declaration. Remedy: rewire this `hmap` to `FT.map_map_comp` and correct that note.
 /-- `E ⊔ L` is the splitting field over `L` of the `L`-polynomial attached to `f`
 (FT `ft18f`, first Galois clause). -/
 theorem compositum_isSplittingField {p : F[X]} (hps : p.Separable)
