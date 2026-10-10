@@ -9243,6 +9243,660 @@ theorem minpoly_cos_two_div_seven :
 end Ft19CosMinpoly
 
 /-!
+## Chapter IV: Computing Galois Groups (FT.tex 3579-4582)
+
+Work in progress.  Delivered (wave 1): the orbit-factorization core `cg19`/
+`cg19m` and the finite-field prose (`cg19F_*`, section Cg19 below); the S_p
+group-theoretic core `cg12`/`cg23`/`cg13` (section SpGroup below).  Pending:
+quartic resolvent definitions + `cg7`/`cg8` Galois section, low-degree
+dichotomies `cg4`-`cg6`, discriminant/sign `cg1`/`cg2`, finite-field
+propositions `cg15`-`cg18n`, Dedekind reduction `cg20`/`cg25`, examples
+`cg8a`-`cg11`, `cg21`/`cg22`/`cg24`.
+-/
+
+
+
+/-! ## FT chapter IV §7, first half: orbit factorization (FT `cg19`, `cg19m`) -/
+
+section Cg19
+
+open Polynomial
+open scoped Classical
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] [Fintype Gal(E/F)]
+
+/-- The finset of the distinct roots of `f` in `E` (Milne's `α₁, …, αₘ ∈ F_f`). -/
+noncomputable def cg19Roots (f : F[X]) (E : Type*) [CommRing E] [IsDomain E] [Algebra F E]
+    [DecidableEq E] : Finset E :=
+  (f.map (algebraMap F E)).roots.toFinset
+
+omit [Fintype Gal(E/F)] in
+/-- Membership in `FT.cg19Roots` is membership in the root set `f.rootSet E`. -/
+theorem cg19_mem_cg19Roots_iff (f : F[X]) (β : E) :
+    β ∈ cg19Roots f E ↔ β ∈ f.rootSet E := by
+  simp only [cg19Roots, Polynomial.rootSet_def, Polynomial.aroots_def, Finset.mem_coe,
+    Multiset.mem_toFinset]
+
+omit [Fintype Gal(E/F)] in
+/-- FT `cg19` (proof step). The Galois group `Gal(E/F)` permutes the roots of `f` in `E`. -/
+theorem cg19_smul_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) (σ : Gal(E/F)) :
+    σ α ∈ f.rootSet E := by
+  obtain ⟨hf, h0⟩ := Polynomial.mem_rootSet.mp hα
+  refine (Polynomial.mem_rootSet_of_ne hf).mpr ?_
+  rw [show σ α = (σ : E →ₐ[F] E) α from rfl, Polynomial.aeval_algHom_apply, h0, map_zero]
+
+/-- FT `cg19` (proof step). The orbit finset of a root `α` of `f` is contained in the root
+set of `f` in `E`. -/
+theorem cg19_orbitFinset_subset_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
+    ((Finset.univ.image fun σ : Gal(E/F) => σ α) : Set E) ⊆ f.rootSet E := by
+  rw [Finset.coe_image, Set.image_subset_iff]
+  exact fun σ _ => cg19_smul_mem_rootSet f hα σ
+
+omit [Fintype Gal(E/F)] in
+/-- FT `cg19` (proof step). A root `α` of the monic polynomial `f` is integral over `F`. -/
+theorem cg19_isIntegral_of_mem_rootSet (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
+    IsIntegral F α := by
+  obtain ⟨_, h0⟩ := Polynomial.mem_rootSet.mp hα
+  exact ⟨f, hm, by rwa [← Polynomial.aeval_def]⟩
+
+omit [Fintype Gal(E/F)] in
+/-- FT `cg19` (proof step). For a root `α` of `f`, the minimal polynomial `minpoly F α`
+divides `f` in `F[X]`. -/
+theorem cg19_minpoly_dvd_of_mem_rootSet (f : F[X]) (hα : α ∈ f.rootSet E) :
+    minpoly F α ∣ f := by
+  obtain ⟨_, h0⟩ := Polynomial.mem_rootSet.mp hα
+  exact minpoly.dvd F α h0
+
+/-- FT `cg19` (proof step). The orbit product over the orbit finset of `α` is fixed by every
+`σ ∈ Gal(E/F)`. -/
+theorem cg19_orbitFinset_prod_map_eq_self (α : E) (σ : Gal(E/F)) :
+    ((Finset.univ.image fun τ : Gal(E/F) => τ α).prod fun β => X - C β).map (σ : E →+* E)
+      = (Finset.univ.image fun τ : Gal(E/F) => τ α).prod fun β => X - C β := by
+  rw [Polynomial.map_prod]
+  simp only [Polynomial.map_sub, Polynomial.map_X, Polynomial.map_C]
+  refine Finset.prod_bij (fun β _ => σ β) ?_ ?_ ?_ ?_
+  · rintro β hβ
+    obtain ⟨τ, _, hτ⟩ := Finset.mem_image.mp hβ
+    refine Finset.mem_image.mpr ⟨σ * τ, Finset.mem_univ _, ?_⟩
+    rw [← hτ, AlgEquiv.mul_apply]
+  · rintro β _ γ _ h
+    exact σ.injective h
+  · rintro b hb
+    obtain ⟨τ, _, hτ⟩ := Finset.mem_image.mp hb
+    refine ⟨(σ⁻¹ * τ) α, Finset.mem_image.mpr ⟨σ⁻¹ * τ, Finset.mem_univ _, rfl⟩, ?_⟩
+    rw [← hτ, AlgEquiv.mul_apply, ← AlgEquiv.mul_apply σ σ⁻¹ (τ α), mul_inv_cancel]
+    rfl
+  · intro β _; rfl
+
+/-- FT `cg19` (proof step). The orbit of `α` under `G = Gal(E/F)` is the image finset. -/
+theorem cg19_orbitSet_eq_orbitFinset (α : E) :
+    MulAction.orbit Gal(E/F) α
+      = ((Finset.univ.image fun τ : Gal(E/F) => τ α : Finset E) : Set E) := by
+  rw [show MulAction.orbit Gal(E/F) α = Set.range (fun τ : Gal(E/F) => τ • α) from rfl,
+    ← Fintype.coe_image_univ]
+  rfl
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] [Fintype Gal(E/F)] [IsGalois F E]
+
+/-- FT `cg19` (proof step). The elements of the root finset having the same minimal
+polynomial as `α` form exactly the orbit finset of `α` under `Gal(E/F)`. -/
+theorem cg19_rootFinset_filter_eq_orbitFinset (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
+    (cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)
+      = (Finset.univ.image fun σ : Gal(E/F) => σ α) := by
+  have hintα : IsIntegral F α := cg19_isIntegral_of_mem_rootSet f hm
+    ((cg19_mem_cg19Roots_iff f α).mp hα)
+  ext β
+  simp only [Finset.mem_filter, Finset.mem_image, Finset.mem_univ, true_and]
+  constructor
+  · intro h
+    obtain ⟨_, hminpoly⟩ := h
+    have hmin : minpoly F α ≠ 0 := minpoly.ne_zero hintα
+    have hb : β ∈ (minpoly F α).rootSet E := by
+      rw [Polynomial.mem_rootSet_of_ne hmin, ← hminpoly, minpoly.aeval F β]
+    obtain ⟨σ, _, hσ⟩ :=
+      (Set.mem_image _ _ _).mp ((FT.orbit_eq_rootSet_minpoly α hintα).symm.subset hb)
+    exact ⟨σ, hσ⟩
+  · rintro ⟨σ, rfl⟩
+    exact ⟨cg19_smul_mem_rootSet f ((cg19_mem_cg19Roots_iff f α).mp hα) σ,
+      minpoly.algEquiv_eq σ α⟩
+
+/-- FT `cg19` (proof step). The minimal polynomial of a root `α` of `f`, mapped into `E[X]`,
+is the product of `X − β` over the fiber of the minimal-polynomial map on the root finset. -/
+theorem cg19_minpoly_map_eq_prod_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
+    (minpoly F α).map (algebraMap F E)
+      = ((cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)).prod fun β => X - C β := by
+  rw [cg19_rootFinset_filter_eq_orbitFinset f hm hα]
+  exact FT.minpoly_eq_prod_orbit α
+    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα))
+
+omit [Fintype Gal(E/F)] [IsGalois F E] in
+/-- **FT `cg19m`** (orbit factorization, explicit product in `E[X]`). -/
+theorem cg19m (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+    (hspl : (f.map (algebraMap F E)).Splits) :
+    f.map (algebraMap F E)
+      = ((cg19Roots f E).image (fun α => minpoly F α)).prod fun g =>
+          ((cg19Roots f E).filter (fun β => minpoly F β = g)).prod fun β => X - C β := by
+  have hnodup : (f.map (algebraMap F E)).roots.Nodup :=
+    Polynomial.nodup_roots ((Polynomial.separable_map (algebraMap F E)).mpr hsep)
+  have h1 : f.map (algebraMap F E) = (cg19Roots f E).prod fun β => X - C β := by
+    rw [hspl.eq_prod_roots_of_monic (Polynomial.Monic.map (algebraMap F E) hm)]
+    rw [Finset.prod_eq_multiset_prod, cg19Roots, Multiset.toFinset_val,
+      Multiset.dedup_eq_self.mpr hnodup]
+  have hbU : cg19Roots f E =
+      ((cg19Roots f E).image (fun α => minpoly F α)).biUnion
+        (fun g => (cg19Roots f E).filter (fun β => minpoly F β = g)) := by
+    ext β
+    simp only [Finset.mem_biUnion, Finset.mem_image, Finset.mem_filter]
+    constructor
+    · intro h
+      exact ⟨minpoly F β, ⟨β, h, rfl⟩, ⟨h, rfl⟩⟩
+    · rintro ⟨g, -, ⟨h, rfl⟩⟩
+      exact h
+  have hdisj : Set.PairwiseDisjoint
+      (↑((cg19Roots f E).image (fun α => minpoly F α)))
+      (fun g : F[X] => (cg19Roots f E).filter (fun β => minpoly F β = g)) := by
+    rintro g - g' - h
+    exact Finset.disjoint_left.mpr fun β h1 h2 => h
+      (by rw [← (Finset.mem_filter.mp h1).2, (Finset.mem_filter.mp h2).2])
+  rw [h1]
+  conv_lhs => rw [hbU]
+  rw [Finset.prod_biUnion hdisj]
+
+/-- FT `cg19` (degrees). Degree of `minpoly F α` = cardinality of the orbit finset. -/
+theorem cg19_natDegree_eq_card_orbitFinset (α : E) (hint : IsIntegral F α) :
+    (minpoly F α).natDegree = (Finset.univ.image fun σ : Gal(E/F) => σ α).card := by
+  rw [← Polynomial.natDegree_map_eq_of_injective
+      (FaithfulSMul.algebraMap_injective F E) (minpoly F α),
+    FT.minpoly_eq_prod_orbit α hint]
+  rw [Polynomial.natDegree_prod _ (fun β => X - C β)
+      (fun β _ => by intro h; rw [sub_eq_zero] at h; exact Polynomial.X_ne_C β h)]
+  simp [Finset.sum_const, smul_eq_mul]
+
+/-- FT `cg19` (degrees). The degree of the irreducible factor `minpoly F α` of `f` equals
+the cardinality of its fiber in the root finset. -/
+theorem cg19_factor_natDegree_eq_card_filter (f : F[X]) (hm : f.Monic) (hα : α ∈ cg19Roots f E) :
+    (minpoly F α).natDegree =
+      ((cg19Roots f E).filter (fun β => minpoly F β = minpoly F α)).card := by
+  rw [cg19_rootFinset_filter_eq_orbitFinset f hm hα]
+  exact cg19_natDegree_eq_card_orbitFinset α
+    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα))
+
+/-- **FT `cg19`** (factorization into irreducible factors, in `F[X]`). -/
+theorem cg19_factorization (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+    (hspl : (f.map (algebraMap F E)).Splits) :
+    f = ((cg19Roots f E).image (fun α => minpoly F α)).prod (fun g => g) := by
+  have hE := cg19m f hm hsep hspl
+  have hkey : ∀ g ∈ (cg19Roots f E).image (fun α => minpoly F α),
+      ((cg19Roots f E).filter (fun β => minpoly F β = g)).prod (fun β => X - C β)
+        = g.map (algebraMap F E) := by
+    rintro g hg
+    obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
+    rw [cg19_minpoly_map_eq_prod_filter f hm hα]
+  rw [Finset.prod_congr rfl hkey, ← Polynomial.map_prod] at hE
+  exact Polynomial.map_injective (algebraMap F E) (FaithfulSMul.algebraMap_injective F E) hE
+
+/-- FT `cg19` (degrees of the distinct irreducible factors): `deg f = m₁ + ⋯ + m_r`. -/
+theorem cg19_natDegree_eq_sum_degrees (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+    (hspl : (f.map (algebraMap F E)).Splits) :
+    f.natDegree = ∑ g ∈ (cg19Roots f E).image (fun α => minpoly F α), g.natDegree := by
+  conv_lhs => rw [cg19_factorization f hm hsep hspl]
+  exact Polynomial.natDegree_prod _ (fun g => g) (fun g hg => by
+    obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
+    exact minpoly.ne_zero
+      (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα)))
+
+/-- **FT `cg19`**: orbit factorization with irreducibility and degree = fiber size. -/
+theorem cg19 (f : F[X]) (hm : f.Monic) (hsep : f.Separable)
+    (hspl : (f.map (algebraMap F E)).Splits) :
+    f = ((cg19Roots f E).image (fun α => minpoly F α)).prod (fun g => g)
+      ∧ ∀ g ∈ (cg19Roots f E).image (fun α => minpoly F α),
+          Irreducible g ∧ g.natDegree =
+            ((cg19Roots f E).filter (fun β => minpoly F β = g)).card := by
+  refine ⟨cg19_factorization f hm hsep hspl, fun g hg => ?_⟩
+  obtain ⟨α, hα, rfl⟩ := Finset.mem_image.mp hg
+  exact ⟨minpoly.irreducible
+    (cg19_isIntegral_of_mem_rootSet f hm ((cg19_mem_cg19Roots_iff f α).mp hα)),
+    cg19_factor_natDegree_eq_card_filter f hm hα⟩
+
+end Cg19
+
+/-! ### FT §7 prose (finite fields): `G_f` cyclic, generated by the Frobenius -/
+
+section Cg19F
+
+open Polynomial
+open scoped Classical
+
+variable {F E : Type u} [Field F] [Fintype F] [Field E] [Algebra F E] [FiniteDimensional F E]
+  [IsGalois F E]
+
+/-- **FT §7 prose (finite fields).** `G_f = Gal(E/F)` is cyclic, generated by the Frobenius
+automorphism. -/
+theorem cg19F_gal_eq_zpowers_frobenius :
+    (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic F E) : Subgroup Gal(E/F)) = ⊤ := by
+  haveI : Finite E := Module.finite_of_finite F
+  have hcard : Nat.card Gal(E/F) = Module.finrank F E := IsGalois.card_aut_eq_finrank F E
+  have hord : orderOf (FiniteField.frobeniusAlgEquivOfAlgebraic F E) = Module.finrank F E :=
+    FiniteField.orderOf_frobeniusAlgEquivOfAlgebraic F E
+  refine Subgroup.eq_top_of_card_eq _ ?_
+  rw [Nat.card_zpowers, hord, ← hcard]
+
+/-- **FT §7 prose (finite fields).** The orbit of `α` under `G_f = ⟨σ⟩` is the set of
+Frobenius powers. -/
+theorem cg19F_orbit_eq_range_pow (α : E) :
+    MulAction.orbit Gal(E/F) α
+      = Set.range fun k : ℕ => (FiniteField.frobeniusAlgEquivOfAlgebraic F E ^ k) α := by
+  haveI : Finite E := Module.finite_of_finite F
+  ext x
+  rw [MulAction.mem_orbit_iff, Set.mem_range]
+  constructor
+  · rintro ⟨τ, hτ⟩
+    obtain ⟨n, hn⟩ := (FiniteField.bijective_frobeniusAlgEquivOfAlgebraic_pow F E).2 τ
+    subst hn
+    exact ⟨_, hτ⟩
+  · rintro ⟨k, rfl⟩
+    exact ⟨_, rfl⟩
+
+/-- **FT §7 prose (finite fields).** The length of the Frobenius cycle through a root `α` of
+`f` is the degree of the irreducible factor `minpoly F α` of `f`. -/
+theorem cg19F_card_cycle_eq_natDegree (f : F[X]) (hm : f.Monic) (hα : α ∈ f.rootSet E) :
+    (Set.range fun k : ℕ => (FiniteField.frobeniusAlgEquivOfAlgebraic F E ^ k) α).ncard
+      = (minpoly F α).natDegree := by
+  haveI : Finite E := Module.finite_of_finite F
+  have hint : IsIntegral F α := cg19_isIntegral_of_mem_rootSet f hm hα
+  rw [← cg19F_orbit_eq_range_pow α,
+    congrArg Set.ncard (cg19_orbitSet_eq_orbitFinset α), Set.ncard_coe_finset,
+    ← cg19_natDegree_eq_card_orbitFinset α hint]
+
+end Cg19F
+
+/-! ## FT chapter IV S5: S_p as a Galois group (group-theoretic core) -/
+
+section SpGroup
+
+open Polynomial
+
+/-- Conjugation of a transposition: for any permutation `g` and any two points `a, b`,
+`g * swap a b * g⁻¹` is the transposition of the images `g a` and `g b`. -/
+theorem mul_swap_mul_inv {α : Type*} [DecidableEq α] (g : Equiv.Perm α) (a b : α) :
+    g * Equiv.swap a b * g⁻¹ = Equiv.swap (g a) (g b) := by
+  ext x
+  by_cases hab : a = b
+  · subst hab; simp
+  by_cases h1 : x = g a
+  · subst h1; simp
+  by_cases h2 : x = g b
+  · subst h2; simp
+  · have e3 : (Equiv.symm g) x ≠ a := fun hc => h1 (by rw [← Equiv.apply_symm_apply g x, hc])
+    have e4 : (Equiv.symm g) x ≠ b := fun hc => h2 (by rw [← Equiv.apply_symm_apply g x, hc])
+    show g ((Equiv.swap a b) ((Equiv.symm g) x)) = (Equiv.swap (g a) (g b)) x
+    rw [Equiv.swap_apply_of_ne_of_ne e3 e4, Equiv.swap_apply_of_ne_of_ne h1 h2]
+    exact Equiv.apply_symm_apply g x
+
+/-- The order of an element is preserved by injective group homomorphisms. -/
+theorem orderOf_eq_of_injective {G H : Type*} [Group G] [Group H] (f : G →* H)
+    (hf : Function.Injective f) (g : G) : orderOf (f g) = orderOf g := by
+  have h1 : orderOf (f g) ∣ orderOf g := by
+    apply orderOf_dvd_of_pow_eq_one
+    have e1 : (f g) ^ orderOf g = f (g ^ orderOf g) := (MonoidHom.map_pow f g _).symm
+    have e2 : f (g ^ orderOf g) = f 1 := congrArg f (pow_orderOf_eq_one g)
+    rw [e1, e2, MonoidHom.map_one f]
+  have h2 : orderOf g ∣ orderOf (f g) := by
+    apply orderOf_dvd_of_pow_eq_one
+    have e1 : f (g ^ orderOf (f g)) = (f g) ^ orderOf (f g) := MonoidHom.map_pow f g _
+    have e2 : (f g) ^ orderOf (f g) = 1 := pow_orderOf_eq_one (f g)
+    have e3 : f (g ^ orderOf (f g)) = f 1 := (e1.trans e2).trans (MonoidHom.map_one f).symm
+    exact hf e3
+  exact Nat.dvd_antisymm h1 h2
+
+/-- A permutation of a set with a prime number `p` of elements whose order is `p` is a
+full-support cycle. -/
+theorem isCycle_support_univ_of_orderOf_eq_card_prime {α : Type*} [Fintype α] [DecidableEq α]
+    {p : ℕ} (hp : p.Prime) (hcard : Fintype.card α = p) {σ : Equiv.Perm α}
+    (hσ : orderOf σ = p) : σ.IsCycle ∧ σ.support = Finset.univ := by
+  have hsup : σ.support.card ≤ Fintype.card α := Finset.card_le_card (Finset.subset_univ _)
+  have hp0 : 0 < p := hp.pos
+  have hp1 : 1 < p := hp.one_lt
+  have h1 : σ.support.card < 2 * orderOf σ := by rw [hσ]; omega
+  have hc : σ.IsCycle :=
+    σ.isCycle_of_prime_order (by rw [hσ]; exact hp) h1
+  refine ⟨hc, ?_⟩
+  rw [← Finset.card_eq_iff_eq_univ, ← hc.orderOf, hσ, ← hcard]
+
+/-- FT `cg12`: for `p` prime, the symmetric group on a `p`-element type is generated by any
+transposition and any `p`-cycle. -/
+theorem closure_transposition_prime_cycle {α : Type*} [Fintype α] [DecidableEq α] {p : ℕ}
+    (hp : p.Prime) (hcard : Fintype.card α = p) {σ τ : Equiv.Perm α}
+    (hσ : orderOf σ = p) (hτ : τ.IsSwap) :
+    Subgroup.closure ({σ, τ} : Set (Equiv.Perm α)) = ⊤ :=
+  Equiv.Perm.closure_prime_cycle_swap (by rw [hcard]; exact hp)
+    (isCycle_support_univ_of_orderOf_eq_card_prime hp hcard hσ).1
+    (isCycle_support_univ_of_orderOf_eq_card_prime hp hcard hσ).2 hτ
+
+/-- FT `cg23`: a transitive subgroup `H` of the symmetric group containing a transposition
+and an `(n−1)`-cycle equals the whole symmetric group. -/
+theorem closure_transposition_cycle_of_transitive {α : Type*} [Fintype α] [DecidableEq α]
+    {H : Subgroup (Equiv.Perm α)} {x₀ : α} {σ τ : Equiv.Perm α}
+    (hσ : σ.IsCycle) (hσx : σ x₀ = x₀) (hcard : Fintype.card α = σ.support.card + 1)
+    (hσH : σ ∈ H) (hτ : τ.IsSwap) (hτH : τ ∈ H)
+    (htrans : ∀ a b : α, ∃ g ∈ H, (g : Equiv.Perm α) a = b) :
+    H = ⊤ := by
+  have hx₀ : x₀ ∉ σ.support := by simp [Equiv.Perm.mem_support, hσx]
+  have hsub : σ.support ⊆ {x₀}ᶜ := by
+    intro y hy
+    simp only [Finset.mem_compl, Finset.mem_singleton]
+    intro hy₀
+    subst hy₀
+    exact hx₀ hy
+  have hcard2 : ({x₀}ᶜ : Finset α).card = σ.support.card := by
+    rw [Finset.card_compl, Finset.card_singleton]; omega
+  have hsupp : σ.support = {x₀}ᶜ := Finset.eq_of_subset_of_card_le hsub (by rw [hcard2])
+  obtain ⟨a, b, hab, rfl⟩ := hτ
+  obtain ⟨h, hhH, hha⟩ := htrans a x₀
+  have hw : (h : Equiv.Perm α) b ≠ x₀ := fun hc =>
+    hab (h.injective (hha.trans hc.symm))
+  have hstar : Equiv.swap x₀ ((h : Equiv.Perm α) b) ∈ H := by
+    rw [← hha, ← mul_swap_mul_inv]
+    exact Subgroup.mul_mem H (Subgroup.mul_mem H hhH hτH) (Subgroup.inv_mem H hhH)
+  have pow_x₀ : ∀ k : ℕ, (σ ^ k) x₀ = x₀ := by
+    intro k
+    induction k with
+    | zero => rfl
+    | succ k ih => rw [pow_succ, Equiv.Perm.mul_apply, hσx, ih]
+  have hstar' : ∀ y : α, y ≠ x₀ → Equiv.swap x₀ y ∈ H := by
+    intro y hy
+    have hw' : (h : Equiv.Perm α) b ∈ σ.support := by rw [hsupp]; simp [hw]
+    have hy' : y ∈ σ.support := by rw [hsupp]; simp [hy]
+    obtain ⟨k, hk⟩ :=
+      hσ.exists_pow_eq (Equiv.Perm.mem_support.mp hw') (Equiv.Perm.mem_support.mp hy')
+    have e1 : σ ^ k * Equiv.swap x₀ ((h : Equiv.Perm α) b) * (σ ^ k)⁻¹
+        = Equiv.swap x₀ ((σ ^ k) ((h : Equiv.Perm α) b)) := by
+      rw [mul_swap_mul_inv, pow_x₀]
+    rw [hk] at e1
+    rw [← e1]
+    exact Subgroup.mul_mem H (Subgroup.mul_mem H (Subgroup.pow_mem H hσH k) hstar)
+      (Subgroup.inv_mem H (Subgroup.pow_mem H hσH k))
+  have hall : ∀ u v : α, u ≠ v → Equiv.swap u v ∈ H := by
+    intro u v huv
+    by_cases hu : u = x₀
+    · subst hu; exact hstar' v (fun hc => huv hc.symm)
+    by_cases hv : v = x₀
+    · subst hv
+      rw [Equiv.swap_comm]
+      exact hstar' u hu
+    · have hu' : Equiv.swap u x₀ ∈ H := by rw [Equiv.swap_comm]; exact hstar' u hu
+      have e : Equiv.swap u v = Equiv.swap x₀ v * Equiv.swap u x₀ * Equiv.swap x₀ v := by
+        have h0 : Equiv.swap x₀ v * Equiv.swap u x₀ * Equiv.swap x₀ v
+            = Equiv.swap (Equiv.swap x₀ v u) (Equiv.swap x₀ v x₀) :=
+          mul_swap_mul_inv (Equiv.swap x₀ v) u x₀
+        rw [h0, Equiv.swap_apply_left]
+        by_cases hxv : x₀ = v
+        · subst hxv; simp
+        · rw [Equiv.swap_apply_of_ne_of_ne hu huv]
+      rw [e]
+      exact Subgroup.mul_mem H (Subgroup.mul_mem H (hstar' v hv) hu') (hstar' v hv)
+  rw [eq_top_iff, ← Equiv.Perm.closure_isSwap (α := α), Subgroup.closure_le]
+  rintro τ' hτ'
+  obtain ⟨u, v, huv, rfl⟩ := hτ'
+  exact hall u v huv
+
+/-- Complex conjugation as a `ℚ`-algebra homomorphism `ℂ →ₐ[ℚ] ℂ`. -/
+noncomputable def conjQ : ℂ →ₐ[ℚ] ℂ :=
+  { (starRingEnd ℂ : ℂ →+* ℂ) with
+    commutes' := fun q => RingHom.map_rat_algebraMap (starRingEnd ℂ) q }
+
+@[simp]
+theorem conjQ_apply (z : ℂ) : conjQ z = star z := rfl
+
+/-- Evaluating a rational polynomial at the conjugate of a complex number conjugates the
+value. -/
+theorem eval₂_star (f : ℚ[X]) (x : ℂ) :
+    f.eval₂ (algebraMap ℚ ℂ) (star x) = star (f.eval₂ (algebraMap ℚ ℂ) x) := by
+  have hsrc : ((starRingEnd ℂ : ℂ →+* ℂ).comp (algebraMap ℚ ℂ)) = algebraMap ℚ ℂ :=
+    RingHom.ext (RingHom.map_rat_algebraMap (starRingEnd ℂ))
+  calc f.eval₂ (algebraMap ℚ ℂ) (star x)
+      = f.eval₂ ((starRingEnd ℂ : ℂ →+* ℂ).comp (algebraMap ℚ ℂ)) (starRingEnd ℂ x) := by
+        rw [hsrc, starRingEnd_apply]
+    _ = star (f.eval₂ (algebraMap ℚ ℂ) x) :=
+      (Polynomial.hom_eval₂ f (algebraMap ℚ ℂ) (starRingEnd ℂ) x).symm
+
+/-- Universal-algebra form of `eval₂_star`. -/
+theorem aeval_star (f : ℚ[X]) (x : ℂ) : aeval (star x) f = star (aeval x f) := by
+  rw [aeval_def, aeval_def, eval₂_star]
+
+/-- The conjugate of a (complex) root of a rational polynomial is again a root. -/
+theorem star_rootSet_iff {f : ℚ[X]} {x : ℂ} :
+    star x ∈ f.rootSet ℂ ↔ x ∈ f.rootSet ℂ := by
+  rw [mem_rootSet, mem_rootSet]
+  refine ⟨fun h => ⟨h.1, ?_⟩, fun h => ⟨h.1, ?_⟩⟩
+  · have key := aeval_star f (star x)
+    rw [star_star, h.2, star_zero] at key
+    exact key
+  · rw [aeval_star f x, h.2, star_zero]
+
+/-- Complex conjugation permutes the set of roots of a rational polynomial in `ℂ`. -/
+theorem star_image_rootSet (f : ℚ[X]) : star '' (f.rootSet ℂ) = f.rootSet ℂ := by
+  refine Set.Subset.antisymm ?_ ?_
+  · rintro z ⟨x, hx, rfl⟩
+    exact star_rootSet_iff.mpr hx
+  · intro z hz
+    exact ⟨star z, star_rootSet_iff.mpr hz, star_star z⟩
+
+/-- The canonical map `ℚ → E` into an intermediate field of `ℂ` is injective. -/
+theorem injective_algebraMap_intermediateField (E : IntermediateField ℚ ℂ) :
+    Function.Injective (algebraMap ℚ E) := Rat.cast_injective
+
+/-- The rational embedding `ℚ → ℂ` is injective. -/
+theorem injective_algebraMap_complex : Function.Injective (algebraMap ℚ ℂ) :=
+  FaithfulSMul.algebraMap_injective ℚ ℂ
+
+/-- Root-of-a-rational-polynomial-ness of `x ∈ E` does not depend on whether one evaluates
+in `E` or in `ℂ`. -/
+theorem aeval_E_eq_zero_iff {f : ℚ[X]} {E : IntermediateField ℚ ℂ} (x : E) :
+    aeval x f = 0 ↔ aeval (x : ℂ) f = 0 := by
+  have hcoeeq : ∀ y : E, E.val y = (y : ℂ) := fun y => rfl
+  have hinj : Function.Injective ⇑E.val := by
+    rw [IntermediateField.coe_val E]; exact Subtype.val_injective
+  have happ : ∀ y : E, aeval (E.val y) f = E.val (aeval y f) := fun y =>
+    aeval_algHom_apply E.val y f
+  constructor
+  · intro h
+    rw [← hcoeeq x, happ x, h, map_zero]
+  · intro h
+    rw [← hcoeeq x, happ x] at h
+    exact hinj (by rw [map_zero]; exact h)
+
+/-- Membership in the root set is preserved under passing between an intermediate field
+`E ⊆ ℂ` and `ℂ` itself. -/
+theorem mem_rootSet_intermediateField_iff {f : ℚ[X]} {E : IntermediateField ℚ ℂ} (x : E) :
+    x ∈ f.rootSet E ↔ (x : ℂ) ∈ f.rootSet ℂ := by
+  have hmap : f.map (algebraMap ℚ E) ≠ 0 ↔ f.map (algebraMap ℚ ℂ) ≠ 0 := by
+    rw [Polynomial.map_ne_zero_iff (injective_algebraMap_intermediateField E),
+      Polynomial.map_ne_zero_iff injective_algebraMap_complex]
+  rw [Polynomial.mem_rootSet', Polynomial.mem_rootSet']
+  exact ⟨fun h => ⟨hmap.mp h.1, (aeval_E_eq_zero_iff x).mp h.2⟩,
+    fun h => ⟨hmap.mpr h.1, (aeval_E_eq_zero_iff x).mpr h.2⟩⟩
+
+/-- Complex conjugation restricts to the splitting field. -/
+theorem star_mem_adjoin_rootSet {f : ℚ[X]} {x : ℂ}
+    (hx : x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ)) :
+    star x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) := by
+  have h1 : IntermediateField.adjoin ℚ (f.rootSet ℂ)
+      ≤ IntermediateField.map conjQ (IntermediateField.adjoin ℚ (f.rootSet ℂ)) := by
+    rw [IntermediateField.adjoin_le_iff]
+    intro z hz
+    refine ⟨star z, IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) (star_rootSet_iff.mpr hz), ?_⟩
+    simp
+  obtain ⟨y, hy, rfl⟩ := IntermediateField.mem_map _ |>.mp (h1 hx)
+  rw [conjQ_apply, star_star]
+  exact hy
+
+/-- Complex conjugation maps any intermediate field stable under it onto itself. -/
+theorem map_conjQ_eq_of_star_mem {E : IntermediateField ℚ ℂ} (hstar : ∀ x ∈ E, star x ∈ E) :
+    IntermediateField.map conjQ E = E := by
+  refine le_antisymm ?_ ?_
+  · intro x hx
+    obtain ⟨y, hy, rfl⟩ := IntermediateField.mem_map _ |>.mp hx
+    exact hstar y hy
+  · intro x hx
+    exact ⟨conjQ x, hstar x hx, by simp [conjQ_apply]⟩
+
+/-- An intermediate field equality gives a `ℚ`-algebra equivalence with the identity
+underlying map. -/
+theorem coe_intermediateField_equivOfEq {S T : IntermediateField ℚ ℂ} (h : S = T) (x : ↥S) :
+    ((IntermediateField.equivOfEq h x : ↥T) : ℂ) = (x : ℂ) := rfl
+
+/-- Complex conjugation restricts to a `ℚ`-algebra automorphism of a conjugation-stable
+intermediate field `E ⊆ ℂ` (FT `cg13`, step (3)). -/
+noncomputable def starAlgEquiv {E : IntermediateField ℚ ℂ} (hstar : ∀ x ∈ E, star x ∈ E) :
+    ↥E ≃ₐ[ℚ] ↥E :=
+  (IntermediateField.equivMap _ conjQ).trans
+    (IntermediateField.equivOfEq (map_conjQ_eq_of_star_mem hstar))
+
+/-- The restricted-conjugation automorphism acts as complex conjugation on elements. -/
+theorem starAlgEquiv_apply {E : IntermediateField ℚ ℂ} (hstar : ∀ x ∈ E, star x ∈ E) (x : ↥E) :
+    ((starAlgEquiv hstar x : E) : ℂ) = star (x : ℂ) := by
+  rw [show starAlgEquiv hstar x
+      = IntermediateField.equivOfEq (map_conjQ_eq_of_star_mem hstar)
+        ((IntermediateField.equivMap _ conjQ) x) from rfl,
+    coe_intermediateField_equivOfEq, IntermediateField.coe_equivMap_apply, conjQ_apply]
+
+/-- The action of the Galois-group element obtained by restricting complex conjugation
+(`Polynomial.Gal.restrict` of `starAlgEquiv`) on a root of `f` in `E` is complex
+conjugation of that root. -/
+theorem coe_galActionHom_starAlgEquiv {f : ℚ[X]} {E : IntermediateField ℚ ℂ}
+    [Fact (Polynomial.Splits (f.map (algebraMap ℚ E)))]
+    (hstar : ∀ x ∈ E, star x ∈ E) (x : ↥(f.rootSet E)) :
+    (((Polynomial.Gal.galActionHom f E (Polynomial.Gal.restrict f E (starAlgEquiv hstar)) x :
+      E) : ℂ)) = star (x : ℂ) := by
+  rw [Polynomial.Gal.galActionHom_restrict f E _ x]
+  exact starAlgEquiv_apply hstar _
+
+/-- The `Fact` needed to speak about `Polynomial.Gal.galActionHom f E` for the splitting
+field `E = adjoin ℚ (f.rootSet ℂ)` inside `ℂ`. -/
+theorem splits_fact_adjoin_rootSet {f : ℚ[X]} (hsplits : (f.map (algebraMap ℚ ℂ)).Splits) :
+    Fact (Polynomial.Splits (f.map
+      (algebraMap ℚ (IntermediateField.adjoin ℚ (f.rootSet ℂ))))) :=
+  ⟨(IntermediateField.adjoin_rootSet_isSplittingField hsplits).splits⟩
+
+/-- FT `cg13`: let `f ∈ ℚ[X]` be irreducible of prime degree `p`, let
+`E = ℚ(adjoin the complex roots of f)`, and assume `f` has exactly two non-real roots
+`u, v`.  Then the Galois group `G_f`, acting faithfully on the `p`-element root set
+`f.rootSet E`, maps onto the full permutation group. -/
+theorem galActionHom_range_top_of_two_nonreal_roots {f : ℚ[X]} (hirr : Irreducible f)
+    (hp : f.natDegree.Prime)
+    (hnr : ∃ u v : ℂ, u ∈ f.rootSet ℂ ∧ v ∈ f.rootSet ℂ ∧ star u ≠ u ∧ star v ≠ v ∧
+      ∀ z ∈ f.rootSet ℂ, star z = z ∨ z = u ∨ z = v)
+    [Fact (Polynomial.Splits (f.map (algebraMap ℚ (IntermediateField.adjoin ℚ (f.rootSet ℂ)))))] :
+    (Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))).range = ⊤ := by
+  classical
+  obtain ⟨u, v, hu, hv, hun, hvn, hrest⟩ := hnr
+  have hsep : f.Separable := hirr.separable
+  have hcard : Fintype.card ↥(f.rootSet (IntermediateField.adjoin ℚ (f.rootSet ℂ)))
+      = f.natDegree :=
+    Polynomial.card_rootSet_eq_natDegree hsep Fact.out
+  have hsu : star u = v := by
+    rcases hrest (star u) (star_rootSet_iff.mpr hu) with h | h | h
+    · exact (hun ((star_star u).symm.trans h).symm).elim
+    · exact absurd h hun
+    · exact h
+  have hsv : star v = u := by
+    rcases hrest (star v) (star_rootSet_iff.mpr hv) with h | h | h
+    · exact (hvn ((star_star v).symm.trans h).symm).elim
+    · exact h
+    · exact absurd h hvn
+  have huvlem : u ≠ v := fun hc => hvn ((congrArg star hc).symm.trans hsu)
+  obtain ⟨uE, huEc⟩ : ∃ w : ↥(f.rootSet (IntermediateField.adjoin ℚ (f.rootSet ℂ))), (w : ℂ) = u :=
+    ⟨⟨⟨u, IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) hu⟩,
+      mem_rootSet_intermediateField_iff _ |>.mpr hu⟩, rfl⟩
+  obtain ⟨vE, hvEc⟩ : ∃ w : ↥(f.rootSet (IntermediateField.adjoin ℚ (f.rootSet ℂ))), (w : ℂ) = v :=
+    ⟨⟨⟨v, IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) hv⟩,
+      mem_rootSet_intermediateField_iff _ |>.mpr hv⟩, rfl⟩
+  have huvE : uE ≠ vE := by
+    intro hc
+    apply huvlem
+    have hcoe : (uE : ℂ) = (vE : ℂ) := by rw [hc]
+    exact huEc.symm.trans (hcoe.trans hvEc)
+  haveI : Fact f.natDegree.Prime := ⟨hp⟩
+  obtain ⟨σ, hσ⟩ := exists_prime_orderOf_dvd_card' f.natDegree
+    (Polynomial.Gal.prime_degree_dvd_card hirr hp)
+  have hinj : Function.Injective
+      ⇑(Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))) :=
+    Polynomial.Gal.galActionHom_injective f _
+  have hσ' : orderOf (Polynomial.Gal.galActionHom f
+      (IntermediateField.adjoin ℚ (f.rootSet ℂ)) σ) = f.natDegree :=
+    (orderOf_eq_of_injective _ hinj σ).trans hσ
+  have hstar : ∀ x ∈ (IntermediateField.adjoin ℚ (f.rootSet ℂ)), star x ∈
+      IntermediateField.adjoin ℚ (f.rootSet ℂ) := fun _ hx => star_mem_adjoin_rootSet hx
+  have hswap : (Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))
+      (Polynomial.Gal.restrict f (IntermediateField.adjoin ℚ (f.rootSet ℂ))
+        (starAlgEquiv hstar))).IsSwap := by
+    refine ⟨uE, vE, huvE, ?_⟩
+    ext x
+    by_cases hxu : (x : ℂ) = u
+    · have hxe : x = uE := Subtype.ext (Subtype.ext (hxu.trans huEc.symm))
+      subst hxe
+      rw [coe_galActionHom_starAlgEquiv hstar, huEc, hsu, Equiv.swap_apply_left]
+      exact hvEc.symm
+    by_cases hxv : (x : ℂ) = v
+    · have hxe : x = vE := Subtype.ext (Subtype.ext (hxv.trans hvEc.symm))
+      subst hxe
+      rw [coe_galActionHom_starAlgEquiv hstar, hvEc, hsv, Equiv.swap_apply_right]
+      exact huEc.symm
+    · have hxr : star (x : ℂ) = (x : ℂ) := by
+        rcases hrest (x : ℂ) (mem_rootSet_intermediateField_iff _ |>.mp x.2) with h | h | h
+        · exact h
+        · exact absurd h hxu
+        · exact absurd h hxv
+      rw [coe_galActionHom_starAlgEquiv hstar, hxr,
+        Equiv.swap_apply_of_ne_of_ne (fun hc => hxu (by rw [hc]; exact huEc))
+          (fun hc => hxv (by rw [hc]; exact hvEc))]
+  have hsub : Subgroup.closure ({Polynomial.Gal.galActionHom f
+        (IntermediateField.adjoin ℚ (f.rootSet ℂ)) σ,
+      Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))
+        (Polynomial.Gal.restrict f (IntermediateField.adjoin ℚ (f.rootSet ℂ))
+          (starAlgEquiv hstar))} :
+      Set (Equiv.Perm ↥(f.rootSet (IntermediateField.adjoin ℚ (f.rootSet ℂ))))) ≤
+      (Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))).range := by
+    rw [Subgroup.closure_le]
+    intro π hπ
+    rcases Set.mem_insert_iff.mp hπ with rfl | hπ
+    · exact ⟨σ, rfl⟩
+    · rw [Set.mem_singleton_iff] at hπ
+      exact ⟨_, hπ.symm⟩
+  have hclose := closure_transposition_prime_cycle hp hcard hσ' hswap
+  refine le_antisymm le_top ?_
+  rw [← hclose]
+  exact hsub
+
+/-- FT `cg13` (packaging): under the hypotheses of
+`galActionHom_range_top_of_two_nonreal_roots`, the Galois group `G_f` acts faithfully and
+surjectively on the root set, i.e. `G_f ≅ S_p` via `Polynomial.Gal.galActionHom`. -/
+theorem galActionHom_bijective_of_two_nonreal_roots {f : ℚ[X]} (hirr : Irreducible f)
+    (hp : f.natDegree.Prime)
+    (hnr : ∃ u v : ℂ, u ∈ f.rootSet ℂ ∧ v ∈ f.rootSet ℂ ∧ star u ≠ u ∧ star v ≠ v ∧
+      ∀ z ∈ f.rootSet ℂ, star z = z ∨ z = u ∨ z = v)
+    [Fact (Polynomial.Splits (f.map (algebraMap ℚ (IntermediateField.adjoin ℚ (f.rootSet ℂ)))))] :
+    Function.Bijective
+      (Polynomial.Gal.galActionHom f (IntermediateField.adjoin ℚ (f.rootSet ℂ))) :=
+  ⟨Polynomial.Gal.galActionHom_injective f _,
+    MonoidHom.range_eq_top.mp (galActionHom_range_top_of_two_nonreal_roots hirr hp hnr)⟩
+
+/-- FT `cg13` (numeric packaging): `|G_f| = p!`, the order of the symmetric group `S_p`. -/
+theorem card_gal_of_two_nonreal_roots {f : ℚ[X]} (hirr : Irreducible f)
+    (hp : f.natDegree.Prime)
+    (hnr : ∃ u v : ℂ, u ∈ f.rootSet ℂ ∧ v ∈ f.rootSet ℂ ∧ star u ≠ u ∧ star v ≠ v ∧
+      ∀ z ∈ f.rootSet ℂ, star z = z ∨ z = u ∨ z = v)
+    [Fact (Polynomial.Splits (f.map (algebraMap ℚ (IntermediateField.adjoin ℚ (f.rootSet ℂ)))))] :
+    Nat.card f.Gal = f.natDegree.factorial := by
+  classical
+  have hb := galActionHom_bijective_of_two_nonreal_roots hirr hp hnr
+  rw [Nat.card_eq_fintype_card, Fintype.card_of_bijective hb, Fintype.card_perm,
+    Polynomial.card_rootSet_eq_natDegree hirr.separable Fact.out]
+
+end SpGroup
+
+/-!
 Note (chapter-3 delta audit 149d60a, remediated): the five audit gaps are resolved
 as follows.  (1) FT `ft13` (a) (conjugates = roots of the minimal polynomial) is
 recorded as pending in the chapter III ledger.  (2) FT `ft18` (b) (normal/Galois
