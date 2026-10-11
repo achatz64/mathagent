@@ -89,21 +89,12 @@ reviews whether the returned declaration exposes all source clauses.
 
 ## Scheduling and tool sequence
 
-Keep the main agent and all useful worker slots productive. When independent
-proof, source-extraction, API-search, audit, or consolidation tasks are
-available, launch them up to the configured concurrency limit ("maxWorkers"
-in `.pi/subagents.json`, currently 8). Terminal workers occupy a slot until
-collected with dispose (the `subagent_collect` default) or aborted;
-`subagent_status` reports the cap, free slots, and collectible worker ids. As
-workers run,
-the main agent continues integration, semantic review, REPL checking,
-documentation, or infrastructure work; it must not wait merely because one
-worker is live.
-
-Wait for a worker only when its result is the next actual dependency and no
-independent main-agent work remains. Before waiting, fill any idle worker slots
-with useful independent tasks where possible. Do not manufacture redundant work
-just to occupy a slot.
+Keep the main agent and all useful worker slots productive: launch independent
+tasks up to the concurrency limit (`maxWorkers` in `.pi/subagents.json`), and
+while workers run, continue integration, review, REPL checking, or
+infrastructure work — never wait merely because one worker is live. Wait for a
+worker only when its result is the next actual dependency and no independent
+work remains. Do not manufacture redundant work just to occupy slots.
 
 ## Decomposition and checkpoint discipline (ratified 2026-09-20)
 
