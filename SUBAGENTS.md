@@ -130,12 +130,16 @@ just to occupy a slot.
 - **Persist on receipt (main owns persistence).** Workers cannot write files;
   their transcripts live only in memory and are lost on dispose and on main-agent
   compaction. The moment a verified Lean block is received (via wait or stream),
-  the main agent writes it verbatim to a staging file (`staging/…`, committed)
-  or directly into the target before doing anything else. A collected-and-disposed
-  worker whose earlier streamed messages are not yet on disk means that content
-  is permanently gone (chapter-IV incident, 2026-10-10: five verified blocks
-  lost to compaction and re-derived). Deliver the final report only *after* the
-  code text of the batch is staged.
+  the main agent writes it verbatim to a staging file (`tmp/staging/…`)
+  or directly into the target (`lean/Target.lean` — the only persistent file
+  across sessions; `tmp/` is disposable and deleted when the work is done)
+  before doing anything else, and integrates it into the target in the same
+  session. A collected-and-disposed worker whose earlier streamed messages
+  are not yet on disk means that content is permanently gone (chapter-IV
+  incident, 2026-10-10: five verified blocks lost to compaction and re-derived).
+  Deliver the final report only *after* the code text of the batch is staged.
+  Un-integrated staging files are an UNCLEAN state: staging exists only as an
+  integration queue, not a deliverable store.
 - **Mid-flight steering.** Workers regress to bad habits (consolidated
   mega-calls, hoarding) after several turns. Read every progress-stream update
   for strategy drift and steer in the same turn it is observed; reminders are not
