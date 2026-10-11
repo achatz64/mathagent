@@ -29,18 +29,10 @@ more general Mathlib theorem. This style minimizes custom proof terms while keep
 
 ## Bundle the mathematical object, not its prose encoding
 
-The source often describes a theorem as several sentences and a diagram.  Lean
-usually already has a bundled object carrying all those laws:
-
-- an `OrderIso` is better than separately proving both directions of subgroup
-  correspondence and inclusion preservation;
-- a `MulEquiv` is better than a tuple containing a homomorphism plus injectivity
-  and surjectivity;
-- a `Subgroup` construction is better than a carrier set plus repeated closure
-  lemmas.
-
-Choosing the right bundle is the most effective way to keep proof construction small.  It also makes statement fidelity easier to review: the bundle's
-type exposes exactly which structure is preserved.
+Prefer Lean's bundled objects (`OrderIso`, `MulEquiv`, `Subgroup`) over
+unbundled encodings (two direction-proofs, a homomorphism-plus-properties
+tuple, a carrier set with repeated closure lemmas). The bundle's type exposes
+exactly which structure is preserved and keeps proof construction small.
 
 ## Missing APIs and source proofs
 
