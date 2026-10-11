@@ -15,6 +15,7 @@ import Mathlib.NumberTheory.Cyclotomic.Gal
 import Mathlib.FieldTheory.KummerExtension
 import Mathlib.RingTheory.Polynomial.Eisenstein.Basic
 import Mathlib.RingTheory.Polynomial.Eisenstein.IsIntegral
+import Mathlib.Analysis.Complex.Polynomial.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 import Mathlib.FieldTheory.Finite.Basic
 import Mathlib.FieldTheory.Finite.GaloisField
@@ -9312,21 +9313,40 @@ indeterminates (`FT.sum_X_mul_C_inj`) and the integrality of θ over F(T)
 
 Pending (chapter IV ledger):
 - `cg3` (remark: sign of D(f) = (−1)^s for 2s nonreal roots; conjugation argument).
-- `cg5`/`cg6` inseparable clauses (f = X² − a in char 2 / X³ − a in char 3, a ∉ F²).
-- Concrete cubic instances of `cg6` (FT.tex ≈3783-3790): X³−3X+1 irreducible over ℚ
-  (via `ef5`) with Galois group A₃ via discriminant 81 = 9², and X³+3X+1 irreducible
-  (via `ef4`) with Galois group S₃ via discriminant −135 — pending (each needs the
-  concrete discriminant computation plus the dichotomy
-  `FT.cubic_galCard_three_iff_discriminant_square`).
+- RESOLVED: `cg5`/`cg6` inseparable clauses —
+  `FT.irreducible_quad_inseparable_iff`/`FT.irreducible_cubic_inseparable_iff`
+  (with the necessary degree hypotheses; a ∉ F²/F³ via
+  `X_pow_sub_C_irreducible_iff_of_prime`).
+- RESOLVED: concrete cubic instances of `cg6` (FT.tex ≈3783-3790) —
+  X³−3X+1 irreducible over ℚ (parity route `FT.oddValuesDepressedCubics` + Gauss,
+  `FT.irreducible_X3_sub_3X_add_1`), discriminant 81 = 9² ⇒ |Gal| = 3, i.e. A₃
+  (`FT.galCard_splittingField_X3_sub_3X_add_1_eq_three` + transitivity);
+  X³+3X+1 irreducible (`FT.irreducible_X3_add_3X_add_1`), discriminant −135 not a
+  ℚ-square ⇒ |Gal| = 6, i.e. S₃ (`FT.galCard_splittingField_X3_add_3X_add_1_eq_six`
+  + transitivity); packaging `FT.cubicExampleData` (splitting field
+  ℚ(rootSet ℂ), distinct roots, Vieta factorization; instance work via
+  `Complex.isAlgClosed`).
+- RESOLVED (Dedekind step (1)): f(X,T) = ∏_σ (X − σ_T θ) descends to F[X,T] —
+  `FT.dedekindThetaProduct` (the definition), `FT.map_dedekindThetaProduct`
+  (a root-permuting endomorphism fixes f(X,T), by factor reindexing),
+  `FT.gal_fixed_mem_range`/`FT.exists_mvPolynomialF_of_gal_fixed` (Galois-fixed
+  scalars/polynomials descend from E to F),
+  `FT.exists_dedekindThetaProduct_descended` (monic descent of degree m!).
+- RESOLVED (Dedekind step (4), conditionally): the cg21 Frobenius cycle-type core —
+  `FT.orbit_eq_rootSet_of_irreducible_factor`,
+  `FT.orbitCard_eq_natDegree_of_irreducible_factor` (orbits on roots = root sets /
+  cardinalities = degrees of the irreducible factors),
+  `FT.gal_eq_zpowers_frobenius'` (Frobenius generates Gal(E/F), universe-general),
+  `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`,
+  `FT.frobeniusOrbitCards_eq_factorDegrees`, and the cg21 assembly
+  `FT.exists_cycleType_of_factorDegrees` — with the cg20 conclusion `G_f̄ ⊆ G_f`
+  abstracted as the hypotheses `_hc_root`/`_hι`/`hcompat`/`hinj`; awaiting steps
+  (2)/(3).
 - `cg14` (Eisenstein + nonreal-roots example for S_p), `cg14a` (unproven computational
   assertion in the source; scope).
 - Dedekind's theorem `cg20`/`cg21` and examples `cg22`/`cg24`: the θ-trick toolkit plus
-  the θ-integrality over F(T) are in place; still missing: (1) the fact that
-  f(X,T) = ∏_σ (X − σ_T θ) has coefficients in F[X,T] — route found: the coefficients
-  are Galois-fixed (σ_α merely permutes the factors) hence in F(T₁,…,T_m), and lie in
-  F(α₁,…,α_m)[T], so the field-Gauss lemma F(α)[T] ∩ F(T) = F[T] (coprime factors stay
-  coprime over field extensions) finishes; no multivariate symmetric-polynomial
-  packaging needed; (2) the ⟸ (surjectivity) direction of the cg25 isomorphism
+  the θ-integrality over F(T) are in place; steps (1) and (4) above are delivered;
+  still open: (2) the ⟸ (surjectivity) direction of the cg25 isomorphism
   σ ↦ σ_α: blocked on the coefficientwise-extension construction “τ : E ≃ₐ[F] E
   extends to E(T₁,…,T_m) and further to the splitting field of f(X,T)” — Mathlib
   v4.31 has the atoms but no assembled extension theorem — DESIGN skeleton, to be
@@ -13964,6 +13984,1146 @@ theorem algClosure_zmod (p : ℕ) [Fact p.Prime] :
     IsAlgClosure (ZMod p) (AlgebraicClosure (ZMod p)) := inferInstance
 
 end FiniteFields
+
+
+/-! ### Integration wave 3: cg3/cg5/cg6/§4/§8 remainder blocks (see chapter IV ledger) -/
+
+-- staging/ch4_w23_insep.lean — worker w23 (label w21-insep-clauses-cg5cg6), delivered verbatim.
+-- FT cg5/cg6 inseparable clauses. Integration notes:
+-- * Uses Target's `not_separable_X_pow_sub_C` (FT ft2, ~Target.lean:3764) — must precede.
+-- * Deviation vs. request: added degree hypotheses `f.natDegree = 2/3` (mathematically
+--   necessary; without them the iff is false, cf. X⁴−T over 𝔽₂(T)).
+-- * CharP produced from `(p : F) = 0` via private helper `charP_of_natCast_eq_zero`.
+
+
+section CgDegree23Inseparable
+
+open Polynomial
+
+variable {F : Type u} [Field F]
+
+/-- FT cg5/cg6 (auxiliary).  In a field `F`, a prime `p` with `(p : F) = 0` gives `CharP F p`:
+`ringChar F` divides `p`, hence equals `p` (it cannot be `1` since `(1 : F) ≠ 0`). -/
+private theorem charP_of_natCast_eq_zero {p : ℕ} (hp : Nat.Prime p) (hpF : (p : F) = 0) :
+    CharP F p := by
+  haveI hchar0 : CharP F (ringChar F) := ringChar.charP F
+  rcases (Nat.dvd_prime hp).mp (ringChar.dvd hpF) with h1 | hp'
+  · exact absurd ((CharP.cast_eq_zero_iff F (ringChar F) 1).mpr (by rw [h1]))
+      (by norm_num : ((1 : ℕ) : F) ≠ 0)
+  · exact ringChar.of_eq hp'
+
+/-- FT cg5 (inseparable clause).  For a monic irreducible quadratic `f ∈ F[X]`
+(`f.natDegree = 2`), `f` is inseparable iff `F` has characteristic `2` and
+`f = X ^ 2 - C a` for some `a ∈ F ∖ F ^ 2`.  (Milne's statement "a polynomial of degree 2"
+is encoded by the degree hypothesis `hf2`; without it the equivalence is false, cf.
+`X ^ 4 - C t` over `𝔽₂(t)`.)
+
+Proof idea.  (⇒) `¬Separable` forces `derivative f = 0`
+(`Polynomial.separable_iff_derivative_ne_zero`); comparing coefficients via
+`Polynomial.coeff_derivative` gives `(2 : F) = 0` (whence `CharP F 2` by
+`charP_of_natCast_eq_zero`) and `f.coeff 1 = 0`, so `f = X ^ 2 - C (-f.coeff 0)` by
+coefficient comparison (`Polynomial.ext`).  If `b ^ 2 = a`, then `f = X ^ 2 - C (b ^ 2)` is
+irreducible (`hirr`) yet Mathlib's `X_pow_sub_C_irreducible_iff_of_prime` makes its
+irreducibility equivalent to `b ^ 2 ≠ b ^ 2` — contradiction.  (⇐) `not_separable_X_pow_sub_C`
+(FT `ft2`): in characteristic `2` the derivative of `X ^ 2 - C a` vanishes and
+`IsCoprime f 0` would make `f` a unit. -/
+theorem irreducible_quad_inseparable_iff {f : F[X]} (hf : f.Monic) (hf2 : f.natDegree = 2)
+    (hirr : Irreducible f) :
+    ¬ f.Separable ↔ CharP F 2 ∧ ∃ a : F, f = X ^ 2 - C a ∧ ¬ ∃ b : F, b ^ 2 = a := by
+  constructor
+  · -- (⇒) derivative f = 0, coefficient comparison, a := -f.coeff 0 ∉ F ^ 2
+    intro hns
+    have hf' : derivative f = 0 := by
+      by_contra h
+      exact hns ((separable_iff_derivative_ne_zero hirr).2 h)
+    have h2f : f.coeff 2 = 1 := by rw [← hf2]; exact hf
+    have e1 : f.coeff 2 * (2 : F) = 0 := by
+      have h : (derivative f).coeff 1 = f.coeff 2 * (2 : F) := by
+        rw [coeff_derivative]
+        norm_num
+      rw [hf', coeff_zero] at h
+      exact h.symm
+    rw [h2f] at e1
+    have h2F : (2 : F) = 0 := by rwa [one_mul] at e1
+    haveI hchar : CharP F 2 := charP_of_natCast_eq_zero Nat.prime_two h2F
+    have e0 : f.coeff 1 * (1 : F) = 0 := by
+      have h : (derivative f).coeff 0 = f.coeff 1 * (1 : F) := by
+        rw [coeff_derivative]
+        norm_num
+      rw [hf', coeff_zero] at h
+      exact h.symm
+    have hb0 : f.coeff 1 = 0 := by rwa [mul_one] at e0
+    have hfX : f = X ^ 2 - C (-f.coeff 0) := by
+      ext n
+      match n with
+      | 0 => simp
+      | 1 => simp [hb0]
+      | 2 => simp [h2f]
+      | n + 3 =>
+        have hL : f.coeff (n + 3) = 0 :=
+          Polynomial.coeff_eq_zero_of_natDegree_lt (by rw [hf2]; omega)
+        simp [hL]
+    refine ⟨hchar, -f.coeff 0, hfX, ?_⟩
+    rintro ⟨b, hb⟩
+    have hirr' : Irreducible (X ^ 2 - C (b ^ 2)) := by
+      rw [hb, ← hfX]
+      exact hirr
+    exact (X_pow_sub_C_irreducible_iff_of_prime Nat.prime_two).mp hirr' b rfl
+  · -- (⇐) FT ft2: in characteristic 2, X ^ 2 - C a is inseparable
+    rintro ⟨hchar, a, rfl, -⟩
+    exact not_separable_X_pow_sub_C Nat.prime_two a
+
+/-- FT cg6 (inseparable clause).  For a monic irreducible cubic `f ∈ F[X]`
+(`f.natDegree = 3`), `f` is inseparable iff `F` has characteristic `3` and
+`f = X ^ 3 - C a` for some `a ∈ F ∖ F ^ 3`.  (The irreducibility hypothesis is Milne's "we
+can assume `f` to be irreducible": a reducible square `(X - α) ^ 2` in characteristic ≠ 2
+also fails to be separable, so degree/irreducibility is what makes the clause correct.)
+
+Proof idea.  (⇒) `¬Separable` forces `derivative f = 0`
+(`Polynomial.separable_iff_derivative_ne_zero`); comparing coefficients via
+`Polynomial.coeff_derivative` gives `(3 : F) = 0` (whence `CharP F 3` by
+`charP_of_natCast_eq_zero`), then `f.coeff 2 = 0` since `(2 : F) ≠ 0` in characteristic `3`
+(otherwise `1 = 3 - 2 = 0`), and `f.coeff 1 = 0`, so `f = X ^ 3 - C (-f.coeff 0)` by
+coefficient comparison (`Polynomial.ext`).  If `b ^ 3 = a`, then `f = X ^ 3 - C (b ^ 3)` is
+irreducible (`hirr`) yet Mathlib's `X_pow_sub_C_irreducible_iff_of_prime` makes its
+irreducibility equivalent to `b ^ 3 ≠ b ^ 3` — contradiction.  (⇐) `not_separable_X_pow_sub_C`
+(FT `ft2`): in characteristic `3` the derivative of `X ^ 3 - C a` vanishes and
+`IsCoprime f 0` would make `f` a unit. -/
+theorem irreducible_cubic_inseparable_iff {f : F[X]} (hf : f.Monic) (hf3 : f.natDegree = 3)
+    (hirr : Irreducible f) :
+    ¬ f.Separable ↔ CharP F 3 ∧ ∃ a : F, f = X ^ 3 - C a ∧ ¬ ∃ b : F, b ^ 3 = a := by
+  constructor
+  · -- (⇒) derivative f = 0, coefficient comparison, a := -f.coeff 0 ∉ F ^ 3
+    intro hns
+    have hf' : derivative f = 0 := by
+      by_contra h
+      exact hns ((separable_iff_derivative_ne_zero hirr).2 h)
+    have h3f : f.coeff 3 = 1 := by rw [← hf3]; exact hf
+    have e2 : f.coeff 3 * (3 : F) = 0 := by
+      have h : (derivative f).coeff 2 = f.coeff 3 * (3 : F) := by
+        rw [coeff_derivative]
+        norm_num
+      rw [hf', coeff_zero] at h
+      exact h.symm
+    rw [h3f] at e2
+    have h3F : (3 : F) = 0 := by rwa [one_mul] at e2
+    haveI hchar : CharP F 3 := charP_of_natCast_eq_zero Nat.prime_three h3F
+    have h2ne : (2 : F) ≠ 0 := by
+      intro h2
+      have h31 : (3 : F) = (2 : F) + (1 : F) := by norm_num
+      have hsum : (2 : F) + (1 : F) = 0 := by rw [← h31]; exact h3F
+      rw [h2] at hsum
+      have h1 : (1 : F) = 0 := by
+        calc (1 : F) = (0 : F) + (1 : F) := (zero_add (1 : F)).symm
+          _ = 0 := hsum
+      exact one_ne_zero h1
+    have e1 : f.coeff 2 * (2 : F) = 0 := by
+      have h : (derivative f).coeff 1 = f.coeff 2 * (2 : F) := by
+        rw [coeff_derivative]
+        norm_num
+      rw [hf', coeff_zero] at h
+      exact h.symm
+    have hp0 : f.coeff 2 = 0 := by
+      rcases mul_eq_zero.mp e1 with hc | hc
+      · exact hc
+      · exact absurd hc h2ne
+    have e0 : f.coeff 1 * (1 : F) = 0 := by
+      have h : (derivative f).coeff 0 = f.coeff 1 * (1 : F) := by
+        rw [coeff_derivative]
+        norm_num
+      rw [hf', coeff_zero] at h
+      exact h.symm
+    have hq0 : f.coeff 1 = 0 := by rwa [mul_one] at e0
+    have hfX : f = X ^ 3 - C (-f.coeff 0) := by
+      ext n
+      match n with
+      | 0 => simp
+      | 1 => simp [hq0]
+      | 2 => simp [hp0]
+      | 3 => simp [h3f]
+      | n + 4 =>
+        have hL : f.coeff (n + 4) = 0 :=
+          Polynomial.coeff_eq_zero_of_natDegree_lt (by rw [hf3]; omega)
+        simp [hL]
+    refine ⟨hchar, -f.coeff 0, hfX, ?_⟩
+    rintro ⟨b, hb⟩
+    have hirr' : Irreducible (X ^ 3 - C (b ^ 3)) := by
+      rw [hb, ← hfX]
+      exact hirr
+    exact (X_pow_sub_C_irreducible_iff_of_prime Nat.prime_three).mp hirr' b rfl
+  · -- (⇐) FT ft2: in characteristic 3, X ^ 3 - C a is inseparable
+    rintro ⟨hchar, a, rfl, -⟩
+    exact not_separable_X_pow_sub_C Nat.prime_three a
+
+end CgDegree23Inseparable
+
+-- staging/ch4_w22_cubicex.lean — worker w22, delivered verbatim (transcription slips to fix
+-- at integration: "push Not at hcon" → push_neg; "refine hm.irreducible_iff_natDegree,
+-- and_iff_right hf1]" malformed; verify names irreducible_iff_natDegree etc. in REPL).
+-- Setup: E explicit parameter with hE : E = adjoin ℚ (rootSet ℂ) (TC-search workaround);
+-- four main theorems need maxHeartbeats 1000000. Axioms: propext/Classical.choice/Quot.sound.
+/-! ## FT chapter IV §3 (cg6): the two concrete cubic examples `X³ − 3X + 1` and `X³ + 3X + 1` -/
+
+section Cg6CubicExamples
+
+open Polynomial
+
+/-- FT cg6 (auxiliary).  Coefficients of the depressed cubic `X³ − a·X + b`. -/
+theorem coeffDepressedCubic {K : Type*} [CommRing K] (a b : K) (n : ℕ) :
+    (X ^ 3 - C a * X + C b : K[X]).coeff n
+      = if n = 3 then 1 else if n = 1 then -a else if n = 0 then b else 0 := by
+  rcases n with _ | _ | _ | _ | n
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  · simp only [Polynomial.coeff_add, Polynomial.coeff_sub, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C,
+      if_neg (show ¬((n:ℕ)+4 = 3) by omega),
+      if_neg (show ¬((n:ℕ)+4 = 1) by omega),
+      if_neg (show ¬((n:ℕ)+4 = 0) by omega)]
+    norm_num
+
+/-- FT cg6 (auxiliary).  The depressed cubic `X³ − a·X + b` is monic of degree `3` (for
+`1 ≠ 0` in `K`). -/
+theorem monicNatDegreeDepressedCubic {K : Type*} [CommRing K] [Nontrivial K] {a b : K} :
+    (X ^ 3 - C a * X + C b : K[X]).Monic ∧ (X ^ 3 - C a * X + C b : K[X]).natDegree = 3 := by
+  have hle : (X ^ 3 - C a * X + C b : K[X]).natDegree ≤ 3 := by
+    rw [Polynomial.natDegree_le_iff_coeff_eq_zero]
+    intro N hN
+    rw [coeffDepressedCubic]
+    split_ifs with h3c h1c h0c
+    · omega
+    · omega
+    · omega
+    · rfl
+  have hc : (X ^ 3 - C a * X + C b : K[X]).coeff 3 ≠ 0 := by
+    rw [coeffDepressedCubic]
+    norm_num
+  have hnd := le_antisymm hle
+    (Nat.le_of_not_gt fun hlt => hc (Polynomial.coeff_eq_zero_of_natDegree_lt hlt))
+  refine ⟨?_, hnd⟩
+  rw [Polynomial.Monic.def, Polynomial.leadingCoeff, hnd, coeffDepressedCubic]
+  norm_num
+
+/-- FT cg6 (auxiliary).  A monic degree-one factor `X + c` of `f` over an integral domain
+gives the root `−c` of `f`. -/
+theorem rootOfMonicFactorNatDegreeOne {K : Type*} [CommRing K] {f g h : K[X]}
+    (he : g * h = f) (hg : g.Monic) (h1 : g.natDegree = 1) :
+    f.eval (-(g.coeff 0)) = 0 := by
+  rw [← he, Polynomial.eval_mul, hg.eq_X_add_C h1]
+  simp
+
+/-- FT cg6 (auxiliary, `ef4`/`ef5` route).  A monic cubic over an integral domain with no root
+in the domain is irreducible: any nontrivial factorization has a monic degree-one factor
+`X + c`, whose negated constant term is a root. -/
+theorem irreducibleMonicCubicOfNoRoot {K : Type*} [CommRing K] [IsDomain K] {f : K[X]}
+    (hm : f.Monic) (h3 : f.natDegree = 3) (hno : ∀ a : K, f.eval a ≠ 0) : Irreducible f := by
+  have hf1 : f ≠ 1 := by
+    intro h
+    rw [h, Polynomial.natDegree_one] at h3
+    simp at h3
+  rw [hm.irreducible_iff_natDegree, and_iff_right hf1]
+  intro g h hg hh he
+  have hg0 : g ≠ 0 := hg.ne_zero
+  have hh0 : h ≠ 0 := hh.ne_zero
+  have hsum : g.natDegree + h.natDegree = 3 := by
+    have h0 : (g * h).natDegree = 3 := by rw [he]; exact h3
+    rw [Polynomial.natDegree_mul hg0 hh0] at h0
+    exact h0
+  by_contra hcon
+  push Not at hcon
+  have hchoice : g.natDegree = 1 ∨ h.natDegree = 1 := by omega
+  rcases hchoice with hdeg1 | hdeg1
+  · exact hno (-(g.coeff 0)) (rootOfMonicFactorNatDegreeOne he hg hdeg1)
+  · rw [mul_comm g h] at he
+    exact hno (-(h.coeff 0)) (rootOfMonicFactorNatDegreeOne he hh hdeg1)
+
+/-- FT cg6 (auxiliary for the root tests `ef4`/`ef5`).  Both depressed cubics `t³ − 3t + 1` and
+`t³ + 3t + 1` take odd values at every integer `t`, hence have no integer root. -/
+theorem oddValuesDepressedCubics (r : ℤ) :
+    (r ^ 3 - 3 * r + 1 : ℤ) % 2 = 1 ∧ (r ^ 3 + 3 * r + 1 : ℤ) % 2 = 1 := by
+  rcases Int.even_or_odd r with ⟨k, hk⟩ | ⟨k, hk⟩
+  · subst hk
+    refine ⟨?_, ?_⟩
+    · have h2 : (k + k) ^ 3 - 3 * (k + k) + 1 = 1 + 2 * (4 * k ^ 3 - 3 * k) := by ring
+      rw [h2]
+      omega
+    · have h2 : (k + k) ^ 3 + 3 * (k + k) + 1 = 1 + 2 * (4 * k ^ 3 + 3 * k) := by ring
+      rw [h2]
+      omega
+  · subst hk
+    refine ⟨?_, ?_⟩
+    · have h2 : (2 * k + 1) ^ 3 - 3 * (2 * k + 1) + 1 = 1 + 2 * (4 * k ^ 3 + 6 * k ^ 2 - 1) := by
+        ring
+      rw [h2]
+      omega
+    · have h2 : (2 * k + 1) ^ 3 + 3 * (2 * k + 1) + 1 = 1 + 2 * (4 * k ^ 3 + 6 * k ^ 2 + 6 * k + 2) := by
+        ring
+      rw [h2]
+      omega
+
+/-- FT cg6 (auxiliary).  Integer evaluation of `X³ − 3X + 1` and of `X³ − (−3)·X + 1`. -/
+theorem evalX3SubInt (r : ℤ) :
+    eval r (X ^ 3 - C (3:ℤ) * X + C (1:ℤ) : ℤ[X]) = r ^ 3 - 3 * r + 1 ∧
+    eval r (X ^ 3 - C (-(3:ℤ)) * X + C (1:ℤ) : ℤ[X]) = r ^ 3 + 3 * r + 1 := by
+  refine ⟨?_, ?_⟩ <;>
+  · simp [Polynomial.eval_add, Polynomial.eval_sub, Polynomial.eval_mul, Polynomial.eval_pow,
+      Polynomial.eval_X]
+
+/-- FT ef5 (rational root test): `X³ − 3X + 1` is irreducible over `ℤ` (its values at integers
+are odd, by `oddValuesDepressedCubics`), hence over `ℚ` by Gauss's lemma
+(`Polynomial.Monic.irreducible_iff_irreducible_map_fraction_map`). -/
+theorem irreducible_X3_sub_3X_add_1 : Irreducible (X ^ 3 - C 3 * X + C 1 : ℚ[X]) := by
+  have hmap : (X ^ 3 - C 3 * X + C 1 : ℚ[X])
+      = (X ^ 3 - C (3:ℤ) * X + C (1:ℤ) : ℤ[X]).map (algebraMap ℤ ℚ) := by
+    refine Polynomial.ext fun n => ?_
+    simp only [Polynomial.coeff_map, Polynomial.coeff_add, Polynomial.coeff_sub,
+      Polynomial.coeff_C_mul, Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  rw [hmap]
+  exact (Polynomial.Monic.irreducible_iff_irreducible_map_fraction_map
+    (monicNatDegreeDepressedCubic (K := ℤ) (a := 3) (b := 1)).1).mp
+    (irreducibleMonicCubicOfNoRoot (monicNatDegreeDepressedCubic (K := ℤ) (a := 3) (b := 1)).1
+      (monicNatDegreeDepressedCubic (K := ℤ) (a := 3) (b := 1)).2
+      (by intro r hr
+          have hodd := (oddValuesDepressedCubics r).1
+          rw [(evalX3SubInt r).1] at hr
+          rw [hr] at hodd
+          norm_num at hodd))
+
+/-- FT ef4 (rational root test): `X³ + 3X + 1` is irreducible over `ℤ` (its values at integers
+are odd, by `oddValuesDepressedCubics`), hence over `ℚ` by Gauss's lemma. -/
+theorem irreducible_X3_add_3X_add_1 : Irreducible (X ^ 3 + C 3 * X + C 1 : ℚ[X]) := by
+  have hmap : (X ^ 3 - C (-(3:ℚ)) * X + C 1 : ℚ[X])
+      = (X ^ 3 - C (-(3:ℤ)) * X + C (1:ℤ) : ℤ[X]).map (algebraMap ℤ ℚ) := by
+    refine Polynomial.ext fun n => ?_
+    simp only [Polynomial.coeff_map, Polynomial.coeff_add, Polynomial.coeff_sub,
+      Polynomial.coeff_C_mul, Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C]
+    norm_num
+  have hform : (X ^ 3 + C 3 * X + C 1 : ℚ[X])
+      = (X ^ 3 - C (-(3:ℚ)) * X + C 1 : ℚ[X]) := by
+    simp only [Polynomial.C_neg]
+    rw [sub_eq_add_neg, neg_mul, neg_neg]
+  rw [hform, hmap]
+  exact (Polynomial.Monic.irreducible_iff_irreducible_map_fraction_map
+    (monicNatDegreeDepressedCubic (K := ℤ) (a := -(3:ℤ)) (b := 1)).1).mp
+    (irreducibleMonicCubicOfNoRoot (monicNatDegreeDepressedCubic (K := ℤ) (a := -(3:ℤ)) (b := 1)).1
+      (monicNatDegreeDepressedCubic (K := ℤ) (a := -(3:ℤ)) (b := 1)).2
+      (by intro r hr
+          have hodd := (oddValuesDepressedCubics r).2
+          rw [(evalX3SubInt r).2] at hr
+          rw [hr] at hodd
+          norm_num at hodd))
+
+/-- FT cg6 (setup for the two cubic examples).  For `f : ℚ[X]` monic, separable, irreducible
+of degree `3` that splits over `ℂ`, the field `E := IntermediateField.adjoin ℚ (f.rootSet ℂ)`
+is a finite Galois splitting field of `f`, and `f` has three pairwise distinct roots
+`u, v, w ∈ E` realizing the factorization `f = (X − u)(X − v)(X − w)` over `E` and generating
+the root set. -/
+theorem cubicExampleData {f : ℚ[X]} (hmq : f.Monic) (hsep : f.Separable)
+    (_hirr : Irreducible f) (h3q : f.natDegree = 3) :
+    ∃ (E : IntermediateField ℚ ℂ), E = IntermediateField.adjoin ℚ (f.rootSet ℂ) ∧
+      f.IsSplittingField ℚ ↥E ∧ IsGalois ℚ ↥E ∧ FiniteDimensional ℚ ↥E ∧
+      (f.map (algebraMap ℚ ↥E)).Splits ∧ IntermediateField.adjoin ℚ (f.rootSet ↥E) = ⊤ ∧
+      ∃ u v w : ↥E, f.map (algebraMap ℚ ↥E) = (X - C u) * (X - C v) * (X - C w) ∧
+        u ≠ v ∧ u ≠ w ∧ v ≠ w ∧ (Polynomial.aeval u) f = 0 ∧
+        (Polynomial.aeval v) f = 0 ∧ (Polynomial.aeval w) f = 0 ∧
+        ∀ x ∈ f.rootSet ↥E, x = u ∨ x = v ∨ x = w := by
+  classical
+  haveI : IsAlgClosed ℂ := Complex.isAlgClosed
+  have hsplitC : (f.map (algebraMap ℚ ℂ)).Splits := IsAlgClosed.splits _
+  haveI hsp : f.IsSplittingField ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
+    IntermediateField.adjoin_rootSet_isSplittingField hsplitC
+  have hsplit : (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).Splits :=
+    hsp.splits
+  haveI hgal : IsGalois ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
+    IsGalois.of_separable_splitting_field hsep
+  haveI hfd : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
+    Polynomial.IsSplittingField.finiteDimensional _ f
+  have hgen : IntermediateField.adjoin ℚ
+      (f.rootSet ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) = ⊤ := by
+    refine top_le_iff.mp (fun x _ => ?_)
+    exact IntermediateField.algebra_adjoin_le_adjoin ℚ
+      (f.rootSet ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :
+        Set ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))
+      (by rw [Polynomial.IsSplittingField.adjoin_rootSet
+        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) f]; trivial)
+  obtain ⟨u, v, w, hR, huv, huw, hvw, hchar⟩ := cubic_roots_extract hmq hsep hsplit h3q
+  have hcard : (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).roots.card
+      = (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).natDegree := by
+    rw [(Polynomial.splits_iff_card_roots).mp hsplit]
+  have hfac : f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))
+      = (X - C u) * (X - C v) * (X - C w) := by
+    rw [← Polynomial.prod_multiset_X_sub_C_of_monic_of_roots_card_eq
+      (hmq.map (algebraMap ℚ _)) hcard, hR]
+    simp
+    ring
+  refine ⟨IntermediateField.adjoin ℚ (f.rootSet ℂ), rfl, hsp, hgal, hfd, hsplit, hgen,
+    u, v, w, hfac, huv, huw, hvw, ?_, ?_, ?_, fun x hx => (hchar x).mp hx⟩
+  · exact (Polynomial.mem_rootSet.mp (hchar u |>.mpr (Or.inl rfl))).2
+  · exact (Polynomial.mem_rootSet.mp (hchar v |>.mpr (Or.inr (Or.inl rfl)))).2
+  · exact (Polynomial.mem_rootSet.mp (hchar w |>.mpr (Or.inr (Or.inr rfl)))).2
+
+set_option maxHeartbeats 1000000 in
+/-- FT cg6, first cubic example.  `X³−3X+1` irreducible, discriminant 81 = 9², |Gal| = 3. -/
+theorem galCard_splittingField_X3_sub_3X_add_1_eq_three (E : IntermediateField ℚ ℂ)
+    (hE : E = IntermediateField.adjoin ℚ ((X ^ 3 - C 3 * X + C 1 : ℚ[X]).rootSet ℂ)) :
+    Nat.card Gal(↥E/ℚ) = 3 := by
+  classical
+  set f : ℚ[X] := X ^ 3 - C 3 * X + C 1 with hfdef
+  have hmq : f.Monic := (monicNatDegreeDepressedCubic (K := ℚ) (a := 3) (b := 1)).1
+  have h3 : f.natDegree = 3 := (monicNatDegreeDepressedCubic (K := ℚ) (a := 3) (b := 1)).2
+  have hirr : Irreducible f := irreducible_X3_sub_3X_add_1
+  have hsep : f.Separable := hirr.separable
+  obtain ⟨E₀, hE₀, hsp, hgal, hfd, hsplit, hgen, u, v, w, hfac, huv, huw, hvw, hu, hv, hw, hchar⟩ :=
+    cubicExampleData hmq hsep hirr h3
+  haveI : IsGalois ℚ ↥E₀ := hgal
+  haveI : FiniteDimensional ℚ ↥E₀ := hfd
+  have hEE : E₀ = E := hE₀.trans hE.symm
+  rw [← hEE]
+  have hsign : (X ^ 3 + C (-(3 : ↥E₀)) * X + C 1 : Polynomial ↥E₀)
+      = (X - C u) * (X - C v) * (X - C w) := by
+    have hmp : map (algebraMap ℚ ↥E₀) f
+        = (X ^ 3 + C (-(3 : ↥E₀)) * X + C 1 : Polynomial ↥E₀) := by
+      rw [hfdef]
+      simp only [Polynomial.map_add, Polynomial.map_sub, Polynomial.map_mul, Polynomial.map_C,
+        Polynomial.map_pow, Polynomial.map_X]
+      norm_num
+      rw [← sub_eq_add_neg]
+    rw [← hmp, hfac]
+  obtain hD := disc_cubic_vieta hsign
+  rw [← cubic_galCard_three_iff_discriminant_square hmq hsep hirr h3 hsplit hgen
+    (by norm_num : (2:ℚ) ≠ 0)]
+  refine ⟨u, v, w, hu, hv, hw, huv, huw, hvw, 9, ?_⟩
+  rw [← map_mul, mul_pow, mul_pow, hD]
+  norm_num
+
+set_option maxHeartbeats 1000000 in
+/-- FT cg6, second cubic example.  `X³+3X+1` irreducible, discriminant −135 not a square, |Gal| = 6. -/
+theorem galCard_splittingField_X3_add_3X_add_1_eq_six (E : IntermediateField ℚ ℂ)
+    (hE : E = IntermediateField.adjoin ℚ ((X ^ 3 + C 3 * X + C 1 : ℚ[X]).rootSet ℂ)) :
+    Nat.card Gal(↥E/ℚ) = 6 := by
+  classical
+  set f : ℚ[X] := X ^ 3 - C (-(3:ℚ)) * X + C 1 with hfdef
+  have hform : (X ^ 3 + C 3 * X + C 1 : ℚ[X]) = f := by
+    rw [hfdef, Polynomial.C_neg, neg_mul, sub_neg_eq_add]
+  have hmq : f.Monic := (monicNatDegreeDepressedCubic (K := ℚ) (a := -(3:ℚ)) (b := 1)).1
+  have h3 : f.natDegree = 3 := (monicNatDegreeDepressedCubic (K := ℚ) (a := -(3:ℚ)) (b := 1)).2
+  have hirr : Irreducible f := by rw [← hform]; exact irreducible_X3_add_3X_add_1
+  have hsep : f.Separable := hirr.separable
+  have hf0 : f ≠ 0 := hmq.ne_zero
+  rw [hform] at hE
+  obtain ⟨E₀, hE₀, hsp, hgal, hfd, hsplit, hgen, u, v, w, hfac, huv, huw, hvw, hu, hv, hw, hchar⟩ :=
+    cubicExampleData hmq hsep hirr h3
+  haveI : IsGalois ℚ ↥E₀ := hgal
+  haveI : FiniteDimensional ℚ ↥E₀ := hfd
+  have hEE : E₀ = E := hE₀.trans hE.symm
+  rw [← hEE]
+  have hsign : (X ^ 3 + C 3 * X + C 1 : Polynomial ↥E₀)
+      = (X - C u) * (X - C v) * (X - C w) := by
+    have hmp : map (algebraMap ℚ ↥E₀) f
+        = (X ^ 3 + C 3 * X + C 1 : Polynomial ↥E₀) := by
+      rw [hfdef]
+      simp only [Polynomial.map_add, Polynomial.map_sub, Polynomial.map_mul, Polynomial.map_C,
+        Polynomial.map_pow, Polynomial.map_X]
+      norm_num
+    rw [← hmp, hfac]
+  obtain hD := disc_cubic_vieta hsign
+  have hD' : ((u - v) * (u - w) * (v - w)) ^ 2 = (-(135 : ↥E₀)) := by
+    rw [mul_pow, mul_pow, hD]
+    norm_num
+  have hcontra : ∀ t : ℚ, algebraMap ℚ ↥E₀ t * algebraMap ℚ ↥E₀ t
+      = ((u - v) * (u - w) * (v - w)) ^ 2 → False := by
+    intro t ht
+    rw [hD'] at ht
+    rw [← map_mul] at ht
+    have h2 : (-(135 : ↥E₀)) = algebraMap ℚ ↥E₀ (-(135:ℚ)) := by norm_num
+    rw [h2] at ht
+    have hsq : (t * t : ℚ) = -(135:ℚ) := injective_algebraMap_intermediateField E₀ ht
+    have hnn : (0:ℚ) ≤ t * t := by rw [← sq]; exact sq_nonneg t
+    rw [hsq] at hnn
+    norm_num at hnn
+  obtain ⟨-, -, hdisj⟩ := cubic_galCard_count hmq hsep hirr h3 hsplit hgen
+  rcases hdisj with h3c | h6c
+  · exfalso
+    obtain ⟨u', v', w', hu'', hv'', hw'', hu'v', hu'w', hv'w', t, ht⟩ :=
+      (cubic_galCard_three_iff_discriminant_square hmq hsep hirr h3 hsplit hgen
+        (by norm_num : (2:ℚ) ≠ 0)).mpr h3c
+    have hu'm : u' ∈ f.rootSet ↥E₀ := Polynomial.mem_rootSet.mpr ⟨hf0, hu''⟩
+    have hv'm : v' ∈ f.rootSet ↥E₀ := Polynomial.mem_rootSet.mpr ⟨hf0, hv''⟩
+    have hw'm : w' ∈ f.rootSet ↥E₀ := Polynomial.mem_rootSet.mpr ⟨hf0, hw''⟩
+    rcases triple_perm_cases (hchar u' hu'm) (hchar v' hv'm) (hchar w' hw'm)
+      hu'v' hu'w' hv'w' with hc | hc | hc | hc | hc | hc
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      exact hcontra t ht
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      rw [(by ring : ((u' - v') * (u' - w') * (v' - w')) ^ 2
+          = ((v' - u') * (v' - w') * (u' - w')) ^ 2)] at ht
+      exact hcontra t ht
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      rw [(by ring : ((u' - v') * (u' - w') * (v' - w')) ^ 2
+          = ((w' - v') * (w' - u') * (v' - u')) ^ 2)] at ht
+      exact hcontra t ht
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      rw [(by ring : ((u' - v') * (u' - w') * (v' - w')) ^ 2
+          = ((u' - w') * (u' - v') * (w' - v')) ^ 2)] at ht
+      exact hcontra t ht
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      rw [(by ring : ((u' - v') * (u' - w') * (v' - w')) ^ 2
+          = ((w' - u') * (w' - v') * (u' - v')) ^ 2)] at ht
+      exact hcontra t ht
+    · obtain ⟨rfl, rfl, rfl⟩ := hc
+      rw [(by ring : ((u' - v') * (u' - w') * (v' - w')) ^ 2
+          = ((v' - w') * (v' - u') * (w' - u')) ^ 2)] at ht
+      exact hcontra t ht
+  · exact h6c
+
+set_option maxHeartbeats 1000000 in
+/-- FT cg6, first cubic example (transitivity clause). -/
+theorem gal_transitive_splittingField_X3_sub_3X_add_1 (E : IntermediateField ℚ ℂ)
+    (hE : E = IntermediateField.adjoin ℚ ((X ^ 3 - C 3 * X + C 1 : ℚ[X]).rootSet ℂ)) :
+    ∀ α ∈ (X ^ 3 - C 3 * X + C 1 : ℚ[X]).rootSet ↥E,
+      ∀ β ∈ (X ^ 3 - C 3 * X + C 1 : ℚ[X]).rootSet ↥E, ∃ σ : Gal(↥E/ℚ), σ α = β := by
+  classical
+  set f : ℚ[X] := X ^ 3 - C 3 * X + C 1 with hfdef
+  have hmq : f.Monic := (monicNatDegreeDepressedCubic (K := ℚ) (a := 3) (b := 1)).1
+  have h3 : f.natDegree = 3 := (monicNatDegreeDepressedCubic (K := ℚ) (a := 3) (b := 1)).2
+  have hirr : Irreducible f := irreducible_X3_sub_3X_add_1
+  have hsep : f.Separable := hirr.separable
+  obtain ⟨E₀, hE₀, hsp, hgal, hfd, hsplit, hgen, u, v, w, hfac, huv, huw, hvw, hu, hv, hw, hchar⟩ :=
+    cubicExampleData hmq hsep hirr h3
+  haveI : IsGalois ℚ ↥E₀ := hgal
+  haveI : FiniteDimensional ℚ ↥E₀ := hfd
+  have hEE : E₀ = E := hE₀.trans hE.symm
+  rw [← hEE]
+  exact (gal_transitive_iff_irreducible hmq hsep hsplit (by rw [h3]; norm_num)).mp hirr
+
+set_option maxHeartbeats 1000000 in
+/-- FT cg6, second cubic example (transitivity clause). -/
+theorem gal_transitive_splittingField_X3_add_3X_add_1 (E : IntermediateField ℚ ℂ)
+    (hE : E = IntermediateField.adjoin ℚ ((X ^ 3 + C 3 * X + C 1 : ℚ[X]).rootSet ℂ)) :
+    ∀ α ∈ (X ^ 3 + C 3 * X + C 1 : ℚ[X]).rootSet ↥E,
+      ∀ β ∈ (X ^ 3 + C 3 * X + C 1 : ℚ[X]).rootSet ↥E, ∃ σ : Gal(↥E/ℚ), σ α = β := by
+  classical
+  set f : ℚ[X] := X ^ 3 - C (-(3:ℚ)) * X + C 1 with hfdef
+  have hform : (X ^ 3 + C 3 * X + C 1 : ℚ[X]) = f := by
+    rw [hfdef, Polynomial.C_neg, neg_mul, sub_neg_eq_add]
+  have hmq : f.Monic := (monicNatDegreeDepressedCubic (K := ℚ) (a := -(3:ℚ)) (b := 1)).1
+  have h3 : f.natDegree = 3 := (monicNatDegreeDepressedCubic (K := ℚ) (a := -(3:ℚ)) (b := 1)).2
+  have hirr : Irreducible f := by rw [← hform]; exact irreducible_X3_add_3X_add_1
+  have hsep : f.Separable := hirr.separable
+  rw [hform] at hE
+  obtain ⟨E₀, hE₀, hsp, hgal, hfd, hsplit, hgen, u, v, w, hfac, huv, huw, hvw, hu, hv, hw, hchar⟩ :=
+    cubicExampleData hmq hsep hirr h3
+  haveI : IsGalois ℚ ↥E₀ := hgal
+  haveI : FiniteDimensional ℚ ↥E₀ := hfd
+  have hEE : E₀ = E := hE₀.trans hE.symm
+  rw [← hEE, hform]
+  exact (gal_transitive_iff_irreducible hmq hsep hsplit (by rw [h3]; norm_num)).mp hirr
+
+end Cg6CubicExamples
+
+-- staging/ch4_w24_ftXT.lean — worker w24, delivered verbatim.
+-- FT IV §8: Galois-invariance of the van der Waerden product f(X,T) (cg20/cg25 setup).
+-- Notes: Theorem A (rename-invariance) skipped as instructed (not needed); strong Theorem C
+-- delivered (monic degree m! descent). API notes: MvPolynomial.finset_sum_coeff gone
+-- (own mvcoeff_finset_sum); Polynomial.finset_sum_coeff → finsetSum_coeff;
+-- Polynomial.le_natDegree → le_natDegree_of_ne_zero; natDegree_le_of_coeff_eq_zero →
+-- natDegree_le_iff_coeff_eq_zero.mpr. End-to-end verified (temp W-suffixes, stripped here);
+-- axioms: propext, Classical.choice, Quot.sound only.
+
+/-! ## FT IV §8: Galois-invariance of the van der Waerden product `f(X,T)` (cg20/cg25) -/
+
+section DedekindThetaProduct
+
+open Polynomial Equiv
+
+variable {m : ℕ} {R : Type*} [CommRing R]
+
+/-- Reindexing lemma: permuting the index set of the product over all root permutations
+along the equiv `ρ ↦ τ.symm.trans ρ` (the involution `ρ ↦ ρ.symm` followed by
+post-composition with `τ`) leaves the product unchanged. -/
+theorem prod_perm_equiv {R : Type*} [CommRing R] (G : Equiv.Perm (Fin m) → Polynomial R)
+    (τ : Equiv.Perm (Fin m)) :
+    ∏ ρ : Equiv.Perm (Fin m), G (τ.symm.trans ρ) = ∏ ρ : Equiv.Perm (Fin m), G ρ := by
+  refine Finset.prod_bij (fun ρ _ => τ.symm.trans ρ) (fun a _ => Finset.mem_univ _) ?_
+    (fun b _ => ⟨τ.trans b, Finset.mem_univ _, ?_⟩) (fun a _ => rfl)
+  · intro a₁ _ a₂ _ h
+    have h2 : τ.trans (τ.symm.trans a₁) = τ.trans (τ.symm.trans a₂) := by rw [h]
+    rw [← Equiv.trans_assoc, ← Equiv.trans_assoc, Equiv.self_trans_symm, Equiv.refl_trans] at h2
+    exact h2
+  · rw [← Equiv.trans_assoc, Equiv.symm_trans_self, Equiv.refl_trans]
+
+/-- **FT IV §8 (van der Waerden/Dedekind setup, cg20/cg25):** the polynomial
+`f(X,T) = ∏_{σ ∈ S_m} (X − σ_T θ)` in `Polynomial (MvPolynomial (Fin m) R)`, where
+`θ = T₁α₁ + ⋯ + T_mα_m` is `dedekindTheta α` and the `T`-permutation `σ_T` acts on `θ`
+as `dedekindTheta (α ∘ σ.symm)` (FT `dedekindTheta_rename`). -/
+noncomputable def dedekindThetaProduct (α : Fin m → R) : Polynomial (MvPolynomial (Fin m) R) :=
+  ∏ ρ : Equiv.Perm (Fin m), (Polynomial.X - Polynomial.C (dedekindTheta (α ∘ ρ.symm)))
+
+/-- A ring endomorphism `σ : R →+* R` permuting the root list `α` (via `τ`) maps the
+linear factor with index `ρ` to the factor with index `τ.symm.trans ρ`: the factors of
+`f(X,T)` are permuted. -/
+theorem map_dedekindTheta_factor (σ : R →+* R) (α : Fin m → R) (τ : Equiv.Perm (Fin m))
+    (h : ∀ i, σ (α i) = α (τ i)) (ρ : Equiv.Perm (Fin m)) :
+    MvPolynomial.map σ (dedekindTheta (α ∘ ρ.symm)) = dedekindTheta (α ∘ ⇑(τ.symm.trans ρ).symm) := by
+  rw [map_dedekindTheta]
+  congr 1
+  funext i
+  simp only [Function.comp_apply]
+  rw [Equiv.symm_trans, Equiv.symm_symm, Equiv.trans_apply]
+  exact h _
+
+/-- **FT IV §8, Galois-invariance of the factor set:** if the ring endomorphism `σ`
+permutes the root list `α` (σ(αᵢ) = α_{τ(i)}), then `σ` fixes `f(X,T)`: it only
+permutes the linear factors of the product. -/
+theorem map_dedekindThetaProduct (σ : R →+* R) (α : Fin m → R) (τ : Equiv.Perm (Fin m))
+    (h : ∀ i, σ (α i) = α (τ i)) :
+    Polynomial.map (MvPolynomial.map σ) (dedekindThetaProduct α) = dedekindThetaProduct α := by
+  unfold dedekindThetaProduct
+  rw [Polynomial.map_prod]
+  have hpt : ∀ ρ : Equiv.Perm (Fin m),
+      Polynomial.map (MvPolynomial.map σ) (X - C (dedekindTheta (α ∘ ρ.symm))) =
+      (X - C (dedekindTheta (α ∘ ⇑(τ.symm.trans ρ).symm))) := by
+    intro ρ
+    rw [Polynomial.map_sub, Polynomial.map_X (MvPolynomial.map σ),
+      Polynomial.map_C (MvPolynomial.map σ), map_dedekindTheta_factor σ α τ h ρ]
+  calc ∏ ρ : Equiv.Perm (Fin m),
+        Polynomial.map (MvPolynomial.map σ) (X - C (dedekindTheta (α ∘ ρ.symm)))
+      = ∏ ρ : Equiv.Perm (Fin m), (X - C (dedekindTheta (α ∘ ⇑(τ.symm.trans ρ).symm))) :=
+        Finset.prod_congr rfl (fun ρ _ => hpt ρ)
+    _ = ∏ ρ : Equiv.Perm (Fin m), (X - C (dedekindTheta (α ∘ ρ.symm))) :=
+        prod_perm_equiv (fun ω => (X - C (dedekindTheta (α ∘ ω.symm)))) τ
+
+/-- Coefficients are additive: the coefficient of a finite sum of multivariate
+polynomials is the sum of the coefficients. -/
+theorem mvcoeff_finset_sum {R σ : Type*} [CommSemiring R] [DecidableEq σ] {ι : Type*}
+    (d : σ →₀ ℕ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
+    MvPolynomial.coeff d (∑ a ∈ s, f a) = ∑ a ∈ s, MvPolynomial.coeff d (f a) := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp
+  | insert a s ha ih =>
+      rw [Finset.sum_insert ha, Finset.sum_insert ha, MvPolynomial.coeff_add, ih]
+
+end DedekindThetaProduct
+
+section DedekindThetaGalois
+
+open Polynomial Equiv
+
+variable {m : ℕ} {F E : Type*} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+  [FiniteDimensional F E]
+
+/-- A scalar of `E` fixed by every `F`-automorphism lies in the image of
+`algebraMap F E`: the fixed field of Gal(E/F) is `F` (Artin, via
+`IsGalois.fixedField_top` and `IntermediateField.mem_bot`). -/
+theorem gal_fixed_mem_range (c : E) (hc : ∀ σ : E ≃ₐ[F] E, σ c = c) :
+    c ∈ Set.range (algebraMap F E) := by
+  have h1 : c ∈ IntermediateField.fixedField (⊤ : Subgroup (E ≃ₐ[F] E)) := by
+    rw [IntermediateField.mem_fixedField_iff]
+    intro s _
+    exact hc s
+  rw [IsGalois.fixedField_top] at h1
+  exact IntermediateField.mem_bot.mp h1
+
+/-- A multivariate polynomial over `E` fixed coefficientwise by Gal(E/F) descends to
+`F[T₁,…,T_m]`: pick `F`-preimages of the (finitely many) fixed monomial coefficients
+and reassemble the polynomial as a sum of monomials. -/
+theorem exists_mvPolynomialF_of_gal_fixed (c : MvPolynomial (Fin m) E)
+    (hc : ∀ σ : E ≃ₐ[F] E, MvPolynomial.map (σ.toRingHom) c = c) :
+    ∃ q : MvPolynomial (Fin m) F, MvPolynomial.map (algebraMap F E) q = c := by
+  have hcoeff : ∀ d : Fin m →₀ ℕ, MvPolynomial.coeff d c ∈ Set.range (algebraMap F E) := by
+    intro d
+    refine gal_fixed_mem_range _ (fun σ => ?_)
+    have h1 : MvPolynomial.coeff d (MvPolynomial.map (σ.toRingHom) c)
+        = MvPolynomial.coeff d c := by rw [hc σ]
+    rwa [MvPolynomial.coeff_map] at h1
+  choose g hg using fun d => Set.mem_range.mp (hcoeff d)
+  refine ⟨∑ d ∈ c.support, MvPolynomial.monomial d (g d), ?_⟩
+  apply MvPolynomial.ext
+  intro d
+  rw [map_sum (MvPolynomial.map (algebraMap F E)),
+    mvcoeff_finset_sum d c.support
+      (fun d' => MvPolynomial.map (algebraMap F E) (MvPolynomial.monomial d' (g d')))]
+  simp only [MvPolynomial.map_monomial, MvPolynomial.coeff_monomial]
+  by_cases hd : d ∈ c.support
+  · rw [Finset.sum_eq_single d (fun b _ hb => if_neg hb) (fun h => absurd hd h)]
+    rw [if_pos rfl, hg d]
+  · rw [Finset.sum_eq_zero (fun b hb => if_neg (fun h => hd (by rw [← h]; exact hb)))]
+    have h0 : MvPolynomial.coeff d c = 0 := not_not.mp (MvPolynomial.mem_support_iff.not.mp hd)
+    rw [h0]
+
+omit [IsGalois F E] [FiniteDimensional F E] in
+/-- **FT IV §8, Theorem B (ii):** when the root list `α` is Galois-stable (each
+`σ ∈ Gal(E/F)` permutes it), every `X`-coefficient of `f(X,T) = dedekindThetaProduct α`
+— itself an element of `E[T₁,…,T_m]` — is fixed by the Galois action on coefficients. -/
+theorem dedekindThetaProduct_coeff_fixed (α : Fin m → E)
+    (hstab : ∀ σ : E ≃ₐ[F] E, ∃ τ : Equiv.Perm (Fin m), ∀ i, σ (α i) = α (τ i))
+    (σ : E ≃ₐ[F] E) (n : ℕ) :
+    MvPolynomial.map (σ.toRingHom) ((dedekindThetaProduct α).coeff n)
+      = (dedekindThetaProduct α).coeff n := by
+  obtain ⟨τ, hτ⟩ := hstab σ
+  rw [← Polynomial.coeff_map, map_dedekindThetaProduct σ.toRingHom α τ hτ]
+
+/-- Every monomial coefficient (in the `T`-variables) of every `X`-coefficient of
+`f(X,T)` lies in the image of `algebraMap F E`, i.e. is a Galois-invariant element
+of `E` (hence of `F`, embedded in `E`). -/
+theorem dedekindThetaProduct_monomialCoeff_mem_range (α : Fin m → E)
+    (hstab : ∀ σ : E ≃ₐ[F] E, ∃ τ : Equiv.Perm (Fin m), ∀ i, σ (α i) = α (τ i))
+    (n : ℕ) (d : Fin m →₀ ℕ) :
+    MvPolynomial.coeff d ((dedekindThetaProduct α).coeff n) ∈ Set.range (algebraMap F E) := by
+  refine gal_fixed_mem_range _ (fun σ => ?_)
+  have h1 : MvPolynomial.coeff d
+      (MvPolynomial.map (σ.toRingHom) ((dedekindThetaProduct α).coeff n))
+      = MvPolynomial.coeff d ((dedekindThetaProduct α).coeff n) := by
+    rw [dedekindThetaProduct_coeff_fixed α hstab σ n]
+  rwa [MvPolynomial.coeff_map] at h1
+
+/-- **FT IV §8, Theorem B (iii):** every `X`-coefficient of `f(X,T)` is the image of a
+polynomial `q ∈ F[T₁,…,T_m]`, i.e. lies in the range of `MvPolynomial.map (algebraMap F E)`. -/
+theorem exists_mvPolynomialF_dedekindThetaProduct_coeff (α : Fin m → E)
+    (hstab : ∀ σ : E ≃ₐ[F] E, ∃ τ : Equiv.Perm (Fin m), ∀ i, σ (α i) = α (τ i))
+    (n : ℕ) :
+    ∃ q : MvPolynomial (Fin m) F,
+      MvPolynomial.map (algebraMap F E) q = (dedekindThetaProduct α).coeff n := by
+  refine exists_mvPolynomialF_of_gal_fixed _ (fun σ => ?_)
+  exact dedekindThetaProduct_coeff_fixed α hstab σ n
+
+/-- Each `X`-coefficient of `f(X,T)` belongs to the image of the coefficient embedding
+`F[T₁,…,T_m] ↪ E[T₁,…,T_m]`. -/
+theorem dedekindThetaProduct_coeff_in_map_range (α : Fin m → E)
+    (hstab : ∀ σ : E ≃ₐ[F] E, ∃ τ : Equiv.Perm (Fin m), ∀ i, σ (α i) = α (τ i))
+    (n : ℕ) :
+    (dedekindThetaProduct α).coeff n ∈ Set.range (MvPolynomial.map (algebraMap F E)) := by
+  obtain ⟨q, hq⟩ := exists_mvPolynomialF_dedekindThetaProduct_coeff α hstab n
+  exact ⟨q, hq⟩
+
+end DedekindThetaGalois
+
+section DedekindThetaGalois2
+
+open Polynomial Equiv
+
+variable {m : ℕ} {F E : Type*} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+  [FiniteDimensional F E]
+
+/-- **FT IV §8, Theorem C:** `f(X,T) = ∏_{σ ∈ S_m} (X − σ_T θ)` is, for a Galois-stable
+root list `α`, the image of a **monic** polynomial `q ∈ (F[T₁,…,T_m])[X]` of degree
+`m!` (the number of permutations of `Fin m`): the coefficients of `f(X,T)` are fixed
+by Gal(E/F) (coefficientwise invariance), hence descend to `F[T₁,…,T_m]`, and the
+product of the `m!` monic linear factors is monic of degree `m!`. -/
+theorem exists_dedekindThetaProduct_descended (α : Fin m → E)
+    (hstab : ∀ σ : E ≃ₐ[F] E, ∃ τ : Equiv.Perm (Fin m), ∀ i, σ (α i) = α (τ i)) :
+    ∃ q : Polynomial (MvPolynomial (Fin m) F), q.Monic ∧ q.natDegree = m.factorial ∧
+      Polynomial.map (MvPolynomial.map (algebraMap F E)) q = dedekindThetaProduct α := by
+  have hchoice : ∀ n : ℕ, ∃ q : MvPolynomial (Fin m) F,
+      MvPolynomial.map (algebraMap F E) q = (dedekindThetaProduct α).coeff n :=
+    fun n => exists_mvPolynomialF_dedekindThetaProduct_coeff α hstab n
+  choose g hg using hchoice
+  have hmonic : (dedekindThetaProduct α).Monic := by
+    show (dedekindThetaProduct α).leadingCoeff = 1
+    unfold dedekindThetaProduct
+    rw [Polynomial.leadingCoeff_prod]
+    exact Finset.prod_eq_one (fun ρ _ => Polynomial.Monic.leadingCoeff (Polynomial.monic_X_sub_C _))
+  have hdeg : (dedekindThetaProduct α).natDegree = m.factorial := by
+    unfold dedekindThetaProduct
+    rw [Polynomial.natDegree_prod (Finset.univ : Finset (Equiv.Perm (Fin m)))
+      (fun ρ => (X - C (dedekindTheta (α ∘ ρ.symm))))
+      (fun ρ _ => sub_ne_zero_of_ne (Polynomial.X_ne_C _))]
+    simp only [Polynomial.natDegree_X_sub_C]
+    rw [Finset.sum_const, Finset.card_univ, Fintype.card_perm, Fintype.card_fin]
+    simp
+  have hc1 : (dedekindThetaProduct α).coeff (dedekindThetaProduct α).natDegree = 1 :=
+    Polynomial.Monic.leadingCoeff hmonic
+  have hQcoeff : ∀ n : ℕ, (∑ k ∈ (dedekindThetaProduct α).support,
+      Polynomial.monomial k (g k)).coeff n
+      = if n ∈ (dedekindThetaProduct α).support then g n else 0 := by
+    intro n
+    rw [Polynomial.finsetSum_coeff _ _ n]
+    simp only [Polynomial.coeff_monomial]
+    by_cases hn : n ∈ (dedekindThetaProduct α).support
+    · rw [Finset.sum_eq_single n (fun b _ hb => if_neg hb) (fun h => absurd hn h)]
+      simp [hn]
+    · rw [Finset.sum_eq_zero (fun b hb => if_neg (fun h => hn (by rw [← h]; exact hb)))]
+      simp [hn]
+  have hmap : Polynomial.map (MvPolynomial.map (algebraMap F E))
+      (∑ k ∈ (dedekindThetaProduct α).support, Polynomial.monomial k (g k))
+      = dedekindThetaProduct α := by
+    refine Polynomial.ext (fun n => ?_)
+    rw [Polynomial.coeff_map, hQcoeff n]
+    by_cases hn : n ∈ (dedekindThetaProduct α).support
+    · rw [if_pos hn, hg n]
+    · rw [if_neg hn, map_zero]
+      have : (dedekindThetaProduct α).coeff n = 0 :=
+        not_not.mp (Polynomial.mem_support_iff.not.mp hn)
+      rw [this]
+  have hinj : Function.Injective
+      (MvPolynomial.map (algebraMap F E) :
+        MvPolynomial (Fin m) F → MvPolynomial (Fin m) E) :=
+    MvPolynomial.map_injective _ (FaithfulSMul.algebraMap_injective F E)
+  have hQN : (∑ k ∈ (dedekindThetaProduct α).support, Polynomial.monomial k (g k)).coeff
+      (dedekindThetaProduct α).natDegree = 1 := by
+    have hmem : (dedekindThetaProduct α).natDegree ∈ (dedekindThetaProduct α).support := by
+      rw [Polynomial.mem_support_iff, hc1]
+      simp
+    rw [hQcoeff _, if_pos hmem]
+    have htop : MvPolynomial.map (algebraMap F E)
+        (g (dedekindThetaProduct α).natDegree) = 1 := by
+      rw [hg _, hc1]
+    exact hinj (by rw [htop, map_one])
+  have hQdeg : (∑ k ∈ (dedekindThetaProduct α).support,
+      Polynomial.monomial k (g k)).natDegree = (dedekindThetaProduct α).natDegree := by
+    refine le_antisymm ?_ (Polynomial.le_natDegree_of_ne_zero ?_)
+    · refine Polynomial.natDegree_le_iff_coeff_eq_zero.mpr (fun n hn => ?_)
+      rw [hQcoeff n, if_neg (fun hmem => absurd
+        (Polynomial.le_natDegree_of_ne_zero (Polynomial.mem_support_iff.mp hmem))
+        (not_le.mpr hn))]
+    · rw [hQN]; simp
+  refine ⟨∑ k ∈ (dedekindThetaProduct α).support, Polynomial.monomial k (g k), ?_, ?_, hmap⟩
+  · show (∑ k ∈ (dedekindThetaProduct α).support,
+      Polynomial.monomial k (g k)).coeff
+      ((∑ k ∈ (dedekindThetaProduct α).support, Polynomial.monomial k (g k)).natDegree) = 1
+    rw [hQdeg]
+    exact hQN
+  · rw [hQdeg, hdeg]
+
+end DedekindThetaGalois2
+
+-- staging/ch4_w26_cg21cond.lean — worker w26 (conditional cg21: Frobenius cycle-type core).
+-- Delivered verbatim. Integration notes:
+-- * E0 : Type (universe-0) forced by chapter-III same-universe lemmas it builds on.
+-- * hc_root / hι intentionally unused in the proof (encode remaining cg20 packaging content);
+--   at integration rename to _hc_root / _hι (or wire) to satisfy warning hygiene.
+-- * gal_eq_zpowers_frobenius' = universe-general duplicate of FT.gal_eq_zpowers_frobenius;
+--   drop if unwanted and point the two uses at the same-universe original (E0 : Type 0 makes
+--   FT.gal_eq_zpowers_frobenius applicable? — its statement is {F E : Type u} same-universe;
+--   ZMod p : Type 0, E0 : Type 0 ⇒ yes applicable; check at integration).
+-- * hcompat in •-form; cg20 worker's AlgHom-coercion form transfers by rfl.
+-- Axioms: propext, Classical.choice, Quot.sound only (8 main declarations).
+/-! ## FT chapter IV §8, Dedekind's theorem `cg21`: the Frobenius cycle-type core -/
+
+
+/-! ### Abstract orbit lemmas -/
+
+section Cg21Abstract
+
+variable {G : Type*} [Group G]
+
+/-- **FT `cg21` (auxiliary).** The orbit of a point `x` under the cyclic subgroup generated by
+`σ ∈ G` is the set of powers `σ ^ n • x`, `n : ℤ`.
+
+Proof idea: unwind `MulAction.mem_orbit_iff` and `Subgroup.mem_zpowers_iff`. -/
+theorem orbit_zpowers_eq (X : Type*) [MulAction G X] (σ : G) (x : X) :
+    MulAction.orbit (Subgroup.zpowers σ) x = Set.range fun n : ℤ => (σ ^ n) • x := by
+  ext y
+  rw [MulAction.mem_orbit_iff, Set.mem_range]
+  constructor
+  · rintro ⟨τ, rfl⟩
+    obtain ⟨n, hn⟩ := Subgroup.mem_zpowers_iff.mp τ.property
+    exact ⟨n, by rw [hn]; rfl⟩
+  · rintro ⟨n, rfl⟩
+    exact ⟨(⟨σ ^ n, Subgroup.mem_zpowers_iff.mpr ⟨n, rfl⟩⟩ : ↥(Subgroup.zpowers σ)), rfl⟩
+
+/-- **FT `cg21` (auxiliary).** The orbit of `x` under the full subgroup `⊤ ≤ G` is the orbit
+under `G`.
+
+Proof idea: unwind `MulAction.mem_orbit_iff`; the coercion `↥(⊤ : Subgroup G) → G` is
+surjective. -/
+theorem orbit_top_eq_orbit (X : Type*) [MulAction G X] (x : X) :
+    MulAction.orbit (⊤ : Subgroup G) x = MulAction.orbit G x := by
+  ext y
+  rw [MulAction.mem_orbit_iff, MulAction.mem_orbit_iff]
+  constructor
+  · rintro ⟨τ, rfl⟩
+    exact ⟨(τ : G), rfl⟩
+  · rintro ⟨g, rfl⟩
+    exact ⟨(⟨g, Subgroup.mem_top g⟩ : ↥(⊤ : Subgroup G)), rfl⟩
+
+end Cg21Abstract
+
+/-- **FT `cg21` (auxiliary; abstract form of the `cg20` hypothesis).** If a map `c` intertwines
+the action of `G₀` with that of `G₁` through a group homomorphism `ι` at the base point `x`
+(for every `τ` in the cyclic group generated by `σ`), and `c` is injective on the `σ`-orbit of
+`x`, then the orbit of `ι σ` through `c x` and the orbit of `σ` through `x` have the same
+cardinality.
+
+Proof idea: the orbit of `ι σ` through `c x` is the set of `(ι σ) ^ n • c x = c (σ ^ n • x)`
+(`MonoidHom.map_zpow` and the intertwining hypothesis), i.e. the image under `c` of the orbit
+of `σ` through `x`; injectivity of `c` on the orbit preserves the cardinality
+(`Nat.card_image_of_injOn`). -/
+theorem orbitCard_zpowers_map {G0 : Type*} [Group G0] {X0 : Type*} [MulAction G0 X0]
+    {G1 : Type*} [Group G1] {X1 : Type*} [MulAction G1 X1]
+    (ι : G0 →* G1) (c : X0 → X1) (σ : G0) (x : X0)
+    (hcompat : ∀ τ ∈ Subgroup.zpowers σ, c (τ • x) = (ι τ) • c x)
+    (hinj : Set.InjOn c (MulAction.orbit (Subgroup.zpowers σ) x)) :
+    Nat.card (MulAction.orbit (Subgroup.zpowers (ι σ)) (c x))
+      = Nat.card (MulAction.orbit (Subgroup.zpowers σ) x) := by
+  have himg : MulAction.orbit (Subgroup.zpowers (ι σ)) (c x)
+      = c '' MulAction.orbit (Subgroup.zpowers σ) x := by
+    ext y
+    rw [orbit_zpowers_eq X1 (ι σ) (c x), orbit_zpowers_eq X0 σ x]
+    simp only [Set.mem_range, Set.mem_image]
+    constructor
+    · rintro ⟨n, rfl⟩
+      refine ⟨(σ ^ n) • x, ⟨n, rfl⟩, ?_⟩
+      rw [← MonoidHom.map_zpow ι σ n, ← hcompat (σ ^ n)
+        (Subgroup.mem_zpowers_iff.mpr ⟨n, rfl⟩)]
+    · rintro ⟨z, ⟨n, rfl⟩, hz⟩
+      refine ⟨n, ?_⟩
+      rw [← MonoidHom.map_zpow ι σ n, ← hcompat (σ ^ n)
+        (Subgroup.mem_zpowers_iff.mpr ⟨n, rfl⟩)]
+      exact hz
+  rw [himg, Nat.card_image_of_injOn hinj]
+
+/-- **FT `cg21` (auxiliary; `Equiv.Perm` form).** The permutation of `X` induced by `σ ∈ G`
+(`MulAction.toPermHom`) has the same orbit cardinalities as `σ` itself, so orbit-cardinality
+statements about `σ` translate into cycle statements about the induced permutation.
+
+Proof idea: `(MulAction.toPermHom G X σ) ^ n = MulAction.toPermHom G X (σ ^ n)` (the
+`toPermHom` map is a group homomorphism, `MonoidHom.map_zpow`) and the induced permutation
+acts as `σ` does, so the two orbits are the same `ℤ`-power range. -/
+theorem orbitCard_toPermHom {G X : Type*} [Group G] [MulAction G X] (σ : G) (x : X) :
+    Nat.card (MulAction.orbit (Subgroup.zpowers ((MulAction.toPermHom G X) σ)) x)
+      = Nat.card (MulAction.orbit (Subgroup.zpowers σ) x) := by
+  have heq : MulAction.orbit (Subgroup.zpowers ((MulAction.toPermHom G X) σ)) x
+      = MulAction.orbit (Subgroup.zpowers σ) x := by
+    rw [orbit_zpowers_eq, orbit_zpowers_eq]
+    ext y
+    simp only [Set.mem_range]
+    constructor
+    · rintro ⟨n, rfl⟩
+      refine ⟨n, ?_⟩
+      rw [← MonoidHom.map_zpow (MulAction.toPermHom G X) σ n]
+      rfl
+    · rintro ⟨n, rfl⟩
+      refine ⟨n, ?_⟩
+      rw [← MonoidHom.map_zpow (MulAction.toPermHom G X) σ n]
+      rfl
+  rw [heq]
+
+/-! ### Orbits and irreducible factors over a field -/
+
+section Cg21Orbits
+
+open Polynomial
+open scoped Classical
+
+variable {F E : Type u} [Field F] [Field E] [Algebra F E] [IsGalois F E]
+
+omit [IsGalois F E] in
+/-- **FT `cg21` (proof step).** The orbit of a root `α` of `f` under the cyclic group generated
+by `σ ∈ Gal(E/F)` is contained in the root set of `f` in `E`.
+
+Proof idea: an element of the orbit is `σ ^ n α`, and `σ ^ n ∈ Gal(E/F)` fixes the
+coefficients of `f`, so it permutes the roots. -/
+theorem orbit_zpowers_subset_rootSet (σ : Gal(E/F)) {f : F[X]} (x : E)
+    (hx : x ∈ f.rootSet E) :
+    MulAction.orbit (Subgroup.zpowers σ) x ⊆ f.rootSet E := by
+  intro y hy
+  rw [orbit_zpowers_eq] at hy
+  obtain ⟨n, rfl⟩ := Set.mem_range.mp hy
+  obtain ⟨hf0, h0⟩ := Polynomial.mem_rootSet.mp hx
+  rw [Polynomial.mem_rootSet_of_ne hf0,
+    show ((σ ^ (n : ℤ)) : Gal(E/F)) • x = ((σ ^ (n : ℤ) : Gal(E/F)) : E →ₐ[F] E) x from rfl,
+    Polynomial.aeval_algHom_apply, h0, map_zero]
+
+variable [Fintype Gal(E/F)]
+
+omit [Fintype Gal(E/F)] in
+/-- **FT `cg21` (finite-field core, step 1).** Let `E/F` be Galois, and let `g ∈ F[X]` be monic
+irreducible with a root `α ∈ E`. Then the orbit of `α` under `Gal(E/F)` is exactly the root
+set of `g` in `E`: the factorization form of FT `ft13` (a) — the Galois orbits on the roots of
+a polynomial splitting over `E` are the root sets of its irreducible factors, the factor
+through `α` being `g = minpoly F α`.
+
+Proof idea: the orbit is the root set of `minpoly F α` (FT ch. III,
+`FT.orbit_eq_rootSet_minpoly`), and a monic irreducible polynomial vanishing at `α` is the
+minimal polynomial (`minpoly.eq_of_irreducible_of_monic`). -/
+theorem orbit_eq_rootSet_of_irreducible_factor {g : F[X]} (hgm : g.Monic) (hg : Irreducible g)
+    (α : E) (hα : Polynomial.aeval α g = 0) :
+    MulAction.orbit Gal(E/F) α = g.rootSet E := by
+  classical
+  have hint : IsIntegral F α := ⟨g, hgm, by rw [← Polynomial.aeval_def]; exact hα⟩
+  have hmin : g = minpoly F α := minpoly.eq_of_irreducible_of_monic hg hα hgm
+  show Set.range (fun σ : Gal(E/F) => σ • α) = g.rootSet E
+  rw [← Set.image_univ,
+    show (fun σ : Gal(E/F) => σ • α) = (fun σ : Gal(E/F) => σ α) from funext fun σ => rfl,
+    FT.orbit_eq_rootSet_minpoly α hint, hmin]
+
+/-- **FT `cg21` (finite-field core, step 2).** Let `E/F` be Galois, and let `g ∈ F[X]` be monic
+irreducible of degree `m` with a root `α ∈ E`. Then the orbit of `α` under `Gal(E/F)` has
+cardinality `m`: the orbit of a root of an irreducible factor has the length of that factor
+(the factor through `α` is `g = minpoly F α`).
+
+Proof idea: the orbit set is the image finset of the Galois group acting on `α`
+(`FT.orbitSet_eq_orbitFinset`), whose cardinality is `natDegree (minpoly F α)` (FT `cg19`,
+`FT.natDegree_minpoly_eq_card_orbitFinset`), and `g = minpoly F α`
+(`minpoly.eq_of_irreducible_of_monic`). -/
+theorem orbitCard_eq_natDegree_of_irreducible_factor {g : F[X]} (hgm : g.Monic)
+    (hg : Irreducible g) (α : E) (hα : Polynomial.aeval α g = 0) :
+    Nat.card (MulAction.orbit Gal(E/F) α) = g.natDegree := by
+  classical
+  have hint : IsIntegral F α := ⟨g, hgm, by rw [← Polynomial.aeval_def]; exact hα⟩
+  have hmin : g = minpoly F α := minpoly.eq_of_irreducible_of_monic hg hα hgm
+  rw [FT.orbitSet_eq_orbitFinset α, Nat.card_coe_set_eq, Set.ncard_coe_finset,
+    ← FT.natDegree_minpoly_eq_card_orbitFinset α hint, hmin]
+
+end Cg21Orbits
+
+/-! ### The Frobenius specialization -/
+
+section Cg21Frobenius
+
+open Polynomial
+open scoped Classical
+
+/-- **FT `cg21` (finite-field core, step 3).** The Frobenius automorphism of the extension
+`E/F` of finite fields generates the Galois group `Gal(E/F)`: universe-general form of
+`FT.gal_eq_zpowers_frobenius` (FT §7 prose: `G_f` is cyclic, generated by Frobenius).
+
+Proof idea: the order of Frobenius is `[E : F] = |Gal(E/F)|`
+(`FiniteField.orderOf_frobeniusAlgEquivOfAlgebraic`, `IsGalois.card_aut_eq_finrank`), so the
+cyclic subgroup it generates already has the cardinality of `Gal(E/F)`. -/
+theorem gal_eq_zpowers_frobenius' {F E : Type*} [Field F] [Fintype F] [Field E] [Algebra F E]
+    [FiniteDimensional F E] [IsGalois F E] :
+    (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic F E) : Subgroup Gal(E/F)) = ⊤ := by
+  haveI : Finite E := Module.finite_of_finite F
+  have hcard : Nat.card Gal(E/F) = Module.finrank F E := IsGalois.card_aut_eq_finrank F E
+  have hord : orderOf (FiniteField.frobeniusAlgEquivOfAlgebraic F E) = Module.finrank F E :=
+    FiniteField.orderOf_frobeniusAlgEquivOfAlgebraic F E
+  refine Subgroup.eq_top_of_card_eq _ ?_
+  rw [Nat.card_zpowers, hord, ← hcard]
+
+variable {p : ℕ} [Fact p.Prime] {E0 : Type} [Field E0] [Fintype E0] [Algebra (ZMod p) E0]
+  [FiniteDimensional (ZMod p) E0] [IsGalois (ZMod p) E0]
+
+omit [Fintype E0] in
+/-- **FT `cg21` (finite-field core, step 4).** In the finite-field situation, the orbit of a
+root `ᾱ` under the cyclic group generated by the Frobenius element of `Gal(E₀/𝔽_p)` has
+cardinality the degree of the irreducible factor through `ᾱ`.
+
+Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius'`), so its orbits
+are the Galois orbits, whose cardinality is the factor degree
+(`FT.orbitCard_eq_natDegree_of_irreducible_factor`). -/
+theorem frobeniusOrbitCard_eq_natDegree_of_irreducible_factor {g : (ZMod p)[X]} (hgm : g.Monic)
+    (hg : Irreducible g) (ᾱ : E0) (hᾱ : Polynomial.aeval ᾱ g = 0) :
+    Nat.card (MulAction.orbit
+      (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0)) ᾱ)
+      = g.natDegree := by
+  have htop : Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) = ⊤ :=
+    gal_eq_zpowers_frobenius'
+  haveI : Fintype Gal(E0/(ZMod p)) := inferInstance
+  rw [htop, orbit_top_eq_orbit]
+  exact orbitCard_eq_natDegree_of_irreducible_factor hgm hg ᾱ hᾱ
+
+omit [Fintype E0] in
+/-- **FT `cg21` (finite-field core).** Let `f̄ ∈ 𝔽_p[X]` be monic splitting over the finite
+Galois extension `E₀/𝔽_p`, with factorization `f̄ = ∏ fᵢ` into monic irreducibles of degrees
+`mᵢ = fᵢ.natDegree`, and let `ᾱᵢ` be a root of `fᵢ` in `E₀`. Then the Frobenius element of
+`Gal(E₀/𝔽_p)` has, on the roots `ᾱᵢ`, orbits of cardinalities `m₁, …, m_r` — the Frobenius
+cycle type on the roots of `f̄` is `m₁ + ⋯ + m_r`, and indeed `deg f̄ = m₁ + ⋯ + m_r`.
+
+Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius'`), and the orbit
+of a root under the full Galois group has cardinality `natDegree` of the irreducible factor
+through it (`FT.orbitCard_eq_natDegree_of_irreducible_factor`); the degree sum is
+`Polynomial.natDegree_prod`. -/
+theorem frobeniusOrbitCards_eq_factorDegrees {f : (ZMod p)[X]} {ι : Type*} [Fintype ι]
+    (g : ι → (ZMod p)[X]) (ᾱ : ι → E0)
+    (hf : f = ∏ i, g i) (hgi : ∀ i, Irreducible (g i)) (hgm : ∀ i, (g i).Monic)
+    (hᾱ : ∀ i, Polynomial.aeval (ᾱ i) (g i) = 0) :
+    (∀ i, Nat.card (MulAction.orbit
+        (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0)) (ᾱ i))
+      = (g i).natDegree)
+      ∧ f.natDegree = ∑ i, (g i).natDegree := by
+  refine ⟨fun i => frobeniusOrbitCard_eq_natDegree_of_irreducible_factor (hgm i) (hgi i) (ᾱ i)
+    (hᾱ i), ?_⟩
+  rw [hf, Polynomial.natDegree_prod Finset.univ g (fun i _ => (hgm i).ne_zero)]
+
+end Cg21Frobenius
+
+/-! ### `cg21` modulo `cg20`: the assembly -/
+
+section Cg21Assembly
+
+open Polynomial
+open scoped Classical
+
+/-- **FT `cg21` (assembly; `cg20` supplied as hypotheses).** Dedekind's theorem, conditioned on
+the `cg20` reduction: let `f ∈ ℤ[X]` be monic, let `p` be a prime, and suppose `f̄ = f mod p`
+factorizes over `𝔽_p` as `f̄ = ∏ fᵢ` with `fᵢ` monic irreducible of degree `mᵢ = fᵢ.natDegree`,
+with roots `ᾱᵢ ∈ E₀` of the `fᵢ` in a finite Galois extension `E₀/𝔽_p` containing all roots of
+`f̄` (e.g. its splitting field). Suppose the `cg20` conclusion `G_f̄ ⊆ G_f` in the following
+abstract form:
+* `c` sends the chosen roots `ᾱᵢ` of `f̄` to roots `c ᾱᵢ` of `f` in `E₁` (`_hc_root`, the
+  correspondence `ᾱᵢ ↦ αᵢ`), and is injective on the root set of `f̄` (`hinj`);
+* there is an injective group homomorphism `ι : Gal(E₀/𝔽_p) →* G_f = Gal(E₁/ℚ)` (`hι`) that is
+  compatible with the two root actions (`hcompat`: for `σ ∈ Gal(E₀/𝔽_p)` and a root `ᾱ` of
+  `f̄`, `ι σ` sends `c ᾱ` to `c (σ ᾱ)`; here `σ • β` is `((σ : E₀ →ₐ[𝔽_p] E₀)) β` and
+  `ι σ • γ` is `((ι σ : E₁ →ₐ[ℚ] E₁)) γ`, definitionally).
+
+Then `G_f` contains an element — the image of the Frobenius automorphism of `E₀/𝔽_p` under
+`ι` — whose orbits on the roots `c ᾱᵢ` of `f` have cardinalities `m₁, …, m_r`, and
+`deg f̄ = m₁ + ⋯ + m_r`.
+
+Proof idea: the Frobenius element `σ̄` of `Gal(E₀/𝔽_p)` has orbits of sizes `m₁, …, m_r` on the
+roots `ᾱᵢ` (`FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`); by the intertwining
+hypothesis the orbit of `ι σ̄` through `c ᾱᵢ` is the `c`-image of the orbit of `σ̄` through
+`ᾱᵢ`, and `c` is injective there (the orbit lies in the root set of `f̄`), so the orbit
+cardinalities transfer (`FT.orbitCard_zpowers_map`). -/
+theorem exists_cycleType_of_factorDegrees
+    {p : ℕ} [Fact p.Prime] {E0 : Type} [Field E0] [Fintype E0] [Algebra (ZMod p) E0]
+      [FiniteDimensional (ZMod p) E0] [IsGalois (ZMod p) E0]
+    {E1 : Type*} [Field E1] [Algebra ℚ E1] [FiniteDimensional ℚ E1] [IsGalois ℚ E1]
+    {f : ℤ[X]} (hm : f.Monic)
+    {ι : Type*} [Fintype ι] (g : ι → (ZMod p)[X]) (ᾱ : ι → E0) (c : E0 → E1)
+    (hf : f.map (Int.castRingHom (ZMod p)) = ∏ i, g i)
+    (hgi : ∀ i, Irreducible (g i)) (hgm : ∀ i, (g i).Monic)
+    (hᾱ : ∀ i, Polynomial.aeval (ᾱ i) (g i) = 0)
+    (_hc_root : ∀ i, c (ᾱ i) ∈ f.rootSet E1)
+    (ι' : Gal(E0/(ZMod p)) →* Gal(E1/ℚ)) (_hι : Function.Injective ι')
+    (hcompat : ∀ (σ : Gal(E0/(ZMod p))) (β : E0),
+        β ∈ (f.map (Int.castRingHom (ZMod p))).rootSet E0 →
+          c (σ • β) = (ι' σ) • c β)
+    (hinj : Set.InjOn c ((f.map (Int.castRingHom (ZMod p))).rootSet E0)) :
+    ∃ σ : Gal(E1/ℚ),
+      (∀ i, Nat.card (MulAction.orbit (Subgroup.zpowers σ) (c (ᾱ i))) = (g i).natDegree)
+        ∧ (f.map (Int.castRingHom (ZMod p))).natDegree = ∑ i, (g i).natDegree := by
+  classical
+  have hfbar0 : (f.map (Int.castRingHom (ZMod p))) ≠ 0 :=
+    (hm.map (Int.castRingHom (ZMod p))).ne_zero
+  have hroot : ∀ i, ᾱ i ∈ (f.map (Int.castRingHom (ZMod p))).rootSet E0 := by
+    intro i
+    rw [Polynomial.mem_rootSet_of_ne hfbar0, hf, map_prod]
+    exact Finset.prod_eq_zero (Finset.mem_univ i) (hᾱ i)
+  have htop : Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) = ⊤ :=
+    gal_eq_zpowers_frobenius'
+  haveI : Fintype Gal(E0/(ZMod p)) := inferInstance
+  refine ⟨ι' (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0), ?_, ?_⟩
+  · intro i
+    have hcompat' : ∀ τ ∈ Subgroup.zpowers
+        (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0),
+        c (τ • ᾱ i) = (ι' τ) • c (ᾱ i) :=
+      fun τ _ => hcompat τ (ᾱ i) (hroot i)
+    have hsub := orbit_zpowers_subset_rootSet
+      (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) (ᾱ i) (hroot i)
+    have h1 := orbitCard_zpowers_map ι' c
+      (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) (ᾱ i) hcompat'
+      (Set.InjOn.mono hsub hinj)
+    rw [htop, orbit_top_eq_orbit] at h1
+    rw [h1, orbitCard_eq_natDegree_of_irreducible_factor (hgm i) (hgi i) (ᾱ i) (hᾱ i)]
+  · rw [hf, Polynomial.natDegree_prod Finset.univ g (fun i _ => (hgm i).ne_zero)]
+
+end Cg21Assembly
 
 /-!
 Note (chapter-3 delta audit 149d60a, remediated): the five audit gaps are resolved
