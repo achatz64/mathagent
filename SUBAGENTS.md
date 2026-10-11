@@ -69,27 +69,23 @@ and re-elaborate the required local
 declarations. Report an infrastructure blocker only after reproducible recovery
 failure.
 
-Workers can forget this distinction after several follow-ups and regress to
-progress reports about routine elaboration. Review every intermediate response
-immediately. If a worker labels ordinary coercion plumbing, missing project-local
-imports, an absent packaged theorem, a failed tactic, or an unfinished helper as
-a blocker, reply in the same session with an explicit `INVALID STOP` reminder:
-identify why it is proof work, restate the relevant protocol rule, narrow the
-next deliverable when useful, and require continued REPL checking. Do not accept
-or collect an invalid stop merely because the worker accurately described its
-residual goal. Conversely, do not reject a genuine representation choice: the
-main agent must decide that interface and send exact signatures before asking
-the worker to continue.
+Workers regress to labeling routine elaboration as blockers after several
+follow-ups. Review every intermediate response immediately; if a worker labels
+ordinary proof work (coercion plumbing, missing project-local imports, an absent
+packaged theorem, a failed tactic, an unfinished helper) as a blocker, reply in
+the same session with an explicit `INVALID STOP` reminder: why it is proof work,
+the relevant protocol rule, the next deliverable, and a requirement to continue
+REPL checking. Never accept or collect an invalid stop because the worker
+accurately described its residual goal. Conversely, do not reject a genuine
+representation choice — main must decide that interface and send exact
+signatures before work continues. Reminders are not durable across turns;
+repeat them whenever the behavior recurs. A productive pattern: accept the newly
+checked fragment, reject only the attempted stop, provide the next construction,
+keep the same session alive.
 
-Reminders are not durable across later worker turns. Repeat them immediately
-whenever the behavior recurs. A productive pattern is: accept the newly checked
-fragment, reject only the attempted stop, provide the next concrete construction,
-and keep the same session alive.
-
-Do not ask a worker to decide whether an actionable audit gap may be deferred.
-It may return a proof or a precise blocker under the standard above. The main
-agent reviews whether the returned declaration actually exposes all source
-clauses.
+Do not ask a worker to decide whether an actionable audit gap may be deferred;
+it may return a proof or a precise blocker under the standard above. Main
+reviews whether the returned declaration exposes all source clauses.
 
 ## Scheduling and tool sequence
 
