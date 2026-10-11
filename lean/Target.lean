@@ -95,25 +95,22 @@ the discriminant/sign block `cg1`/`cg2` (`FT.vandermondeProd*`,
 `FT.vandermondeDelta`, `FT.inducedRootPerm`, the even-permutation fixed-field
 correspondence, `Δ ∈ F ↔ Δ² ∈ F²`), `cg4` (`FT.gal_transitive_iff_irreducible`),
 `cg5`/`cg6` (the degree-2/3 dichotomies incl. `FT.cubic_galCard_three_iff_discriminant_square`
-and the A₃-generation corollary), `cg7`/`cg8` (the quartic resolvent block), the
-quartic examples `cg8a`-`cg11`, `cg12`/`cg23`/`cg13` (the S_p core),
-`cg15`-`cg18n` (finite fields), `cg19`/`cg19m` (orbit factorization; the `cg19F`
-finite-field prose) and the `cg25` θ-trick core (van der Waerden
-preliminaries, θ-integrality over F(T), the linear independence of the
-indeterminates).  Remaining in scope (see the chapter IV ledger): `cg3`, the
-cg5/cg6 inseparable clauses, `cg14`, the Dedekind chain `cg20`/`cg21`/`cg22`/
-`cg24`, the S₄ classification table and the example type dichotomies, and the
-asides `cg11a`/`cg11b`.
-
-AUDIT-GAP (coverage audit, delta ce6b0e6..c8ba881): the chapter-IV paragraph above is
-stale.  It lists as "Remaining in scope" `cg3`, the cg5/cg6 inseparable clauses,
-`cg21`/`cg22` (Dedekind chain, delivered conditionally on `cg20`) and "the S₄
-classification table", all of which this delta delivered (see the RESOLVED entries in
-the chapter IV ledger at the end of the file); `tools/ft_coverage.py` reports 68/144
-labels mentioned with no unmentioned cg-label.  Remedy: rewrite the paragraph per the
-ledger — still pending in chapter IV are `cg20` (and the unconditioning of `cg21`/
-`cg22`), the remaining cg25 hypotheses (`hfinK`/`hdim`), `cg14`/`cg14a`, `cg24`, and
-the asides `cg11a`/`cg11b`.
+and the A₃-generation corollary, plus the two concrete cubic examples
+`X³ − 3X + 1` (G = A₃) and `X³ + 3X + 1` (G = S₃) and the cg5/cg6 inseparable
+clauses), `cg7`/`cg8` (the quartic resolvent block), the quartic examples
+`cg8a`-`cg11`, `cg12`/`cg23`/`cg13` (the S_p core), `cg3` (the sign block:
+conjugates of Δ, `Δ ∉ ℚ` for the non-Galois generic case, `D(f)` not a square
+for odd s), the S₄/V theory (Klein group, pairings, slot action, quartic
+fixer = V, classification-table implications), the concrete quintic `X⁵ − X − 1`
+computations (cg22: mod-2/mod-3 factorizations and the S₅ group-theoretic
+bridge), `cg15`-`cg18n` (finite fields), `cg19`/`cg19m` (orbit factorization; the
+`cg19F` finite-field prose), the conditional `cg21` Frobenius cycle-type core and
+the `cg25` θ-trick core (van der Waerden preliminaries, θ-integrality over F(T),
+the linear independence of the indeterminates, and the endgame isomorphism
+`FT.Cg25.cg25_isomorphism`).  Remaining in scope (see the chapter IV ledger):
+`cg20` (and the unconditioning of `cg21`/`cg22`), the remaining cg25 hypotheses
+(`hfinK`/`hdim` — `finrank_fracFrac`), `cg14`/`cg14a`, `cg24`, and the asides
+`cg11a`/`cg11b`.
 
 Chapters 5-7 (applications, algebraic closures,
 infinite Galois extensions, etale algebras, transcendental extensions; the
@@ -10835,92 +10832,133 @@ def quarticKleinGen02 : Equiv.Perm (Fin 4) := Equiv.swap 0 2 * Equiv.swap 1 3
 `(03)(12)`, i.e. `0↦3, 1↦2, 2↦1, 3↦0`. -/
 def quarticKleinGen03 : Equiv.Perm (Fin 4) := Equiv.swap 0 3 * Equiv.swap 1 2
 
--- AUDIT-GAP (documentation audit, delta ce6b0e6..c8ba881): 71 declarations of the S₄/V
--- block below have no docstring; the documentation audit requires a textbook-math
--- statement of the claim and a proof idea, or — for the pure `rfl`/`fin_cases`/`decide`
--- unpackings — an explicit triviality declaration.  Affected (71):
--- `quarticKleinGen01/02/03_apply_zero/one/two/three` (12), `quarticKleinGen01_sq`,
--- `quarticKleinGen02_sq`, `quarticKleinGen03_sq`, `quarticKleinGen01_mul_gen02`,
--- `quarticKleinGen02_mul_gen01`, `quarticKleinGen01_mul_gen03`,
--- `quarticKleinGen03_mul_gen01`, `quarticKleinGen02_mul_gen03`,
--- `quarticKleinGen03_mul_gen02`, `quarticKleinGen01_inv`, `quarticKleinGen02_inv`,
--- `quarticKleinGen03_inv`, `quarticKleinGen01_noFix`, `quarticKleinGen02_noFix`,
--- `quarticKleinGen03_noFix`, `quarticKleinGen01_ne_one`, `quarticKleinGen02_ne_one`,
--- `quarticKleinGen03_ne_one`, `quarticKleinGen01_ne_quarticKleinGen02`,
--- `quarticKleinGen01_ne_quarticKleinGen03`, `quarticKleinGen02_ne_quarticKleinGen03`,
--- `quarticKlein_carrier_mul_mem`, `quarticKlein_carrier_inv_mem`, `quarticKlein_fin4`,
--- `fin3_cases3`, `fin4_cases4`, `quarticPairingIdx_eq_zero`, `quarticPairingIdx_eq_one`,
--- `quarticPairingIdx_01`–`quarticPairingIdx_32` (12), `quarticPairingIdx_symm`,
--- `quarticPsi_mul_apply`, `quarticPsi_one`, `quarticVal_zero`, `quarticVal_one`,
--- `quarticVal_two`, `quarticPsi_swap01_one/two`, `quarticPsi_swap02_zero/two`,
--- `quarticPsi_swap12_zero/one`, `quarticPsi_swap23_one/two`, `quarticOrbitBeta_univ`,
--- `quarticOrbitGamma_univ`, `quarticPsi_gen01`, `quarticPsi_gen02`, `quarticPsi_gen03`.
--- Remedy: add the missing docstrings.
+/-!
+Note (documentation, delta audit ce6b0e6..c8ba881, remediated): all 71 previously
+undocumented declarations of the S₄/V block now carry docstrings — textbook-math
+statements with proof ideas for the substantive claims, and explicit triviality
+declarations (`rfl`/`fin_cases`/`decide` unpackings) for the definitional lemmas.
+-/
 
+/-- FT IV §4: the double transposition `Gen01 = (01)(23)` sends `0` to `1`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen01_apply_zero : quarticKleinGen01 0 = 1 := rfl
+/-- FT IV §4: the double transposition `Gen01 = (01)(23)` sends `1` to `0`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen01_apply_one : quarticKleinGen01 1 = 0 := rfl
+/-- FT IV §4: the double transposition `Gen01 = (01)(23)` sends `2` to `3`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen01_apply_two : quarticKleinGen01 2 = 3 := rfl
+/-- FT IV §4: the double transposition `Gen01 = (01)(23)` sends `3` to `2`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen01_apply_three : quarticKleinGen01 3 = 2 := rfl
+/-- FT IV §4: the double transposition `Gen02 = (02)(13)` sends `0` to `2`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen02_apply_zero : quarticKleinGen02 0 = 2 := rfl
+/-- FT IV §4: the double transposition `Gen02 = (02)(13)` sends `1` to `3`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen02_apply_one : quarticKleinGen02 1 = 3 := rfl
+/-- FT IV §4: the double transposition `Gen02 = (02)(13)` sends `2` to `0`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen02_apply_two : quarticKleinGen02 2 = 0 := rfl
+/-- FT IV §4: the double transposition `Gen02 = (02)(13)` sends `3` to `1`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen02_apply_three : quarticKleinGen02 3 = 1 := rfl
+/-- FT IV §4: the double transposition `Gen03 = (03)(12)` sends `0` to `3`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen03_apply_zero : quarticKleinGen03 0 = 3 := rfl
+/-- FT IV §4: the double transposition `Gen03 = (03)(12)` sends `1` to `2`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen03_apply_one : quarticKleinGen03 1 = 2 := rfl
+/-- FT IV §4: the double transposition `Gen03 = (03)(12)` sends `2` to `1`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen03_apply_two : quarticKleinGen03 2 = 1 := rfl
+/-- FT IV §4: the double transposition `Gen03 = (03)(12)` sends `3` to `0`
+(definitional, `rfl`). -/
 @[simp] theorem quarticKleinGen03_apply_three : quarticKleinGen03 3 = 0 := rfl
 
+/-- FT IV §4 (private): the double transposition `Gen01 = (01)(23)` squares to the
+identity (each point is swapped twice).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen01_sq : quarticKleinGen01 * quarticKleinGen01 = 1 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the double transposition `Gen02 = (02)(13)` squares to the
+identity.  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen02_sq : quarticKleinGen02 * quarticKleinGen02 = 1 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the double transposition `Gen03 = (03)(12)` squares to the
+identity.  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen03_sq : quarticKleinGen03 * quarticKleinGen03 = 1 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen01 · Gen02 = Gen03`
+(as `(01)(23)·(02)(13) = (03)(12)`).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen01_mul_gen02 :
     quarticKleinGen01 * quarticKleinGen02 = quarticKleinGen03 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen02 · Gen01 = Gen03`
+(V is abelian).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen02_mul_gen01 :
     quarticKleinGen02 * quarticKleinGen01 = quarticKleinGen03 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen01 · Gen03 = Gen02`
+(as `(01)(23)·(03)(12) = (02)(13)`).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen01_mul_gen03 :
     quarticKleinGen01 * quarticKleinGen03 = quarticKleinGen02 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen03 · Gen01 = Gen02`
+(V is abelian).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen03_mul_gen01 :
     quarticKleinGen03 * quarticKleinGen01 = quarticKleinGen02 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen02 · Gen03 = Gen01`
+(as `(02)(13)·(03)(12) = (01)(23)`).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen02_mul_gen03 :
     quarticKleinGen02 * quarticKleinGen03 = quarticKleinGen01 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): the Klein multiplication table — `Gen03 · Gen02 = Gen01`
+(V is abelian).  Trivial (`fin_cases` + `rfl`). -/
 private theorem quarticKleinGen03_mul_gen02 :
     quarticKleinGen03 * quarticKleinGen02 = quarticKleinGen01 := by
   apply Equiv.ext; intro i; fin_cases i <;> rfl
 
+/-- FT IV §4 (private): `Gen01` is an involution, so it is its own inverse (from
+`quarticKleinGen01_sq` via `inv_eq_iff_mul_eq_one`). -/
 private theorem quarticKleinGen01_inv : quarticKleinGen01⁻¹ = quarticKleinGen01 :=
   inv_eq_iff_mul_eq_one.mpr quarticKleinGen01_sq
 
+/-- FT IV §4 (private): `Gen02` is an involution, so it is its own inverse (from
+`quarticKleinGen02_sq`). -/
 private theorem quarticKleinGen02_inv : quarticKleinGen02⁻¹ = quarticKleinGen02 :=
   inv_eq_iff_mul_eq_one.mpr quarticKleinGen02_sq
 
+/-- FT IV §4 (private): `Gen03` is an involution, so it is its own inverse (from
+`quarticKleinGen03_sq`). -/
 private theorem quarticKleinGen03_inv : quarticKleinGen03⁻¹ = quarticKleinGen03 :=
   inv_eq_iff_mul_eq_one.mpr quarticKleinGen03_sq
 
+/-- FT IV §4 (private): the double transposition `Gen01 = (01)(23)` has no fixed
+point.  Trivial (`fin_cases` + `simp`). -/
 private theorem quarticKleinGen01_noFix : ∀ i : Fin 4, quarticKleinGen01 i ≠ i := by
   intro i; fin_cases i <;> simp
 
+/-- FT IV §4 (private): the double transposition `Gen02 = (02)(13)` has no fixed
+point.  Trivial (`fin_cases` + `simp`). -/
 private theorem quarticKleinGen02_noFix : ∀ i : Fin 4, quarticKleinGen02 i ≠ i := by
   intro i; fin_cases i <;> simp
 
+/-- FT IV §4 (private): the double transposition `Gen03 = (03)(12)` has no fixed
+point.  Trivial (`fin_cases` + `simp`). -/
 private theorem quarticKleinGen03_noFix : ∀ i : Fin 4, quarticKleinGen03 i ≠ i := by
   intro i; fin_cases i <;> simp
 
+/-- FT IV §4 (private): `Gen01` is not the identity (it moves `0` to `1`, by
+`quarticKleinGen01_apply_zero`). -/
 private theorem quarticKleinGen01_ne_one : quarticKleinGen01 ≠ (1 : Equiv.Perm (Fin 4)) := by
   intro h
   have h0 : quarticKleinGen01 0 = (1 : Equiv.Perm (Fin 4)) 0 := DFunLike.congr_fun h 0
@@ -10929,6 +10967,8 @@ private theorem quarticKleinGen01_ne_one : quarticKleinGen01 ≠ (1 : Equiv.Perm
   rw [h1] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): `Gen02` is not the identity (it moves `0` to `2`, by
+`quarticKleinGen02_apply_zero`). -/
 private theorem quarticKleinGen02_ne_one : quarticKleinGen02 ≠ (1 : Equiv.Perm (Fin 4)) := by
   intro h
   have h0 : quarticKleinGen02 0 = (1 : Equiv.Perm (Fin 4)) 0 := DFunLike.congr_fun h 0
@@ -10937,6 +10977,8 @@ private theorem quarticKleinGen02_ne_one : quarticKleinGen02 ≠ (1 : Equiv.Perm
   rw [h1] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): `Gen03` is not the identity (it moves `0` to `3`, by
+`quarticKleinGen03_apply_zero`). -/
 private theorem quarticKleinGen03_ne_one : quarticKleinGen03 ≠ (1 : Equiv.Perm (Fin 4)) := by
   intro h
   have h0 : quarticKleinGen03 0 = (1 : Equiv.Perm (Fin 4)) 0 := DFunLike.congr_fun h 0
@@ -10945,6 +10987,8 @@ private theorem quarticKleinGen03_ne_one : quarticKleinGen03 ≠ (1 : Equiv.Perm
   rw [h1] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): the three nontrivial Klein elements are pairwise distinct:
+`Gen01 ≠ Gen02` (they disagree at `0`, by the apply lemmas). -/
 private theorem quarticKleinGen01_ne_quarticKleinGen02 :
     quarticKleinGen01 ≠ quarticKleinGen02 := by
   intro h
@@ -10952,6 +10996,8 @@ private theorem quarticKleinGen01_ne_quarticKleinGen02 :
   rw [quarticKleinGen01_apply_zero, quarticKleinGen02_apply_zero] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): the three nontrivial Klein elements are pairwise distinct:
+`Gen01 ≠ Gen03` (they disagree at `0`, by the apply lemmas). -/
 private theorem quarticKleinGen01_ne_quarticKleinGen03 :
     quarticKleinGen01 ≠ quarticKleinGen03 := by
   intro h
@@ -10959,6 +11005,8 @@ private theorem quarticKleinGen01_ne_quarticKleinGen03 :
   rw [quarticKleinGen01_apply_zero, quarticKleinGen03_apply_zero] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): the three nontrivial Klein elements are pairwise distinct:
+`Gen02 ≠ Gen03` (they disagree at `0`, by the apply lemmas). -/
 private theorem quarticKleinGen02_ne_quarticKleinGen03 :
     quarticKleinGen02 ≠ quarticKleinGen03 := by
   intro h
@@ -10966,6 +11014,9 @@ private theorem quarticKleinGen02_ne_quarticKleinGen03 :
   rw [quarticKleinGen02_apply_zero, quarticKleinGen03_apply_zero] at h0
   exact absurd h0 (by decide)
 
+/-- FT IV §4 (private): the carrier `{1, Gen01, Gen02, Gen03}` is closed under
+multiplication: the 4×4 product table follows from the Klein multiplication
+lemmas (`quarticKleinGen*_sq`, `quarticKleinGen*_mul_gen*`).  Trivial case bash. -/
 private theorem quarticKlein_carrier_mul_mem {a b : Equiv.Perm (Fin 4)}
     (ha : a ∈ ({1, quarticKleinGen01, quarticKleinGen02, quarticKleinGen03} :
       Set (Equiv.Perm (Fin 4))))
@@ -10980,6 +11031,9 @@ private theorem quarticKlein_carrier_mul_mem {a b : Equiv.Perm (Fin 4)}
       quarticKleinGen01_mul_gen02, quarticKleinGen02_mul_gen01, quarticKleinGen01_mul_gen03,
       quarticKleinGen03_mul_gen01, quarticKleinGen02_mul_gen03, quarticKleinGen03_mul_gen02]
 
+/-- FT IV §4 (private): the carrier `{1, Gen01, Gen02, Gen03}` is closed under
+inversion (`1⁻¹ = 1` and each `Gen*` is its own inverse,
+`quarticKleinGen*_inv`).  Trivial case bash. -/
 private theorem quarticKlein_carrier_inv_mem {a : Equiv.Perm (Fin 4)}
     (ha : a ∈ ({1, quarticKleinGen01, quarticKleinGen02, quarticKleinGen03} :
       Set (Equiv.Perm (Fin 4)))) :
@@ -10989,15 +11043,13 @@ private theorem quarticKlein_carrier_inv_mem {a : Equiv.Perm (Fin 4)}
   rcases ha with rfl|rfl|rfl|rfl <;>
     simp [inv_one, quarticKleinGen01_inv, quarticKleinGen02_inv, quarticKleinGen03_inv]
 
--- AUDIT-GAP (documentation audit): this docstring says "the kernel of the slot-permutation
--- homomorphism `quarticSlotHom`", but `quarticSlotHom` is declared later (~11239) and
--- consumes `quarticKlein` (its kernel is proved equal to `quarticKlein` via
--- `quarticKlein_le_quarticFixer` and `quarticFixer_eq_quarticKlein`).  A declaration's
--- documentation may not mention a later declaration that consumes it (orderOf_sigma0
--- precedent, audit 4e6ea68).  Remedy: drop the clause here; the kernel identification
--- belongs in `quarticSlotHom`'s or `quarticFixer_eq_quarticKlein`'s docstring.
+-- Remediated (documentation audit): the docstring no longer forward-references the
+-- consumer; it states the kernel fact as a claim proved later by
+-- `quarticFixer_eq_quarticKlein` (after `quarticSlotHom` is defined), per the
+-- orderOf_sigma0 precedent (audit 4e6ea68).
 /-- FT IV §4: the Klein four-group `V = {1, (01)(23), (02)(13), (03)(12)}` as a subgroup
-of `S₄`; the kernel of the slot-permutation homomorphism `quarticSlotHom`. -/
+of `S₄` — the kernel of the slot-permutation action on the three pairings (proved
+`quarticFixer_eq_quarticKlein` below, after `quarticSlotHom` is defined). -/
 def quarticKlein : Subgroup (Equiv.Perm (Fin 4)) where
   carrier := {1, quarticKleinGen01, quarticKleinGen02, quarticKleinGen03}
   one_mem' := Or.inl rfl
@@ -11029,6 +11081,8 @@ theorem quarticKlein_card : Nat.card ↥quarticKlein = 4 := by
   rw [h0, Nat.card_coe_set_eq, Set.ncard_insert_of_notMem hA,
     Set.ncard_insert_of_notMem hB, Set.ncard_insert_of_notMem hC, Set.ncard_singleton]
 
+/-- FT IV §4 (private): four-point case enumeration on `Fin 4` (from `x.isLt`
+and `omega`).  Trivial. -/
 private theorem quarticKlein_fin4 (x : Fin 4) : x = 0 ∨ x = 1 ∨ x = 2 ∨ x = 3 := by
   have hv : x.val < 4 := x.isLt
   rcases Nat.lt_or_ge x.val 1 with h1 | h2
@@ -11136,10 +11190,16 @@ def quarticPairingIdx (i j : Fin 4) : Fin 3 :=
   else if (i = 0 ∧ j = 2) ∨ (i = 2 ∧ j = 0) ∨ (i = 1 ∧ j = 3) ∨ (i = 3 ∧ j = 1) then 1
   else 2
 
+/-- FT IV §4: the pairing index is `0` exactly on the matching
+`{{0,1},{2,3}}`: `(i, j) ∈ {(0,1),(1,0),(2,3),(3,2)}` (definition of
+`quarticPairingIdx`, by `fin_cases` + `simp`). -/
 theorem quarticPairingIdx_eq_zero {i j : Fin 4} : quarticPairingIdx i j = 0 ↔
     (i = 0 ∧ j = 1) ∨ (i = 1 ∧ j = 0) ∨ (i = 2 ∧ j = 3) ∨ (i = 3 ∧ j = 2) := by
   fin_cases i <;> fin_cases j <;> simp [quarticPairingIdx]
 
+/-- FT IV §4: the pairing index is `1` exactly on the matching
+`{{0,2},{1,3}}`: `(i, j) ∈ {(0,2),(2,0),(1,3),(3,1)}` (definition of
+`quarticPairingIdx`, by `fin_cases` + `simp`). -/
 theorem quarticPairingIdx_eq_one {i j : Fin 4} : quarticPairingIdx i j = 1 ↔
     (i = 0 ∧ j = 2) ∨ (i = 2 ∧ j = 0) ∨ (i = 1 ∧ j = 3) ∨ (i = 3 ∧ j = 1) := by
   fin_cases i <;> fin_cases j <;> simp [quarticPairingIdx]
@@ -11149,23 +11209,39 @@ theorem quarticPairingIdx_eq_two {i j : Fin 4} : quarticPairingIdx i j = 2 ↔
     i = j ∨ (i = 0 ∧ j = 3) ∨ (i = 3 ∧ j = 0) ∨ (i = 1 ∧ j = 2) ∨ (i = 2 ∧ j = 1) := by
   fin_cases i <;> fin_cases j <;> simp [quarticPairingIdx]
 
+/-- FT IV §4: `(0,1)` lies in matching `0` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_01 : quarticPairingIdx 0 1 = 0 := rfl
+/-- FT IV §4: `(0,2)` lies in matching `1` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_02 : quarticPairingIdx 0 2 = 1 := rfl
+/-- FT IV §4: `(0,3)` lies in matching `2` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_03 : quarticPairingIdx 0 3 = 2 := rfl
+/-- FT IV §4: `(1,0)` lies in matching `0` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_10 : quarticPairingIdx 1 0 = 0 := rfl
+/-- FT IV §4: `(2,0)` lies in matching `1` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_20 : quarticPairingIdx 2 0 = 1 := rfl
+/-- FT IV §4: `(3,0)` lies in matching `2` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_30 : quarticPairingIdx 3 0 = 2 := rfl
+/-- FT IV §4: `(1,3)` lies in matching `1` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_13 : quarticPairingIdx 1 3 = 1 := rfl
+/-- FT IV §4: `(3,1)` lies in matching `1` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_31 : quarticPairingIdx 3 1 = 1 := rfl
+/-- FT IV §4: `(1,2)` lies in matching `2` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_12 : quarticPairingIdx 1 2 = 2 := rfl
+/-- FT IV §4: `(2,1)` lies in matching `2` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_21 : quarticPairingIdx 2 1 = 2 := rfl
+/-- FT IV §4: `(2,3)` lies in matching `0` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_23 : quarticPairingIdx 2 3 = 0 := rfl
+/-- FT IV §4: `(3,2)` lies in matching `0` (definitional, `rfl`). -/
 @[simp] theorem quarticPairingIdx_32 : quarticPairingIdx 3 2 = 0 := rfl
 
+/-- FT IV §4: the pairing index is symmetric in its arguments (a perfect
+matching containing `(i, j)` also contains `(j, i)`; by `fin_cases` + `simp`). -/
 @[simp] theorem quarticPairingIdx_symm {i j : Fin 4} :
     quarticPairingIdx i j = quarticPairingIdx j i := by
   fin_cases i <;> fin_cases j <;> simp [quarticPairingIdx]
 
+/-- FT IV §4 (private helper): three-point case enumeration on `Fin 3` (from
+`x.isLt` and `omega`).  Trivial. -/
 private theorem fin3_cases3 (x : Fin 3) : x = 0 ∨ x = 1 ∨ x = 2 := by
   have hv : x.val < 3 := x.isLt
   rcases Nat.lt_or_ge x.val 1 with h1 | h2
@@ -11174,6 +11250,8 @@ private theorem fin3_cases3 (x : Fin 3) : x = 0 ∨ x = 1 ∨ x = 2 := by
     · exact Or.inr (Or.inl (Fin.eq_of_val_eq (by omega)))
     · exact Or.inr (Or.inr (Fin.eq_of_val_eq (by omega)))
 
+/-- FT IV §4 (private helper): four-point case enumeration on `Fin 4` (from
+`x.isLt` and `omega`).  Trivial. -/
 private theorem fin4_cases4 (x : Fin 4) : x = 0 ∨ x = 1 ∨ x = 2 ∨ x = 3 := by
   have hv : x.val < 4 := x.isLt
   rcases Nat.lt_or_ge x.val 1 with h1 | h2
@@ -11252,6 +11330,11 @@ theorem quarticPairingIdx_perm (σ : Equiv.Perm (Fin 4)) {p q : Fin 4} (hpq : p 
         (hσ 2 1 (by decide))).symm
     · exact absurd rfl hpq
 
+/-- FT IV §4: the slot action is a left action: `quarticPsi (σ·τ) k =
+quarticPsi σ (quarticPsi τ k)`.  Proof idea: `quarticPsi (σ·τ) k =
+quarticPairingIdx ((σ·τ) 0) ((σ·τ) (k+1)) = quarticPairingIdx (σ (τ 0)) (σ (τ (k+1)))`,
+and `quarticPairingIdx_perm σ` (with `τ 0 ≠ τ (k+1)`, from `Equiv.injective` and
+`k.isLt`) transports this to `quarticPsi σ (quarticPsi τ k)`. -/
 theorem quarticPsi_mul_apply (σ τ : Equiv.Perm (Fin 4)) (k : Fin 3) :
     quarticPsi (σ * τ) k = quarticPsi σ (quarticPsi τ k) := by
   have h0 : τ 0 ≠ τ ⟨(k : ℕ) + 1, by omega⟩ := fun hc => by
@@ -11264,6 +11347,8 @@ theorem quarticPsi_mul_apply (σ τ : Equiv.Perm (Fin 4)) (k : Fin 3) :
   rw [Equiv.Perm.mul_apply, Equiv.Perm.mul_apply]
   exact quarticPairingIdx_perm σ h0
 
+/-- FT IV §4: the identity permutation fixes all three pairings (each matching
+contains `(0, k+1)` with `k+1` fixed; by case enumeration + `rfl`). -/
 theorem quarticPsi_one (k : Fin 3) : quarticPsi 1 k = k := by
   rcases fin3_cases3 k with rfl|rfl|rfl <;> rfl
 
@@ -11299,10 +11384,13 @@ def quarticVal {K : Type*} [CommRing K] (k : Fin 3) (t : Fin 4 → K) : K :=
   else if k = 1 then quarticBeta (t 0) (t 1) (t 2) (t 3)
   else quarticGamma (t 0) (t 1) (t 2) (t 3)
 
+/-- FT IV §4: slot `0` holds the value `α = t₀t₁ + t₂t₃` (definitional, `rfl`). -/
 @[simp] theorem quarticVal_zero {K : Type*} [CommRing K] (t : Fin 4 → K) :
     quarticVal 0 t = quarticAlpha (t 0) (t 1) (t 2) (t 3) := rfl
+/-- FT IV §4: slot `1` holds the value `β = t₀t₂ + t₁t₃` (definitional, `rfl`). -/
 @[simp] theorem quarticVal_one {K : Type*} [CommRing K] (t : Fin 4 → K) :
     quarticVal 1 t = quarticBeta (t 0) (t 1) (t 2) (t 3) := rfl
+/-- FT IV §4: slot `2` holds the value `γ = t₀t₃ + t₁t₂` (definitional, `rfl`). -/
 @[simp] theorem quarticVal_two {K : Type*} [CommRing K] (t : Fin 4 → K) :
     quarticVal 2 t = quarticGamma (t 0) (t 1) (t 2) (t 3) := rfl
 
@@ -11397,41 +11485,65 @@ theorem mem_quarticStabilizer_iff {K : Type*} [CommRing K] {t : Fin 4 → K} [Is
     exact (@MulAction.mem_stabilizer_iff (Equiv.Perm (Fin 4)) (Fin 3) _ quarticSlotAction k
       σ).mpr h2
 
+/-- FT IV §4: the transposition `(12)` swaps the slots of `β` and `α`:
+`quarticPsi (12) 1 = 0`.  Proof idea: `(12)` fixes `0` and sends `2 ↦ 1`, and
+`(0, 1)` lies in matching `0` (`quarticPairingIdx_01`). -/
 theorem quarticPsi_swap12_one : quarticPsi (Equiv.swap 1 2) 1 = 0 := by
   show quarticPairingIdx (Equiv.swap 1 2 0) (Equiv.swap 1 2 2) = 0
   rw [Equiv.swap_apply_of_ne_of_ne (show (0 : Fin 4) ≠ 1 by decide)
     (show (0 : Fin 4) ≠ 2 by decide), Equiv.swap_apply_right, quarticPairingIdx_01]
 
+/-- FT IV §4: the transposition `(01)` swaps the slots of `α` and `γ`:
+`quarticPsi (01) 1 = 2`.  Proof idea: `(01)` sends `0 ↦ 1` and fixes `2`, and
+`(1, 2)` lies in matching `2` (`quarticPairingIdx_12`). -/
 theorem quarticPsi_swap01_one : quarticPsi (Equiv.swap 0 1) 1 = 2 := by
   show quarticPairingIdx (Equiv.swap 0 1 0) (Equiv.swap 0 1 2) = 2
   rw [Equiv.swap_apply_left, Equiv.swap_apply_of_ne_of_ne (show (2 : Fin 4) ≠ 0 by decide)
     (show (2 : Fin 4) ≠ 1 by decide), quarticPairingIdx_12]
 
+/-- FT IV §4: the transposition `(12)` swaps the slots of `α` and `β`:
+`quarticPsi (12) 0 = 1`.  Proof idea: `(12)` fixes `0` and sends `1 ↦ 2`, and
+`(0, 2)` lies in matching `1` (`quarticPairingIdx_02`). -/
 theorem quarticPsi_swap12_zero : quarticPsi (Equiv.swap 1 2) 0 = 1 := by
   show quarticPairingIdx (Equiv.swap 1 2 0) (Equiv.swap 1 2 1) = 1
   rw [Equiv.swap_apply_of_ne_of_ne (show (0 : Fin 4) ≠ 1 by decide)
     (show (0 : Fin 4) ≠ 2 by decide), Equiv.swap_apply_left, quarticPairingIdx_02]
 
+/-- FT IV §4: the transposition `(02)` swaps the slots of `α` and `γ`:
+`quarticPsi (02) 0 = 2`.  Proof idea: `(02)` sends `0 ↦ 2` and fixes `1`, and
+`(2, 1)` lies in matching `2` (`quarticPairingIdx_21`). -/
 theorem quarticPsi_swap02_zero : quarticPsi (Equiv.swap 0 2) 0 = 2 := by
   show quarticPairingIdx (Equiv.swap 0 2 0) (Equiv.swap 0 2 1) = 2
   rw [Equiv.swap_apply_left, Equiv.swap_apply_of_ne_of_ne (show (1 : Fin 4) ≠ 0 by decide)
     (show (1 : Fin 4) ≠ 2 by decide), quarticPairingIdx_21]
 
+/-- FT IV §4: the transposition `(01)` swaps the slots of `β` and `γ`:
+`quarticPsi (01) 2 = 1`.  Proof idea: `(01)` sends `0 ↦ 1` and fixes `3`, and
+`(1, 3)` lies in matching `1` (`quarticPairingIdx_13`). -/
 theorem quarticPsi_swap01_two : quarticPsi (Equiv.swap 0 1) 2 = 1 := by
   show quarticPairingIdx (Equiv.swap 0 1 0) (Equiv.swap 0 1 3) = 1
   rw [Equiv.swap_apply_left, Equiv.swap_apply_of_ne_of_ne (show (3 : Fin 4) ≠ 0 by decide)
     (show (3 : Fin 4) ≠ 1 by decide), quarticPairingIdx_13]
 
+/-- FT IV §4: the transposition `(02)` swaps the slots of `β` and `α`:
+`quarticPsi (02) 2 = 0`.  Proof idea: `(02)` sends `0 ↦ 2` and fixes `3`, and
+`(2, 3)` lies in matching `0` (`quarticPairingIdx_23`). -/
 theorem quarticPsi_swap02_two : quarticPsi (Equiv.swap 0 2) 2 = 0 := by
   show quarticPairingIdx (Equiv.swap 0 2 0) (Equiv.swap 0 2 3) = 0
   rw [Equiv.swap_apply_left, Equiv.swap_apply_of_ne_of_ne (show (3 : Fin 4) ≠ 0 by decide)
     (show (3 : Fin 4) ≠ 2 by decide), quarticPairingIdx_23]
 
+/-- FT IV §4: the transposition `(23)` swaps the slots of `β` and `γ`:
+`quarticPsi (23) 1 = 2`.  Proof idea: `(23)` fixes `0` and sends `2 ↦ 3`, and
+`(0, 3)` lies in matching `2` (`quarticPairingIdx_03`). -/
 theorem quarticPsi_swap23_one : quarticPsi (Equiv.swap 2 3) 1 = 2 := by
   show quarticPairingIdx (Equiv.swap 2 3 0) (Equiv.swap 2 3 2) = 2
   rw [Equiv.swap_apply_of_ne_of_ne (show (0 : Fin 4) ≠ 2 by decide)
     (show (0 : Fin 4) ≠ 3 by decide), Equiv.swap_apply_left, quarticPairingIdx_03]
 
+/-- FT IV §4: the transposition `(23)` swaps the slots of `γ` and `β`:
+`quarticPsi (23) 2 = 1`.  Proof idea: `(23)` fixes `0` and sends `3 ↦ 2`, and
+`(0, 2)` lies in matching `1` (`quarticPairingIdx_02`). -/
 theorem quarticPsi_swap23_two : quarticPsi (Equiv.swap 2 3) 2 = 1 := by
   show quarticPairingIdx (Equiv.swap 2 3 0) (Equiv.swap 2 3 3) = 1
   rw [Equiv.swap_apply_of_ne_of_ne (show (0 : Fin 4) ≠ 2 by decide)
@@ -11455,6 +11567,9 @@ theorem quarticOrbitAlpha_univ :
     · intro _; trivial
     · intro _; exact ⟨Equiv.swap 0 2, quarticPsi_swap02_zero⟩
 
+/-- FT IV §4: the orbit of the `β`-slot under `S₄` is all of `{α, β, γ}` (the
+transpositions `(12)`, `(01)` move it to the other slots, by
+`quarticPsi_swap12_one`/`quarticPsi_swap01_one`). -/
 theorem quarticOrbitBeta_univ :
     MulAction.orbit (Equiv.Perm (Fin 4)) (1 : Fin 3) = Set.univ := by
   ext y
@@ -11470,6 +11585,9 @@ theorem quarticOrbitBeta_univ :
     · intro _; trivial
     · intro _; exact ⟨Equiv.swap 0 1, quarticPsi_swap01_one⟩
 
+/-- FT IV §4: the orbit of the `γ`-slot under `S₄` is all of `{α, β, γ}` (the
+transpositions `(02)`, `(01)` move it to the other slots, by
+`quarticPsi_swap02_two`/`quarticPsi_swap01_two`). -/
 theorem quarticOrbitGamma_univ :
     MulAction.orbit (Equiv.Perm (Fin 4)) (2 : Fin 3) = Set.univ := by
   ext y
@@ -11555,6 +11673,10 @@ def quarticStabilizerGamma_sylow : Sylow 2 (Equiv.Perm (Fin 4)) :=
 the slot-permutation homomorphism `S₄ → S₃`. -/
 def quarticFixer : Subgroup (Equiv.Perm (Fin 4)) := MonoidHom.ker quarticSlotHom
 
+/-- FT IV §4: the double transposition `Gen01 = (01)(23)` fixes all three
+pairings: `(01)(23)` sends the pair containing `0` (namely `(0, k+1)`) to
+`(1, 2−k)`, which lies in the same matching (by the pairing-index simp lemmas
+`quarticPairingIdx_10`, `_13`, `_12`). -/
 theorem quarticPsi_gen01 (k : Fin 3) : quarticPsi quarticKleinGen01 k = k := by
   rcases fin3_cases3 k with rfl|rfl|rfl
   · show quarticPairingIdx (quarticKleinGen01 0) (quarticKleinGen01 1) = 0
@@ -11564,6 +11686,9 @@ theorem quarticPsi_gen01 (k : Fin 3) : quarticPsi quarticKleinGen01 k = k := by
   · show quarticPairingIdx (quarticKleinGen01 0) (quarticKleinGen01 3) = 2
     simp [quarticPairingIdx_12]
 
+/-- FT IV §4: the double transposition `Gen02 = (02)(13)` fixes all three
+pairings (it sends the pair containing `0` to `(2, 3−k)`, in the same matching;
+by the pairing-index simp lemmas `quarticPairingIdx_23`, `_20`, `_21`). -/
 theorem quarticPsi_gen02 (k : Fin 3) : quarticPsi quarticKleinGen02 k = k := by
   rcases fin3_cases3 k with rfl|rfl|rfl
   · show quarticPairingIdx (quarticKleinGen02 0) (quarticKleinGen02 1) = 0
@@ -11573,6 +11698,9 @@ theorem quarticPsi_gen02 (k : Fin 3) : quarticPsi quarticKleinGen02 k = k := by
   · show quarticPairingIdx (quarticKleinGen02 0) (quarticKleinGen02 3) = 2
     simp
 
+/-- FT IV §4: the double transposition `Gen03 = (03)(12)` fixes all three
+pairings (it sends the pair containing `0` to `(3, 2−k)`, in the same matching;
+by the pairing-index simp lemmas `quarticPairingIdx_32`, `_31`, `_30`). -/
 theorem quarticPsi_gen03 (k : Fin 3) : quarticPsi quarticKleinGen03 k = k := by
   rcases fin3_cases3 k with rfl|rfl|rfl
   · show quarticPairingIdx (quarticKleinGen03 0) (quarticKleinGen03 1) = 0
@@ -12180,6 +12308,404 @@ theorem exists_rootEnumeration (f : Polynomial F) (hf : f.Separable)
       (Fintype.equivFinOfCardEq hcard').symm.surjective, Set.image_univ, Subtype.range_coe]
 
 end Splitting
+
+/-! ## FT chapter IV §1 (`cg3`): conjugation, the sign of the discriminant, and `A_n` -/
+
+/-- Helper for FT `cg3`: complex conjugation fixes rational scalars in `ℂ`.  Proof: `conjQ`
+is a `ℚ`-algebra homomorphism, hence fixes images along `algebraMap ℚ ℂ`. -/
+theorem star_algebraMap_rat (a : ℚ) : star (algebraMap ℚ ℂ a) = algebraMap ℚ ℂ a := by
+  rw [← conjQ_apply, AlgHom.map_algebraMap]
+
+/-- FT IV §1 helper: the Vandermonde product of an injectively enumerated family in a field
+is nonzero (each factor `r i - r j` with `i < j` is nonzero since `r` is injective). -/
+theorem vandermondeProd_ne_zero {F : Type*} [Field F] {n : ℕ} (r : Fin n → F)
+    (hri : Function.Injective r) : vandermondeProd r ≠ 0 := by
+  intro hc
+  rw [vandermondeProd, Finset.prod_eq_zero_iff] at hc
+  obtain ⟨j, -, hJ⟩ := hc
+  rw [Finset.prod_eq_zero_iff] at hJ
+  obtain ⟨i, hi, hI⟩ := hJ
+  exact absurd (hri (sub_eq_zero.mp hI)) (Finset.mem_Iio.mp hi).ne
+
+/-- Helper for FT `cg3` (Milne's "more direct" argument): the sign of an involution `π` of
+`Fin n` whose support has exactly `2s` elements is `(-1)^s`.  Proof: strong induction on a
+finset `S` containing the support of `π`: if `i` is a non-fixed point and `j = π i`, then
+`π = swap i j * ρ` where `ρ := swap i j * π` is again an involution whose support is the
+support of `π` minus `{i, j}`, and `Equiv.Perm.sign_mul` together with
+`Equiv.Perm.sign_swap` reduce the sign of `π` to `-1 * sign ρ`. -/
+theorem sign_involutive_perm_of_card {n s : ℕ} (π : Equiv.Perm (Fin n)) (hπ : ∀ i, π (π i) = i)
+    (hcard : (Finset.univ.filter (fun i => π i ≠ i)).card = 2 * s) :
+    (Equiv.Perm.sign π : ℤ) = (-1 : ℤ) ^ s := by
+  classical
+  have key : ∀ (S : Finset (Fin n)), ∀ (ρ : Equiv.Perm (Fin n)), (∀ i, ρ (ρ i) = i) →
+      (∀ i, ρ i ≠ i → i ∈ S) → ∀ t : ℕ,
+      (Finset.univ.filter (fun i => ρ i ≠ i)).card = 2 * t →
+      (Equiv.Perm.sign ρ : ℤ) = (-1 : ℤ) ^ t := by
+    intro S
+    refine Finset.strongInductionOn (p := fun S => ∀ (ρ : Equiv.Perm (Fin n)),
+      (∀ i, ρ (ρ i) = i) → (∀ i, ρ i ≠ i → i ∈ S) → ∀ t : ℕ,
+      (Finset.univ.filter (fun i => ρ i ≠ i)).card = 2 * t →
+      (Equiv.Perm.sign ρ : ℤ) = (-1 : ℤ) ^ t) S ?_
+    intro S IH ρ hρ hsub t ht
+    by_cases hsup : ∃ i, ρ i ≠ i
+    · obtain ⟨i, hi⟩ := hsup
+      have hj : ρ (ρ i) = i := hρ i
+      have hij : i ≠ ρ i := fun hc => hi hc.symm
+      have hρinj : Function.Injective ρ := Equiv.injective ρ
+      set ρ₁ : Equiv.Perm (Fin n) := Equiv.swap i (ρ i) * ρ with hρ₁def
+      -- `ρ = swap i (ρ i) * ρ₁` and `ρ₁` is an involution fixing `i` and `ρ i`
+      have hmul : ρ = Equiv.swap i (ρ i) * ρ₁ := by
+        rw [hρ₁def, ← mul_assoc,
+          show Equiv.swap i (ρ i) * Equiv.swap i (ρ i) = 1 from
+            Equiv.ext (fun y => Equiv.swap_apply_self i (ρ i) y), one_mul]
+      have hρi : ρ₁ i = i := by
+        rw [hρ₁def, Equiv.Perm.mul_apply, Equiv.swap_apply_right]
+      have hρj : ρ₁ (ρ i) = ρ i := by
+        rw [hρ₁def, Equiv.Perm.mul_apply, hj, Equiv.swap_apply_left]
+      have hρy : ∀ y, y ≠ i → y ≠ ρ i → ρ₁ y = ρ y := by
+        intro y hy hy'
+        have h1 : ρ y ≠ i := fun hc => hy' (hρinj (hc.trans hj.symm))
+        have h2 : ρ y ≠ ρ i := fun hc => hy (hρinj hc)
+        rw [hρ₁def, Equiv.Perm.mul_apply, Equiv.swap_apply_of_ne_of_ne h1 h2]
+      have hinv : ∀ y, ρ₁ (ρ₁ y) = y := by
+        intro y
+        by_cases hy : y = i
+        · subst hy; rw [hρi, hρi]
+        · by_cases hy2 : y = ρ i
+          · subst hy2; rw [hρj, hρj]
+          · have h1 : ρ y ≠ i := fun hc => hy2 (hρinj (hc.trans hj.symm))
+            have h2 : ρ y ≠ ρ i := fun hc => hy (hρinj hc)
+            rw [hρy y hy hy2, hρy (ρ y) h1 h2, hρ]
+      -- the support of `ρ₁` is the support of `ρ` minus `{i, ρ i}`
+      have hsup₁ : ∀ y, ρ₁ y ≠ y → y ∈ (S.erase i).erase (ρ i) := by
+        intro y hy
+        have hyi : y ≠ i := by
+          intro hc; subst hc; exact hy hρi
+        have hyj : y ≠ ρ i := by
+          intro hc; subst hc; exact hy hρj
+        have hry : ρ y ≠ y := by rw [← hρy y hyi hyj]; exact hy
+        refine Finset.mem_erase.mpr ⟨hyj, Finset.mem_erase.mpr ⟨hyi, hsub y hry⟩⟩
+      have himem : i ∈ S := hsub i hi
+      have hjmem : ρ i ∈ S := hsub (ρ i) (by rw [hj]; exact Ne.symm hi)
+      have hlt : (S.erase i).erase (ρ i) ⊂ S := by
+        refine Finset.ssubset_def.mpr
+          ⟨(Finset.erase_subset (ρ i) (S.erase i)).trans (Finset.erase_subset i S), ?_⟩
+        intro hc
+        exact (Finset.mem_erase.mp (Finset.mem_erase.mp (hc himem)).2).1 rfl
+      -- the support of `ρ₁` has `2(t-1)` elements
+      have hiF : i ∉ Finset.univ.filter (fun y => ρ₁ y ≠ y) := fun hc =>
+        (Finset.mem_filter.mp hc).2 hρi
+      have hjF : ρ i ∉ Finset.univ.filter (fun y => ρ₁ y ≠ y) := fun hc =>
+        (Finset.mem_filter.mp hc).2 hρj
+      have hiIns : i ∉ insert (ρ i) (Finset.univ.filter (fun y => ρ₁ y ≠ y)) := fun hc =>
+        (Finset.mem_insert.mp hc).elim hij hiF
+      have hcard' : (Finset.univ.filter (fun y => ρ₁ y ≠ y)).card = 2 * (t - 1) := by
+        have hFeq : (Finset.univ.filter (fun y => ρ y ≠ y)) =
+            insert i (insert (ρ i) (Finset.univ.filter (fun y => ρ₁ y ≠ y))) := by
+          ext y
+          simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_insert]
+          constructor
+          · intro h
+            rcases eq_or_ne y i with hc | hc
+            · exact Or.inl hc
+            · rcases eq_or_ne y (ρ i) with hc2 | hc2
+              · exact Or.inr (Or.inl hc2)
+              · exact Or.inr (Or.inr (by rw [hρy y hc hc2]; exact h))
+          · rintro (hc | hc | h)
+            · subst hc; exact hi
+            · subst hc; rw [hj]; exact Ne.symm hi
+            · have hyi : y ≠ i := by
+                intro hc; subst hc; exact h hρi
+              have hyj : y ≠ ρ i := by
+                intro hc; subst hc; exact h hρj
+              rw [← hρy y hyi hyj]
+              exact h
+        rw [hFeq, Finset.card_insert_of_notMem hiIns,
+          Finset.card_insert_of_notMem hjF] at ht
+        omega
+      -- conclude by the induction hypothesis
+      have htpos : 0 < t := by
+        have htwo : insert (ρ i) ({i} : Finset (Fin n)) ⊆
+            Finset.univ.filter (fun y => ρ y ≠ y) := by
+          intro y hy
+          simp only [Finset.mem_insert, Finset.mem_singleton, Finset.mem_filter,
+            Finset.mem_univ, true_and] at hy ⊢
+          rcases hy with hc | hc
+          · rw [hc, hj]; exact Ne.symm hi
+          · rw [hc]; exact hi
+        have h2le := Finset.card_le_card htwo
+        rw [Finset.card_insert_of_notMem (fun hmem => hi (Finset.mem_singleton.mp hmem)),
+          Finset.card_singleton] at h2le
+        omega
+      have hsign1 : (Equiv.Perm.sign ρ₁ : ℤ) = (-1 : ℤ) ^ (t - 1) :=
+        IH ((S.erase i).erase (ρ i)) hlt ρ₁ hinv hsup₁ (t - 1) hcard'
+      have hsign2 : (-1 : ℤ) * (-1 : ℤ) ^ (t - 1) = (-1 : ℤ) ^ t := by
+        conv_rhs => rw [show t = (t - 1).succ from (Nat.succ_pred_eq_of_pos htpos).symm,
+          Nat.succ_eq_add_one, pow_succ']
+      rw [hmul, Equiv.Perm.sign_mul, Equiv.Perm.sign_swap hij]
+      simp only [Units.val_mul, Units.val_neg, Units.val_one, hsign1]
+      exact hsign2
+    · push Not at hsup
+      have hid : ρ = 1 := Equiv.ext (fun y => by simpa using hsup y)
+      have hcard0 : (Finset.univ.filter (fun y => ρ y ≠ y)).card = 0 := by
+        refine Finset.card_eq_zero.mpr (Finset.eq_empty_iff_forall_notMem.mpr ?_)
+        intro y hy
+        exact (Finset.mem_filter.mp hy).2 (hsup y)
+      rw [hcard0] at ht
+      have ht0 : t = 0 := by omega
+      subst ht0
+      rw [hid, Equiv.Perm.sign_one, Units.val_one, pow_zero]
+  exact key Finset.univ π hπ (fun i _ => Finset.mem_univ i) s hcard
+
+open scoped Classical in
+/-- FT `cg3` (Milne's "more direct" argument): let `E ⊆ ℂ` be an intermediate field over `ℚ`
+stable under complex conjugation, and let `r : Fin n → E` be an injective enumeration of
+elements which is closed under conjugation (each `star (r i)` is again enumerated).  If
+exactly `2s` of the enumerated elements are non-real, then conjugation acts on the
+discriminant square root `Δ = vandermondeDelta r` by `star Δ = (-1)^s · Δ`.  Proof:
+conjugation restricts to `σ_c ∈ Gal(E/ℚ)` (`starAlgEquiv`), which permutes the enumerated
+elements and induces an involution `π = inducedRootPerm` of `Fin n` whose non-fixed points
+are exactly the non-real ones; `vandermondeDelta_gal_smul'` gives `σ_c • Δ = sign π · Δ`,
+and `sign_involutive_perm_of_card` computes `sign π = (-1)^s`. -/
+theorem star_vandermondeDelta_eq_neg_one_pow_mul {E : IntermediateField ℚ ℂ} {n : ℕ}
+    (hstar : ∀ x ∈ E, star x ∈ E)
+    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
+    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
+    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s) :
+    star ((vandermondeDelta r : ↥E) : ℂ) =
+      ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * ((vandermondeDelta r : ↥E) : ℂ) := by
+  classical
+  have hvalinj : Function.Injective ⇑E.val := by
+    rw [IntermediateField.coe_val]
+    exact Subtype.val_injective
+  set σc : Gal(↥E/ℚ) := starAlgEquiv hstar with hσcdef
+  have hσapp : ∀ x : ↥E, ⇑E.val (σc x) = star (⇑E.val x) := fun x => starAlgEquiv_apply hstar x
+  have hσ' : ∀ i, σc (r i) ∈ Set.range r := by
+    intro i
+    obtain ⟨j, hj⟩ := hσ i
+    refine ⟨j, ?_⟩
+    apply hvalinj
+    rw [hσapp]
+    exact hj
+  set π := inducedRootPerm r hri σc hσ' with hπdef
+  have h2 : ∀ i, r (π i) = σc (r i) := fun i => inducedRootPerm_apply r hri σc hσ' i
+  have hfix : ∀ i, π i = i ↔ star ((r i : ℂ)) = ((r i : ℂ)) := by
+    intro i
+    constructor
+    · intro h
+      have h5 : ((r (π i) : ℂ)) = ((σc (r i) : ℂ)) := by rw [h2 i]
+      have h6 : ((r i : ℂ)) = ((r (π i) : ℂ)) := by rw [h]
+      calc star ((r i : ℂ)) = ((σc (r i) : ℂ)) := (hσapp _).symm
+        _ = ((r (π i) : ℂ)) := h5.symm
+        _ = ((r i : ℂ)) := h6.symm
+    · intro h
+      have h3 : σc (r i) = r i := hvalinj (by rw [hσapp]; exact h)
+      exact hri ((h2 i).trans h3)
+  have hinv : ∀ i, π (π i) = i := by
+    intro i
+    have h1 : r (π (π i)) = σc (r (π i)) := inducedRootPerm_apply r hri σc hσ' (π i)
+    rw [h2 i] at h1
+    refine hri (hvalinj ?_)
+    rw [h1, hσapp, hσapp, star_star]
+  have hfilters : (Finset.univ.filter (fun i => π i ≠ i)) =
+      (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))) := by
+    ext i
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    exact not_congr (hfix i)
+  have hcardπ : (Finset.univ.filter (fun i => π i ≠ i)).card = 2 * s := by
+    rw [hfilters]; exact hcard
+  have hsign : (Equiv.Perm.sign π : ℤ) = (-1 : ℤ) ^ s :=
+    sign_involutive_perm_of_card π hinv hcardπ
+  have hcomb : ⇑E.val (σc (vandermondeDelta r)) =
+      ((Equiv.Perm.sign π : ℤ) : ℂ) * ⇑E.val (vandermondeDelta r) := by
+    have hsmul : σc • vandermondeDelta r = σc (vandermondeDelta r) := rfl
+    rw [← hsmul, vandermondeDelta_gal_smul' r hri σc hσ', map_mul, map_intCast]
+  rw [hsign] at hcomb
+  calc star ((vandermondeDelta r : ↥E) : ℂ)
+      = ⇑E.val (σc (vandermondeDelta r)) := (hσapp _).symm
+    _ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * ((vandermondeDelta r : ↥E) : ℂ) := hcomb
+
+/-- FT `cg3` (a): if `Δ : ℂ` satisfies `star Δ = (-1)^s · Δ` with `s` odd and `Δ ≠ 0`, then
+`Δ` is not the image of a rational number under `algebraMap ℚ ℂ`.  Proof: rationals are
+fixed by conjugation (`star_algebraMap_rat`), so `Δ` would satisfy `Δ = star Δ = -Δ`,
+forcing `Δ = 0`. -/
+theorem not_algebraMap_of_star_eq_neg_one_pow_mul {s : ℕ} (hodd : Odd s) {Δ : ℂ} (hΔ : Δ ≠ 0)
+    (hstar : star Δ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * Δ) :
+    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a = Δ := by
+  rintro ⟨a, ha⟩
+  have hstar' : star Δ = -Δ := by rw [hstar, Odd.neg_one_pow hodd]; push_cast; ring
+  have h1 : Δ = star Δ := by rw [← ha, star_algebraMap_rat a]
+  rw [hstar'] at h1
+  have h2 : Δ + Δ = 0 := eq_neg_iff_add_eq_zero.mp h1
+  have h3 : (2 : ℂ) * Δ = 0 := by rw [two_mul]; exact h2
+  rcases mul_eq_zero.mp h3 with h' | h'
+  · exact absurd h' (by norm_num : (2 : ℂ) ≠ 0)
+  · exact hΔ h'
+
+/-- FT `cg3` (b): if `Δ : ℂ` satisfies `star Δ = (-1)^s · Δ` with `s` odd and `Δ ≠ 0`, then
+`Δ²` is not a rational square.  Proof: `star Δ = -Δ` gives `Δ.re = 0`, so `Δ = Δ.im * I` and
+`Δ² = -(Δ.im)²` with `Δ.im ≠ 0`, a negative real number, while a rational square is
+nonnegative (`sq_nonneg`). -/
+theorem sq_not_sq_algebraMap_of_star_eq_neg_one_pow_mul {s : ℕ} (hodd : Odd s) {Δ : ℂ}
+    (hΔ : Δ ≠ 0) (hstar : star Δ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * Δ) :
+    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a * algebraMap ℚ ℂ a = Δ ^ 2 := by
+  rintro ⟨a, ha⟩
+  have hstar' : star Δ = -Δ := by rw [hstar, Odd.neg_one_pow hodd]; push_cast; ring
+  have hre : Δ.re = 0 := by
+    have h1 : Δ.re = (-Δ).re := by rw [← hstar', Complex.star_def, Complex.conj_re]
+    rw [Complex.neg_re] at h1
+    linarith
+  have him : Δ.im ≠ 0 := by
+    intro hc
+    exact hΔ (Complex.ext hre (by simp [hc]))
+  have hval : Δ = (Δ.im : ℂ) * Complex.I := by
+    rw [← Complex.re_add_im Δ, hre]
+    simp
+  have hsq : Δ ^ 2 = ((-(Δ.im) ^ 2 : ℝ) : ℂ) := by
+    conv_lhs => rw [hval, mul_pow,
+      show Complex.I ^ 2 = -1 from by rw [pow_two, Complex.I_mul_I]]
+    push_cast
+    ring
+  have hpos : (0 : ℝ) < Δ.im ^ 2 := sq_pos_of_ne_zero him
+  have hreal : (((a * a : ℚ) : ℝ) : ℂ) = ((-(Δ.im) ^ 2 : ℝ) : ℂ) := by
+    rw [← hsq, ← ha]
+    simp
+  have hsqeq : ((a * a : ℚ) : ℝ) = (-(Δ.im) ^ 2 : ℝ) := Complex.ofReal_injective hreal
+  have hxx : ((a * a : ℚ) : ℝ) = ((a : ℚ) : ℝ) ^ 2 := by push_cast; ring
+  linarith [sq_nonneg (((a : ℚ) : ℝ)), hpos]
+
+open scoped Classical in
+/-- FT `cg3` (a), instantiated: with the hypotheses of
+`star_vandermondeDelta_eq_neg_one_pow_mul` and `s` odd, `Δ = vandermondeDelta r` is not
+rational: a rational `a` with `algebraMap ℚ ℂ a = Δ` would satisfy `a = star a = star Δ =
+-Δ`, forcing `Δ = 0`, contradicting `Δ ≠ 0` (which follows from the injectivity of `r` via
+`vandermondeProd_ne_zero`). -/
+theorem vandermondeDelta_not_algebraMap_of_s_odd {E : IntermediateField ℚ ℂ} {n : ℕ}
+    (hstar : ∀ x ∈ E, star x ∈ E)
+    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
+    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
+    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s)
+    (hodd : Odd s) :
+    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a = ((vandermondeDelta r : ↥E) : ℂ) := by
+  have hv : Function.Injective ⇑E.val := by
+    rw [IntermediateField.coe_val]; exact Subtype.val_injective
+  refine not_algebraMap_of_star_eq_neg_one_pow_mul hodd ?_
+    (star_vandermondeDelta_eq_neg_one_pow_mul hstar r hri s hσ hcard)
+  intro hc
+  refine vandermondeProd_ne_zero r hri (hv ?_)
+  calc ⇑E.val (vandermondeDelta r) = ((vandermondeDelta r : ↥E) : ℂ) := rfl
+    _ = 0 := hc
+    _ = ⇑E.val 0 := (map_zero _).symm
+
+open scoped Classical in
+/-- FT `cg3` (b), instantiated: with the hypotheses of
+`star_vandermondeDelta_eq_neg_one_pow_mul` and `s` odd, `D(f) = Δ²` is not a square in `ℚ`:
+a rational square is a nonnegative real number, while `Δ² = -(Δ.im)² < 0` since
+`star Δ = -Δ` and `Δ ≠ 0`. -/
+theorem vandermondeDelta_sq_not_sq_algebraMap_of_s_odd {E : IntermediateField ℚ ℂ} {n : ℕ}
+    (hstar : ∀ x ∈ E, star x ∈ E)
+    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
+    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
+    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s)
+    (hodd : Odd s) :
+    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a * algebraMap ℚ ℂ a = ((vandermondeDelta r : ↥E) : ℂ) ^ 2 := by
+  have hv : Function.Injective ⇑E.val := by
+    rw [IntermediateField.coe_val]; exact Subtype.val_injective
+  refine sq_not_sq_algebraMap_of_star_eq_neg_one_pow_mul hodd ?_
+    (star_vandermondeDelta_eq_neg_one_pow_mul hstar r hri s hσ hcard)
+  intro hc
+  refine vandermondeProd_ne_zero r hri (hv ?_)
+  calc ⇑E.val (vandermondeDelta r) = ((vandermondeDelta r : ↥E) : ℂ) := rfl
+    _ = 0 := hc
+    _ = ⇑E.val 0 := (map_zero _).symm
+
+open scoped Polynomial in
+open scoped Classical in
+/-- FT `cg3` (the remark's content): let `f ∈ ℚ[X]` be separable and split in `ℂ`, let
+`E₀ = ℚ(adjoin the complex roots of f)` (a splitting field of `f` in `ℂ`), and let
+`r : Fin n → E₀` enumerate its roots injectively (range = root set of `f` in `E₀`).  If
+exactly `2s` of the roots are non-real and `s` is odd, then not every element of
+`Gal(E₀/ℚ)` induces an even permutation of the roots, i.e. `G_f` is not contained in `A_n`
+in the sense of `FT.gal_even_iff_delta_mem` (whose left side this negates; equivalently,
+`Δ ∉ ℚ` and `D(f)` is not a rational square).  Proof: conjugation preserves the root set of
+a rational polynomial (`star_rootSet_iff`), so it restricts to `Gal(E₀/ℚ)` and
+`star_vandermondeDelta_eq_neg_one_pow_mul` gives `star Δ = (-1)^s Δ`; since `Δ ≠ 0`
+(`vandermondeProd_ne_zero`) and `s` is odd, `vandermondeDelta_not_algebraMap_of_s_odd`
+gives `Δ ∉ ℚ`; but `gal_even_iff_delta_mem` shows that all-even would force `Δ ∈ ℚ`. -/
+theorem not_forall_sign_eq_one_of_s_odd {f : ℚ[X]} {n : ℕ} (hf : f.Separable)
+    (hsplits : (f.map (algebraMap ℚ ℂ)).Splits)
+    (r : Fin n → ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) (hri : Function.Injective r)
+    (hr : Set.range r =
+      (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
+        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))
+    (s : ℕ) (hodd : Odd s)
+    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s) :
+    ¬ ∀ σ : Gal(↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))/ℚ),
+        Equiv.Perm.sign (inducedRootPerm r hri σ
+          (fun i => gal_apply_mem_range f hf.ne_zero hr σ i)) = 1 := by
+  intro hall
+  haveI hsplit : Polynomial.IsSplittingField ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) f :=
+    IntermediateField.adjoin_rootSet_isSplittingField hsplits
+  haveI : IsGalois ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
+    IsGalois.of_separable_splitting_field hf
+  haveI : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
+    Polynomial.IsSplittingField.finiteDimensional _ f
+  obtain ⟨a, ha⟩ := (gal_even_iff_delta_mem f hf.ne_zero hr hri
+    (vandermondeProd_ne_zero r hri) (two_ne_zero_algebraMap (by norm_num : (2 : ℚ) ≠ 0))).mp hall
+  have hv : Function.Injective ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val := by
+    rw [IntermediateField.coe_val]; exact Subtype.val_injective
+  have hΔc : ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) ≠ 0 := by
+    intro hc
+    refine vandermondeProd_ne_zero r hri (hv ?_)
+    calc ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val (vandermondeDelta r)
+        = ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) := rfl
+      _ = 0 := hc
+      _ = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val 0 := (map_zero _).symm
+  have hstar0 : ∀ x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ),
+      star x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) := fun _ hx => star_mem_adjoin_rootSet hx
+  have hσ0 : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))) := by
+    intro i
+    have hmemU : r i ∈ (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
+        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) := hr ▸ (⟨i, rfl⟩ : r i ∈ Set.range r)
+    have hae : aeval (r i) (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))) = 0 :=
+      (Polynomial.mem_rootSet'.mp hmemU).2
+    rw [Polynomial.aeval_map_algebraMap] at hae
+    have h2 : star ((r i : ℂ)) ∈ f.rootSet ℂ := by
+      rw [Polynomial.mem_rootSet']
+      refine ⟨(Polynomial.map_ne_zero_iff
+        (FaithfulSMul.algebraMap_injective ℚ ℂ)).mpr hf.ne_zero, ?_⟩
+      rw [aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
+    have h3 : star ((r i : ℂ)) ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) :=
+      IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) h2
+    have hy : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
+        (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
+          ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) := by
+      rw [Polynomial.mem_rootSet']
+      refine ⟨?_, ?_⟩
+      · rw [Polynomial.map_ne_zero_iff
+          (RingHom.injective (algebraMap ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))
+            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))]
+        exact (Polynomial.map_ne_zero_iff
+          (RingHom.injective (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))).mpr
+          hf.ne_zero
+      · rw [Polynomial.aeval_map_algebraMap, aeval_E_eq_zero_iff ⟨star ((r i : ℂ)), h3⟩,
+          show ((⟨star ((r i : ℂ)), h3⟩ :
+            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) = star ((r i : ℂ)) from rfl,
+          aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
+    have hyr : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
+        Set.range r := by
+      rw [hr]
+      exact hy
+    obtain ⟨j, hj⟩ := hyr
+    exact ⟨j, congrArg Subtype.val hj⟩
+  refine vandermondeDelta_not_algebraMap_of_s_odd hstar0 r hri s hσ0 hcard hodd ⟨a, ?_⟩
+  calc algebraMap ℚ ℂ a
+      = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val
+          (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) a) :=
+        (AlgHom.map_algebraMap _ a).symm
+    _ = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val (vandermondeDelta r) := by rw [ha]
+    _ = ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) := rfl
+
 
 
 /-! ## FT chapter IV §2-3: transitivity of the Galois group, low degrees (FT cg4, cg5, cg6) -/
@@ -15351,7 +15877,7 @@ theorem oddValuesDepressedCubics (r : ℤ) :
       omega
 
 /-- FT cg6 (auxiliary).  Integer evaluation of `X³ − 3X + 1` and of `X³ − (−3)·X + 1`. -/
-theorem evalX3SubInt (r : ℤ) :
+theorem evalDepressedCubicInt (r : ℤ) :
     eval r (X ^ 3 - C (3:ℤ) * X + C (1:ℤ) : ℤ[X]) = r ^ 3 - 3 * r + 1 ∧
     eval r (X ^ 3 - C (-(3:ℤ)) * X + C (1:ℤ) : ℤ[X]) = r ^ 3 + 3 * r + 1 := by
   refine ⟨?_, ?_⟩ <;>
@@ -15375,7 +15901,7 @@ theorem irreducible_X3_sub_3X_add_1 : Irreducible (X ^ 3 - C 3 * X + C 1 : ℚ[X
       (monicNatDegreeDepressedCubic (K := ℤ) (a := 3) (b := 1)).2
       (by intro r hr
           have hodd := (oddValuesDepressedCubics r).1
-          rw [(evalX3SubInt r).1] at hr
+          rw [(evalDepressedCubicInt r).1] at hr
           rw [hr] at hodd
           norm_num at hodd))
 
@@ -15399,7 +15925,7 @@ theorem irreducible_X3_add_3X_add_1 : Irreducible (X ^ 3 + C 3 * X + C 1 : ℚ[X
       (monicNatDegreeDepressedCubic (K := ℤ) (a := -(3:ℤ)) (b := 1)).2
       (by intro r hr
           have hodd := (oddValuesDepressedCubics r).2
-          rw [(evalX3SubInt r).2] at hr
+          rw [(evalDepressedCubicInt r).2] at hr
           rw [hr] at hodd
           norm_num at hodd))
 
@@ -15628,17 +16154,16 @@ open Polynomial Equiv
 
 variable {m : ℕ} {R : Type*} [CommRing R]
 
--- AUDIT-GAP (bridging audit, check 1, delta ce6b0e6..c8ba881): `prod_perm_equiv` is an
--- untagged bridge candidate — mathematically vacuous statement (reindexing a product
--- along the equiv `ρ ↦ τ.symm.trans ρ`; a paper would not state it), forced proof (pure
--- `Finset.prod_bij` plumbing plus `Equiv.trans_assoc` bookkeeping, ~12 lines), substantial
--- code.  It connects the two presentations "product over all `ρ`" and "product over the
--- reindexed family" and is consumed by `map_dedekindThetaProduct`.  Remedy: obtain main's
--- `BRIDGE` disposition (tag naming the two presentations, or a recorded rejection).
--- Second borderline candidate for main's disposition:
--- `card_rootSet_eq_five_of_injective_enumeration` (~17973): vacuous bijective-cardinality
--- bookkeeping (subtype lift + `Fintype.card_of_bijective`), forced, ~12 lines, currently
--- without consumers.
+-- BRIDGE (bridging audit, check 1, delta ce6b0e6..c8ba881, remediated): `prod_perm_equiv`
+-- is tagged as the payment for bridging the two product presentations "product over all
+-- `ρ : Equiv.Perm (Fin m)`" and "product over the reindexed family `ρ ↦ τ.symm.trans ρ`"
+-- (the permutational conjugate family); it is consumed by `map_dedekindThetaProduct` to
+-- translate the permuted factor product back into the canonical one.
+-- Disposition of the borderline candidate
+-- `card_rootSet_eq_five_of_injective_enumeration` (~17973): REJECTED as a bridge — it is
+-- self-contained bookkeeping (subtype lift + `Fintype.card_of_bijective`, forced, ~12
+-- lines) with no consumer bridging two representations; retained as a standalone
+-- assembly helper (the cg22 cg21-input packaging may consume it upstream).
 /-- Reindexing lemma: permuting the index set of the product over all root permutations
 along the equiv `ρ ↦ τ.symm.trans ρ` (the involution `ρ ↦ ρ.symm` followed by
 post-composition with `τ`) leaves the product unchanged. -/
@@ -15694,22 +16219,13 @@ theorem map_dedekindThetaProduct (σ : R →+* R) (α : Fin m → R) (τ : Equiv
     _ = ∏ ρ : Equiv.Perm (Fin m), (X - C (dedekindTheta (α ∘ ρ.symm))) :=
         prod_perm_equiv (fun ω => (X - C (dedekindTheta (α ∘ ω.symm)))) τ
 
--- AUDIT-GAP (external-library audit, delta ce6b0e6..c8ba881): `FT.mvcoeff_finset_sum`
--- re-implements Mathlib's `MvPolynomial.coeff_sum` (Mathlib/Algebra/MvPolynomial/
--- Basic.lean:579: `coeff m (∑ i ∈ s, f i) = ∑ i ∈ s, coeff m (f i)`) with an identical
--- statement (the target version even adds an unnecessary `[DecidableEq σ]`).  Remedy:
--- delete the declaration and consume `MvPolynomial.coeff_sum` at its single consumer
--- `FT.exists_mvPolynomialF_of_gal_fixed` (~15694).
-/-- Coefficients are additive: the coefficient of a finite sum of multivariate
-polynomials is the sum of the coefficients. -/
-theorem mvcoeff_finset_sum {R σ : Type*} [CommSemiring R] [DecidableEq σ] {ι : Type*}
-    (d : σ →₀ ℕ) (s : Finset ι) (f : ι → MvPolynomial σ R) :
-    MvPolynomial.coeff d (∑ a ∈ s, f a) = ∑ a ∈ s, MvPolynomial.coeff d (f a) := by
-  classical
-  induction s using Finset.induction_on with
-  | empty => simp
-  | insert a s ha ih =>
-      rw [Finset.sum_insert ha, Finset.sum_insert ha, MvPolynomial.coeff_add, ih]
+/-!
+Note (external-library, delta audit ce6b0e6..c8ba881, remediated): the
+self-contained `FT.mvcoeff_finset_sum` (a finite-sum coefficient additivity lemma
+duplicating Mathlib's `MvPolynomial.coeff_sum`) was deleted; the single consumer
+`FT.exists_mvPolynomialF_of_gal_fixed` now consumes `MvPolynomial.coeff_sum`
+directly.
+-/
 
 end DedekindThetaProduct
 
@@ -15749,8 +16265,8 @@ theorem exists_mvPolynomialF_of_gal_fixed (c : MvPolynomial (Fin m) E)
   apply MvPolynomial.ext
   intro d
   rw [map_sum (MvPolynomial.map (algebraMap F E)),
-    mvcoeff_finset_sum d c.support
-      (fun d' => MvPolynomial.map (algebraMap F E) (MvPolynomial.monomial d' (g d')))]
+    MvPolynomial.coeff_sum c.support
+      (fun d' => MvPolynomial.map (algebraMap F E) (MvPolynomial.monomial d' (g d'))) d]
   simp only [MvPolynomial.map_monomial, MvPolynomial.coeff_monomial]
   by_cases hd : d ∈ c.support
   · rw [Finset.sum_eq_single d (fun b _ hb => if_neg hb) (fun h => absurd hd h)]
@@ -15900,7 +16416,7 @@ end DedekindThetaGalois2
 -- * E0 : Type (universe-0) forced by chapter-III same-universe lemmas it builds on.
 -- * hc_root / hι intentionally unused in the proof (encode remaining cg20 packaging content);
 --   at integration rename to _hc_root / _hι (or wire) to satisfy warning hygiene.
--- * gal_eq_zpowers_frobenius' = universe-general duplicate of FT.gal_eq_zpowers_frobenius;
+-- * gal_eq_zpowers_frobenius = FT §7 prose (universe-general duplicate deleted);
 --   drop if unwanted and point the two uses at the same-universe original (E0 : Type 0 makes
 --   FT.gal_eq_zpowers_frobenius applicable? — its statement is {F E : Type u} same-universe;
 --   ZMod p : Type 0, E0 : Type 0 ⇒ yes applicable; check at integration).
@@ -16083,32 +16599,13 @@ section Cg21Frobenius
 open Polynomial
 open scoped Classical
 
--- AUDIT-GAP (coding-conventions audit, delta ce6b0e6..c8ba881): `FT.gal_eq_zpowers_frobenius'`
--- duplicates `FT.gal_eq_zpowers_frobenius` (FT §7 prose, ~9690) with an identical statement
--- and proof; the only difference is universe generality (`Type*` vs the original's
--- same-universe `Type u`).  The file's own integration note (~15845) says "drop if unwanted
--- and point the two uses at the same-universe original", and both consumers
--- (`frobeniusOrbitCard_eq_natDegree_of_irreducible_factor` ~16062 and
--- `exists_cycleType_of_factorDegrees` ~16544) instantiate `F = ZMod p : Type 0` and
--- `E0 : Type` (same universe), where the original applies.  Remedy: delete the prime
--- duplicate and point the two consumers at `FT.gal_eq_zpowers_frobenius`, or record why
--- the general form must be kept.
-/-- **FT `cg21` (finite-field core, step 3).** The Frobenius automorphism of the extension
-`E/F` of finite fields generates the Galois group `Gal(E/F)`: universe-general form of
-`FT.gal_eq_zpowers_frobenius` (FT §7 prose: `G_f` is cyclic, generated by Frobenius).
-
-Proof idea: the order of Frobenius is `[E : F] = |Gal(E/F)|`
-(`FiniteField.orderOf_frobeniusAlgEquivOfAlgebraic`, `IsGalois.card_aut_eq_finrank`), so the
-cyclic subgroup it generates already has the cardinality of `Gal(E/F)`. -/
-theorem gal_eq_zpowers_frobenius' {F E : Type*} [Field F] [Fintype F] [Field E] [Algebra F E]
-    [FiniteDimensional F E] [IsGalois F E] :
-    (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic F E) : Subgroup Gal(E/F)) = ⊤ := by
-  haveI : Finite E := Module.finite_of_finite F
-  have hcard : Nat.card Gal(E/F) = Module.finrank F E := IsGalois.card_aut_eq_finrank F E
-  have hord : orderOf (FiniteField.frobeniusAlgEquivOfAlgebraic F E) = Module.finrank F E :=
-    FiniteField.orderOf_frobeniusAlgEquivOfAlgebraic F E
-  refine Subgroup.eq_top_of_card_eq _ ?_
-  rw [Nat.card_zpowers, hord, ← hcard]
+/-!
+Note (coding conventions, delta audit ce6b0e6..c8ba881, remediated): the
+universe-general duplicate `FT.gal_eq_zpowers_frobenius'` (a byte-identical restatement of
+`FT.gal_eq_zpowers_frobenius` from FT §7 prose ~9690 with `Type*` instead of the
+original's same-universe `Type u`) was deleted; both consumers instantiate `F =
+ZMod p : Type 0` and `E0 : Type` (same universe), where the original applies.
+-/
 
 variable {p : ℕ} [Fact p.Prime] {E0 : Type} [Field E0] [Fintype E0] [Algebra (ZMod p) E0]
   [FiniteDimensional (ZMod p) E0] [IsGalois (ZMod p) E0]
@@ -16127,7 +16624,7 @@ theorem frobeniusOrbitCard_eq_natDegree_of_irreducible_factor {g : (ZMod p)[X]} 
       (Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0)) ᾱ)
       = g.natDegree := by
   have htop : Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) = ⊤ :=
-    gal_eq_zpowers_frobenius'
+    gal_eq_zpowers_frobenius
   haveI : Fintype Gal(E0/(ZMod p)) := inferInstance
   rw [htop, orbit_top_eq_orbit]
   exact orbitCard_eq_natDegree_of_irreducible_factor hgm hg ᾱ hᾱ
@@ -16159,410 +16656,11 @@ end Cg21Frobenius
 
 /-! ### `cg21` modulo `cg20`: the assembly -/
 
--- AUDIT-GAP (documentation audit, context/structure, delta ce6b0e6..c8ba881): the cg3
--- block (FT chapter IV §1) is inserted here, between the `Cg21Frobenius` and
--- `Cg21Assembly` sections of the FT §8 region.  The subsection header "### `cg21` modulo
--- `cg20`: the assembly" above is therefore orphaned (its section starts only at
--- `section Cg21Assembly` ~16491, after ~390 lines of cg3 content), and the "## FT chapter
--- IV §1 (cg3)" header sits inside the §8 region.  Remedy: move the cg3 block out of the
--- cg21 region (e.g. next to the §1 Vandermonde/Transport/Splitting sections ~11802).
-
-/-! ## FT chapter IV §1 (`cg3`): conjugation, the sign of the discriminant, and `A_n` -/
-
-/-- Helper for FT `cg3`: complex conjugation fixes rational scalars in `ℂ`.  Proof: `conjQ`
-is a `ℚ`-algebra homomorphism, hence fixes images along `algebraMap ℚ ℂ`. -/
-theorem star_algebraMap_rat (a : ℚ) : star (algebraMap ℚ ℂ a) = algebraMap ℚ ℂ a := by
-  rw [← conjQ_apply, AlgHom.map_algebraMap]
-
-/-- FT IV §1 helper: the Vandermonde product of an injectively enumerated family in a field
-is nonzero (each factor `r i - r j` with `i < j` is nonzero since `r` is injective). -/
-theorem vandermondeProd_ne_zero {F : Type*} [Field F] {n : ℕ} (r : Fin n → F)
-    (hri : Function.Injective r) : vandermondeProd r ≠ 0 := by
-  intro hc
-  rw [vandermondeProd, Finset.prod_eq_zero_iff] at hc
-  obtain ⟨j, -, hJ⟩ := hc
-  rw [Finset.prod_eq_zero_iff] at hJ
-  obtain ⟨i, hi, hI⟩ := hJ
-  exact absurd (hri (sub_eq_zero.mp hI)) (Finset.mem_Iio.mp hi).ne
-
-/-- Helper for FT `cg3` (Milne's "more direct" argument): the sign of an involution `π` of
-`Fin n` whose support has exactly `2s` elements is `(-1)^s`.  Proof: strong induction on a
-finset `S` containing the support of `π`: if `i` is a non-fixed point and `j = π i`, then
-`π = swap i j * ρ` where `ρ := swap i j * π` is again an involution whose support is the
-support of `π` minus `{i, j}`, and `Equiv.Perm.sign_mul` together with
-`Equiv.Perm.sign_swap` reduce the sign of `π` to `-1 * sign ρ`. -/
-theorem sign_involutive_perm_of_card {n s : ℕ} (π : Equiv.Perm (Fin n)) (hπ : ∀ i, π (π i) = i)
-    (hcard : (Finset.univ.filter (fun i => π i ≠ i)).card = 2 * s) :
-    (Equiv.Perm.sign π : ℤ) = (-1 : ℤ) ^ s := by
-  classical
-  have key : ∀ (S : Finset (Fin n)), ∀ (ρ : Equiv.Perm (Fin n)), (∀ i, ρ (ρ i) = i) →
-      (∀ i, ρ i ≠ i → i ∈ S) → ∀ t : ℕ,
-      (Finset.univ.filter (fun i => ρ i ≠ i)).card = 2 * t →
-      (Equiv.Perm.sign ρ : ℤ) = (-1 : ℤ) ^ t := by
-    intro S
-    refine Finset.strongInductionOn (p := fun S => ∀ (ρ : Equiv.Perm (Fin n)),
-      (∀ i, ρ (ρ i) = i) → (∀ i, ρ i ≠ i → i ∈ S) → ∀ t : ℕ,
-      (Finset.univ.filter (fun i => ρ i ≠ i)).card = 2 * t →
-      (Equiv.Perm.sign ρ : ℤ) = (-1 : ℤ) ^ t) S ?_
-    intro S IH ρ hρ hsub t ht
-    by_cases hsup : ∃ i, ρ i ≠ i
-    · obtain ⟨i, hi⟩ := hsup
-      have hj : ρ (ρ i) = i := hρ i
-      have hij : i ≠ ρ i := fun hc => hi hc.symm
-      have hρinj : Function.Injective ρ := Equiv.injective ρ
-      set ρ₁ : Equiv.Perm (Fin n) := Equiv.swap i (ρ i) * ρ with hρ₁def
-      -- `ρ = swap i (ρ i) * ρ₁` and `ρ₁` is an involution fixing `i` and `ρ i`
-      have hmul : ρ = Equiv.swap i (ρ i) * ρ₁ := by
-        rw [hρ₁def, ← mul_assoc,
-          show Equiv.swap i (ρ i) * Equiv.swap i (ρ i) = 1 from
-            Equiv.ext (fun y => Equiv.swap_apply_self i (ρ i) y), one_mul]
-      have hρi : ρ₁ i = i := by
-        rw [hρ₁def, Equiv.Perm.mul_apply, Equiv.swap_apply_right]
-      have hρj : ρ₁ (ρ i) = ρ i := by
-        rw [hρ₁def, Equiv.Perm.mul_apply, hj, Equiv.swap_apply_left]
-      have hρy : ∀ y, y ≠ i → y ≠ ρ i → ρ₁ y = ρ y := by
-        intro y hy hy'
-        have h1 : ρ y ≠ i := fun hc => hy' (hρinj (hc.trans hj.symm))
-        have h2 : ρ y ≠ ρ i := fun hc => hy (hρinj hc)
-        rw [hρ₁def, Equiv.Perm.mul_apply, Equiv.swap_apply_of_ne_of_ne h1 h2]
-      have hinv : ∀ y, ρ₁ (ρ₁ y) = y := by
-        intro y
-        by_cases hy : y = i
-        · subst hy; rw [hρi, hρi]
-        · by_cases hy2 : y = ρ i
-          · subst hy2; rw [hρj, hρj]
-          · have h1 : ρ y ≠ i := fun hc => hy2 (hρinj (hc.trans hj.symm))
-            have h2 : ρ y ≠ ρ i := fun hc => hy (hρinj hc)
-            rw [hρy y hy hy2, hρy (ρ y) h1 h2, hρ]
-      -- the support of `ρ₁` is the support of `ρ` minus `{i, ρ i}`
-      have hsup₁ : ∀ y, ρ₁ y ≠ y → y ∈ (S.erase i).erase (ρ i) := by
-        intro y hy
-        have hyi : y ≠ i := by
-          intro hc; subst hc; exact hy hρi
-        have hyj : y ≠ ρ i := by
-          intro hc; subst hc; exact hy hρj
-        have hry : ρ y ≠ y := by rw [← hρy y hyi hyj]; exact hy
-        refine Finset.mem_erase.mpr ⟨hyj, Finset.mem_erase.mpr ⟨hyi, hsub y hry⟩⟩
-      have himem : i ∈ S := hsub i hi
-      have hjmem : ρ i ∈ S := hsub (ρ i) (by rw [hj]; exact Ne.symm hi)
-      have hlt : (S.erase i).erase (ρ i) ⊂ S := by
-        refine Finset.ssubset_def.mpr
-          ⟨(Finset.erase_subset (ρ i) (S.erase i)).trans (Finset.erase_subset i S), ?_⟩
-        intro hc
-        exact (Finset.mem_erase.mp (Finset.mem_erase.mp (hc himem)).2).1 rfl
-      -- the support of `ρ₁` has `2(t-1)` elements
-      have hiF : i ∉ Finset.univ.filter (fun y => ρ₁ y ≠ y) := fun hc =>
-        (Finset.mem_filter.mp hc).2 hρi
-      have hjF : ρ i ∉ Finset.univ.filter (fun y => ρ₁ y ≠ y) := fun hc =>
-        (Finset.mem_filter.mp hc).2 hρj
-      have hiIns : i ∉ insert (ρ i) (Finset.univ.filter (fun y => ρ₁ y ≠ y)) := fun hc =>
-        (Finset.mem_insert.mp hc).elim hij hiF
-      have hcard' : (Finset.univ.filter (fun y => ρ₁ y ≠ y)).card = 2 * (t - 1) := by
-        have hFeq : (Finset.univ.filter (fun y => ρ y ≠ y)) =
-            insert i (insert (ρ i) (Finset.univ.filter (fun y => ρ₁ y ≠ y))) := by
-          ext y
-          simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_insert]
-          constructor
-          · intro h
-            rcases eq_or_ne y i with hc | hc
-            · exact Or.inl hc
-            · rcases eq_or_ne y (ρ i) with hc2 | hc2
-              · exact Or.inr (Or.inl hc2)
-              · exact Or.inr (Or.inr (by rw [hρy y hc hc2]; exact h))
-          · rintro (hc | hc | h)
-            · subst hc; exact hi
-            · subst hc; rw [hj]; exact Ne.symm hi
-            · have hyi : y ≠ i := by
-                intro hc; subst hc; exact h hρi
-              have hyj : y ≠ ρ i := by
-                intro hc; subst hc; exact h hρj
-              rw [← hρy y hyi hyj]
-              exact h
-        rw [hFeq, Finset.card_insert_of_notMem hiIns,
-          Finset.card_insert_of_notMem hjF] at ht
-        omega
-      -- conclude by the induction hypothesis
-      have htpos : 0 < t := by
-        have htwo : insert (ρ i) ({i} : Finset (Fin n)) ⊆
-            Finset.univ.filter (fun y => ρ y ≠ y) := by
-          intro y hy
-          simp only [Finset.mem_insert, Finset.mem_singleton, Finset.mem_filter,
-            Finset.mem_univ, true_and] at hy ⊢
-          rcases hy with hc | hc
-          · rw [hc, hj]; exact Ne.symm hi
-          · rw [hc]; exact hi
-        have h2le := Finset.card_le_card htwo
-        rw [Finset.card_insert_of_notMem (fun hmem => hi (Finset.mem_singleton.mp hmem)),
-          Finset.card_singleton] at h2le
-        omega
-      have hsign1 : (Equiv.Perm.sign ρ₁ : ℤ) = (-1 : ℤ) ^ (t - 1) :=
-        IH ((S.erase i).erase (ρ i)) hlt ρ₁ hinv hsup₁ (t - 1) hcard'
-      have hsign2 : (-1 : ℤ) * (-1 : ℤ) ^ (t - 1) = (-1 : ℤ) ^ t := by
-        conv_rhs => rw [show t = (t - 1).succ from (Nat.succ_pred_eq_of_pos htpos).symm,
-          Nat.succ_eq_add_one, pow_succ']
-      rw [hmul, Equiv.Perm.sign_mul, Equiv.Perm.sign_swap hij]
-      simp only [Units.val_mul, Units.val_neg, Units.val_one, hsign1]
-      exact hsign2
-    · push Not at hsup
-      have hid : ρ = 1 := Equiv.ext (fun y => by simpa using hsup y)
-      have hcard0 : (Finset.univ.filter (fun y => ρ y ≠ y)).card = 0 := by
-        refine Finset.card_eq_zero.mpr (Finset.eq_empty_iff_forall_notMem.mpr ?_)
-        intro y hy
-        exact (Finset.mem_filter.mp hy).2 (hsup y)
-      rw [hcard0] at ht
-      have ht0 : t = 0 := by omega
-      subst ht0
-      rw [hid, Equiv.Perm.sign_one, Units.val_one, pow_zero]
-  exact key Finset.univ π hπ (fun i _ => Finset.mem_univ i) s hcard
-
-open scoped Classical in
-/-- FT `cg3` (Milne's "more direct" argument): let `E ⊆ ℂ` be an intermediate field over `ℚ`
-stable under complex conjugation, and let `r : Fin n → E` be an injective enumeration of
-elements which is closed under conjugation (each `star (r i)` is again enumerated).  If
-exactly `2s` of the enumerated elements are non-real, then conjugation acts on the
-discriminant square root `Δ = vandermondeDelta r` by `star Δ = (-1)^s · Δ`.  Proof:
-conjugation restricts to `σ_c ∈ Gal(E/ℚ)` (`starAlgEquiv`), which permutes the enumerated
-elements and induces an involution `π = inducedRootPerm` of `Fin n` whose non-fixed points
-are exactly the non-real ones; `vandermondeDelta_gal_smul'` gives `σ_c • Δ = sign π · Δ`,
-and `sign_involutive_perm_of_card` computes `sign π = (-1)^s`. -/
-theorem star_vandermondeDelta_eq_neg_one_pow_mul {E : IntermediateField ℚ ℂ} {n : ℕ}
-    (hstar : ∀ x ∈ E, star x ∈ E)
-    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
-    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
-    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s) :
-    star ((vandermondeDelta r : ↥E) : ℂ) =
-      ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * ((vandermondeDelta r : ↥E) : ℂ) := by
-  classical
-  have hvalinj : Function.Injective ⇑E.val := by
-    rw [IntermediateField.coe_val]
-    exact Subtype.val_injective
-  set σc : Gal(↥E/ℚ) := starAlgEquiv hstar with hσcdef
-  have hσapp : ∀ x : ↥E, ⇑E.val (σc x) = star (⇑E.val x) := fun x => starAlgEquiv_apply hstar x
-  have hσ' : ∀ i, σc (r i) ∈ Set.range r := by
-    intro i
-    obtain ⟨j, hj⟩ := hσ i
-    refine ⟨j, ?_⟩
-    apply hvalinj
-    rw [hσapp]
-    exact hj
-  set π := inducedRootPerm r hri σc hσ' with hπdef
-  have h2 : ∀ i, r (π i) = σc (r i) := fun i => inducedRootPerm_apply r hri σc hσ' i
-  have hfix : ∀ i, π i = i ↔ star ((r i : ℂ)) = ((r i : ℂ)) := by
-    intro i
-    constructor
-    · intro h
-      have h5 : ((r (π i) : ℂ)) = ((σc (r i) : ℂ)) := by rw [h2 i]
-      have h6 : ((r i : ℂ)) = ((r (π i) : ℂ)) := by rw [h]
-      calc star ((r i : ℂ)) = ((σc (r i) : ℂ)) := (hσapp _).symm
-        _ = ((r (π i) : ℂ)) := h5.symm
-        _ = ((r i : ℂ)) := h6.symm
-    · intro h
-      have h3 : σc (r i) = r i := hvalinj (by rw [hσapp]; exact h)
-      exact hri ((h2 i).trans h3)
-  have hinv : ∀ i, π (π i) = i := by
-    intro i
-    have h1 : r (π (π i)) = σc (r (π i)) := inducedRootPerm_apply r hri σc hσ' (π i)
-    rw [h2 i] at h1
-    refine hri (hvalinj ?_)
-    rw [h1, hσapp, hσapp, star_star]
-  have hfilters : (Finset.univ.filter (fun i => π i ≠ i)) =
-      (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))) := by
-    ext i
-    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-    exact not_congr (hfix i)
-  have hcardπ : (Finset.univ.filter (fun i => π i ≠ i)).card = 2 * s := by
-    rw [hfilters]; exact hcard
-  have hsign : (Equiv.Perm.sign π : ℤ) = (-1 : ℤ) ^ s :=
-    sign_involutive_perm_of_card π hinv hcardπ
-  have hcomb : ⇑E.val (σc (vandermondeDelta r)) =
-      ((Equiv.Perm.sign π : ℤ) : ℂ) * ⇑E.val (vandermondeDelta r) := by
-    have hsmul : σc • vandermondeDelta r = σc (vandermondeDelta r) := rfl
-    rw [← hsmul, vandermondeDelta_gal_smul' r hri σc hσ', map_mul, map_intCast]
-  rw [hsign] at hcomb
-  calc star ((vandermondeDelta r : ↥E) : ℂ)
-      = ⇑E.val (σc (vandermondeDelta r)) := (hσapp _).symm
-    _ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * ((vandermondeDelta r : ↥E) : ℂ) := hcomb
-
-/-- FT `cg3` (a): if `Δ : ℂ` satisfies `star Δ = (-1)^s · Δ` with `s` odd and `Δ ≠ 0`, then
-`Δ` is not the image of a rational number under `algebraMap ℚ ℂ`.  Proof: rationals are
-fixed by conjugation (`star_algebraMap_rat`), so `Δ` would satisfy `Δ = star Δ = -Δ`,
-forcing `Δ = 0`. -/
-theorem not_algebraMap_of_star_eq_neg_one_pow_mul {s : ℕ} (hodd : Odd s) {Δ : ℂ} (hΔ : Δ ≠ 0)
-    (hstar : star Δ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * Δ) :
-    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a = Δ := by
-  rintro ⟨a, ha⟩
-  have hstar' : star Δ = -Δ := by rw [hstar, Odd.neg_one_pow hodd]; push_cast; ring
-  have h1 : Δ = star Δ := by rw [← ha, star_algebraMap_rat a]
-  rw [hstar'] at h1
-  have h2 : Δ + Δ = 0 := eq_neg_iff_add_eq_zero.mp h1
-  have h3 : (2 : ℂ) * Δ = 0 := by rw [two_mul]; exact h2
-  rcases mul_eq_zero.mp h3 with h' | h'
-  · exact absurd h' (by norm_num : (2 : ℂ) ≠ 0)
-  · exact hΔ h'
-
-/-- FT `cg3` (b): if `Δ : ℂ` satisfies `star Δ = (-1)^s · Δ` with `s` odd and `Δ ≠ 0`, then
-`Δ²` is not a rational square.  Proof: `star Δ = -Δ` gives `Δ.re = 0`, so `Δ = Δ.im * I` and
-`Δ² = -(Δ.im)²` with `Δ.im ≠ 0`, a negative real number, while a rational square is
-nonnegative (`sq_nonneg`). -/
-theorem sq_not_sq_algebraMap_of_star_eq_neg_one_pow_mul {s : ℕ} (hodd : Odd s) {Δ : ℂ}
-    (hΔ : Δ ≠ 0) (hstar : star Δ = ((((-1 : ℤ) ^ s : ℤ) : ℂ)) * Δ) :
-    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a * algebraMap ℚ ℂ a = Δ ^ 2 := by
-  rintro ⟨a, ha⟩
-  have hstar' : star Δ = -Δ := by rw [hstar, Odd.neg_one_pow hodd]; push_cast; ring
-  have hre : Δ.re = 0 := by
-    have h1 : Δ.re = (-Δ).re := by rw [← hstar', Complex.star_def, Complex.conj_re]
-    rw [Complex.neg_re] at h1
-    linarith
-  have him : Δ.im ≠ 0 := by
-    intro hc
-    exact hΔ (Complex.ext hre (by simp [hc]))
-  have hval : Δ = (Δ.im : ℂ) * Complex.I := by
-    rw [← Complex.re_add_im Δ, hre]
-    simp
-  have hsq : Δ ^ 2 = ((-(Δ.im) ^ 2 : ℝ) : ℂ) := by
-    conv_lhs => rw [hval, mul_pow,
-      show Complex.I ^ 2 = -1 from by rw [pow_two, Complex.I_mul_I]]
-    push_cast
-    ring
-  have hpos : (0 : ℝ) < Δ.im ^ 2 := sq_pos_of_ne_zero him
-  have hreal : (((a * a : ℚ) : ℝ) : ℂ) = ((-(Δ.im) ^ 2 : ℝ) : ℂ) := by
-    rw [← hsq, ← ha]
-    simp
-  have hsqeq : ((a * a : ℚ) : ℝ) = (-(Δ.im) ^ 2 : ℝ) := Complex.ofReal_injective hreal
-  have hxx : ((a * a : ℚ) : ℝ) = ((a : ℚ) : ℝ) ^ 2 := by push_cast; ring
-  linarith [sq_nonneg (((a : ℚ) : ℝ)), hpos]
-
-open scoped Classical in
-/-- FT `cg3` (a), instantiated: with the hypotheses of
-`star_vandermondeDelta_eq_neg_one_pow_mul` and `s` odd, `Δ = vandermondeDelta r` is not
-rational: a rational `a` with `algebraMap ℚ ℂ a = Δ` would satisfy `a = star a = star Δ =
--Δ`, forcing `Δ = 0`, contradicting `Δ ≠ 0` (which follows from the injectivity of `r` via
-`vandermondeProd_ne_zero`). -/
-theorem vandermondeDelta_not_algebraMap_of_s_odd {E : IntermediateField ℚ ℂ} {n : ℕ}
-    (hstar : ∀ x ∈ E, star x ∈ E)
-    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
-    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
-    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s)
-    (hodd : Odd s) :
-    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a = ((vandermondeDelta r : ↥E) : ℂ) := by
-  have hv : Function.Injective ⇑E.val := by
-    rw [IntermediateField.coe_val]; exact Subtype.val_injective
-  refine not_algebraMap_of_star_eq_neg_one_pow_mul hodd ?_
-    (star_vandermondeDelta_eq_neg_one_pow_mul hstar r hri s hσ hcard)
-  intro hc
-  refine vandermondeProd_ne_zero r hri (hv ?_)
-  calc ⇑E.val (vandermondeDelta r) = ((vandermondeDelta r : ↥E) : ℂ) := rfl
-    _ = 0 := hc
-    _ = ⇑E.val 0 := (map_zero _).symm
-
-open scoped Classical in
-/-- FT `cg3` (b), instantiated: with the hypotheses of
-`star_vandermondeDelta_eq_neg_one_pow_mul` and `s` odd, `D(f) = Δ²` is not a square in `ℚ`:
-a rational square is a nonnegative real number, while `Δ² = -(Δ.im)² < 0` since
-`star Δ = -Δ` and `Δ ≠ 0`. -/
-theorem vandermondeDelta_sq_not_sq_algebraMap_of_s_odd {E : IntermediateField ℚ ℂ} {n : ℕ}
-    (hstar : ∀ x ∈ E, star x ∈ E)
-    (r : Fin n → ↥E) (hri : Function.Injective r) (s : ℕ)
-    (hσ : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))))
-    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s)
-    (hodd : Odd s) :
-    ¬ ∃ a : ℚ, algebraMap ℚ ℂ a * algebraMap ℚ ℂ a = ((vandermondeDelta r : ↥E) : ℂ) ^ 2 := by
-  have hv : Function.Injective ⇑E.val := by
-    rw [IntermediateField.coe_val]; exact Subtype.val_injective
-  refine sq_not_sq_algebraMap_of_star_eq_neg_one_pow_mul hodd ?_
-    (star_vandermondeDelta_eq_neg_one_pow_mul hstar r hri s hσ hcard)
-  intro hc
-  refine vandermondeProd_ne_zero r hri (hv ?_)
-  calc ⇑E.val (vandermondeDelta r) = ((vandermondeDelta r : ↥E) : ℂ) := rfl
-    _ = 0 := hc
-    _ = ⇑E.val 0 := (map_zero _).symm
-
-open scoped Polynomial in
-open scoped Classical in
-/-- FT `cg3` (the remark's content): let `f ∈ ℚ[X]` be separable and split in `ℂ`, let
-`E₀ = ℚ(adjoin the complex roots of f)` (a splitting field of `f` in `ℂ`), and let
-`r : Fin n → E₀` enumerate its roots injectively (range = root set of `f` in `E₀`).  If
-exactly `2s` of the roots are non-real and `s` is odd, then not every element of
-`Gal(E₀/ℚ)` induces an even permutation of the roots, i.e. `G_f` is not contained in `A_n`
-in the sense of `FT.gal_even_iff_delta_mem` (whose left side this negates; equivalently,
-`Δ ∉ ℚ` and `D(f)` is not a rational square).  Proof: conjugation preserves the root set of
-a rational polynomial (`star_rootSet_iff`), so it restricts to `Gal(E₀/ℚ)` and
-`star_vandermondeDelta_eq_neg_one_pow_mul` gives `star Δ = (-1)^s Δ`; since `Δ ≠ 0`
-(`vandermondeProd_ne_zero`) and `s` is odd, `vandermondeDelta_not_algebraMap_of_s_odd`
-gives `Δ ∉ ℚ`; but `gal_even_iff_delta_mem` shows that all-even would force `Δ ∈ ℚ`. -/
-theorem not_forall_sign_eq_one_of_s_odd {f : ℚ[X]} {n : ℕ} (hf : f.Separable)
-    (hsplits : (f.map (algebraMap ℚ ℂ)).Splits)
-    (r : Fin n → ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) (hri : Function.Injective r)
-    (hr : Set.range r =
-      (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
-        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))
-    (s : ℕ) (hodd : Odd s)
-    (hcard : (Finset.univ.filter (fun i => star ((r i : ℂ)) ≠ ((r i : ℂ)))).card = 2 * s) :
-    ¬ ∀ σ : Gal(↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))/ℚ),
-        Equiv.Perm.sign (inducedRootPerm r hri σ
-          (fun i => gal_apply_mem_range f hf.ne_zero hr σ i)) = 1 := by
-  intro hall
-  haveI hsplit : Polynomial.IsSplittingField ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) f :=
-    IntermediateField.adjoin_rootSet_isSplittingField hsplits
-  haveI : IsGalois ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
-    IsGalois.of_separable_splitting_field hf
-  haveI : FiniteDimensional ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
-    Polynomial.IsSplittingField.finiteDimensional _ f
-  obtain ⟨a, ha⟩ := (gal_even_iff_delta_mem f hf.ne_zero hr hri
-    (vandermondeProd_ne_zero r hri) (two_ne_zero_algebraMap (by norm_num : (2 : ℚ) ≠ 0))).mp hall
-  have hv : Function.Injective ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val := by
-    rw [IntermediateField.coe_val]; exact Subtype.val_injective
-  have hΔc : ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) ≠ 0 := by
-    intro hc
-    refine vandermondeProd_ne_zero r hri (hv ?_)
-    calc ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val (vandermondeDelta r)
-        = ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) := rfl
-      _ = 0 := hc
-      _ = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val 0 := (map_zero _).symm
-  have hstar0 : ∀ x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ),
-      star x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) := fun _ hx => star_mem_adjoin_rootSet hx
-  have hσ0 : ∀ i, star ((r i : ℂ)) ∈ Set.range (fun i : Fin n => ((r i : ℂ))) := by
-    intro i
-    have hmemU : r i ∈ (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
-        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) := hr ▸ (⟨i, rfl⟩ : r i ∈ Set.range r)
-    have hae : aeval (r i) (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))) = 0 :=
-      (Polynomial.mem_rootSet'.mp hmemU).2
-    rw [Polynomial.aeval_map_algebraMap] at hae
-    have h2 : star ((r i : ℂ)) ∈ f.rootSet ℂ := by
-      rw [Polynomial.mem_rootSet']
-      refine ⟨(Polynomial.map_ne_zero_iff
-        (FaithfulSMul.algebraMap_injective ℚ ℂ)).mpr hf.ne_zero, ?_⟩
-      rw [aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
-    have h3 : star ((r i : ℂ)) ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) :=
-      IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) h2
-    have hy : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
-        (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
-          ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) := by
-      rw [Polynomial.mem_rootSet']
-      refine ⟨?_, ?_⟩
-      · rw [Polynomial.map_ne_zero_iff
-          (RingHom.injective (algebraMap ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))
-            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))]
-        exact (Polynomial.map_ne_zero_iff
-          (RingHom.injective (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))).mpr
-          hf.ne_zero
-      · rw [Polynomial.aeval_map_algebraMap, aeval_E_eq_zero_iff ⟨star ((r i : ℂ)), h3⟩,
-          show ((⟨star ((r i : ℂ)), h3⟩ :
-            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) = star ((r i : ℂ)) from rfl,
-          aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
-    have hyr : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
-        Set.range r := by
-      rw [hr]
-      exact hy
-    obtain ⟨j, hj⟩ := hyr
-    exact ⟨j, congrArg Subtype.val hj⟩
-  refine vandermondeDelta_not_algebraMap_of_s_odd hstar0 r hri s hσ0 hcard hodd ⟨a, ?_⟩
-  calc algebraMap ℚ ℂ a
-      = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val
-          (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) a) :=
-        (AlgHom.map_algebraMap _ a).symm
-    _ = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val (vandermondeDelta r) := by rw [ha]
-    _ = ((vandermondeDelta r : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) := rfl
+-- Remediated (documentation audit, context/structure, delta ce6b0e6..c8ba881): the cg3
+-- block (FT chapter IV §1, 397 lines) was moved out of the cg21 §8 region to directly
+-- follow the `end Splitting` of the §1 Vandermonde/Transport/Splitting sections; the
+-- subsection header "### `cg21` modulo `cg20`: the assembly" is no longer orphaned and
+-- the "## FT chapter IV §1 (cg3)" header sits in the §1 region.
 
 section Cg21Assembly
 
@@ -16617,7 +16715,7 @@ theorem exists_cycleType_of_factorDegrees
     rw [Polynomial.mem_rootSet_of_ne hfbar0, hf, map_prod]
     exact Finset.prod_eq_zero (Finset.mem_univ i) (hᾱ i)
   have htop : Subgroup.zpowers (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0) = ⊤ :=
-    gal_eq_zpowers_frobenius'
+    gal_eq_zpowers_frobenius
   haveI : Fintype Gal(E0/(ZMod p)) := inferInstance
   refine ⟨ι' (FiniteField.frobeniusAlgEquivOfAlgebraic (ZMod p) E0), ?_, ?_⟩
   · intro i
@@ -17342,7 +17440,7 @@ end Cg25
 -- staging/ch4_w32_cg22.lean — worker w32 (cg22: concrete quintic X^5 - X - 1, FT ch. IV §8).
 -- 46 declarations, all REPL-verified by w32 in one lineage, #print axioms batch clean
 -- (propext, Classical.choice, Quot.sound only). Fixes vs draft ch4_w25_cg22_draft.lean:
--- added isMonicOfDegree_add_add_two; nested-rcases dispatcher in not_dvd_quad_X5_add_2X_add_2;
+-- added isMonicOfDegree_X2_add_CX_add_C; nested-rcases dispatcher in not_dvd_quad_X5_add_2X_add_2;
 -- degree-bound fix in not_dvd_quad_c1_2_c0_1; Equiv.Perm.swap_mul_self -> Equiv.swap_mul_self (x3);
 -- orderOf_swap_mul_cycle3_eq_six tail completed per recorded case analysis (k=0/k=1/k>=2).
 -- Main assembly natCard_gal_eq_120_of_cycleType23 takes the cg20/cg21 cycle-type input as
@@ -17403,7 +17501,7 @@ theorem isMonicOfDegree_X_pow_add_C_mul_X_add_C {R : Type*} [Semiring R] [Nontri
 
 /-- FT cg22: `X ^ 2 + C a * X + C b` is monic of degree `2` (special case used throughout
 the mod-3 case bash). -/
-theorem isMonicOfDegree_add_add_two {R : Type*} [Semiring R] [Nontrivial R] (a b : R) :
+theorem isMonicOfDegree_X2_add_CX_add_C {R : Type*} [Semiring R] [Nontrivial R] (a b : R) :
     IsMonicOfDegree (X ^ 2 + C a * X + C b : R[X]) 2 :=
   isMonicOfDegree_X_pow_add_C_mul_X_add_C 2 a b (by omega)
 
@@ -17415,16 +17513,18 @@ theorem isMonicOfDegree_X_pow_sub_C_mul_X_sub_C {R : Type*} [Ring R] [Nontrivial
       (((natDegree_C_mul_le a X).trans natDegree_X_le).trans_lt (by omega))
   exact h1.sub ((natDegree_C b).trans_lt (by omega))
 
--- AUDIT-GAP (coding-conventions audit, low severity, delta ce6b0e6..c8ba881): opaque
--- names not conveying the mathematical content: `isMonicOfDegree_X3_add3` (states
--- `X³ + C a * X² + C b * X + C c` is monic of degree 3; sibling names use the
--- `isMonicOfDegree_X_pow_add_C_mul_X_add_C` pattern), `isMonicOfDegree_add_add_two`
--- (`X² + C a * X + C b` monic of degree 2), `evalX3SubInt` (camelCase; statements about
--- `X³ − C 3 * X + C 1` and `X³ − C (−3) * X + C 1` over ℤ), and `mod2_factorization_lit`
--- ("lit" for the literal `C 1`-form is not decodable without reading the statement).
--- Remedy: content-based renames in the established style.
+-- Renames (coding-conventions audit, low severity, delta ce6b0e6..c8ba881, remediated):
+-- content-based renames in the established style, applied to the four flagged names —
+-- `isMonicOfDegree_X3_add3` → `isMonicOfDegree_X3_add_CX2_add_CX_add_C` (the full cubic
+-- with three `C`-coefficients, sibling of `isMonicOfDegree_X_pow_add_C_mul_X_add_C`),
+-- `isMonicOfDegree_add_add_two` → `isMonicOfDegree_X2_add_CX_add_C`,
+-- `evalX3SubInt` → `evalDepressedCubicInt` (sibling of `oddValuesDepressedCubics`/
+-- `monicNatDegreeDepressedCubic`; its conjunction covers both depressed cubics
+-- `X³ ∓ 3X + 1` over ℤ), and `mod2_factorization_lit` →
+-- `mod2_factorization_X5_add_X_add_1_factors` (the factor product over `ZMod 2`
+-- whose map is `mod2_factorization_X5_sub_X_sub_1`).  All consumers updated.
 /-- FT cg22: `X ^ 3 + C a * X ^ 2 + C b * X + C c` is monic of degree `3`. -/
-theorem isMonicOfDegree_X3_add3 {R : Type*} [Semiring R] [Nontrivial R] (a b c : R) :
+theorem isMonicOfDegree_X3_add_CX2_add_CX_add_C {R : Type*} [Semiring R] [Nontrivial R] (a b c : R) :
     IsMonicOfDegree (X ^ 3 + C a * X ^ 2 + C b * X + C c : R[X]) 3 := by
   rw [add_assoc, add_assoc]
   refine (isMonicOfDegree_X_pow R 3).add_right ?_
@@ -17499,7 +17599,7 @@ theorem map_X3_add_X2_add_1_ZMod2 :
   refine coeff_ext_of_natDegree_le (n := 3)
     (((Polynomial.Monic.natDegree_map monic_Z_X3_add_X2_add_1.monic _).trans
       monic_Z_X3_add_X2_add_1.natDegree_eq).le)
-    (isMonicOfDegree_X3_add3 (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq.le
+    (isMonicOfDegree_X3_add_CX2_add_CX_add_C (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq.le
     fun i hi => ?_
   simp only [Polynomial.coeff_map, Polynomial.coeff_add, Polynomial.coeff_X_pow,
     Polynomial.coeff_C_mul, Polynomial.coeff_X, Polynomial.coeff_one,
@@ -17507,7 +17607,7 @@ theorem map_X3_add_X2_add_1_ZMod2 :
   interval_cases i <;> decide
 
 /-- FT cg22: over `ZMod 2`, `(X² + X + 1)(X³ + X² + 1) = X⁵ + X + 1`. -/
-theorem mod2_factorization_lit :
+theorem mod2_factorization_X5_add_X_add_1_factors :
     (X ^ 2 + C (1 : ZMod 2) * X + C 1) * (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 1)
       = X ^ 5 + C (1 : ZMod 2) * X + C 1 := by
   have key : (X ^ 2 + C (1 : ZMod 2) * X + C 1) * (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 1)
@@ -17533,7 +17633,7 @@ theorem mod2_factorization_X5_sub_X_sub_1 :
     map (Int.castRingHom (ZMod 2)) (X ^ 5 - C 1 * X - C 1 : ℤ[X])
       = (X ^ 2 + C 1 * X + C 1) * (X ^ 3 + C 1 * X ^ 2 + C 1) := by
   rw [map_X5_sub_X_sub_1_ZMod2]
-  exact mod2_factorization_lit.symm
+  exact mod2_factorization_X5_add_X_add_1_factors.symm
 
 /-- FT cg22: over `ZMod 2`, `X ^ 2 + X + 1` has no root. -/
 theorem eval_X2_add_X_add_1_ZMod2_ne (x : ZMod 2) :
@@ -17564,7 +17664,7 @@ theorem irreducible_X2_add_X_add_1_ZMod2 :
 theorem irreducible_X3_add_X2_add_1_ZMod2 :
     Irreducible (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 0 * X + C 1 : (ZMod 2)[X]) := by
   refine Polynomial.irreducible_of_degree_le_three_of_not_isRoot ?_ ?_
-  · rw [(isMonicOfDegree_X3_add3 (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq]
+  · rw [(isMonicOfDegree_X3_add_CX2_add_CX_add_C (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq]
     simp
   · exact fun x hx => eval_X3_add_X2_add_1_ZMod2_ne x (Polynomial.IsRoot.def.mp hx)
 
@@ -17624,7 +17724,7 @@ theorem not_dvd_quad_c1_0_c0_0 :
     ¬ ((X ^ 2 + C 0 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 0)
     (h := X ^ 3 + C 0 * X ^ 2 + C 0 * X + C 0) (r := C 2 * X + C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
       Polynomial.coeff_X, Polynomial.coeff_C] ; decide))
     (natDegree_C_mul_X_add_C_le _ _) ?_
@@ -17633,8 +17733,8 @@ theorem not_dvd_quad_c1_0_c0_0 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (0 : ZMod 3) (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17646,7 +17746,7 @@ theorem not_dvd_quad_c1_0_c0_1 :
     ¬ ((X ^ 2 + C 0 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 1)
     (h := X ^ 3 + C 0 * X ^ 2 + C 2 * X + C 0) (r := C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] ; decide))
     ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
   refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
@@ -17654,8 +17754,8 @@ theorem not_dvd_quad_c1_0_c0_1 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (0 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17667,7 +17767,7 @@ theorem not_dvd_quad_c1_0_c0_2 :
     ¬ ((X ^ 2 + C 0 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 2)
     (h := X ^ 3 + C 0 * X ^ 2 + C 1 * X + C 0) (r := C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] ; decide))
     ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
   refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
@@ -17675,8 +17775,8 @@ theorem not_dvd_quad_c1_0_c0_2 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (0 : ZMod 3) (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17688,7 +17788,7 @@ theorem not_dvd_quad_c1_1_c0_0 :
     ¬ ((X ^ 2 + C 1 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 0)
     (h := X ^ 3 + C 2 * X ^ 2 + C 1 * X + C 2) (r := C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] ; decide))
     ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
   refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
@@ -17696,8 +17796,8 @@ theorem not_dvd_quad_c1_1_c0_0 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (2 : ZMod 3) (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17709,7 +17809,7 @@ theorem not_dvd_quad_c1_1_c0_1 :
     ¬ ((X ^ 2 + C 1 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 1)
     (h := X ^ 3 + C 2 * X ^ 2 + C 0 * X + C 1) (r := C 1 * X + C 1)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
       Polynomial.coeff_X, Polynomial.coeff_C] ; decide))
     (natDegree_C_mul_X_add_C_le _ _) ?_
@@ -17718,8 +17818,8 @@ theorem not_dvd_quad_c1_1_c0_1 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (2 : ZMod 3) (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17731,7 +17831,7 @@ theorem not_dvd_quad_c1_1_c0_2 :
     ¬ ((X ^ 2 + C 1 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 2)
     (h := X ^ 3 + C 2 * X ^ 2 + C 2 * X + C 0) (r := C 1 * X + C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
       Polynomial.coeff_X, Polynomial.coeff_C] ; decide))
     (natDegree_C_mul_X_add_C_le _ _) ?_
@@ -17740,8 +17840,8 @@ theorem not_dvd_quad_c1_1_c0_2 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (2 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17753,7 +17853,7 @@ theorem not_dvd_quad_c1_2_c0_0 :
     ¬ ((X ^ 2 + C 2 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 0)
     (h := X ^ 3 + C 1 * X ^ 2 + C 1 * X + C 1) (r := C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] ; decide))
     ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
   refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
@@ -17761,8 +17861,8 @@ theorem not_dvd_quad_c1_2_c0_0 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (1 : ZMod 3) (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17774,7 +17874,7 @@ theorem not_dvd_quad_c1_2_c0_1 :
     ¬ ((X ^ 2 + C 2 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 1)
     (h := X ^ 3 + C 1 * X ^ 2 + C 0 * X + C 2) (r := C 1 * X)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 1) (by simp only [Polynomial.coeff_C_mul, one_mul, Polynomial.coeff_X]; decide))
     ((Polynomial.natDegree_C_mul_le (1 : ZMod 3) X).trans natDegree_X_le) ?_
   refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
@@ -17784,8 +17884,8 @@ theorem not_dvd_quad_c1_2_c0_1 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, h2.trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (2 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (1 : ZMod 3) (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
@@ -17797,7 +17897,7 @@ theorem not_dvd_quad_c1_2_c0_2 :
     ¬ ((X ^ 2 + C 2 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
   refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 2)
     (h := X ^ 3 + C 1 * X ^ 2 + C 2 * X + C 0) (r := C 1 * X + C 2)
-    (isMonicOfDegree_add_add_two _ _)
+    (isMonicOfDegree_X2_add_CX_add_C _ _)
     (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
       Polynomial.coeff_X, Polynomial.coeff_C] ; decide))
     (natDegree_C_mul_X_add_C_le _ _) ?_
@@ -17806,8 +17906,8 @@ theorem not_dvd_quad_c1_2_c0_2 :
       ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
         (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
   · exact (natDegree_mul_le).trans (by
-      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
-      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hg := (isMonicOfDegree_X2_add_CX_add_C (2 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add_CX2_add_CX_add_C (1 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
       omega)
   · interval_cases i <;>
     simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
