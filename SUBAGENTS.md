@@ -37,10 +37,6 @@ A proof-worker prompt must be self-contained. Include:
    worker can search narrowly rather than rediscovering the whole API;
 9. a request to report the REPL PID, approximate call count, timeouts, and
    perceived latency when testing infrastructure.
-6. likely namespaces, declaration fragments, and Mathlib source paths so the
-   worker can search narrowly rather than rediscovering the whole API;
-7. a request to report the REPL PID, approximate call count, timeouts, and
-   perceived latency when testing infrastructure.
 
 The supplied source proof is authoritative and is the worker's required
 implementation plan, not optional background. The worker translates it
@@ -158,11 +154,7 @@ just to occupy a slot.
   on disk means that content is permanently gone (chapter-IV incident,
   2026-10-10: five verified blocks lost to compaction and re-derived).
   Deliver the final report only *after* the code text of the batch is
-  persisted. Improvement request for the builder: have the subagent
-  extension persist each worker's full transcript to a file (deleted on
-  dispose) and/or give workers a write tool so the deliverable itself lands
-  on disk — chat transport is the lossy path (collect returns only the last
-  message; see BUILDER_NOTES_SUBAGENT_COLLECT_TRUNCATION.md).
+  persisted.
 - **Mid-flight steering.** Workers regress to bad habits (consolidated
   mega-calls, hoarding) after several turns. Read every progress-stream update
   for strategy drift and steer in the same turn it is observed; reminders are not
