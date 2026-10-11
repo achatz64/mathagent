@@ -103,7 +103,19 @@ preliminaries, θ-integrality over F(T), the linear independence of the
 indeterminates).  Remaining in scope (see the chapter IV ledger): `cg3`, the
 cg5/cg6 inseparable clauses, `cg14`, the Dedekind chain `cg20`/`cg21`/`cg22`/
 `cg24`, the S₄ classification table and the example type dichotomies, and the
-asides `cg11a`/`cg11b`.  Chapters 5-7 (applications, algebraic closures,
+asides `cg11a`/`cg11b`.
+
+AUDIT-GAP (coverage audit, delta ce6b0e6..c8ba881): the chapter-IV paragraph above is
+stale.  It lists as "Remaining in scope" `cg3`, the cg5/cg6 inseparable clauses,
+`cg21`/`cg22` (Dedekind chain, delivered conditionally on `cg20`) and "the S₄
+classification table", all of which this delta delivered (see the RESOLVED entries in
+the chapter IV ledger at the end of the file); `tools/ft_coverage.py` reports 68/144
+labels mentioned with no unmentioned cg-label.  Remedy: rewrite the paragraph per the
+ledger — still pending in chapter IV are `cg20` (and the unconditioning of `cg21`/
+`cg22`), the remaining cg25 hypotheses (`hfinK`/`hdim`), `cg14`/`cg14a`, `cg24`, and
+the asides `cg11a`/`cg11b`.
+
+Chapters 5-7 (applications, algebraic closures,
 infinite Galois extensions, etale algebras, transcendental extensions; the
 `ag`/`ig`/`ca` label clusters) are pending although in scope per the provenance
 `scope` field (which omits only exercises, solutions, and expositional
@@ -10823,6 +10835,28 @@ def quarticKleinGen02 : Equiv.Perm (Fin 4) := Equiv.swap 0 2 * Equiv.swap 1 3
 `(03)(12)`, i.e. `0↦3, 1↦2, 2↦1, 3↦0`. -/
 def quarticKleinGen03 : Equiv.Perm (Fin 4) := Equiv.swap 0 3 * Equiv.swap 1 2
 
+-- AUDIT-GAP (documentation audit, delta ce6b0e6..c8ba881): 71 declarations of the S₄/V
+-- block below have no docstring; the documentation audit requires a textbook-math
+-- statement of the claim and a proof idea, or — for the pure `rfl`/`fin_cases`/`decide`
+-- unpackings — an explicit triviality declaration.  Affected (71):
+-- `quarticKleinGen01/02/03_apply_zero/one/two/three` (12), `quarticKleinGen01_sq`,
+-- `quarticKleinGen02_sq`, `quarticKleinGen03_sq`, `quarticKleinGen01_mul_gen02`,
+-- `quarticKleinGen02_mul_gen01`, `quarticKleinGen01_mul_gen03`,
+-- `quarticKleinGen03_mul_gen01`, `quarticKleinGen02_mul_gen03`,
+-- `quarticKleinGen03_mul_gen02`, `quarticKleinGen01_inv`, `quarticKleinGen02_inv`,
+-- `quarticKleinGen03_inv`, `quarticKleinGen01_noFix`, `quarticKleinGen02_noFix`,
+-- `quarticKleinGen03_noFix`, `quarticKleinGen01_ne_one`, `quarticKleinGen02_ne_one`,
+-- `quarticKleinGen03_ne_one`, `quarticKleinGen01_ne_quarticKleinGen02`,
+-- `quarticKleinGen01_ne_quarticKleinGen03`, `quarticKleinGen02_ne_quarticKleinGen03`,
+-- `quarticKlein_carrier_mul_mem`, `quarticKlein_carrier_inv_mem`, `quarticKlein_fin4`,
+-- `fin3_cases3`, `fin4_cases4`, `quarticPairingIdx_eq_zero`, `quarticPairingIdx_eq_one`,
+-- `quarticPairingIdx_01`–`quarticPairingIdx_32` (12), `quarticPairingIdx_symm`,
+-- `quarticPsi_mul_apply`, `quarticPsi_one`, `quarticVal_zero`, `quarticVal_one`,
+-- `quarticVal_two`, `quarticPsi_swap01_one/two`, `quarticPsi_swap02_zero/two`,
+-- `quarticPsi_swap12_zero/one`, `quarticPsi_swap23_one/two`, `quarticOrbitBeta_univ`,
+-- `quarticOrbitGamma_univ`, `quarticPsi_gen01`, `quarticPsi_gen02`, `quarticPsi_gen03`.
+-- Remedy: add the missing docstrings.
+
 @[simp] theorem quarticKleinGen01_apply_zero : quarticKleinGen01 0 = 1 := rfl
 @[simp] theorem quarticKleinGen01_apply_one : quarticKleinGen01 1 = 0 := rfl
 @[simp] theorem quarticKleinGen01_apply_two : quarticKleinGen01 2 = 3 := rfl
@@ -10955,6 +10989,13 @@ private theorem quarticKlein_carrier_inv_mem {a : Equiv.Perm (Fin 4)}
   rcases ha with rfl|rfl|rfl|rfl <;>
     simp [inv_one, quarticKleinGen01_inv, quarticKleinGen02_inv, quarticKleinGen03_inv]
 
+-- AUDIT-GAP (documentation audit): this docstring says "the kernel of the slot-permutation
+-- homomorphism `quarticSlotHom`", but `quarticSlotHom` is declared later (~11239) and
+-- consumes `quarticKlein` (its kernel is proved equal to `quarticKlein` via
+-- `quarticKlein_le_quarticFixer` and `quarticFixer_eq_quarticKlein`).  A declaration's
+-- documentation may not mention a later declaration that consumes it (orderOf_sigma0
+-- precedent, audit 4e6ea68).  Remedy: drop the clause here; the kernel identification
+-- belongs in `quarticSlotHom`'s or `quarticFixer_eq_quarticKlein`'s docstring.
 /-- FT IV §4: the Klein four-group `V = {1, (01)(23), (02)(13), (03)(12)}` as a subgroup
 of `S₄`; the kernel of the slot-permutation homomorphism `quarticSlotHom`. -/
 def quarticKlein : Subgroup (Equiv.Perm (Fin 4)) where
@@ -15587,6 +15628,17 @@ open Polynomial Equiv
 
 variable {m : ℕ} {R : Type*} [CommRing R]
 
+-- AUDIT-GAP (bridging audit, check 1, delta ce6b0e6..c8ba881): `prod_perm_equiv` is an
+-- untagged bridge candidate — mathematically vacuous statement (reindexing a product
+-- along the equiv `ρ ↦ τ.symm.trans ρ`; a paper would not state it), forced proof (pure
+-- `Finset.prod_bij` plumbing plus `Equiv.trans_assoc` bookkeeping, ~12 lines), substantial
+-- code.  It connects the two presentations "product over all `ρ`" and "product over the
+-- reindexed family" and is consumed by `map_dedekindThetaProduct`.  Remedy: obtain main's
+-- `BRIDGE` disposition (tag naming the two presentations, or a recorded rejection).
+-- Second borderline candidate for main's disposition:
+-- `card_rootSet_eq_five_of_injective_enumeration` (~17973): vacuous bijective-cardinality
+-- bookkeeping (subtype lift + `Fintype.card_of_bijective`), forced, ~12 lines, currently
+-- without consumers.
 /-- Reindexing lemma: permuting the index set of the product over all root permutations
 along the equiv `ρ ↦ τ.symm.trans ρ` (the involution `ρ ↦ ρ.symm` followed by
 post-composition with `τ`) leaves the product unchanged. -/
@@ -15642,6 +15694,12 @@ theorem map_dedekindThetaProduct (σ : R →+* R) (α : Fin m → R) (τ : Equiv
     _ = ∏ ρ : Equiv.Perm (Fin m), (X - C (dedekindTheta (α ∘ ρ.symm))) :=
         prod_perm_equiv (fun ω => (X - C (dedekindTheta (α ∘ ω.symm)))) τ
 
+-- AUDIT-GAP (external-library audit, delta ce6b0e6..c8ba881): `FT.mvcoeff_finset_sum`
+-- re-implements Mathlib's `MvPolynomial.coeff_sum` (Mathlib/Algebra/MvPolynomial/
+-- Basic.lean:579: `coeff m (∑ i ∈ s, f i) = ∑ i ∈ s, coeff m (f i)`) with an identical
+-- statement (the target version even adds an unnecessary `[DecidableEq σ]`).  Remedy:
+-- delete the declaration and consume `MvPolynomial.coeff_sum` at its single consumer
+-- `FT.exists_mvPolynomialF_of_gal_fixed` (~15694).
 /-- Coefficients are additive: the coefficient of a finite sum of multivariate
 polynomials is the sum of the coefficients. -/
 theorem mvcoeff_finset_sum {R σ : Type*} [CommSemiring R] [DecidableEq σ] {ι : Type*}
@@ -16025,6 +16083,16 @@ section Cg21Frobenius
 open Polynomial
 open scoped Classical
 
+-- AUDIT-GAP (coding-conventions audit, delta ce6b0e6..c8ba881): `FT.gal_eq_zpowers_frobenius'`
+-- duplicates `FT.gal_eq_zpowers_frobenius` (FT §7 prose, ~9690) with an identical statement
+-- and proof; the only difference is universe generality (`Type*` vs the original's
+-- same-universe `Type u`).  The file's own integration note (~15845) says "drop if unwanted
+-- and point the two uses at the same-universe original", and both consumers
+-- (`frobeniusOrbitCard_eq_natDegree_of_irreducible_factor` ~16062 and
+-- `exists_cycleType_of_factorDegrees` ~16544) instantiate `F = ZMod p : Type 0` and
+-- `E0 : Type` (same universe), where the original applies.  Remedy: delete the prime
+-- duplicate and point the two consumers at `FT.gal_eq_zpowers_frobenius`, or record why
+-- the general form must be kept.
 /-- **FT `cg21` (finite-field core, step 3).** The Frobenius automorphism of the extension
 `E/F` of finite fields generates the Galois group `Gal(E/F)`: universe-general form of
 `FT.gal_eq_zpowers_frobenius` (FT §7 prose: `G_f` is cyclic, generated by Frobenius).
@@ -16090,6 +16158,14 @@ theorem frobeniusOrbitCards_eq_factorDegrees {f : (ZMod p)[X]} {ι : Type*} [Fin
 end Cg21Frobenius
 
 /-! ### `cg21` modulo `cg20`: the assembly -/
+
+-- AUDIT-GAP (documentation audit, context/structure, delta ce6b0e6..c8ba881): the cg3
+-- block (FT chapter IV §1) is inserted here, between the `Cg21Frobenius` and
+-- `Cg21Assembly` sections of the FT §8 region.  The subsection header "### `cg21` modulo
+-- `cg20`: the assembly" above is therefore orphaned (its section starts only at
+-- `section Cg21Assembly` ~16491, after ~390 lines of cg3 content), and the "## FT chapter
+-- IV §1 (cg3)" header sits inside the §8 region.  Remedy: move the cg3 block out of the
+-- cg21 region (e.g. next to the §1 Vandermonde/Transport/Splitting sections ~11802).
 
 /-! ## FT chapter IV §1 (`cg3`): conjugation, the sign of the discriminant, and `A_n` -/
 
@@ -17339,6 +17415,14 @@ theorem isMonicOfDegree_X_pow_sub_C_mul_X_sub_C {R : Type*} [Ring R] [Nontrivial
       (((natDegree_C_mul_le a X).trans natDegree_X_le).trans_lt (by omega))
   exact h1.sub ((natDegree_C b).trans_lt (by omega))
 
+-- AUDIT-GAP (coding-conventions audit, low severity, delta ce6b0e6..c8ba881): opaque
+-- names not conveying the mathematical content: `isMonicOfDegree_X3_add3` (states
+-- `X³ + C a * X² + C b * X + C c` is monic of degree 3; sibling names use the
+-- `isMonicOfDegree_X_pow_add_C_mul_X_add_C` pattern), `isMonicOfDegree_add_add_two`
+-- (`X² + C a * X + C b` monic of degree 2), `evalX3SubInt` (camelCase; statements about
+-- `X³ − C 3 * X + C 1` and `X³ − C (−3) * X + C 1` over ℤ), and `mod2_factorization_lit`
+-- ("lit" for the literal `C 1`-form is not decodable without reading the statement).
+-- Remedy: content-based renames in the established style.
 /-- FT cg22: `X ^ 3 + C a * X ^ 2 + C b * X + C c` is monic of degree `3`. -/
 theorem isMonicOfDegree_X3_add3 {R : Type*} [Semiring R] [Nontrivial R] (a b c : R) :
     IsMonicOfDegree (X ^ 3 + C a * X ^ 2 + C b * X + C c : R[X]) 3 := by
