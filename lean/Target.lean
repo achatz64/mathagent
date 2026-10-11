@@ -126,23 +126,15 @@ unlabeled aside following `ft6` (FT.tex:2484) await the scope citations the
 chapter-1 "Scope notes for omitted material" list establishes (or an
 AUDIT-DEFERRED classification in the final ledger).
 
-Note (coverage, delta audit of the chapter IV delivery 0c74549..f281ae9,
-remediated): the chapter inventory above now records the chapter-IV delivery
-status and the remaining pending cg-labels; `cg25` is mentioned in backticks in
-the chapter IV ledger (its θ-trick core is formalized, sections
+Note (coverage, delta audits of the chapter-IV deliveries 0c74549..5ec803b,
+remediated): the chapter inventory above records the chapter-IV delivery status
+and the remaining pending cg-labels; `cg25` is mentioned in backticks in the
+chapter IV ledger (its θ-trick core is formalized, sections
 DedekindTheta/CGD/CgDedekindInt); the concrete cubic instances of cg6 (X³−3X+1
 irreducible with Galois group A₃ via discriminant 81 = 9², and X³+3X+1 with
-Galois group S₃ via discriminant −135; FT.tex ≈3783-3790, irreducibility via
-`ef5`/`ef4`) are recorded as pending in the chapter IV ledger.
-
-AUDIT-GAP (coverage documentation, delta audit 5bb423c..5ec803b): the sentence
-above is stale and self-contradictory — it says the concrete cubic instances of
-cg6 (X³−3X+1 → A₃, X³+3X+1 → S₃) "are recorded as pending in the chapter IV
-ledger", while the chapter IV ledger (~line 9340) records them RESOLVED and the
-remediated chapter-IV paragraph directly above lists them as delivered; it also
-cites irreducibility "via `ef5`/`ef4`" although the delivered proofs use the
-parity route (`FT.oddValuesDepressedCubics` + Gauss, see the ledger entry).
-Remedy: rewrite the note to match the ledger.
+Galois group S₃ via discriminant −135; FT.tex ≈3783-3790, irreducibility via the
+parity route `FT.oddValuesDepressedCubics` + Gauss — see `FT.irreducible_X3_sub_3X_add_1`
+/`FT.irreducible_X3_add_3X_add_1`) are delivered (chapter IV ledger, RESOLVED).
 -/
 
 namespace FT
@@ -9370,14 +9362,9 @@ Pending (chapter IV ledger):
   `FT.orbit_eq_rootSet_of_irreducible_factor`,
   `FT.orbitCard_eq_natDegree_of_irreducible_factor` (orbits on roots = root sets /
   cardinalities = degrees of the irreducible factors),
-  `FT.gal_eq_zpowers_frobenius'` (Frobenius generates Gal(E/F), universe-general),
-  AUDIT-GAP (documentation, delta audit 5bb423c..5ec803b): dangling reference —
-  the declaration `FT.gal_eq_zpowers_frobenius'` was deleted by the remediation of
-  the coding-conventions finding of audit 5bb423c, but this ledger entry (and the
-  proof-idea docstrings of `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`
-  and `FT.frobeniusOrbitCards_eq_factorDegrees`, ~16616) still cite it; the proofs
-  now use `FT.gal_eq_zpowers_frobenius`.  Remedy: replace the three references.
-  `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`,
+  `FT.gal_eq_zpowers_frobenius` (Frobenius generates Gal(E/F); the
+  universe-general duplicate `gal_eq_zpowers_frobenius'` was deleted, coding
+  conventions remediation), `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`,
   `FT.frobeniusOrbitCards_eq_factorDegrees`, and the cg21 assembly
   `FT.exists_cycleType_of_factorDegrees` — with the cg20 conclusion `G_f̄ ⊆ G_f`
   abstracted as the hypotheses `_hc_root`/`_hι`/`hcompat`/`hinj`; awaiting steps
@@ -11058,19 +11045,14 @@ private theorem quarticKlein_carrier_inv_mem {a : Equiv.Perm (Fin 4)}
   rcases ha with rfl|rfl|rfl|rfl <;>
     simp [inv_one, quarticKleinGen01_inv, quarticKleinGen02_inv, quarticKleinGen03_inv]
 
--- AUDIT-GAP (documentation audit, delta audit 5bb423c..5ec803b; incomplete
--- remediation of finding 3 of audit 5bb423c): the docstring below still
--- forward-references two later declarations that consume `quarticKlein` —
--- `quarticSlotHom` (~11365) and `quarticFixer_eq_quarticKlein` (~11827) — against
--- AUDIT.md ("the documentation of A may not mention a later B") and against the
--- very orderOf_sigma0 precedent (audit 4e6ea68) that the remediation note invokes:
--- the remediation only reworded the reference in place instead of moving the
--- kernel clause to `quarticSlotHom`'s / `quarticFixer_eq_quarticKlein`'s docstring.
--- Remedy: move the "(proved `quarticFixer_eq_quarticKlein` below, after
--- `quarticSlotHom` is defined)" clause to those later declarations' docstrings.
-/-- FT IV §4: the Klein four-group `V = {1, (01)(23), (02)(13), (03)(12)}` as a subgroup
-of `S₄` — the kernel of the slot-permutation action on the three pairings (proved
-`quarticFixer_eq_quarticKlein` below, after `quarticSlotHom` is defined). -/
+-- Remediated (documentation audit, delta audit 5bb423c..5ec803b): the forward
+-- references were removed from `quarticKlein`'s docstring (now purely descriptive)
+-- and the kernel-of-the-slot-action clause was moved to
+-- `quarticFixer_eq_quarticKlein`'s docstring (all its dependencies — `quarticKlein`,
+-- `quarticSlotHom`, `quarticFixer` — precede it there), per the orderOf_sigma0
+-- precedent (audit 4e6ea68).
+/-- FT IV §4: the Klein four-group `V = {1, (01)(23), (02)(13), (03)(12)}` as a
+subgroup of `S₄`. -/
 def quarticKlein : Subgroup (Equiv.Perm (Fin 4)) where
   carrier := {1, quarticKleinGen01, quarticKleinGen02, quarticKleinGen03}
   one_mem' := Or.inl rfl
@@ -11381,8 +11363,8 @@ def quarticPsiEquiv (σ : Equiv.Perm (Fin 4)) : Fin 3 ≃ Fin 3 where
   left_inv k := by rw [← quarticPsi_mul_apply σ⁻¹ σ k, inv_mul_cancel, quarticPsi_one]
   right_inv k := by rw [← quarticPsi_mul_apply σ σ⁻¹ k, mul_inv_cancel, quarticPsi_one]
 
-/-- FT IV §4: the homomorphism `S₄ → Sym(pairings) ≅ S₃`; its kernel is the Klein group `V`
-(the elements of cycle type `2+2` preserve all three pairings). -/
+/-- FT IV §4: the homomorphism `S₄ → Sym(pairings) ≅ S₃` (the elements of cycle
+type `2+2` preserve all three pairings). -/
 def quarticSlotHom : Equiv.Perm (Fin 4) →* Equiv.Perm (Fin 3) where
   toFun σ := quarticPsiEquiv σ
   map_one' := Equiv.ext fun k => quarticPsi_one k
@@ -11844,7 +11826,9 @@ theorem quarticFixer_le_quarticKlein : quarticFixer ≤ quarticKlein := by
     exact (quarticKlein_eq σ).mpr (Or.inr (Or.inr (Or.inr (Equiv.ext fun i => by
       fin_cases i <;> simp [h0, h1, h2, h3]))))
 
-/-- FT IV §4: the pointwise fixer of `{α, β, γ}` is exactly the Klein group `V`. -/
+/-- FT IV §4: the pointwise fixer of `{α, β, γ}` is exactly the Klein group `V`
+— i.e. `V` is the kernel of the slot-permutation homomorphism `quarticSlotHom`
+(the elements of cycle type `2+2` preserve all three pairings). -/
 theorem quarticFixer_eq_quarticKlein : quarticFixer = quarticKlein :=
   le_antisymm quarticFixer_le_quarticKlein quarticKlein_le_quarticFixer
 
@@ -16631,18 +16615,16 @@ ZMod p : Type 0` and `E0 : Type` (same universe), where the original applies.
 variable {p : ℕ} [Fact p.Prime] {E0 : Type} [Field E0] [Fintype E0] [Algebra (ZMod p) E0]
   [FiniteDimensional (ZMod p) E0] [IsGalois (ZMod p) E0]
 
--- AUDIT-GAP (documentation audit, delta audit 5bb423c..5ec803b): the two docstrings
--- introduced by the remediation note below still cite the deleted
--- `FT.gal_eq_zpowers_frobenius'` in their proof ideas, while their proofs call
--- `FT.gal_eq_zpowers_frobenius` (the chapter IV ledger reference at ~9364 is flagged
--- in a separate marker).  Remedy: update the proof-idea references.
+-- Remediated (documentation audit, delta audit 5bb423c..5ec803b): the proof-idea
+-- references to the deleted `FT.gal_eq_zpowers_frobenius'` were updated to
+-- `FT.gal_eq_zpowers_frobenius` (both docstrings and the chapter IV ledger entry).
 
 omit [Fintype E0] in
 /-- **FT `cg21` (finite-field core, step 4).** In the finite-field situation, the orbit of a
 root `ᾱ` under the cyclic group generated by the Frobenius element of `Gal(E₀/𝔽_p)` has
 cardinality the degree of the irreducible factor through `ᾱ`.
 
-Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius'`), so its orbits
+Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius`), so its orbits
 are the Galois orbits, whose cardinality is the factor degree
 (`FT.orbitCard_eq_natDegree_of_irreducible_factor`). -/
 theorem frobeniusOrbitCard_eq_natDegree_of_irreducible_factor {g : (ZMod p)[X]} (hgm : g.Monic)
@@ -16663,7 +16645,7 @@ Galois extension `E₀/𝔽_p`, with factorization `f̄ = ∏ fᵢ` into monic i
 `Gal(E₀/𝔽_p)` has, on the roots `ᾱᵢ`, orbits of cardinalities `m₁, …, m_r` — the Frobenius
 cycle type on the roots of `f̄` is `m₁ + ⋯ + m_r`, and indeed `deg f̄ = m₁ + ⋯ + m_r`.
 
-Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius'`), and the orbit
+Proof idea: Frobenius generates `Gal(E₀/𝔽_p)` (`FT.gal_eq_zpowers_frobenius`), and the orbit
 of a root under the full Galois group has cardinality `natDegree` of the irreducible factor
 through it (`FT.orbitCard_eq_natDegree_of_irreducible_factor`); the degree sum is
 `Polynomial.natDegree_prod`. -/
