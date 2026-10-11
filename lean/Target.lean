@@ -9321,11 +9321,51 @@ Pending (chapter IV ledger):
 - `cg14` (Eisenstein + nonreal-roots example for S_p), `cg14a` (unproven computational
   assertion in the source; scope).
 - Dedekind's theorem `cg20`/`cg21` and examples `cg22`/`cg24`: the θ-trick toolkit plus
-  the θ-integrality over F(T) are in place; still missing: the fact that
-  f(X,T) = ∏_σ (X − σ_T θ) has coefficients in F[X,T] (multivariate symmetric
-  polynomials + Vieta packaging Mathlib v4.31 lacks), the ⟸ direction of the
-  Galois-membership criterion (extension-to-closure endgame; construction plan
-  recorded in the ch-IV worklog), and the cg20 assembly.
+  the θ-integrality over F(T) are in place; still missing: (1) the fact that
+  f(X,T) = ∏_σ (X − σ_T θ) has coefficients in F[X,T] — route found: the coefficients
+  are Galois-fixed (σ_α merely permutes the factors) hence in F(T₁,…,T_m), and lie in
+  F(α₁,…,α_m)[T], so the field-Gauss lemma F(α)[T] ∩ F(T) = F[T] (coprime factors stay
+  coprime over field extensions) finishes; no multivariate symmetric-polynomial
+  packaging needed; (2) the ⟸ (surjectivity) direction of the cg25 isomorphism
+  σ ↦ σ_α: blocked on the coefficientwise-extension construction “τ : E ≃ₐ[F] E
+  extends to E(T₁,…,T_m) and further to the splitting field of f(X,T)” — Mathlib
+  v4.31 has the atoms but no assembled extension theorem — DESIGN skeleton, to be
+  executed by workers (per FORMALIZATION.md §Missing APIs this is design work, not
+  a blocker): (A) Gal(E(T₁,…,T_m)/F(T₁,…,T_m)) ≅ Gal(E/F) via the fraction-field
+  functor applied to τ (Mathlib: `MvPolynomial.mapEquiv` + an `IsFractionRing`
+  equivalence of fraction fields of isomorphic domains); (B) extend further to
+  L := splitting field of f(X,T) over F(T₁,…,T_m): τ_T permutes the roots
+  {σ_T θ} of f(X,T) (τ_T(σ_T θ) = (τσ)_T θ), and a splitting field of a
+  separable polynomial is normal, so the F(T…)-embedding E_T → L extends to an
+  automorphism of L (Mathlib: normality-of-splitting-field + embedding-extension
+  API — exact names to be located; if absent, assemble from the conjugation/
+  stem-field machinery already in this file); (C) the extended τ̂ fixes f(X,T)
+  (coefficients in F(T…)) and carries the irreducible factor f₁ through a root
+  (θ ↦ (τ_α)_T θ = σ_T θ), so τ̂ f₁ = σ_T f₁ by uniqueness of the irreducible
+  factor through a given root; (D) conclude σ_T f₁ = f₁ from the orbit–stabilizer
+  count (the r factors are the S_m-orbit of f₁, |orbit| = [S_m : G], and the
+  degree/field-degree bookkeeping Gal(E/F) vs. orbit sizes); (3) the cg20
+  reduction machinery — DESIGN skeleton: integral closure R′ of R in the
+  splitting field (Mathlib: `IsIntegralClosure`), a prime PR′ over P via
+  lying-over/going-up for the integral extension R ⊆ R′ (Mathlib: `Ideal.LiesOver`
+  / going-up API), localize at R∖P to make R′_P local with residue field F̄-free
+  reduction, reduce the root system (f(αᵢ) = 0 ⇒ f̄(ᾱᵢ) = 0; m distinct roots of
+  a degree-m f̄ ⇒ ᾱ₁,…,ᾱ_m are all of them), and lift σ̄ ∈ G_f̄ to G_f by the
+  (A)-(D) endgame applied over the localized rings; each step is a
+  mathlib-contribution candidate but none is out of reach;
+  (4) cg21's Frobenius cycle-type step (orbits of Frobenius on the roots of f̄ =
+  irreducible factors, degrees mᵢ) — same shape as the delivered `cg19F` machinery
+  (`FT.frobeniusCycleLength_eq_natDegree`), ready once cg20 exists; (5) cg22/cg24 —
+  finite factorization computations over F₂/F₃/F₅ (decidable enumeration; e.g.
+  cg22: X⁵−X−1 ≡ (X²+X+1)(X³+X²+1) mod 2, irreducible mod 3, hence (ik)(lmn) and
+  a 5-cycle in G_f, whose cube is a transposition) plus the delivered cg12, ready
+  once cg21 exists. Chain order: (1) → (2) → (3) → cg21 → cg22/cg24. Other
+  chapter-IV deferrals with recorded approaches: `cg14` — formalizable but an
+  analysis project (real-root counting for g(X) = (X²+m)∏(X−nᵢ) via sign changes
+  and the minimum of |g| over the critical points, then Eisenstein on nf = ng−2);
+  `cg14a`/`cg11a`/`cg11b` — source asides the text itself does not prove
+  (computational assertions / web discussions); out of scope by source
+  faithfulness unless the user requests them.
 - Classification table for transitive subgroups of S_4 (S4, A4, V, D4, C4 with
   (G∩V:1), (G:G∩V)) used by `cg8a`-`cg11` and `ft23r`; the downstream type
   dichotomies of the examples cg8a-cg11.
