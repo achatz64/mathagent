@@ -21,28 +21,23 @@ A proof-worker prompt must be self-contained. Include:
 4. semantic requirements for the final theorem type;
 5. instructions to prefer reusable general APIs, avoid axioms, check every final
    declaration in `lean_repl`, and return paste-ready code;
-6. the naming rule: declaration names must be content-based Mathlib-style
-   names (`FT.quadGal_dichotomy`, not `FT.cg5`); the source label (`cg5`,
-   `ft18` …) belongs in the docstring only. Never invent source-label-based
-   names — every such name has forced a rename pass at integration (a 72-
-   declaration wave and repeated audit findings); a delivery that needs a
-   rename is a defect;
-7. a mandatory final axiom batch: after the last declaration is elaborated,
-   run `#print axioms` over EVERY declaration delivered (main results and
-   private helpers) and report the batch. This is the only detection
-   mechanism for the shared REPL's silent sorry-fallback (a failed tactic can
-   leave the declaration committed with `sorryAx` and the session continuing);
-   it must run last, on the final text, in one lineage;
+6. the naming rule: content-based Mathlib-style names only
+   (`FT.quadGal_dichotomy`, not `FT.cg5`); the source label belongs in the
+   docstring. Source-label-based names are a defect — each has forced a rename
+   pass at integration;
+7. a mandatory final axiom batch: `#print axioms` over EVERY declaration
+   delivered (main results and private helpers), run last, on the final text,
+   in one lineage, and reported. This is the only detection mechanism for the
+   shared REPL's silent sorry-fallback (a failed tactic can leave the
+   declaration committed with `sorryAx`);
 8. likely namespaces, declaration fragments, and Mathlib source paths so the
    worker can search narrowly rather than rediscovering the whole API;
 9. a request to report the REPL PID, approximate call count, timeouts, and
    perceived latency when testing infrastructure.
 
-The supplied source proof is authoritative and is the worker's required
-implementation plan, not optional background. The worker translates it
-independently within interfaces chosen by the main agent. Failure to find an
-exact library theorem is not a blocker: routine and representation-independent
-helper lemmas remain proof work.
+The supplied source proof is authoritative: it is the required implementation
+plan, not optional background. Failure to find an exact library theorem is not
+a blocker: routine helper lemmas remain proof work.
 
 Bridging: before writing transport glue, search the target file for the tag
 keyword `BRIDGE` (`rg -n 'BRIDGE' <target file>`) and consume an existing bridge
