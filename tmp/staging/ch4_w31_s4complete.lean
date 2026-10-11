@@ -5,7 +5,8 @@
 --   _gen_conj_tmp, _normal_tmp) — proofs byte-identical, fresh re-verify needed.
 -- * Part B opening verified verbatim through quarticPsi, incl. fixed quarticPairingIdx_perm
 --   (bug 1: missing .symm in p=2 q=3 branch; bug 2: crossed rw names quarticPairingIdx_12/13
---   in p=1 block — both fixed below).
+--   in p=1 block — fixed below, in the direction confirmed by REPL error messages:
+--   p=1 q=2 needs rw _12, p=1 q=3 needs rw _13; the worker's swap was inverted).
 -- * Parts B-D from quarticPsi_mul_apply onward NOT yet verified in this lineage;
 --   spots to watch: `intro _; trivial` in orbit lemmas, Sylow/toSylow plumbing.
 -- * Axiom batch over all main decls + private helpers still REQUIRED after fresh
@@ -385,11 +386,11 @@ theorem quarticPairingIdx_perm (σ : Equiv.Perm (Fin 4)) {p q : Fin 4} (hpq : p 
   · rcases fin4_cases4 q with rfl|rfl|rfl|rfl
     · simp only [quarticPairingIdx_10]; rw [quarticPairingIdx_symm]; rfl
     · exact absurd rfl hpq
-    · rw [quarticPairingIdx_13]
+    · rw [quarticPairingIdx_12]
       exact (quarticPairingIdx_compl (hσ 0 3 (by decide)) (hσ 1 2 hpq)
         (hσ 1 0 (by decide)) (hσ 1 3 (by decide)) (hσ 2 0 (by decide))
         (hσ 2 3 (by decide))).symm
-    · rw [quarticPairingIdx_12]
+    · rw [quarticPairingIdx_13]
       exact (quarticPairingIdx_compl (hσ 0 2 (by decide)) (hσ 1 3 hpq)
         (hσ 1 0 (by decide)) (hσ 1 2 (by decide)) (hσ 3 0 (by decide))
         (hσ 3 2 (by decide))).symm
