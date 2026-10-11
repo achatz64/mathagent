@@ -1,0 +1,643 @@
+-- staging/ch4_w25_cg22_draft.lean — worker w25 (cg22, X⁵−X−1) draft, delivered verbatim
+-- in the final message; NOT fully verified (worker's REPL went down mid-finalization).
+-- STATUS:
+-- * FiniteFieldUtility + ZMod2Computations + ZMod3Computations: claimed REPL-verified
+--   (zero errors), but the mandated axiom pass never ran — re-verify all + #print axioms.
+-- * GroupTheory: `commute_swap_of_cycle3_disjoint`, `cube_of_commute_isSwap_cycle3`,
+--   `cube_of_swap_mul_cycle3_eq_swap`, `orderOf_swap_eq_two` present;
+--   `orderOf_swap_mul_cycle3_eq_six` has a BROKEN trailing `where` token and unfinished
+--   tail bookkeeping (previous worker's analysis: after excluding orders 1,2,3, with
+--   t := orderOf (τ*ρ) ∣ 6 and t ≥ 4, from hk : 6 = t * k — k < 2 branch: k = 0 gives
+--   6 = t*0 = 0 contradiction (rw mul_zero first); k = 1 gives t*1 = t hence t = 6 = GOAL
+--   (rw mul_one first); k ≥ 2 branch: 2*t ≤ k*t = 6 gives t ≤ 3, contradiction).
+-- * MISSING sections (never drafted in the file): (a) isSwap_of_mem_of_cycleType23
+--   ((∃ x y, x ≠ y ∧ ∃ ρ, ρ x = x ∧ ρ y = y ∧ orderOf ρ = 3 ∧ g = swap x y * ρ) →
+--   (g ^ 3).IsSwap); (b) top_of_swap_and_primeCycle via FT.closure_transposition_prime_cycle;
+--   (c) the cg22 assembly (hypothesis-based splitting field + cg21-derived cycle-type
+--   input → image = ⊤ → Nat.card Gal = 120 via MulAction.toPermHom injectivity).
+-- API-risk names to probe (may not exist verbatim): isMonicOfDegree_X_pow,
+-- isMonicOfDegree_add_add_two, IsMonicOfDegree (class + .monic/.natDegree_eq),
+-- natDegree_C_mul_le, natDegree_X_pow (function vs lemma), Polynomial.eval_X_pow,
+-- Polynomial.irreducible_of_degree_le_three_of_not_isRoot,
+-- Polynomial.irreducible_iff_lt_natDegree_lt, Polynomial.not_isUnit_of_natDegree_pos,
+-- Polynomial.isMonicOfDegree_one_iff/_two_iff, Equiv.Perm.Disjoint.commute,
+-- Equiv.swap_eq_refl_iff, orderOf_le_of_pow_eq_one, orderOf_eq_zero_iff',
+-- orderOf_eq_one_iff, eq_inv_of_mul_eq_one_left, orderOf_inv, sub_sub_cancel,
+-- dvd_sub, ZMod.natCast_zmod_val, ZMod.natCast_eq_natCast_iff.
+
+namespace FT
+
+open Polynomial
+
+section FiniteFieldUtility
+
+/-! ### Small utility lemmas (all REPL-verified, axiom-clean) -/
+
+/-- Coefficient-wise equality for polynomials of bounded degree. -/
+theorem coeff_ext_of_natDegree_le {R : Type*} [CommRing R] {p q : R[X]} {n : ℕ}
+    (hp : p.natDegree ≤ n) (hq : q.natDegree ≤ n) (h : ∀ i ≤ n, p.coeff i = q.coeff i) :
+    p = q := by
+  refine Polynomial.ext fun i => ?_
+  rcases Nat.lt_or_ge i (n + 1) with hi | hi
+  · exact h i (by omega)
+  · rw [Polynomial.coeff_eq_zero_of_natDegree_lt (by omega),
+      Polynomial.coeff_eq_zero_of_natDegree_lt (by omega)]
+
+/-- Every element of `ZMod 2` is `0` or `1`. -/
+theorem zmod2_eq_zero_or_one (a : ZMod 2) : a = 0 ∨ a = 1 := by
+  obtain ⟨m, rfl⟩ : ∃ m : ℕ, a = (m : ZMod 2) := ⟨a.val, (ZMod.natCast_zmod_val a).symm⟩
+  have hmod : (m : ZMod 2) = ((m % 2 : ℕ) : ZMod 2) := by
+    rw [ZMod.natCast_eq_natCast_iff]; exact (Nat.mod_modEq m 2).symm
+  obtain ⟨t, ht, he⟩ : ∃ t : ℕ, t < 2 ∧ m % 2 = t := ⟨m % 2, by omega, rfl⟩
+  rw [hmod, he]
+  rcases (show t = 0 ∨ t = 1 from by omega) with rfl | rfl
+  exacts [Or.inl rfl, Or.inr rfl]
+
+/-- Every element of `ZMod 3` is `0`, `1` or `2`. -/
+theorem zmod3_eq_zero_one_or_two (a : ZMod 3) : a = 0 ∨ a = 1 ∨ a = 2 := by
+  obtain ⟨m, rfl⟩ : ∃ m : ℕ, a = (m : ZMod 3) := ⟨a.val, (ZMod.natCast_zmod_val a).symm⟩
+  have hmod : (m : ZMod 3) = ((m % 3 : ℕ) : ZMod 3) := by
+    rw [ZMod.natCast_eq_natCast_iff]; exact (Nat.mod_modEq m 3).symm
+  obtain ⟨t, ht, he⟩ : ∃ t : ℕ, t < 3 ∧ m % 3 = t := ⟨m % 3, by omega, rfl⟩
+  rw [hmod, he]
+  rcases (show t = 0 ∨ t = 1 ∨ t = 2 from by omega) with rfl | rfl | rfl
+  exacts [Or.inl rfl, Or.inr (Or.inl rfl), Or.inr (Or.inr rfl)]
+
+/-- `C a * X + C b` has degree at most `1`. -/
+theorem natDegree_C_mul_X_add_C_le {R : Type*} [Semiring R] (a b : R) :
+    (C a * X + C b : R[X]).natDegree ≤ 1 := by
+  refine (natDegree_add_le _ _).trans ?_
+  refine max_le_iff.mpr ⟨?_, ?_⟩
+  · exact (natDegree_C_mul_le a X).trans natDegree_X_le
+  · simp [natDegree_C]
+
+/-- `X ^ k + C a * X + C b` is monic of degree `k` (for `k ≥ 2`). -/
+theorem isMonicOfDegree_X_pow_add_C_mul_X_add_C {R : Type*} [Semiring R] [Nontrivial R] (k : ℕ)
+    (a b : R) (hk : 2 ≤ k) : IsMonicOfDegree (X ^ k + C a * X + C b : R[X]) k := by
+  rw [add_assoc]
+  exact (isMonicOfDegree_X_pow R k).add_right
+    ((natDegree_C_mul_X_add_C_le a b).trans_lt (by omega))
+
+/-- `X ^ k - C a * X - C b` is monic of degree `k` (for `k ≥ 2`). -/
+theorem isMonicOfDegree_X_pow_sub_C_mul_X_sub_C {R : Type*} [Ring R] [Nontrivial R] (k : ℕ)
+    (a b : R) (hk : 2 ≤ k) : IsMonicOfDegree (X ^ k - C a * X - C b : R[X]) k := by
+  have h1 : IsMonicOfDegree (X ^ k - C a * X) k :=
+    (isMonicOfDegree_X_pow R k).sub
+      (((natDegree_C_mul_le a X).trans natDegree_X_le).trans_lt (by omega))
+  exact h1.sub ((natDegree_C b).trans_lt (by omega))
+
+/-- `X ^ 3 + C a * X ^ 2 + C b * X + C c` is monic of degree `3`. -/
+theorem isMonicOfDegree_X3_add3 {R : Type*} [Semiring R] [Nontrivial R] (a b c : R) :
+    IsMonicOfDegree (X ^ 3 + C a * X ^ 2 + C b * X + C c : R[X]) 3 := by
+  rw [add_assoc, add_assoc]
+  refine (isMonicOfDegree_X_pow R 3).add_right ?_
+  have hnd : (C a * X ^ 2 + (C b * X + C c : R[X])).natDegree ≤ 2 := by
+    refine (natDegree_add_le _ _).trans (max_le_iff.mpr ⟨?_, ?_⟩)
+    · exact (natDegree_C_mul_le a (X ^ 2 : R[X])).trans (natDegree_X_pow 2).le
+    · exact (natDegree_C_mul_X_add_C_le b c).trans (by omega)
+  exact hnd.trans_lt (by omega)
+
+/-- In `ℤ[X]`, `X ^ 2 + C 1 * X + C 1` is monic of degree `2`. -/
+theorem monic_Z_X2_add_X_add_1 : IsMonicOfDegree (X ^ 2 + C 1 * X + C 1 : ℤ[X]) 2 :=
+  isMonicOfDegree_X_pow_add_C_mul_X_add_C 2 (1 : ℤ) (1 : ℤ) (by omega)
+
+/-- In `ℤ[X]`, `X ^ 3 + C 1 * X ^ 2 + C 1` is monic of degree `3`. -/
+theorem monic_Z_X3_add_X2_add_1 : IsMonicOfDegree (X ^ 3 + C 1 * X ^ 2 + C 1 : ℤ[X]) 3 := by
+  rw [add_assoc]
+  refine (isMonicOfDegree_X_pow ℤ 3).add_right ?_
+  have h1 : (C 1 * X ^ 2 + C 1 : ℤ[X]).natDegree ≤ 2 := by
+    refine (natDegree_add_le _ _).trans (max_le_iff.mpr ⟨?_, ?_⟩)
+    · exact (natDegree_C_mul_le 1 (X ^ 2 : ℤ[X])).trans (natDegree_X_pow 2).le
+    · simp [natDegree_C]
+  exact h1.trans_lt (by omega)
+
+/-- A polynomial with a nonzero coefficient is nonzero. -/
+theorem ne_zero_of_coeff {R : Type*} [Semiring R] {p : R[X]} {i : ℕ} (h : p.coeff i ≠ 0) :
+    p ≠ 0 := by
+  intro hp
+  rw [hp] at h
+  exact h (by simp)
+
+end FiniteFieldUtility
+
+section ZMod2Computations
+
+/-! ### The mod-2 factorization `X⁵ − X − 1 = (X² + X + 1)(X³ + X² + 1)` and
+irreducibility of both factors (all REPL-verified, axiom-clean) -/
+
+/-- FT cg22: over `ZMod 2`, `map` of `X ^ 5 - X - 1` is `X ^ 5 + C 1 * X + C 1`. -/
+theorem map_X5_sub_X_sub_1_ZMod2 :
+    map (Int.castRingHom (ZMod 2)) (X ^ 5 - C 1 * X - C 1 : ℤ[X])
+      = X ^ 5 + C (1 : ZMod 2) * X + C 1 := by
+  refine coeff_ext_of_natDegree_le (n := 5)
+    (((Polynomial.Monic.natDegree_map
+      (isMonicOfDegree_X_pow_sub_C_mul_X_sub_C 5 (1 : ℤ) (1 : ℤ) (by omega)).monic _).trans
+      (isMonicOfDegree_X_pow_sub_C_mul_X_sub_C 5 (1 : ℤ) (1 : ℤ) (by omega)).natDegree_eq).le)
+    (isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (1 : ZMod 2) (1 : ZMod 2) (by omega)).natDegree_eq.le
+    fun i hi => ?_
+  simp only [Polynomial.coeff_map, Polynomial.coeff_sub, Polynomial.coeff_X_pow,
+    Polynomial.coeff_C_mul, Polynomial.coeff_X, Polynomial.coeff_C, Polynomial.coeff_one,
+    Polynomial.coeff_add, RingHom.map_one, one_mul]
+  interval_cases i <;> decide
+
+/-- FT cg22: over `ZMod 2`, `map` of `X ^ 2 + X + 1` is `X ^ 2 + C 1 * X + C 1`. -/
+theorem map_X2_add_X_add_1_ZMod2 :
+    map (Int.castRingHom (ZMod 2)) (X ^ 2 + C 1 * X + C 1 : ℤ[X])
+      = X ^ 2 + C (1 : ZMod 2) * X + C 1 := by
+  refine coeff_ext_of_natDegree_le (n := 2)
+    (((Polynomial.Monic.natDegree_map monic_Z_X2_add_X_add_1.monic _).trans
+      monic_Z_X2_add_X_add_1.natDegree_eq).le)
+    (isMonicOfDegree_X_pow_add_C_mul_X_add_C 2 (1 : ZMod 2) (1 : ZMod 2) (by omega)).natDegree_eq.le
+    fun i hi => ?_
+  simp only [Polynomial.coeff_map, Polynomial.coeff_add, Polynomial.coeff_X_pow,
+    Polynomial.coeff_C_mul, Polynomial.coeff_X, Polynomial.coeff_C, Polynomial.coeff_one,
+    RingHom.map_one, one_mul]
+  interval_cases i <;> decide
+
+/-- FT cg22: over `ZMod 2`, `map` of `X ^ 3 + X ^ 2 + 1` is
+`X ^ 3 + C 1 * X ^ 2 + C 0 * X + C 1` (the `C 0 * X` term is the vanishing linear term). -/
+theorem map_X3_add_X2_add_1_ZMod2 :
+    map (Int.castRingHom (ZMod 2)) (X ^ 3 + C 1 * X ^ 2 + C 1 : ℤ[X])
+      = X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 0 * X + C 1 := by
+  refine coeff_ext_of_natDegree_le (n := 3)
+    (((Polynomial.Monic.natDegree_map monic_Z_X3_add_X2_add_1.monic _).trans
+      monic_Z_X3_add_X2_add_1.natDegree_eq).le)
+    (isMonicOfDegree_X3_add3 (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq.le
+    fun i hi => ?_
+  simp only [Polynomial.coeff_map, Polynomial.coeff_add, Polynomial.coeff_X_pow,
+    Polynomial.coeff_C_mul, Polynomial.coeff_X, Polynomial.coeff_C, Polynomial.coeff_one,
+    RingHom.map_one, one_mul]
+  interval_cases i <;> decide
+
+/-- FT cg22: over `ZMod 2`, `(X² + X + 1)(X³ + X² + 1) = X⁵ + X + 1`. -/
+theorem mod2_factorization_lit :
+    (X ^ 2 + C (1 : ZMod 2) * X + C 1) * (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 1)
+      = X ^ 5 + C (1 : ZMod 2) * X + C 1 := by
+  have key : (X ^ 2 + C (1 : ZMod 2) * X + C 1) * (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 1)
+      = X ^ 5 + X ^ 4 + X ^ 2 + (X ^ 4 + X ^ 3 + X) + (X ^ 3 + X ^ 2 + 1) := by
+    simp only [C_1, mul_add, add_mul, one_mul, ← pow_add]
+    ring_nf
+  refine Polynomial.ext fun n => ?_
+  rw [key]
+  simp only [Polynomial.coeff_add, Polynomial.coeff_X_pow, Polynomial.coeff_C_mul, one_mul,
+    Polynomial.coeff_X, Polynomial.coeff_C, Polynomial.coeff_one]
+  match n with
+  | 0 => decide
+  | 1 => decide
+  | 2 => decide
+  | 3 => decide
+  | 4 => decide
+  | 5 => decide
+  | (n + 6) => simp
+
+/-- **FT cg22** (mod-2 factorization). Over `ZMod 2`,
+`X⁵ − X − 1 = (X² + X + 1)(X³ + X² + 1)`. -/
+theorem mod2_factorization_X5_sub_X_sub_1 :
+    map (Int.castRingHom (ZMod 2)) (X ^ 5 - C 1 * X - C 1 : ℤ[X])
+      = (X ^ 2 + C 1 * X + C 1) * (X ^ 3 + C 1 * X ^ 2 + C 1) := by
+  rw [map_X5_sub_X_sub_1_ZMod2]
+  exact mod2_factorization_lit.symm
+
+/-- Over `ZMod 2`, `X ^ 2 + X + 1` has no root. -/
+theorem eval_X2_add_X_add_1_ZMod2_ne (x : ZMod 2) :
+    (X ^ 2 + C (1 : ZMod 2) * X + C 1 : (ZMod 2)[X]).eval x ≠ 0 := by
+  rcases zmod2_eq_zero_or_one x with rfl | rfl <;>
+    simp only [Polynomial.eval_add, Polynomial.eval_X_pow, Polynomial.eval_C_mul, one_mul,
+      Polynomial.eval_X, Polynomial.eval_C] <;>
+    decide
+
+/-- Over `ZMod 2`, `X ^ 3 + X ^ 2 + 1` has no root. -/
+theorem eval_X3_add_X2_add_1_ZMod2_ne (x : ZMod 2) :
+    (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 0 * X + C 1 : (ZMod 2)[X]).eval x ≠ 0 := by
+  rcases zmod2_eq_zero_or_one x with rfl | rfl <;>
+    simp only [Polynomial.eval_add, Polynomial.eval_X_pow, Polynomial.eval_C_mul, one_mul,
+      zero_mul, Polynomial.eval_X, Polynomial.eval_C] <;>
+    decide
+
+/-- FT cg22: `X² + X + 1` is irreducible over `ZMod 2` (degree 2, no roots). -/
+theorem irreducible_X2_add_X_add_1_ZMod2 :
+    Irreducible (X ^ 2 + C (1 : ZMod 2) * X + C 1 : (ZMod 2)[X]) := by
+  refine Polynomial.irreducible_of_degree_le_three_of_not_isRoot ?_ ?_
+  · rw [(isMonicOfDegree_X_pow_add_C_mul_X_add_C 2 (1 : ZMod 2) (1 : ZMod 2)
+      (by omega)).natDegree_eq]
+    simp
+  · exact fun x hx => eval_X2_add_X_add_1_ZMod2_ne x (Polynomial.IsRoot.def.mp hx)
+
+/-- FT cg22: `X³ + X² + 1` is irreducible over `ZMod 2` (degree 3, no roots). -/
+theorem irreducible_X3_add_X2_add_1_ZMod2 :
+    Irreducible (X ^ 3 + C (1 : ZMod 2) * X ^ 2 + C 0 * X + C 1 : (ZMod 2)[X]) := by
+  refine Polynomial.irreducible_of_degree_le_three_of_not_isRoot ?_ ?_
+  · rw [(isMonicOfDegree_X3_add3 (1 : ZMod 2) (0 : ZMod 2) (1 : ZMod 2)).natDegree_eq]
+    simp
+  · exact fun x hx => eval_X3_add_X2_add_1_ZMod2_ne x (Polynomial.IsRoot.def.mp hx)
+
+/-- FT cg22: the quadratic factor of `X⁵ − X − 1` mod 2 is irreducible over `ZMod 2`. -/
+theorem irreducible_map_X2_add_X_add_1_ZMod2 :
+    Irreducible (map (Int.castRingHom (ZMod 2)) (X ^ 2 + C 1 * X + C 1 : ℤ[X])) := by
+  rw [map_X2_add_X_add_1_ZMod2]
+  exact irreducible_X2_add_X_add_1_ZMod2
+
+/-- FT cg22: the cubic factor of `X⁵ − X − 1` mod 2 is irreducible over `ZMod 2`. -/
+theorem irreducible_map_X3_add_X2_add_1_ZMod2 :
+    Irreducible (map (Int.castRingHom (ZMod 2)) (X ^ 3 + C 1 * X ^ 2 + C 1 : ℤ[X])) := by
+  rw [map_X3_add_X2_add_1_ZMod2]
+  exact irreducible_X3_add_X2_add_1_ZMod2
+
+end ZMod2Computations
+
+section ZMod3Computations
+
+/-! ### Irreducibility of `X⁵ − X − 1` over `ZMod 3`
+(no roots in `ZMod 3`, and no monic quadratic divisor — a nine-case check
+of explicit remainders). -/
+
+/-- FT cg22: the quintic `X ^ 5 + C 2 * X + C 2` (=` X⁵ − X − 1` over `ZMod 3`)
+has no root in `ZMod 3` (values `2, 2, 2` at `0, 1, 2`). -/
+theorem eval_X5_add_2X_add_2_ZMod3_ne (x : ZMod 3) :
+    (X ^ 5 + C (2 : ZMod 3) * X + C 2 : (ZMod 3)[X]).eval x ≠ 0 := by
+  rcases zmod3_eq_zero_one_or_two x with rfl | rfl | rfl <;>
+    simp only [Polynomial.eval_add, Polynomial.eval_X_pow, Polynomial.eval_C_mul,
+      Polynomial.eval_X, Polynomial.eval_C] <;>
+    decide
+
+/-- Divisibility contradiction: a monic quadratic `g` dividing
+`X ^ 5 + C 2 * X + C 2` together with the congruence `f − r = g * h` (with `r ≠ 0`
+of degree ≤ 1) is impossible, since then `g ∣ r` forces `r = 0` by degrees. -/
+theorem quad_not_dvd_ZMod3 {g h r : (ZMod 3)[X]} (hg : IsMonicOfDegree g 2)
+    (hnr : r ≠ 0) (hrd : r.natDegree ≤ 1)
+    (hcong : X ^ 5 + C (2 : ZMod 3) * X + C 2 - r = g * h) :
+    ¬ g ∣ (X ^ 5 + C (2 : ZMod 3) * X + C 2) := by
+  intro hdvd
+  have h1 : g ∣ (X ^ 5 + C (2 : ZMod 3) * X + C 2 - r) := ⟨h, hcong⟩
+  have h2 : g ∣ (X ^ 5 + C (2 : ZMod 3) * X + C 2 - (X ^ 5 + C (2 : ZMod 3) * X + C 2 - r)) :=
+    dvd_sub hdvd h1
+  rw [sub_sub_cancel] at h2
+  obtain ⟨k, hk⟩ := h2
+  by_cases hk0 : k = 0
+  · rw [hk0, mul_zero] at hk
+    exact hnr hk
+  · have h3 : r.natDegree = g.natDegree + k.natDegree := by
+      rw [hk, Polynomial.natDegree_mul hg.monic.ne_zero hk0]
+    rw [hg.natDegree_eq] at h3
+    exact absurd hrd (by omega)
+
+/-- Quadratic-divisor case `c1 = 0`, `c0 = 0` (`g = X²`, quotient `X³`,
+remainder `2X + 2`). -/
+theorem not_dvd_quad_c1_0_c0_0 :
+    ¬ ((X ^ 2 + C 0 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 0)
+    (h := X ^ 3 + C 0 * X ^ 2 + C 0 * X + C 0) (r := C 2 * X + C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X, Polynomial.coeff_C] <;> decide))
+    (natDegree_C_mul_X_add_C_le _ _) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (0 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 0`, `c0 = 1` (`g = X² + 1`, quotient `X³ + 2X`,
+remainder `2`). -/
+theorem not_dvd_quad_c1_0_c0_1 :
+    ¬ ((X ^ 2 + C 0 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 1)
+    (h := X ^ 3 + C 0 * X ^ 2 + C 2 * X + C 0) (r := C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] <;> decide))
+    ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 0`, `c0 = 2` (`g = X² + 2`, quotient `X³ + X`,
+remainder `2`). -/
+theorem not_dvd_quad_c1_0_c0_2 :
+    ¬ ((X ^ 2 + C 0 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 0 * X + C 2)
+    (h := X ^ 3 + C 0 * X ^ 2 + C 1 * X + C 0) (r := C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] <;> decide))
+    ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (0 : ZMod 3) (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 1`, `c0 = 0` (`g = X² + X`, quotient
+`X³ + 2X² + X + 2`, remainder `2`). -/
+theorem not_dvd_quad_c1_1_c0_0 :
+    ¬ ((X ^ 2 + C 1 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 0)
+    (h := X ^ 3 + C 2 * X ^ 2 + C 1 * X + C 2) (r := C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] <;> decide))
+    ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 1`, `c0 = 1` (`g = X² + X + 1`, quotient
+`X³ + 2X² + 1`, remainder `X + 1`). -/
+theorem not_dvd_quad_c1_1_c0_1 :
+    ¬ ((X ^ 2 + C 1 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 1)
+    (h := X ^ 3 + C 2 * X ^ 2 + C 0 * X + C 1) (r := C 1 * X + C 1)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X, Polynomial.coeff_C] <;> decide))
+    (natDegree_C_mul_X_add_C_le _ _) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (0 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 1`, `c0 = 2` (`g = X² + X + 2`, quotient
+`X³ + 2X² + 2X`, remainder `X + 2`). -/
+theorem not_dvd_quad_c1_1_c0_2 :
+    ¬ ((X ^ 2 + C 1 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 1 * X + C 2)
+    (h := X ^ 3 + C 2 * X ^ 2 + C 2 * X + C 0) (r := C 1 * X + C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X, Polynomial.coeff_C] <;> decide))
+    (natDegree_C_mul_X_add_C_le _ _) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (1 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (2 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 2`, `c0 = 0` (`g = X² + 2X`, quotient
+`X³ + X² + X + 1`, remainder `2`). -/
+theorem not_dvd_quad_c1_2_c0_0 :
+    ¬ ((X ^ 2 + C 2 * X + C 0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 0)
+    (h := X ^ 3 + C 1 * X ^ 2 + C 1 * X + C 1) (r := C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_C] <;> decide))
+    ((Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (Polynomial.natDegree_C (2 : ZMod 3)).le.trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (1 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 2`, `c0 = 1` (`g = X² + 2X + 1`, quotient
+`X³ + X² + 2`, remainder `X`). -/
+theorem not_dvd_quad_c1_2_c0_1 :
+    ¬ ((X ^ 2 + C 2 * X + C 1 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 1)
+    (h := X ^ 3 + C 1 * X ^ 2 + C 0 * X + C 2) (r := C 1 * X)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 1) (by simp only [Polynomial.coeff_C_mul, one_mul,
+      Polynomial.coeff_X] <;> decide))
+    (natDegree_C_mul_X_add_C_le _ _) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (1 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (0 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- Quadratic-divisor case `c1 = 2`, `c0 = 2` (`g = X² + 2X + 2`, quotient
+`X³ + X² + 2X`, remainder `X + 2`). -/
+theorem not_dvd_quad_c1_2_c0_2 :
+    ¬ ((X ^ 2 + C 2 * X + C 2 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  refine quad_not_dvd_ZMod3 (g := X ^ 2 + C 2 * X + C 2)
+    (h := X ^ 3 + C 1 * X ^ 2 + C 2 * X + C 0) (r := C 1 * X + C 2)
+    (isMonicOfDegree_add_add_two _ _)
+    (ne_zero_of_coeff (i := 0) (by simp only [Polynomial.coeff_add, Polynomial.coeff_C_mul,
+      Polynomial.coeff_X, Polynomial.coeff_C] <;> decide))
+    (natDegree_C_mul_X_add_C_le _ _) ?_
+  refine coeff_ext_of_natDegree_le (n := 5) ?_ ?_ fun i hi => ?_
+  · exact (natDegree_sub_le _ _).trans (max_le_iff.mpr
+      ⟨(isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3)
+        (by omega)).natDegree_eq.le, (natDegree_C_mul_X_add_C_le _ _).trans (by omega)⟩)
+  · exact (natDegree_mul_le).trans (by
+      have hg := (isMonicOfDegree_add_add_two (2 : ZMod 3) (2 : ZMod 3)).natDegree_eq.le
+      have hh := (isMonicOfDegree_X3_add3 (1 : ZMod 3) (2 : ZMod 3) (0 : ZMod 3)).natDegree_eq.le
+      omega)
+  · interval_cases i <;>
+    simp only [Polynomial.coeff_sub, Polynomial.coeff_mul, Polynomial.coeff_add,
+      Polynomial.coeff_X_pow, Polynomial.coeff_X, Polynomial.coeff_C] <;> decide
+
+/-- FT cg22: no monic quadratic over `ZMod 3` divides `X⁵ − X − 1` (nine-case
+remainder check). -/
+theorem not_dvd_quad_X5_add_2X_add_2 (c1 c0 : ZMod 3) :
+    ¬ ((X ^ 2 + C c1 * X + C c0 : (ZMod 3)[X]) ∣ X ^ 5 + C 2 * X + C 2) := by
+  rcases zmod3_eq_zero_one_or_two c1 with rfl | rfl | rfl
+  exacts [not_dvd_quad_c1_0_c0_0, not_dvd_quad_c1_0_c0_1, not_dvd_quad_c1_0_c0_2]
+  · rcases zmod3_eq_zero_one_or_two c0 with rfl | rfl | rfl
+    exacts [not_dvd_quad_c1_1_c0_0, not_dvd_quad_c1_1_c0_1, not_dvd_quad_c1_1_c0_2]
+  · rcases zmod3_eq_zero_one_or_two c0 with rfl | rfl | rfl
+    exacts [not_dvd_quad_c1_2_c0_0, not_dvd_quad_c1_2_c0_1, not_dvd_quad_c1_2_c0_2]
+
+/-- FT cg22: `X⁵ − X − 1` is irreducible over `ZMod 3`: no roots, and no quadratic
+divisor (a reducible quintic without a linear factor has a factor of degree ≤ 2). -/
+theorem irreducible_X5_add_2X_add_2_ZMod3 :
+    Irreducible (X ^ 5 + C (2 : ZMod 3) * X + C 2 : (ZMod 3)[X]) := by
+  classical
+  have hf : IsMonicOfDegree (X ^ 5 + C (2 : ZMod 3) * X + C 2 : (ZMod 3)[X]) 5 :=
+    isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3) (by omega)
+  rw [Polynomial.irreducible_iff_lt_natDegree_lt hf.monic.ne_zero
+    (Polynomial.not_isUnit_of_natDegree_pos _ (by rw [hf.natDegree_eq]; omega))]
+  intro q hq hmem hdvd
+  have hnd : q.natDegree = 1 ∨ q.natDegree = 2 := by
+    have h3 := (Finset.mem_Ioc.mp hmem).1
+    have h4 := (Finset.mem_Ioc.mp hmem).2
+    omega
+  rcases hnd with h1 | h1
+  · obtain ⟨a, rfl⟩ := Polynomial.isMonicOfDegree_one_iff.mp ⟨h1, hq⟩
+    exact (eval_X5_add_2X_add_2_ZMod3_ne (-a)
+      (by obtain ⟨k, hk⟩ := hdvd
+          rw [hk, Polynomial.eval_mul, Polynomial.eval_add, Polynomial.eval_X,
+            Polynomial.eval_C, neg_add_cancel, zero_mul]))
+  · obtain ⟨c1, c0, rfl⟩ := Polynomial.isMonicOfDegree_two_iff.mp ⟨h1, hq⟩
+    exact not_dvd_quad_X5_add_2X_add_2 c1 c0 hdvd
+
+/-- FT cg22: over `ZMod 3`, `map` of `X ^ 5 - X - 1` is `X ^ 5 + C 2 * X + C 2`. -/
+theorem map_X5_sub_X_sub_1_ZMod3 :
+    map (Int.castRingHom (ZMod 3)) (X ^ 5 - C 1 * X - C 1 : ℤ[X])
+      = X ^ 5 + C (2 : ZMod 3) * X + C 2 := by
+  refine coeff_ext_of_natDegree_le (n := 5)
+    (((Polynomial.Monic.natDegree_map
+      (isMonicOfDegree_X_pow_sub_C_mul_X_sub_C 5 (1 : ℤ) (1 : ℤ) (by omega)).monic _).trans
+      (isMonicOfDegree_X_pow_sub_C_mul_X_sub_C 5 (1 : ℤ) (1 : ℤ) (by omega)).natDegree_eq).le)
+    (isMonicOfDegree_X_pow_add_C_mul_X_add_C 5 (2 : ZMod 3) (2 : ZMod 3) (by omega)).natDegree_eq.le
+    fun i hi => ?_
+  simp only [Polynomial.coeff_map, Polynomial.coeff_sub, Polynomial.coeff_X_pow,
+    Polynomial.coeff_C_mul, Polynomial.coeff_X, Polynomial.coeff_C, Polynomial.coeff_one,
+    Polynomial.coeff_add, RingHom.map_one, one_mul]
+  interval_cases i <;> decide
+
+/-- FT cg22: `X⁵ − X − 1` is irreducible over `ZMod 3`. -/
+theorem irreducible_map_X5_sub_X_sub_1_ZMod3 :
+    Irreducible (map (Int.castRingHom (ZMod 3)) (X ^ 5 - C 1 * X - C 1 : ℤ[X])) := by
+  rw [map_X5_sub_X_sub_1_ZMod3]
+  exact irreducible_X5_add_2X_add_2_ZMod3
+
+end ZMod3Computations
+
+section GroupTheory
+
+/-! ### The group-theoretic bridge (FT cg22 ⇒ cg21-style input).
+`cycle type (2)(3)` is encoded as a product `τ * ρ` of a transposition `τ` and a
+3-cycle `ρ` fixing the two swapped points (hence disjoint from, and commuting
+with, `τ`); its cube is the transposition. -/
+
+/-- A transposition `Equiv.swap x y` and a permutation `ρ` fixing both `x` and `y`
+commute (their supports are disjoint). -/
+theorem commute_swap_of_cycle3_disjoint {α : Type*} [DecidableEq α] {x y : α} (hxy : x ≠ y)
+    {ρ : Equiv.Perm α} (hx : ρ x = x) (hy : ρ y = y) : Commute (Equiv.swap x y) ρ := by
+  refine Equiv.Perm.Disjoint.commute fun z => ?_
+  by_cases hzx : z = x
+  · exact Or.inr (by rw [hzx]; exact hx)
+  by_cases hzy : z = y
+  · exact Or.inr (by rw [hzy]; exact hy)
+  · exact Or.inl (Equiv.swap_apply_of_ne_of_ne hzx hzy)
+
+/-- Core cube computation: if `τ` is a swap, `ρ` has order `3` and they commute,
+then `(τ * ρ)³ = τ` (the 3-cycle part cubes to `1`, the swap part survives). -/
+theorem cube_of_commute_isSwap_cycle3 {α : Type*} [DecidableEq α] {τ ρ : Equiv.Perm α}
+    (hτ : τ.IsSwap) (hρ3 : orderOf ρ = 3) (hcomm : Commute τ ρ) : (τ * ρ) ^ 3 = τ := by
+  obtain ⟨x, y, hxy, rfl⟩ := hτ
+  have hτ2 : (Equiv.swap x y) ^ 2 = 1 := by rw [pow_two, Equiv.Perm.swap_mul_self]
+  have hτ3 : (Equiv.swap x y) ^ 3 = Equiv.swap x y := by rw [pow_succ, hτ2, one_mul]
+  rw [Commute.mul_pow hcomm, hτ3, show ρ ^ 3 = 1 from by rw [hρ3]; exact pow_orderOf_eq_one,
+    mul_one]
+
+/-- **FT cg22 bridge.** If `g` is the product of a transposition and a disjoint
+3-cycle (cycle type `(2)(3)`), then `g³` is that transposition, and `g` has
+order `6`. -/
+theorem cube_of_swap_mul_cycle3_eq_swap {α : Type*} [DecidableEq α] {x y : α} (hxy : x ≠ y)
+    {ρ : Equiv.Perm α} (hx : ρ x = x) (hy : ρ y = y) (hρ3 : orderOf ρ = 3) :
+    (Equiv.swap x y * ρ) ^ 3 = Equiv.swap x y ∧ orderOf (Equiv.swap x y * ρ) = 6 :=
+  ⟨cube_of_commute_isSwap_cycle3 ⟨x, y, hxy, rfl⟩ hρ3
+      (commute_swap_of_cycle3_disjoint hxy hx hy),
+    orderOf_swap_mul_cycle3_eq_six hxy hx hy hρ3⟩
+
+/-- A swap on distinct points has order `2`. -/
+theorem orderOf_swap_eq_two {α : Type*} [DecidableEq α] {x y : α} (hxy : x ≠ y) :
+    orderOf (Equiv.swap x y) = 2 := by
+  have hτ2 : (Equiv.swap x y) ^ 2 = 1 := by rw [pow_two, Equiv.Perm.swap_mul_self]
+  have hne1 : Equiv.swap x y ≠ 1 := by
+    intro h1
+    rw [Equiv.Perm.one_def] at h1
+    exact hxy (Equiv.swap_eq_refl_iff.mp h1)
+  have h1 : orderOf (Equiv.swap x y) ≤ 2 := orderOf_le_of_pow_eq_one (by omega) hτ2
+  have h2 : orderOf (Equiv.swap x y) ≠ 0 := by
+    intro h0
+    exact orderOf_eq_zero_iff'.mp h0 2 (by omega) hτ2
+  omega
+
+/-- The product of a transposition and a disjoint 3-cycle has order `6`
+(divides `6` and is not `1`, `2` or `3`). -/
+theorem orderOf_swap_mul_cycle3_eq_six {α : Type*} [DecidableEq α] {x y : α} (hxy : x ≠ y)
+    {ρ : Equiv.Perm α} (hx : ρ x = x) (hy : ρ y = y) (hρ3 : orderOf ρ = 3) :
+    orderOf (Equiv.swap x y * ρ) = 6 := by
+  set τ : Equiv.Perm α := Equiv.swap x y with hτdef
+  have hcomm : Commute τ ρ := commute_swap_of_cycle3_disjoint hxy hx hy
+  have hτ2 : τ ^ 2 = 1 := by rw [hτdef, pow_two, Equiv.Perm.swap_mul_self]
+  have hτne1 : τ ≠ 1 := by
+    intro h1
+    rw [hτdef, Equiv.Perm.one_def] at h1
+    exact hxy (Equiv.swap_eq_refl_iff.mp h1)
+  have hτo : orderOf τ = 2 := orderOf_swap_eq_two hxy
+  have hρ3p : ρ ^ 3 = 1 := by rw [hρ3]; exact pow_orderOf_eq_one
+  have hτ6 : τ ^ 6 = 1 := by rw [show 6 = 2 * 3 from by omega, pow_mul, hτ2, one_pow]
+  have hρ6 : ρ ^ 6 = 1 := by rw [show 6 = 3 * 2 from by omega, pow_mul, hρ3p, one_pow]
+  have hg6 : (τ * ρ) ^ 6 = 1 := by rw [Commute.mul_pow hcomm 6, hτ6, hρ6, one_mul]
+  have hdvd : orderOf (τ * ρ) ∣ 6 := orderOf_dvd_of_pow_eq_one hg6
+  have hne1 : orderOf (τ * ρ) ≠ 1 := by
+    intro h1
+    have heq : τ * ρ = 1 := orderOf_eq_one_iff.mp h1
+    have hτe : τ = ρ⁻¹ := eq_inv_of_mul_eq_one_left heq
+    have : orderOf ρ = 2 := by
+      calc orderOf ρ = orderOf ρ⁻¹ := (orderOf_inv ρ).symm
+        _ = orderOf τ := by rw [hτe.symm]
+        _ = 2 := hτo
+    omega
+  have hne2 : orderOf (τ * ρ) ≠ 2 := by
+    intro h2
+    have hp2 : (τ * ρ) ^ 2 = 1 := by rw [h2]; exact pow_orderOf_eq_one
+    rw [Commute.mul_pow hcomm 2, hτ2, one_mul] at hp2
+    have hle : orderOf ρ ≤ 2 := Nat.le_of_dvd (by omega) (orderOf_dvd_of_pow_eq_one hp2)
+    omega
+  have hne3 : orderOf (τ * ρ) ≠ 3 := by
+    intro h3
+    have hp3 : (τ * ρ) ^ 3 = 1 := by rw [h3]; exact pow_orderOf_eq_one
+    rw [cube_of_commute_isSwap_cycle3 ⟨x, y, hxy, rfl⟩ hρ3 hcomm] at hp3
+    exact hτne1 hp3
+  rcases Nat.lt_or_ge (orderOf (τ * ρ)) 4 with h4 | h4
+  · rcases (show orderOf (τ * ρ) = 1 ∨ orderOf (τ * ρ) = 2 ∨ orderOf (τ * ρ) = 3 from by omega) with
+      h5 | h5 | h5
+    · exact hne1 h5
+    · exact hne2 h5
+    · exact hne3 h5
+  · have hle : orderOf (τ * ρ) ≤ 6 := Nat.le_of_dvd (by omega) hdvd
+    obtain ⟨k, hk⟩ := hdvd
+    rcases Nat.lt_or_ge k 2 with h5 | h5
+    · have hk1 : k = 1 := by omega
+      omega
+    · have h2t : 2 * (orderOf (τ * ρ)) ≤ k * (orderOf (τ * ρ)) :=
+        mul_le_mul_right' h5 (orderOf (τ * ρ))
+      rw [mul_comm] at hk
+      omega
+
+end GroupTheory
+
+end FT
