@@ -14,25 +14,10 @@ section context while excluding exercises and solutions. Use it to prevent selec
 
 # Lean search 
 
-Semantic search isn't supported currently. The checked-out Mathlib source is already present.  Ripgrep searches such as
-```text
-rg 'quotientKerEquivRange|card_mul_index|orderOf_dvd_card' Mathlib
-```
-return relevant declaration sites in well under a second.  
-
-- It is excellent for theorem-title fragments, docstrings, namespaces, and
-  already-guessed identifiers.
-- It exposes neighboring declarations, often revealing the intended API
-  better than isolated search hits.
-
-The low-effort pipeline:
-
-1. use the source inventory to obtain a mathematical signature;
-2. guess one or two interface words and search local docstrings/source;
-3. inspect the declaration in context;
-4. check a paper-facing wrapper.
-
-This is faster and cognitively cheaper than treating semantic search as the
+Semantic search isn't supported; the checked-out Mathlib source is present.
+Search it with ripgrep (`rg 'orderOf_dvd_card|finrank_compositum' Mathlib`),
+inspect the declaration in context, then check a paper-facing wrapper. This
+is faster and cognitively cheaper than treating semantic search as the
 default for every result.
 
 # Translation strategy
