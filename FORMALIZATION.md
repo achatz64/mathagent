@@ -86,16 +86,11 @@ Stable TeX labels or other source identifiers (lines, etc.) occur in source
 comments, while Lean names follow Mathlib conventions.  
 
 # Axiom handling
-An axiom is permitted only for a mathematical
-dependency cited but not proved by the source; every such axiom must be named,
-documented, and visible to `#print axioms`. For example
-```lean
-/-- GT `ns04`.  This is deliberately an audible axiom: Feit--Thompson is an
-external dependency cited without proof in the source, and is absent from
-Mathlib.   
--/
-axiom feitThompson : feitThompsonStatement
-``` 
+
+An axiom is permitted only for a mathematical dependency cited but not proved
+by the source. Every such axiom must be named, documented (with provenance:
+which source cite, why absent from Mathlib), and visible to `#print axioms`.
+Source-proved results must never be axiomatized.
 
 # Mistakes in the source argument
 
