@@ -1,8 +1,14 @@
 -- staging/ch4_w20_cg3.lean — worker w20 (cg3: conjugation / sign of D(f) / A_n non-inclusion).
--- Delivered verbatim. UNVERIFIED-at-delivery pieces (REPL outage): final line of
--- vandermondeProd_ne_zero; full not_forall_sign_eq_one_of_s_odd — verify in fresh REPL
--- before integration. Core block (star_algebraMap_rat, sign_involutive_perm_of_card,
--- star_vandermondeDelta_eq_neg_one_pow_mul, (a), (b)) verified pre-outage, zero errors.
+-- REPL re-verification by main after worker's REPL outage: ALL pieces verified clean
+-- (chunks with _v suffixes, zero errors). Two fixes applied vs. worker's verbatim text:
+--  (i) not_forall_sign_eq_one_of_s_odd h2-component: injectivity of algebraMap ℚ ℂ via
+--      FaithfulSMul.algebraMap_injective ℚ ℂ (RingHom.injective (algebraMap ℚ ℂ) not
+--      available); (ii) h3 stated in the BARE membership form
+--      `x ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ)` (the explicit ↥-coeSort form fails
+--      to synthesize Membership ℂ ↥E₀ — verified: inferInstance fails there too), and
+--      hroot's first component needs the extra
+--      `rw [Polynomial.map_ne_zero_iff (RingHom.injective (algebraMap ↥E₀ ↥E₀))]` layer
+--      since mem_rootSet' puts p's own coeff ring as T; (iii) final ⟨j, congrArg Subtype.val hj⟩.
 /-! ## FT chapter IV §1 (`cg3`): conjugation, the sign of the discriminant, and `A_n` -/
 
 /-- Helper for FT `cg3`: complex conjugation fixes rational scalars in `ℂ`.  Proof: `conjQ`
@@ -367,28 +373,31 @@ theorem not_forall_sign_eq_one_of_s_odd {f : ℚ[X]} {n : ℕ} (hf : f.Separable
     have h2 : star ((r i : ℂ)) ∈ f.rootSet ℂ := by
       rw [Polynomial.mem_rootSet']
       refine ⟨(Polynomial.map_ne_zero_iff
-        (RingHom.injective (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))).mpr
-        hf.ne_zero, ?_⟩
-      rw [aeval_star, (aeval_E_eq_zero_iff _).mp hae, star_zero]
-    have h3 : star ((r i : ℂ)) ∈ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) :=
-      star_mem_adjoin_rootSet (IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) h2)
+        (FaithfulSMul.algebraMap_injective ℚ ℂ)).mpr hf.ne_zero, ?_⟩
+      rw [aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
+    have h3 : star ((r i : ℂ)) ∈ IntermediateField.adjoin ℚ (f.rootSet ℂ) :=
+      IntermediateField.subset_adjoin ℚ (f.rootSet ℂ) h2
     have hy : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
         (f.map (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)))).rootSet
           ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ)) := by
       rw [Polynomial.mem_rootSet']
-      refine ⟨(Polynomial.map_ne_zero_iff
-        (RingHom.injective (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))).mpr
-        hf.ne_zero, ?_⟩
-      have hcoeeq : ((⟨star ((r i : ℂ)), h3⟩ :
-        ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) = star ((r i : ℂ)) := rfl
-      rw [Polynomial.aeval_map_algebraMap, aeval_E_eq_zero_iff _, hcoeeq, aeval_star,
-        (aeval_E_eq_zero_iff _).mp hae, star_zero]
+      refine ⟨?_, ?_⟩
+      · rw [Polynomial.map_ne_zero_iff
+          (RingHom.injective (algebraMap ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))
+            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))]
+        exact (Polynomial.map_ne_zero_iff
+          (RingHom.injective (algebraMap ℚ ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))))).mpr
+          hf.ne_zero
+      · rw [Polynomial.aeval_map_algebraMap, aeval_E_eq_zero_iff ⟨star ((r i : ℂ)), h3⟩,
+          show ((⟨star ((r i : ℂ)), h3⟩ :
+            ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) : ℂ) = star ((r i : ℂ)) from rfl,
+          aeval_star, (aeval_E_eq_zero_iff (r i)).mp hae, star_zero]
     have hyr : (⟨star ((r i : ℂ)), h3⟩ : ↥(IntermediateField.adjoin ℚ (f.rootSet ℂ))) ∈
         Set.range r := by
       rw [hr]
       exact hy
     obtain ⟨j, hj⟩ := hyr
-    exact ⟨j, by rw [hj]⟩
+    exact ⟨j, congrArg Subtype.val hj⟩
   refine vandermondeDelta_not_algebraMap_of_s_odd hstar0 r hri s hσ0 hcard hodd ⟨a, ?_⟩
   calc algebraMap ℚ ℂ a
       = ⇑(IntermediateField.adjoin ℚ (f.rootSet ℂ)).val
