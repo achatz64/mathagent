@@ -134,6 +134,15 @@ DedekindTheta/CGD/CgDedekindInt); the concrete cubic instances of cg6 (X³−3X+
 irreducible with Galois group A₃ via discriminant 81 = 9², and X³+3X+1 with
 Galois group S₃ via discriminant −135; FT.tex ≈3783-3790, irreducibility via
 `ef5`/`ef4`) are recorded as pending in the chapter IV ledger.
+
+AUDIT-GAP (coverage documentation, delta audit 5bb423c..5ec803b): the sentence
+above is stale and self-contradictory — it says the concrete cubic instances of
+cg6 (X³−3X+1 → A₃, X³+3X+1 → S₃) "are recorded as pending in the chapter IV
+ledger", while the chapter IV ledger (~line 9340) records them RESOLVED and the
+remediated chapter-IV paragraph directly above lists them as delivered; it also
+cites irreducibility "via `ef5`/`ef4`" although the delivered proofs use the
+parity route (`FT.oddValuesDepressedCubics` + Gauss, see the ledger entry).
+Remedy: rewrite the note to match the ledger.
 -/
 
 namespace FT
@@ -9362,6 +9371,12 @@ Pending (chapter IV ledger):
   `FT.orbitCard_eq_natDegree_of_irreducible_factor` (orbits on roots = root sets /
   cardinalities = degrees of the irreducible factors),
   `FT.gal_eq_zpowers_frobenius'` (Frobenius generates Gal(E/F), universe-general),
+  AUDIT-GAP (documentation, delta audit 5bb423c..5ec803b): dangling reference —
+  the declaration `FT.gal_eq_zpowers_frobenius'` was deleted by the remediation of
+  the coding-conventions finding of audit 5bb423c, but this ledger entry (and the
+  proof-idea docstrings of `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`
+  and `FT.frobeniusOrbitCards_eq_factorDegrees`, ~16616) still cite it; the proofs
+  now use `FT.gal_eq_zpowers_frobenius`.  Remedy: replace the three references.
   `FT.frobeniusOrbitCard_eq_natDegree_of_irreducible_factor`,
   `FT.frobeniusOrbitCards_eq_factorDegrees`, and the cg21 assembly
   `FT.exists_cycleType_of_factorDegrees` — with the cg20 conclusion `G_f̄ ⊆ G_f`
@@ -11043,10 +11058,16 @@ private theorem quarticKlein_carrier_inv_mem {a : Equiv.Perm (Fin 4)}
   rcases ha with rfl|rfl|rfl|rfl <;>
     simp [inv_one, quarticKleinGen01_inv, quarticKleinGen02_inv, quarticKleinGen03_inv]
 
--- Remediated (documentation audit): the docstring no longer forward-references the
--- consumer; it states the kernel fact as a claim proved later by
--- `quarticFixer_eq_quarticKlein` (after `quarticSlotHom` is defined), per the
--- orderOf_sigma0 precedent (audit 4e6ea68).
+-- AUDIT-GAP (documentation audit, delta audit 5bb423c..5ec803b; incomplete
+-- remediation of finding 3 of audit 5bb423c): the docstring below still
+-- forward-references two later declarations that consume `quarticKlein` —
+-- `quarticSlotHom` (~11365) and `quarticFixer_eq_quarticKlein` (~11827) — against
+-- AUDIT.md ("the documentation of A may not mention a later B") and against the
+-- very orderOf_sigma0 precedent (audit 4e6ea68) that the remediation note invokes:
+-- the remediation only reworded the reference in place instead of moving the
+-- kernel clause to `quarticSlotHom`'s / `quarticFixer_eq_quarticKlein`'s docstring.
+-- Remedy: move the "(proved `quarticFixer_eq_quarticKlein` below, after
+-- `quarticSlotHom` is defined)" clause to those later declarations' docstrings.
 /-- FT IV §4: the Klein four-group `V = {1, (01)(23), (02)(13), (03)(12)}` as a subgroup
 of `S₄` — the kernel of the slot-permutation action on the three pairings (proved
 `quarticFixer_eq_quarticKlein` below, after `quarticSlotHom` is defined). -/
@@ -16609,6 +16630,12 @@ ZMod p : Type 0` and `E0 : Type` (same universe), where the original applies.
 
 variable {p : ℕ} [Fact p.Prime] {E0 : Type} [Field E0] [Fintype E0] [Algebra (ZMod p) E0]
   [FiniteDimensional (ZMod p) E0] [IsGalois (ZMod p) E0]
+
+-- AUDIT-GAP (documentation audit, delta audit 5bb423c..5ec803b): the two docstrings
+-- introduced by the remediation note below still cite the deleted
+-- `FT.gal_eq_zpowers_frobenius'` in their proof ideas, while their proofs call
+-- `FT.gal_eq_zpowers_frobenius` (the chapter IV ledger reference at ~9364 is flagged
+-- in a separate marker).  Remedy: update the proof-idea references.
 
 omit [Fintype E0] in
 /-- **FT `cg21` (finite-field core, step 4).** In the finite-field situation, the orbit of a
