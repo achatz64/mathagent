@@ -36,19 +36,16 @@ exactly which structure is preserved and keeps proof construction small.
 
 ## Missing APIs and source proofs
 
-Search Mathlib thoroughly, including neighboring declarations and stronger or
-differently bundled formulations. If no faithful construction exists,
-implement it from the source semantics. If no theorem exists, formalize the
-source proof using prior faithful translations and lower-level Mathlib APIs,
-closing routine omitted steps yourself. Search failure, proof plumbing, and
-implementation cost are not blockers.
+**Search failure is NOT a blocker.** Search Mathlib thoroughly (neighboring
+declarations, stronger or differently bundled formulations); if no
+statement-compatible theorem exists, that is the normal case, not an
+obstacle: formalize the source proof from lower-level Mathlib APIs and prior
+faithful translations, closing routine omitted steps yourself, and keep every
+source clause visible in the resulting declaration types. Proof plumbing and
+implementation cost are not blockers either.
 
-Again, the lesson is that absence of a statement-compatible Mathlib theorem is
-not itself a blocker: use lower-level APIs to formalize the source proof, while
-keeping every source clause visible in the resulting declaration types.
-
-Flag an `AUDIT-GAP` only for an essential defect such as a false statement,
-missing hypothesis, circular argument, or semantics that cannot be recovered.
+Flag an `AUDIT-GAP` only for an essential defect: a false statement, missing
+hypothesis, circular argument, or semantics that cannot be recovered.
 
 ## Bridging (shape-mismatch transport)
 
