@@ -98,29 +98,17 @@ work remains. Do not manufacture redundant work just to occupy slots.
 
 ## Decomposition and checkpoint discipline (ratified 2026-09-20)
 
-- **The 30-minute rule.** A worker that runs longer than 30 minutes means the task
-  split was too coarse — the failure is the main agent's decomposition, not the
-  worker's. At the 30-minute mark (or earlier if progress stalls): ping the worker
-  for (i) a handover/decomposition design — how it would split its remaining work
-  into bounded subtasks — and (ii) immediate emission of everything verified so
-  far; then end the worker (collect after emission) and redistribute the subtasks
-  across the free slots. Never let a long-running worker hold slots that could run
-  independent subtasks in parallel; end-phase waves must launch at the same
-  parallelism as opening waves. Apparent dependencies between subtasks are usually
-  breakable with hypothesis binders (see the ft18h pattern).
+- **The 30-minute rule.** A worker running longer than 30 minutes means the
+  main agent's task split was too coarse. At the 30-minute mark (or earlier if
+  progress stalls): ping the worker for (i) a decomposition design and (ii)
+  immediate emission of everything verified so far; then collect it and
+  redistribute the subtasks across the free slots. Apparent dependencies
+  between subtasks are usually breakable with hypothesis binders.
 - **Checkpoint cadence.** Check worker states and shared-REPL restart counters
-  every ~15 minutes; ping any worker that has not emitted verified text in ~10
-  minutes to emit what it has. Every new REPL crash is analyzed immediately
-  (service evidence + worker testimony) before continuing. Timed checkpoints
-  are available: `subagent_wait` and `subagent_wait_any` accept an optional
-  `timeoutSeconds` (use at most 900, i.e. one 15-minute checkpoint per call;
-  never use larger values — the checkpoint cadence is the point of the
-  parameter, and the tool's 3600 hard cap is not a permission). On expiry they
-  return a `type: "timeout"` result
-  (with worker snapshots and shared-REPL health) without erroring; workers
-  stay live and their completions stay undelivered — re-issue the wait to
-  keep watching. This makes the 15-minute checkpoint, 10-minute ping, and
-  30-minute-rule loops executable without user intervention.
+  every ~15 minutes (`subagent_wait`/`subagent_wait_any` with
+  `timeoutSeconds`, at most 900); ping any worker that has not emitted verified
+  text in ~10 minutes to emit what it has. Every new REPL crash is analyzed
+  immediately (service evidence + worker testimony) before continuing.
 - **Persist on receipt (main owns persistence).** Workers cannot write files;
   their transcripts live only in memory and are lost on dispose and on main-agent
   compaction. The moment a verified Lean block is received (via wait or stream),
