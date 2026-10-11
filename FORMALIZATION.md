@@ -123,6 +123,20 @@ Mathlib.
 axiom feitThompson : feitThompsonStatement
 ``` 
 
+# Mistakes in the source argument
+
+Subagents and the main agent must flag mistakes in the source argument (wrong
+proof steps, false claims, gaps the source glosses over). A flagged mistake is
+recorded in the docstring of the affected Lean declaration (or, if no
+declaration exists yet, in the ledger note): what the source asserts, why it is
+wrong. If an alternative proof of the source's claim is found, its route is
+outlined in the same docstring and the formalization proceeds with it (the
+statement stays faithful; only the proof route differs — record that the route
+differs). If no alternative proof is found, give up on the item: record the
+mistake and the give-up in the ledger, and do not silently repair or restate
+the source. Never paper over a source mistake by proving a different claim
+under the source's label.
+
 # Faithfulness and audit gaps
 
 - Source claims should be visible in Lean types, not only comments or proofs.

@@ -21,6 +21,22 @@ A proof-worker prompt must be self-contained. Include:
 4. semantic requirements for the final theorem type;
 5. instructions to prefer reusable general APIs, avoid axioms, check every final
    declaration in `lean_repl`, and return paste-ready code;
+6. the naming rule: declaration names must be content-based Mathlib-style
+   names (`FT.quadGal_dichotomy`, not `FT.cg5`); the source label (`cg5`,
+   `ft18` …) belongs in the docstring only. Never invent source-label-based
+   names — every such name has forced a rename pass at integration (a 72-
+   declaration wave and repeated audit findings); a delivery that needs a
+   rename is a defect;
+7. a mandatory final axiom batch: after the last declaration is elaborated,
+   run `#print axioms` over EVERY declaration delivered (main results and
+   private helpers) and report the batch. This is the only detection
+   mechanism for the shared REPL's silent sorry-fallback (a failed tactic can
+   leave the declaration committed with `sorryAx` and the session continuing);
+   it must run last, on the final text, in one lineage;
+8. likely namespaces, declaration fragments, and Mathlib source paths so the
+   worker can search narrowly rather than rediscovering the whole API;
+9. a request to report the REPL PID, approximate call count, timeouts, and
+   perceived latency when testing infrastructure.
 6. likely namespaces, declaration fragments, and Mathlib source paths so the
    worker can search narrowly rather than rediscovering the whole API;
 7. a request to report the REPL PID, approximate call count, timeouts, and
@@ -130,16 +146,23 @@ just to occupy a slot.
 - **Persist on receipt (main owns persistence).** Workers cannot write files;
   their transcripts live only in memory and are lost on dispose and on main-agent
   compaction. The moment a verified Lean block is received (via wait or stream),
-  the main agent writes it verbatim to a staging file (`tmp/staging/…`)
-  or directly into the target (`lean/Target.lean` — the only persistent file
-  across sessions; `tmp/` is disposable and deleted when the work is done)
-  before doing anything else, and integrates it into the target in the same
-  session. A collected-and-disposed worker whose earlier streamed messages
-  are not yet on disk means that content is permanently gone (chapter-IV
-  incident, 2026-10-10: five verified blocks lost to compaction and re-derived).
-  Deliver the final report only *after* the code text of the batch is staged.
-  Un-integrated staging files are an UNCLEAN state: staging exists only as an
-  integration queue, not a deliverable store.
+  the main agent writes it verbatim directly into the target
+  (`lean/Target.lean` — the only persistent file across sessions; `tmp/` is
+  disposable and deleted when the work is done) before doing anything else.
+  If a block cannot be integrated immediately (a prerequisite is still in
+  flight), keep it in a disposable `tmp/` file — there is no dedicated staging
+  folder or staging-file convention; any such file is scratch space, never a
+  deliverable store, and an un-integrated leftover marks the state UNCLEAN
+  (it must be integrated before the work can be called done). A
+  collected-and-disposed worker whose earlier streamed messages are not yet
+  on disk means that content is permanently gone (chapter-IV incident,
+  2026-10-10: five verified blocks lost to compaction and re-derived).
+  Deliver the final report only *after* the code text of the batch is
+  persisted. Improvement request for the builder: have the subagent
+  extension persist each worker's full transcript to a file (deleted on
+  dispose) and/or give workers a write tool so the deliverable itself lands
+  on disk — chat transport is the lossy path (collect returns only the last
+  message; see BUILDER_NOTES_SUBAGENT_COLLECT_TRUNCATION.md).
 - **Mid-flight steering.** Workers regress to bad habits (consolidated
   mega-calls, hoarding) after several turns. Read every progress-stream update
   for strategy drift and steer in the same turn it is observed; reminders are not

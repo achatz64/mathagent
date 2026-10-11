@@ -48,3 +48,32 @@ tools — and `AUDIT.md` is build-only. No auditor-specific step needed; the
 - Fresh `pi -p` end-to-end: foreign repl → import refused with verbatim
   REPL-CONFLICT (correctly listing two foreign groups when lake/elshim split
   groups), status warning verbatim, warning clears after the kill.
+
+## Addendum (2026-10-11, main): orphan path — non-graceful supervisor death blocks its own session
+
+New incident shape observed with worker w31: the worker **killed its own
+generation's supervisor** (attempting a deliberate clean respawn after tainted
+session names had accumulated). The supervisor died, but the loaded child
+repl process (pid 27004, ~7.1 GB RSS) survived as an orphan and kept holding
+the project's single-generation slot. From that point every respawn attempt —
+including the worker's own — was refused with `REPL-CONFLICT` naming the
+orphan group, and the worker had no tool to free it (workers have no bash).
+The session was unrecoverable for the worker; recovery required the main
+agent (`kill -9 -- -<pid>`, after which the next respawn succeeded).
+
+Assessment: the guard behaved as designed (one loaded generation per project;
+a live pid is a live generation, whatever killed its supervisor), but the
+grace window (`closedPids`, 20 s) only excuses graceful closes — an orphaned
+child after a SIGKILL'd supervisor is invisible to it. Recording two options
+for the builder, both low priority:
+
+1. detect supervisor-less children (ppid 1 / no matching supervisor in the
+   process group) in `foreignReplGroups()` and either excuse or auto-reap
+   them (they hold ~7 GB each);
+2. include the orphan-kill remedy text in the REPL-CONFLICT message even when
+   the refused group is the requester's own generation (currently the message
+   reads as if the session were foreign, which misled the worker into
+   reporting a blocker it could not act on).
+
+Interim worker guidance already in SUBAGENTS.md: a REPL-CONFLICT/REPL-DOWN is
+a stop-and-report for workers; the main agent owns kill/respawn.
